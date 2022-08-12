@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  ingester:
+    depends_on:
+      - redis
+    restart: always
+    environment:
+      INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
+      INGESTER_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
+      INGESTER_RPC_CONFIG: '{url="http://candyland-solana-1:8899", commitment="finalized"}'
+    build:
+      context: .
+      dockerfile: Ingest.Dockerfile
+  api:
+    restart: always
+    environment:
+      APP_DATABASE_URL: postgres://solana:solana@db/solana
+      APP_SERVER_PORT: 9090
+      APP_METRICS_PORT: 9091
+    build:
+      context: .
+      dockerfile: Api.Dockerfile
+    ports:
+      - 9090:9090
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+  db:
+    image: 'postgres:latest'
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: solana # The PostgreSQL user (useful to connect to the database)
+      POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
+      POSTGRES_DB: solana
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./db-data/:/var/lib/postgresql/data/:rw
+  solana:
+    build:
+      context: .
+      dockerfile: Solana.Dockerfile
+    volumes:
+    - ./ledger:/config:rw
+    environment:
+      RUST_LOG: warn
+      PLUGIN_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
+    ports:
+      - "8900:8900"
+      - "8001:8001"
+      - "8899:8899"
+      - "9900:9900"

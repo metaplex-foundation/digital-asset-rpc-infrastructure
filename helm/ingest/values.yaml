@@ -1,0 +1,58 @@
+replicaCount: 1
+image: ""
+loadImage: ""
+imagePullPolicy: Always
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+loadSeed: ""
+ingest:
+  db_url:
+  redis_url:
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+   limits:
+     cpu: 5
+     memory: 4096Mi
+   requests:
+     cpu: 3
+     memory: 1024Mi
+
+# need to shard consumer groups first
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 90
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+metrics:
+  data_dog_api_key:

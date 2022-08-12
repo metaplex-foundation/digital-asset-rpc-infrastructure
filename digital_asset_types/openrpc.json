@@ -1,0 +1,827 @@
+{
+  "openrpc": "1.0.0-rc1",
+  "info": {
+    "version": "0.0.1",
+    "title": "Digital Asset API"
+  },
+  "servers": [
+    {
+      "url": "https://rpc.metaplex.com/this_is_fake"
+    }
+  ],
+  "methods": [
+    {
+      "name": "get_asset_proof",
+      "summary": "Get merkle proof for asset",
+      "tags": [
+        {
+          "name": "proof"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/asset_id"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetProof"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_assets_by_owner",
+      "summary": "List all assets by owner pubkey",
+      "tags": [
+        {
+          "name": "index"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/owner_param"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/asset_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_listed_assets_by_owner",
+      "summary": "Gets a List of assets ids that are for sale and where they are on sale",
+      "tags": [
+        {
+          "name": "sales"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/owner_param"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/asset_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetIdSaleList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_offers_by_owner",
+      "summary": "Gets a List of assets ids that are for sale and where they are on sale",
+      "tags": [
+        {
+          "name": "sales"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/owner_param"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/offer_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/offerList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_assets_by_group",
+      "summary": "Gets a List of assets based on a group filter expression, see grouping module",
+      "tags": [
+        {
+          "name": "search"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/group_expression"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/asset_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetList"
+      }
+    },
+    {
+      "name": "get_assets_by_creator",
+      "summary": "Gets a List of assets based on a creator filter expression",
+      "tags": [
+        {
+          "name": "search"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/creator_expression"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/asset_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "search_assets",
+      "summary": "Search Api for Assets",
+      "tags": [
+        {
+          "name": "search"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/search_expression"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/asset_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/assetList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    }
+  ],
+  "components": {
+    "contentDescriptors": {
+      "search_expression": {
+        "name": "search_expression",
+        "description": "M$Q search expression",
+        "schema": {
+          "$ref": "#/components/schemas/AssetList"
+        },
+        "summary": "Example `files.length() == 2 AND name LIKE \"%only hands%\"`"
+      },
+      "assetList": {
+        "name": "assets",
+        "description": "A paged an array of assets",
+        "schema": {
+          "$ref": "#/components/schemas/AssetList"
+        }
+      },
+      "offerList": {
+        "name": "offer_list",
+        "description": "A paged an array of offers on assets",
+        "schema": {
+          "$ref": "#/components/schemas/OfferList"
+        }
+      },
+      "assetProof": {
+        "name": "asset_proof",
+        "description": "Array of hashes corresponding to a node_index",
+        "schema": {
+          "$ref": "#/components/schemas/AssetProof"
+        }
+      },
+      "assetIdSaleList": {
+        "name": "asset_id_sale_list",
+        "description": "A paged an array of listings",
+        "schema": {
+          "title": "AssetListings",
+          "type": "object",
+          "required": [
+            "items",
+            "total",
+            "limit"
+          ],
+          "properties": {
+            "total": {
+              "type": "number"
+            },
+            "limit": {
+              "type": "number"
+            },
+            "page": {
+              "type": "number"
+            },
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AssetSaleList"
+              }
+            }
+          }
+        }
+      },
+      "group_expression": {
+        "name": "group_expression",
+        "description": "The {group key}:{group value} expression key must be a supported indexable group",
+        "required": true,
+        "schema": {
+          "title": "SearchExpression",
+          "type": "string"
+        },
+        "summary": "Examples: `collection:ueyrotot89toiueltoerhotuiy`, `trait.fire:true`"
+      },
+      "creator_expression": {
+        "name": "creator_expression",
+        "description": "The list of creators to filter by",
+        "required": true,
+        "schema": {
+          "title": "SearchExpression",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": "Examples: [creator1, creator2]"
+      },
+      "after": {
+        "name": "after",
+        "description": "Cursor based pagination: After Asset ID",
+        "required": false,
+        "schema": {
+          "title": "After",
+          "type": "string"
+        }
+      },
+      "before": {
+        "name": "before",
+        "description": "Cursor based pagination: Before Asset ID",
+        "required": false,
+        "schema": {
+          "title": "Before",
+          "type": "string"
+        }
+      },
+      "page": {
+        "name": "page",
+        "description": "Page based pagination",
+        "required": false,
+        "schema": {
+          "title": "Page",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "asset_id": {
+        "name": "asset_id",
+        "description": "ID of the Asset",
+        "required": true,
+        "schema": {
+          "title": "AssetId",
+          "type": "string"
+        }
+      },
+      "limit": {
+        "name": "limit",
+        "description": "How many items to return at one time (max 1000)",
+        "required": false,
+        "schema": {
+          "title": "Limit",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "owner_param": {
+        "name": "owner_address",
+        "description": "Owner Public Key",
+        "required": true,
+        "schema": {
+          "title": "OwnerAddress",
+          "type": "string"
+        }
+      },
+      "asset_sort_by": {
+        "name": "sort_by",
+        "description": "How many items to return at one time (max 1000)",
+        "required": false,
+        "schema": {
+          "title": "AssetSorting",
+          "type": "string",
+          "enum": [
+            "created",
+            "updated",
+            "recent_action"
+          ]
+        }
+      },
+      "offer_sort_by": {
+        "name": "sort_by",
+        "description": "How many items to return at one time (max 1000)",
+        "required": false,
+        "schema": {
+          "title": "OfferSorting",
+          "type": "string",
+          "enum": [
+            "created",
+            "updated",
+            "price"
+          ]
+        }
+      }
+    },
+    "schemas": {
+      "OfferList": {
+        "title": "OfferList",
+        "type": "array",
+        "items": {
+          "title": "Offer",
+          "type": "object",
+          "properties": {
+            "offer_id": {
+              "title": "OfferId",
+              "type": "string"
+            },
+            "asset_id": {
+              "title": "AssetId",
+              "type": "string"
+            },
+            "price": {
+              "title": "Price",
+              "type": "number"
+            },
+            "amount": {
+              "title": "Amount",
+              "type": "number"
+            }
+          }
+        }
+      },
+      "AssetSaleList": {
+        "title": "AssetSaleList",
+        "type": "array",
+        "items": {
+          "title": "AssetSale",
+          "type": "object",
+          "properties": {
+            "listing_id": {
+              "title": "ListingId",
+              "type": "string"
+            },
+            "asset_id": {
+              "title": "AssetId",
+              "type": "string"
+            },
+            "amount": {
+              "title": "Amount",
+              "type": "number"
+            },
+            "price": {
+              "title": "Price",
+              "type": "number"
+            },
+            "market_id": {
+              "title": "MarketId",
+              "type": "string"
+            },
+            "highest_offers": {
+              "type": "array",
+              "title": "HighestOffers",
+              "items": {
+                "type": "object",
+                "title": "HighOffer",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "price": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AssetProof": {
+        "title": "AssetProof",
+        "type": "object",
+        "required": [
+          "node_index",
+          "tree_id",
+          "proof"
+        ],
+        "properties": {
+          "proof": {
+            "type": "array",
+            "items": {
+              "title": "ProofItem",
+              "type": "string"
+            }
+          },
+          "node_index": {
+            "title": "NodeIndex",
+            "type": "number"
+          },
+          "tree_id": {
+            "title": "TreeId",
+            "type": "string"
+          }
+        }
+      },
+      "Asset": {
+        "title": "Asset",
+        "type": "object",
+        "required": [
+          "interface",
+          "id"
+        ],
+        "properties": {
+          "interface": {
+            "title": "Interface",
+            "type": "string",
+            "enum": [
+              "NFT1.0",
+              "NFT",
+              "FungibleAsset",
+              "Custom",
+              "Identity"
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "object",
+            "required": [
+              "$schema"
+            ],
+            "properties": {
+              "$schema": {
+                "title": "Schema",
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "title": "Files",
+                "items": {
+                  "type": "object",
+                  "title": "File",
+                  "properties": {
+                    "uri": {
+                      "title": "Uri",
+                      "type": "string"
+                    },
+                    "mime": {
+                      "title": "Mime",
+                      "type": "string"
+                    },
+                    "quality": {
+                      "title": "Quality",
+                      "type": "object",
+                      "properties": {
+                        "$$schema": {
+                          "title": "SubSchema",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "contexts": {
+                      "title": "Contexts",
+                      "type": "array",
+                      "items": {
+                        "title": "Context",
+                        "type": "string",
+                        "enum": [
+                          "wallet-default",
+                          "web-desktop",
+                          "web-mobile",
+                          "app-mobile",
+                          "app-desktop",
+                          "app",
+                          "vr"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "metadata": {
+                "title": "Metadata",
+                "type": "array",
+                "items": {
+                  "title": "MetadataItem",
+                  "type": "object"
+                }
+              },
+              "links": {
+                "title": "Links",
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "authorities": {
+            "title": "Authorities",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "Authority",
+              "address": {
+                "title": "Address",
+                "type": "string"
+              },
+              "scopes": {
+                "title": "Scopes",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "compression": {
+            "title": "Compression",
+            "type": "object",
+            "properties": {
+              "eligible": {
+                "title": "Eligible",
+                "type": "boolean"
+              },
+              "compressed": {
+                "title": "Compressed",
+                "type": "boolean"
+              }
+            }
+          },
+          "grouping": {
+            "title": "Grouping",
+            "type": "array",
+            "items": {
+              "title": "Group",
+              "type": "object",
+              "required": [
+                "$$schema"
+              ],
+              "properties": {
+                "$$schema": {
+                  "title": "SubSchema",
+                  "type": "string"
+                },
+                "group_key": {
+                  "title": "GroupKey",
+                  "type": "string"
+                },
+                "group_value": {
+                  "title": "GroupValue",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "royalty": {
+            "type": "object",
+            "title": "Royalty",
+            "properties": {
+              "royalty_model": {
+                "type": "string",
+                "title": "RoyaltyModel",
+                "enum": [
+                  "creators",
+                  "fanout",
+                  "single"
+                ]
+              },
+              "target": {
+                "title": "Target",
+                "type": "string"
+              },
+              "percent": {
+                "title": "Percent",
+                "type": "number"
+              },
+              "locked": {
+                "title": "Locked",
+                "type": "boolean"
+              }
+            }
+          },
+          "creators": {
+            "type": "array",
+            "title": "Creators",
+            "items": {
+              "type": "object",
+              "title": "Creator",
+              "properties": {
+                "address": {
+                  "title": "Address",
+                  "type": "string"
+                },
+                "share": {
+                  "title": "Share",
+                  "type": "string"
+                },
+                "verified": {
+                  "title": "Verified",
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "ownership": {
+            "type": "object",
+            "title": "Ownership",
+            "properties": {
+              "frozen": {
+                "title": "Frozen",
+                "type": "boolean"
+              },
+              "delegated": {
+                "title": "Delegated",
+                "type": "boolean"
+              },
+              "delegate": {
+                "title": "Delegate",
+                "type": "string"
+              },
+              "ownership_model": {
+                "title": "OwnershipModel",
+                "type": "string",
+                "enum": [
+                  "Single",
+                  "Token"
+                ]
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AssetList": {
+        "title": "AssetList",
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Asset"
+        }
+      }
+    }
+  }
+}

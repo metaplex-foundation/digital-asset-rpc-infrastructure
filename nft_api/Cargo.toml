@@ -1,0 +1,38 @@
+[package]
+name = "nft_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex = "0.4.3"
+routerify = "3"
+routerify-json-response = "3"
+redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams"] }
+futures-util = "0.3.0"
+hyper = "0.14"
+anchor-client = { path = "../deps/anchor/client" }
+base64 = "0.13.0"
+thiserror = "1.0.30"
+tokio = { version = "1.17.0", features = ["full"] }
+sqlx = { version = "0.5.11", features = ["runtime-tokio-rustls", "postgres", "uuid"] }
+tokio-postgres = "0.7.5"
+serde = "1.0.136"
+bs58 = "0.4.0"
+reqwest = "0.11.10"
+csv = "1.1.6"
+messenger = { path = "../messenger" }
+plerkle = { path = "../plerkle" }
+flatbuffers = "2.1.2"
+solana-sdk = { version = "=1.10.10" }
+lazy_static = "1.4.0"
+regex = "1.5.5"
+plerkle-serialization = { path = "../plerkle_serialization" }
+uuid = "1.0.0"
+gummyroll = { path = "../contracts/programs/gummyroll", features = ["no-entrypoint"] }
+gummyroll-crud = { path = "../contracts/programs/gummyroll_crud", features = ["no-entrypoint"] }
+bubblegum = { path = "../contracts/programs/bubblegum", features = ["no-entrypoint"] }
+concurrent-merkle-tree = { path = "../lib/concurrent-merkle-tree" }
+
+[dependencies.num-integer]
+version = "0.1.44"
+default-features = false
