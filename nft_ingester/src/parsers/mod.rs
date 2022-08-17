@@ -1,8 +1,10 @@
 mod bubblegum;
 mod gummyroll;
+mod token_metadata;
 
 pub use self::bubblegum::*;
 pub use self::gummyroll::*;
+pub use self::token_metadata::*;
 
 use {
     crate::{error::IngesterError, utils::IxPair},

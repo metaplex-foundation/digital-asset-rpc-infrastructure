@@ -10,7 +10,7 @@ routerify-json-response = "3"
 redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams"] }
 futures-util = "0.3.0"
 hyper = "0.14"
-anchor-client = { path = "../deps/anchor/client" }
+# anchor-client = { path = "../deps/anchor/client" }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
@@ -23,23 +23,24 @@ serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
 csv = "1.1.6"
-messenger = { path = "../messenger" }
+# messenger = { path = "../messenger" }
 flatbuffers = "2.1.2"
 solana-sdk = { version = "=1.10.10" }
 lazy_static = "1.4.0"
 regex = "1.5.5"
-plerkle-serialization = { path = "../plerkle_serialization" }
+# plerkle-serialization = { path = "../plerkle_serialization" }
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-gummyroll = { path = "../contracts/programs/gummyroll", features = ["no-entrypoint"] }
-bubblegum = { path = "../contracts/programs/bubblegum", features = ["no-entrypoint"] }
+# gummyroll = { path = "../contracts/programs/gummyroll", features = ["no-entrypoint"] }
+# bubblegum = { path = "../contracts/programs/bubblegum", features = ["no-entrypoint"] }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 solana-client = "1.10.10"
 solana-transaction-status="1.10.10"
+mpl-token-metadata = { version = "1.2.4", features = ["no-entrypoint"] }
 
 [dependencies.num-integer]
 version = "0.1.44"
