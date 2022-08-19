@@ -40,7 +40,6 @@ cadence = "0.29.0"
 cadence-macros = "0.29.0"
 solana-client = "1.10.10"
 solana-transaction-status="1.10.10"
-mpl-token-metadata = { version = "1.2.4", features = ["no-entrypoint"] }
 
 [dependencies.num-integer]
 version = "0.1.44"
