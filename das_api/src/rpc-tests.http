@@ -1,0 +1,78 @@
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "get_assets_by_owner",
+  "params": [
+    "FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v",
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ],
+  "id": 0
+}
+
+### 
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "get_assets_by_creator",
+  "params": [
+    ["FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v"],
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ],
+  "id": 0
+}
+
+### 
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "get_assets_by_group",
+  "params": [
+    ["FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v"],
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ],
+  "id": 0
+}
+
+###
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_asset_proof",
+  "params": [
+    "BEczha2EVgjJMqDLrqv2z19C3t5YVjpER9AHBYeh5zjG"
+  ]
+}
+
+###
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_asset",
+  "params": [
+    "BEczha2EVgjJMqDLrqv2z19C3t5YVjpER9AHBYeh5zjG"
+  ]
+}

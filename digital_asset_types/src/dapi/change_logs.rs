@@ -1,21 +1,19 @@
+use sea_orm::sea_query::Expr;
 use sea_orm::{DatabaseConnection, DbBackend};
-use std::fmt::format;
-use sea_orm::sea_query::{Expr, PostgresQueryBuilder, Query};
 use {
     crate::dao::asset,
     crate::dao::cl_items,
-    sea_orm::{entity::*, FromQueryResult, query::*, DbErr},
-    concurrent_merkle_tree::utils::empty_node,
     crate::rpc::AssetProof,
+    concurrent_merkle_tree::utils::empty_node,
+    sea_orm::{entity::*, query::*, DbErr, FromQueryResult},
 };
-
 
 #[derive(FromQueryResult, Debug, Default, Clone, Eq, PartialEq)]
 struct SimpleChangeLog {
     hash: Vec<u8>,
     level: i64,
     node_idx: i64,
-    seq: i64
+    seq: i64,
 }
 
 pub async fn get_proof_for_asset(
@@ -32,16 +30,21 @@ pub async fn get_proof_for_asset(
         )
         .order_by_desc(cl_items::Column::Seq)
         .filter(Expr::cust("asset.tree_id = cl_items.tree"))
-        .filter(Expr::cust_with_values("asset.id = ?::bytea", vec![asset_id]))
+        .filter(Expr::cust_with_values(
+            "asset.id = ?::bytea",
+            vec![asset_id],
+        ))
         .filter(cl_items::Column::Level.eq(0i64))
-        .one(db).await?;
+        .one(db)
+        .await?;
     if leaf.is_none() {
         return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
     }
     let leaf = leaf.unwrap();
     let req_indexes = get_required_nodes_for_proof(leaf.node_idx);
     let expected_proof_size = req_indexes.len();
-    let mut final_node_list: Vec<SimpleChangeLog> = vec![SimpleChangeLog::default(); expected_proof_size];
+    let mut final_node_list: Vec<SimpleChangeLog> =
+        vec![SimpleChangeLog::default(); expected_proof_size];
     let mut query = cl_items::Entity::find()
         .select_only()
         .column(cl_items::Column::NodeIdx)
@@ -55,12 +58,15 @@ pub async fn get_proof_for_asset(
         .order_by_desc(cl_items::Column::Id)
         .order_by_desc(cl_items::Column::Seq)
         .build(DbBackend::Postgres);
-    query.sql = query.sql.replace("SELECT", "SELECT DISTINCT ON (cl_items.node_idx)");
+    query.sql = query
+        .sql
+        .replace("SELECT", "SELECT DISTINCT ON (cl_items.node_idx)");
     println!("sql {} ", query.sql);
-    let nodes: Vec<SimpleChangeLog> = db.query_all(query).await
-        .map(|qr| {
-            qr.iter().map(|q| SimpleChangeLog::from_query_result(q, "").unwrap() ).collect()
-        })?;
+    let nodes: Vec<SimpleChangeLog> = db.query_all(query).await.map(|qr| {
+        qr.iter()
+            .map(|q| SimpleChangeLog::from_query_result(q, "").unwrap())
+            .collect()
+    })?;
     if nodes.len() != expected_proof_size {
         for node in nodes.iter() {
             if node.level < final_node_list.len().try_into().unwrap() {
@@ -74,7 +80,13 @@ pub async fn get_proof_for_asset(
         }
     }
     for n in final_node_list.iter() {
-        println!("level {} index {} seq {} hash {}",  n.level, n.node_idx, n.seq, bs58::encode(&n.hash).into_string());
+        println!(
+            "level {} index {} seq {} hash {}",
+            n.level,
+            n.node_idx,
+            n.seq,
+            bs58::encode(&n.hash).into_string()
+        );
     }
     Ok(AssetProof {
         root: bs58::encode(final_node_list.pop().unwrap().hash).into_string(),
@@ -87,7 +99,6 @@ pub async fn get_proof_for_asset(
         tree_id: bs58::encode(&leaf.tree).into_string(),
     })
 }
-
 
 fn make_empty_node(lvl: i64, node_index: i64) -> SimpleChangeLog {
     SimpleChangeLog {

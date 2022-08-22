@@ -8,9 +8,10 @@ edition = "2021"
 default=["json_types", "sql_types"]
 json_types = ["serde", "serde_json"]
 sql_types = ["sea-orm"]
+mock = []
 
 [dependencies]
-sea-orm = { optional = true, git = "https://github.com/liberwang1013/sea-orm", branch = "insert-on-conflict", features = [ "macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono"] }
+sea-orm = { optional = true, version="0.9.0", features = [ "macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = {version="0.25.0", features = ["postgres-array"]}
 serde = { version = "1.0.137", optional = true }
 serde_json = { version = "1.0.81", optional = true }
@@ -26,3 +27,6 @@ mpl-token-metadata = { git = "https://github.com/jarry-xiao/metaplex-program-lib
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.2.2"
+anchor-client = { path="../deps/anchor/client" }
+futures= "0.3.21"
+tokio = { version="1.19.2" }

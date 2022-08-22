@@ -1,13 +1,10 @@
+#[cfg(feature = "sql_types")]
+use crate::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType};
 use std::str::FromStr;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-#[cfg(feature = "sql_types")]
-use crate::dao::{
-    sea_orm_active_enums::{Mutability,ChainMutability,OwnerType,RoyaltyTargetType}
-};
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
@@ -107,11 +104,10 @@ impl From<String> for Scope {
             "royalty" => Scope::Royalty,
             "metadata" => Scope::Metadata,
             "extension" => Scope::Extension,
-            _ => Scope::Full
+            _ => Scope::Full,
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Authority {
@@ -150,7 +146,7 @@ impl From<String> for RoyaltyModel {
             "creators" => RoyaltyModel::Creators,
             "fanout" => RoyaltyModel::Fanout,
             "single" => RoyaltyModel::Single,
-            _ => RoyaltyModel::Creators
+            _ => RoyaltyModel::Creators,
         }
     }
 }
@@ -162,12 +158,10 @@ impl From<RoyaltyTargetType> for RoyaltyModel {
             RoyaltyTargetType::Creators => RoyaltyModel::Creators,
             RoyaltyTargetType::Fanout => RoyaltyModel::Fanout,
             RoyaltyTargetType::Single => RoyaltyModel::Single,
-            _ => RoyaltyModel::Creators
+            _ => RoyaltyModel::Creators,
         }
     }
 }
-
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Royalty {
@@ -196,13 +190,12 @@ pub enum OwnershipModel {
     Token,
 }
 
-
 impl From<String> for OwnershipModel {
     fn from(s: String) -> Self {
         match &*s {
             "single" => OwnershipModel::Single,
             "token" => OwnershipModel::Token,
-            _ => OwnershipModel::Single
+            _ => OwnershipModel::Single,
         }
     }
 }
@@ -213,7 +206,7 @@ impl From<OwnerType> for OwnershipModel {
         match s {
             OwnerType::Token => OwnershipModel::Token,
             OwnerType::Single => OwnershipModel::Single,
-            _ => OwnershipModel::Single
+            _ => OwnershipModel::Single,
         }
     }
 }
