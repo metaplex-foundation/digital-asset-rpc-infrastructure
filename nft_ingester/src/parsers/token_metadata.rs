@@ -94,6 +94,7 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
         let data_buf = &mut data.as_slice();
         Metadata::deserialize(data_buf)?
     } else {
+        // todo: give relevant error
         return Err(IngesterError::CompressedAssetEventMalformed);
     };
 
@@ -148,6 +149,7 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
             let owner = if let Some(owner) = account_update.owner() {
                 owner.to_vec()
             } else {
+                // todo: give relevant error
                 return Err(IngesterError::CompressedAssetEventMalformed);
             };
 
@@ -169,12 +171,10 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                 royalty_target: Set(None),
                 royalty_amount: Set(metadata.data.seller_fee_basis_points as i32), //basis points
                 chain_data_id: Set(Some(data.id)),
-                seq: Set(seq as i64), // gummyroll seq
+                seq: Set(0),
                 ..Default::default()
             };
 
-            // Do not attempt to modify any existing values:
-            // `ON CONFLICT ('id') DO NOTHING`.
             let query = asset::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([asset::Column::Id])
@@ -184,8 +184,6 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                 .build(DbBackend::Postgres);
             txn.execute(query).await?;
 
-            // Insert into `asset_creators` table.
-            // todo do this better
             if metadata.data.creators.len() > 0 {
                 let mut creators = Vec::with_capacity(metadata.creators.len());
                 for c in metadata.data.creators? {
@@ -194,13 +192,11 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                         creator: Set(c.address.to_bytes().to_vec()),
                         share: Set(c.share as i32),
                         verified: Set(c.verified),
-                        seq: Set(seq as i64), // gummyroll seq
+                        seq: Set(seq as i64),
                         ..Default::default()
                     });
                 }
 
-                // Do not attempt to modify any existing values:
-                // `ON CONFLICT ('asset_id') DO NOTHING`.
                 let query = asset_creators::Entity::insert_many(creators)
                     .on_conflict(
                         OnConflict::columns([asset_creators::Column::AssetId])
@@ -210,7 +206,6 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
 
-                // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
                     asset_id: Set(id.to_bytes().to_vec()),
                     authority: Set(metadata.update_authority.to_bytes().to_vec()),
@@ -218,8 +213,6 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                     ..Default::default()
                 };
 
-                // Do not attempt to modify any existing values:
-                // `ON CONFLICT ('asset_id') DO NOTHING`.
                 let query = asset_authority::Entity::insert(model)
                     .on_conflict(
                         OnConflict::columns([asset_authority::Column::AssetId])
@@ -229,7 +222,6 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
 
-                // Insert into `asset_grouping` table.
                 if let Some(c) = metadata.collection {
                     if c.verified {
                         let model = asset_grouping::ActiveModel {
@@ -240,8 +232,6 @@ async fn handle_token_metadata_account<'a, 'b, 't>(
                             ..Default::default()
                         };
 
-                        // Do not attempt to modify any existing values:
-                        // `ON CONFLICT ('asset_id') DO NOTHING`.
                         let query = asset_grouping::Entity::insert(model)
                             .on_conflict(
                                 OnConflict::columns([asset_grouping::Column::AssetId])
