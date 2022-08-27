@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "nft_ingester",
+    "das_api",
+    "digital_asset_types"
+]

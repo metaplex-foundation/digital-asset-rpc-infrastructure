@@ -5,16 +5,12 @@ edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
-routerify = "3"
-routerify-json-response = "3"
 redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams"] }
 futures-util = "0.3.0"
-hyper = "0.14"
-anchor-client = { path = "../deps/anchor/client" }
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
-tokio = { version = "1.17.0", features = ["full"] }
+tokio = { version = "1.14.1", features = ["full"] }
 sqlx = { version = "0.5.11", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { git = "https://github.com/liberwang1013/sea-orm", branch = "insert-on-conflict", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono"] }
 chrono = "0.4.19"
@@ -22,24 +18,20 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-csv = "1.1.6"
-messenger = { path = "../messenger" }
+plerkle_messenger = { path = "../../digital-asset-validator-plugin/plerkle_messenger", version = "0.0.1" }
 flatbuffers = "2.1.2"
-solana-sdk = { version = "=1.10.10" }
+solana-sdk = { version = ">=1.10.10" }
 lazy_static = "1.4.0"
 regex = "1.5.5"
-plerkle-serialization = { path = "../plerkle_serialization" }
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-gummyroll = { path = "../contracts/programs/gummyroll", features = ["no-entrypoint"] }
-bubblegum = { path = "../contracts/programs/bubblegum", features = ["no-entrypoint"] }
+blockbuster = { path = "../../blockbuster" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-client = "1.10.10"
-solana-transaction-status="1.10.10"
+solana-transaction-status = ">=1.10.10"
 
 [dependencies.num-integer]
 version = "0.1.44"

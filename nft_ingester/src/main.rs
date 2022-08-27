@@ -4,6 +4,7 @@ mod events;
 mod parsers;
 mod tasks;
 mod utils;
+mod program_handler;
 
 use cadence_macros::statsd_time;
 use chrono::Utc;
@@ -31,6 +32,7 @@ use {
 };
 use messenger::MessengerConfig;
 use crate::error::IngesterError;
+use crate::program_handler::ProgramHandlerManager;
 use crate::tasks::{BgTask, TaskManager};
 
 async fn setup_manager<'a, 'b>(
