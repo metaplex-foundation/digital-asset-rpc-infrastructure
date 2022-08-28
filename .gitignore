@@ -18,3 +18,4 @@ dist
 test-ledger
 *.swp
 *error.log
+programs

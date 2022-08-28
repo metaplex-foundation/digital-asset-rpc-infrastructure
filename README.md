@@ -69,9 +69,11 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 You need to run the following script (which takes a long time) in order to get all those .so files.
 
 ```bash
-chmod +x dowload-programs.sh
+chmod
 ./dowload-programs.sh
 ```
+This script grabs all the code for these programs and compiles it, and chucks it into your programs folder.
+
 
 We use ``docker-compose`` on some systems its ``docker compose``.
 ```bash
