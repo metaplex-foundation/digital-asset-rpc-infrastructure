@@ -59,7 +59,21 @@ cargo run -p nft_ingester
 When making changes you will need to stop the cargo process and re-run. Someday we will have auto rebuild for local cargo stuff but for now you are on your own.
 
 ### Developing With Docker
-Developing with Docker is much easier, but has some nuances to it. We use ``docker-compose`` on some systems its ``docker compose``.
+Developing with Docker is much easier, but has some nuances to it. This test docker compose system relies on a programs folder being accessible, this folder needs to have the shared object files for the following programs
+* Token Metadata
+* Bubblegum
+* Gummyroll
+* Token 2022
+* Latest version of the Associated token program
+
+You need to run the following script (which takes a long time) in order to get all those .so files.
+
+```bash
+chmod +x dowload-programs.sh
+./dowload-programs.sh
+```
+
+We use ``docker-compose`` on some systems its ``docker compose``.
 ```bash
 docker-compose build 
 
