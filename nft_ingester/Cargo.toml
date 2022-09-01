@@ -18,12 +18,13 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "0.0.2", features = ['redis']}
+plerkle_messenger = { version = "0.0.4", features = ['redis'] }
+plerkle_serialization = { path = "../../digital-asset-validator-plugin/plerkle_serialization", version = "0.0.4" }
 flatbuffers = "2.1.2"
-solana-sdk = { version = ">=1.10.10" }
+solana-sdk = { version = "<=1.10.38" }
 lazy_static = "1.4.0"
 regex = "1.5.5"
-digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] , version="0.0.1"}
+digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"], version = "0.0.1" }
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
@@ -31,7 +32,7 @@ blockbuster = { path = "../../blockbuster" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-transaction-status = ">=1.10.10"
+solana-transaction-status = "<=1.10.38"
 
 [dependencies.num-integer]
 version = "0.1.44"

@@ -4,7 +4,7 @@ use {
     crate::dao::asset,
     crate::dao::cl_items,
     crate::rpc::AssetProof,
-    concurrent_merkle_tree::utils::empty_node,
+    spl_concurrent_merkle_tree::node::empty_node,
     sea_orm::{entity::*, query::*, DbErr, FromQueryResult},
 };
 

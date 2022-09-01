@@ -11,6 +11,7 @@ sql_types = ["sea-orm"]
 mock = []
 
 [dependencies]
+spl-concurrent-merkle-tree = { git = "https://github.com/solana-labs/solana-program-library" }
 sea-orm = { optional = true, version = "0.9.0", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.25.0", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
@@ -22,7 +23,7 @@ solana-sdk = { version = ">=1.10.10" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-mpl-token-metadata = { version = "1.3.4", features = ["no-entrypoint"] }
+mpl-token-metadata = { version = "1.3.6", features = ["no-entrypoint"] }
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.2.2"

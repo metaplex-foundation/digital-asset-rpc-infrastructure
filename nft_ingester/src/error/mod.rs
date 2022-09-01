@@ -5,6 +5,7 @@ use {
     thiserror::Error,
     tokio::sync::mpsc::error::SendError,
 };
+use blockbuster::error::BlockbusterError;
 
 #[derive(Error, Debug)]
 pub enum IngesterError {
@@ -36,11 +37,19 @@ pub enum IngesterError {
     SerializatonError(String),
     #[error("Messenger error {0}")]
     MessengerError(String),
+    #[error("Blockbuster Parsing error {0}")]
+    ParsingError(String)
 }
 
 impl From<reqwest::Error> for IngesterError {
     fn from(_err: reqwest::Error) -> Self {
         IngesterError::BatchInitNetworkingError
+    }
+}
+
+impl From<BlockbusterError> for IngesterError {
+    fn from(err: BlockbusterError) -> Self {
+        IngesterError::ParsingError(err.to_string())
     }
 }
 
