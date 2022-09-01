@@ -11,19 +11,18 @@ use digital_asset_types::dao::{asset, asset_authority, asset_creators, asset_dat
 use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType};
 use digital_asset_types::json::ChainDataV1;
 use crate::IngesterError;
+use crate::program_transformers::bubblegum::task::DownloadMetadata;
 use crate::program_transformers::bubblegum::update_asset;
 use crate::program_transformers::common::save_changelog_event;
 
+// TODO -> consider moving structs into these functions to avoid clone
 
-pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<u64, IngesterError>> + Send + 'c>> {
+pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<DownloadMetadata, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
-        if let Some(cl) = parsing_result.tree_update {
-            save_changelog_event(&cl, slot, txn)
+        if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (&parsing_result.leaf_update, &parsing_result.tree_update, &parsing_result.payload) {
+            let seq = save_changelog_event(&cl, bundle.slot, txn)
                 .await?
                 .ok_or(IngesterError::ChangeLogEventMalformed)?;
-        }
-
-        if let (Some(le), Some(Payload::MintV1 { args })) = (parsing_result.leaf_update, parsing_result.payload) {
             let metadata = args;
             match le.schema {
                 LeafSchema::V1 {
@@ -34,8 +33,8 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                     ..
                 } => {
                     let chain_data = ChainDataV1 {
-                        name: pay.name,
-                        symbol: metadata.symbol,
+                        name: metadata.name.clone(),
+                        symbol: metadata.symbol.clone(),
                         edition_nonce: metadata.edition_nonce,
                         primary_sale_happened: metadata.primary_sale_happened,
                         token_standard: Some(TokenStandard::NonFungible),
@@ -58,7 +57,7 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                         chain_data_mutability: Set(chain_mutability),
                         schema_version: Set(1),
                         chain_data: Set(chain_data_json),
-                        metadata_url: Set(metadata.uri),
+                        metadata_url: Set(metadata.uri.clone()),
                         metadata: Set(JsonValue::String("processing".to_string())),
                         metadata_mutability: Set(Mutability::Mutable),
                         ..Default::default()
@@ -85,7 +84,7 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                         tree_id: Set(Some(merkle_slab)),
                         specification_version: Set(1),
                         nonce: Set(nonce as i64),
-                        leaf: Set(Some(leaf_event.schema.to_node().to_vec())),
+                        leaf: Set(Some(le.leaf_hash.to_vec())),
                         royalty_target_type: Set(RoyaltyTargetType::Creators),
                         royalty_target: Set(None),
                         royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
@@ -150,7 +149,7 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                         txn.execute(query).await?;
 
                         // Insert into `asset_grouping` table.
-                        if let Some(c) = metadata.collection {
+                        if let Some(c) = &metadata.collection {
                             if c.verified {
                                 let model = asset_grouping::ActiveModel {
                                     asset_id: Set(id.to_bytes().to_vec()),
@@ -175,7 +174,10 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                             }
                         }
                     }
-                    return Ok(data.id);
+                    return Ok(DownloadMetadata {
+                        asset_data_id: data.id,
+                        uri: metadata.uri.clone(),
+                    });
                 }
                 _ => Err(IngesterError::NotImplemented),
             }?;

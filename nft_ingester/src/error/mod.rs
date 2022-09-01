@@ -1,6 +1,6 @@
 use {
     crate::BgTask,
-    messenger::error::MessengerError,
+    plerkle_messenger::MessengerError,
     sea_orm::{DbErr, TransactionError},
     thiserror::Error,
     tokio::sync::mpsc::error::SendError,

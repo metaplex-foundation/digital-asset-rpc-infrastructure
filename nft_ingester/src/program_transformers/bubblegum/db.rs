@@ -1,3 +1,7 @@
+use sea_orm::{DatabaseTransaction, DbErr};
+use digital_asset_types::dao::asset;
+use crate::IngesterError;
+
 async fn update_asset(
     txn: &DatabaseTransaction,
     id: Vec<u8>,

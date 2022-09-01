@@ -13,11 +13,11 @@ use crate::program_transformers::common::save_changelog_event;
 pub fn burn<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<_, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
         if let Some(cl) = parsing_result.tree_update {
-            save_changelog_event(&cl, slot, txn)
+            save_changelog_event(&cl, bundle.slot, txn)
                 .await?
                 .ok_or(IngesterError::ChangeLogEventMalformed)?;
         }
-        if let Some(le) = parsing_result.leaf_update {
+        if let Some(le) = &parsing_result.leaf_update {
             match le.schema {
                 LeafSchema::V1 { id, .. } => {
                     let id_bytes = id.to_bytes().to_vec();

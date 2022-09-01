@@ -8,7 +8,7 @@ use {
     },
     digital_asset_types::dao::backfill_items,
     flatbuffers::FlatBufferBuilder,
-    messenger::{Messenger, TRANSACTION_STREAM},
+    plerkle_messenger::{Messenger, TRANSACTION_STREAM},
     plerkle_serialization::transaction_info_generated::transaction_info::{
         self, TransactionInfo, TransactionInfoArgs,
     },
@@ -52,6 +52,7 @@ pub async fn backfiller<T: Messenger>(
         backfiller.run().await;
     })
 }
+
 
 /// Struct used when querying for unique trees.
 #[derive(Debug, FromQueryResult)]
@@ -617,12 +618,7 @@ fn serialize_transaction<'a>(
         for key in account_keys.iter() {
             let key = Pubkey::from_str(key)
                 .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-            let key = builder.create_vector(&key.to_bytes());
-            let pubkey = transaction_info::Pubkey::create(
-                &mut builder,
-                &transaction_info::PubkeyArgs { key: Some(key) },
-            );
-            account_keys_fb_vec.push(pubkey);
+            account_keys_fb_vec.push(key);
         }
         Some(builder.create_vector(&account_keys_fb_vec))
     } else {

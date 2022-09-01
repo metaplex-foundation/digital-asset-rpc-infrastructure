@@ -86,14 +86,10 @@ pub async fn handle_bubblegum_instruction<'a, 'b, 't>(
                 .await?;
         }
         InstructionName::MintV1 => {
-            let asset_data_oid = db.transaction::<_, u64, IngesterError>(|txn| {
+            let task = db.transaction::<_, DownloadMetadata, IngesterError>(|txn| {
                 mint_v1::mint_v1(&parsing_result, bundle, txn)
             }).await?;
-            let task = Some(DownloadMetadata {
-                asset_data_id,
-                uri: ix.message.uri.clone(),
-            });
-            task_manager.send(Box::new(task.unwrap()))?;
+            task_manager.send(Box::new(task))?;
         }
         InstructionName::Redeem => {
             db.transaction::<_, _, IngesterError>(|txn| {

@@ -12,12 +12,10 @@ use crate::program_transformers::common::save_changelog_event;
 
 pub fn delegate<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<_, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
-        if let Some(cl) = parsing_result.tree_update {
-            save_changelog_event(&cl, slot, txn)
+        if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
+            let seq = save_changelog_event(&cl, bundle.slot, txn)
                 .await?
                 .ok_or(IngesterError::ChangeLogEventMalformed)?;
-        }
-        if let Some(le) = parsing_result.leaf_update {
             match le.schema {
                 LeafSchema::V1 {
                     id,
@@ -34,7 +32,7 @@ pub fn delegate<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionB
                     let owner_bytes = owner.to_bytes().to_vec();
                     let asset_to_update = asset::ActiveModel {
                         id: Unchanged(id_bytes.clone()),
-                        leaf: Set(Some(leaf_event.schema.to_node().to_vec())),
+                        leaf: Set(Some(le.leaf_hash.to_vec())),
                         delegate: Set(delegate),
                         owner: Set(owner_bytes),
                         seq: Set(seq as i64), // gummyroll seq

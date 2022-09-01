@@ -1,3 +1,5 @@
+use cadence_macros::statsd_time;
+use chrono::{DateTime, Utc};
 use sea_orm::DatabaseConnection;
 use tokio::sync::mpsc::UnboundedSender;
 use {
@@ -51,15 +53,8 @@ impl<'a> ProgramTransformer<'a> {
     pub fn handle_transaction(&self, tx: TransactionInfo) -> Result<(), IngesterError> {
         // Update metadata associated with the programs that store data in leaves
         let instructions = order_instructions(&tx);
-        let parsed_logs = parse_logs(tx.log_messages()).unwrap();
-        let keys = match tx.account_keys() {
-            None => {
-                println!("Flatbuffers account_keys missing");
-                return Err(IngesterError::DeserializationError("Missing Accounts".to_string()));
-            }
-            Some(keys) => keys,
-        };
-        for ((outer_ix, inner_ix), parsed_log) in std::iter::zip(instructions, parsed_logs) {
+        let keys = tx.account_keys().ok_or(IngesterError::DeserializationError("Missing Accounts".to_string()))?;
+        for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let program_id = program.key().unwrap();
             if let Some(program) = self.match_program(program_id) {
@@ -68,7 +63,6 @@ impl<'a> ProgramTransformer<'a> {
                     instruction,
                     inner_ix,
                     keys,
-                    instruction_logs: parsed_log.1,
                     slot: tx.slot(),
                 };
                 match program {
@@ -79,6 +73,9 @@ impl<'a> ProgramTransformer<'a> {
                     _ => Err(IngesterError::NotImplemented)
                 }?;
             }
+            let finished_at = Utc::now();
+            let str_program_id = bs58::encode(program_id).into_string();
+            statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
         }
         Ok(())
     }

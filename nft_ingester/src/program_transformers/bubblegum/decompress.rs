@@ -12,6 +12,8 @@ use crate::program_transformers::common::save_changelog_event;
 
 pub fn decompress<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<_, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
+        let id_bytes = bundle.keys[3].0;
+
         let model = asset::ActiveModel {
             id: Unchanged(id_bytes.clone()),
             leaf: Set(None),

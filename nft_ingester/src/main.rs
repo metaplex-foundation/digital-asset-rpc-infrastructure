@@ -27,7 +27,7 @@ use {
     cadence_macros::{
         set_global_default,
         statsd_count,
-        statsd_time
+        statsd_time,
     },
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     std::net::UdpSocket,
@@ -46,14 +46,16 @@ async fn setup_manager<'a, 'b>(
     task_manager: UnboundedSender<Box<dyn BgTask>>,
 ) -> ProgramTransformer<'a> {
     // Panic if thread cant be made for background tasks
-
 }
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
+
 pub const DATABASE_URL_KEY: &str = "url";
 pub const DATABASE_LISTENER_CHANNEL_KEY: &str = "listener_channel";
+
 pub type RpcConfig = figment::value::Dict;
+
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 
@@ -224,56 +226,7 @@ async fn handle_transaction(manager: &ProgramTransformer<'static>, data: Vec<(i6
         }
         let seen_at = Utc::now();
         statsd_time!("ingester.bus_ingest_time", (seen_at.timestamp_millis() - transaction.seen_at()) as u64);
-        // Get account keys flatbuffers object.
-        let keys = match transaction.account_keys() {
-            None => {
-                println!("Flatbuffers account_keys missing");
-                continue;
-            }
-            Some(keys) => keys,
-        };
-        // Update metadata associated with the programs that store data in leaves
-        let instructions = order_instructions(&transaction);
-        let parsed_logs = parse_logs(transaction.log_messages()).unwrap();
-        for ((outer_ix, inner_ix), parsed_log) in std::iter::zip(instructions, parsed_logs) {
-            // Sanity check that instructions and logs were parsed correctly
-            assert_eq!(
-                outer_ix.0.key().unwrap(),
-                parsed_log.0.to_bytes(),
-                "expected {:?}, but program log was {:?}",
-                outer_ix.0,
-                parsed_log.0
-            );
-
-            let (program, instruction) = outer_ix;
-            let program_id = program.key().unwrap();
-            let parser = manager.match_program(program_id);
-            let str_program_id = bs58::encode(program_id).into_string();
-            match parser {
-                Some(p) if p.config().responds_to_instruction == true => {
-                    let _ = p
-                        .handle_instruction(&InstructionBundle {
-                            txn_id: "".to_string(),
-                            instruction,
-                            inner_ix,
-                            keys,
-                            instruction_logs: parsed_log.1,
-                            slot: transaction.slot(),
-                        })
-                        .await
-                        .map_err(|e| {
-                            // Just for logging
-                            println!("Error in instruction handling onr program {} {:?}", str_program_id, e);
-                            e
-                        });
-                    let finished_at = Utc::now();
-                    statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - transaction.seen_at()) as u64, "program_id" => &str_program_id);
-                }
-                _ => {
-                    println!("Program Handler not found for program id {:?}", program);
-                }
-            }
-        }
+        manager.handle_transaction(transaction)?;
     }
 }
 // Associates logs with the given program ID

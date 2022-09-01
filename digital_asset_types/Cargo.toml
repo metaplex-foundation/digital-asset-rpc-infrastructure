@@ -13,13 +13,13 @@ mock = []
 [dependencies]
 spl-concurrent-merkle-tree = { git = "https://github.com/solana-labs/solana-program-library" }
 sea-orm = { optional = true, version = "0.9.0", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
-sea-query = { version = "0.25.0", features = ["postgres-array"] }
+sea-query = { version = "0.26.3", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
 serde_json = { version = "1.0.81", optional = true }
 bs58 = "0.4.0"
 borsh = { version = "0.9.3", optional = true }
 borsh-derive = { version = "0.9.3", optional = true }
-solana-sdk = { version = ">=1.10.10" }
+solana-sdk = { version = ">=1.10.29" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
