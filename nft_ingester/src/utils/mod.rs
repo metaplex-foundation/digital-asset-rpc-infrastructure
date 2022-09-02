@@ -21,7 +21,7 @@ pub fn pubkey_from_fb_table(
     index: usize,
 ) -> Pubkey {
     let pubkey = keys.get(index);
-    Pubkey::new(pubkey.key().unwrap())
+    Pubkey::new(pubkey.0.as_slice())
 }
 
 pub fn string_from_fb_table(
@@ -29,17 +29,4 @@ pub fn string_from_fb_table(
     index: usize,
 ) -> String {
     pubkey_from_fb_table(keys, index).to_string()
-}
-
-pub fn bytes_from_fb_table<'a>(
-    keys: &Vector<
-        'a,
-        ForwardsUOffset<
-            plerkle_serialization::transaction_info_generated::transaction_info::Pubkey<'a>,
-        >,
-    >,
-    index: usize,
-) -> Vec<u8> {
-    let pubkey = keys.get(index);
-    pubkey.key().unwrap().to_vec()
 }

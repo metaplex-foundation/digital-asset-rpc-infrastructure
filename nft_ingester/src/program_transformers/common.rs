@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::process::Output;
 use digital_asset_types::dao::{backfill_items, cl_items};
 use crate::IngesterError;
-use spl_co
+use spl_compression;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, DatabaseConnection, DatabaseTransaction,
     DbBackend, DbErr, JsonValue, SqlxPostgresConnector, TransactionTrait,

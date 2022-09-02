@@ -7,7 +7,7 @@ use {
 };
 
 pub type IxPair<'a> = (
-    transaction_info::Pubkey<'a>,
+    transaction_info::Pubkey,
     transaction_info::CompiledInstruction<'a>,
 );
 pub fn order_instructions<'a>(

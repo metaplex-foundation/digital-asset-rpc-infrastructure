@@ -5,28 +5,10 @@ use cadence_macros::statsd_count;
 use {
     crate::{
         error::IngesterError,
-        events::handle_event,
-        get_gummy_roll_events,
         parsers::{InstructionBundle, ProgramHandler, ProgramHandlerConfig},
         save_changelog_events,
         tasks::BgTask,
-        utils::bytes_from_fb_table,
     },
-    anchor_client::anchor_lang::{self, prelude::Pubkey, AnchorDeserialize},
-    async_trait::async_trait,
-    bubblegum::state::{
-        leaf_schema::{LeafSchema, LeafSchemaEvent, Version},
-        NFTDecompressionEvent,
-    },
-    digital_asset_types::{
-        adapter::{TokenStandard, UseMethod, Uses},
-        dao::{
-            asset, asset_authority, asset_creators, asset_data, asset_grouping,
-            sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
-        },
-        json::ChainDataV1,
-    },
-    flatbuffers::{ForwardsUOffset, Vector},
     lazy_static::lazy_static,
     num_traits::FromPrimitive,
     plerkle_serialization::transaction_info_generated::transaction_info::{self},
@@ -62,7 +44,7 @@ pub use db::*;
 
 pub async fn handle_bubblegum_instruction<'a, 'b, 't>(
     parsing_result: BubblegumInstruction,
-    bundle: &InstructionBundle<'a, 'b>,
+    bundle: &InstructionBundle<'a>,
     db: &DatabaseConnection,
     task_manager: &UnboundedSender<Box<dyn BgTask>>,
 ) -> Result<(), IngesterError> {
@@ -73,7 +55,8 @@ pub async fn handle_bubblegum_instruction<'a, 'b, 't>(
                 transfer::transfer(&parsing_result, bundle, txn)
             }).await?;
         }
-        InstructionName::Burn => {
+        InstructionName::Burn =>
+            {
             db.transaction::<_, _, IngesterError>(|txn| {
                 burn::burn(&parsing_result, bundle, txn)
             })

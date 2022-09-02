@@ -618,7 +618,7 @@ fn serialize_transaction<'a>(
         for key in account_keys.iter() {
             let key = Pubkey::from_str(key)
                 .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-            account_keys_fb_vec.push(key);
+            account_keys_fb_vec.push(transaction_info::Pubkey::new(&key.to_bytes()));
         }
         Some(builder.create_vector(&account_keys_fb_vec))
     } else {

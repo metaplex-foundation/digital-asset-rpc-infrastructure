@@ -1,6 +1,7 @@
 use cadence_macros::statsd_time;
 use chrono::{DateTime, Utc};
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
+use sqlx::{Pool, Postgres};
 use tokio::sync::mpsc::UnboundedSender;
 use {
     crate::{error::IngesterError, utils::IxPair},
@@ -19,7 +20,7 @@ use {
 };
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::program_handler::{ProgramMatcher, ProgramParser};
-use blockbuster::programs::bubblegum::{Bubblegum, BubblegumParser};
+use blockbuster::programs::bubblegum::{BubblegumParser};
 use blockbuster::programs::ParsedProgram;
 use crate::{order_instructions, parse_logs};
 use crate::program_transformers::bubblegum::handle_bubblegum_instruction;
@@ -27,20 +28,21 @@ use crate::program_transformers::bubblegum::handle_bubblegum_instruction;
 mod bubblegum;
 mod common;
 
-pub struct ProgramTransformer<'a> {
+pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<Box<dyn BgTask>>,
     matchers: HashMap<Pubkey, ParsedProgram>,
 }
 
-impl<'a> ProgramTransformer<'a> {
-    pub fn new(storage: DatabaseConnection,
+impl ProgramTransformer {
+    pub fn new(pool: Pool<Postgres>,
                task_sender: UnboundedSender<Box<dyn BgTask>>) -> Self {
         let mut matchers = HashMap::with_capacity(1);
         matchers.insert(BubblegumParser::key(), ParsedProgram::Bubblegum);
 
+
         ProgramTransformer {
-            storage,
+            storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             task_sender,
             matchers,
         }
@@ -50,7 +52,7 @@ impl<'a> ProgramTransformer<'a> {
         self.matchers.get(&(key.0 as Pubkey))
     }
 
-    pub fn handle_transaction(&self, tx: TransactionInfo) -> Result<(), IngesterError> {
+    pub async fn handle_transaction(&self, tx: TransactionInfo) -> Result<(), IngesterError> {
         // Update metadata associated with the programs that store data in leaves
         let instructions = order_instructions(&tx);
         let keys = tx.account_keys().ok_or(IngesterError::DeserializationError("Missing Accounts".to_string()))?;
@@ -68,7 +70,7 @@ impl<'a> ProgramTransformer<'a> {
                 match program {
                     ParsedProgram::Bubblegum => {
                         let parsing_result = BubblegumParser::handle_instruction(bundle)?;
-                        handle_bubblegum_instruction(parsing_result, bundle, &self.storage, &self.task_sender)
+                        handle_bubblegum_instruction(parsing_result, bundle, &self.storage, &self.task_sender).await
                     }
                     _ => Err(IngesterError::NotImplemented)
                 }?;
@@ -80,7 +82,7 @@ impl<'a> ProgramTransformer<'a> {
         Ok(())
     }
 
-    pub fn handle_account_update<'b>(&self, acct: AccountInfo<'b>) -> Result<(), IngesterError> {
+    pub async fn handle_account_update<'b>(&self, acct: AccountInfo<'b>) -> Result<(), IngesterError> {
         Ok(())
     }
 }

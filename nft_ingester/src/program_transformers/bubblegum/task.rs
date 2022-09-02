@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
-use async_trait;
-use sea_orm::ActiveValue::{Set, Unchanged};
+use async_trait::async_trait;
+use sea_orm::{entity::*, query::*, DbErr};
 use sea_orm::DatabaseConnection;
 use digital_asset_types::dao::asset_data;
 use crate::{BgTask, IngesterError};

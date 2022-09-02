@@ -1,21 +1,21 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::process::Output;
-use sea_orm::ActiveValue::{Set, Unchanged};
+use sea_orm::{entity::*, query::*, DbErr};
 use sea_orm::DatabaseTransaction;
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::BubblegumInstruction;
 use digital_asset_types::dao::asset;
 use crate::IngesterError;
-use crate::program_transformers::bubblegum::update_asset;
+use blockbuster::programs::bubblegum::LeafSchema;
+use crate::program_transformers::bubblegum::db::update_asset;
 use crate::program_transformers::common::save_changelog_event;
 
-pub fn redeem<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<_, IngesterError>> + Send + 'c>> {
+pub fn redeem<'c, T>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<T, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
         if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
             let seq = save_changelog_event(&cl, bundle.slot, txn)
-                .await?
-                .ok_or(IngesterError::ChangeLogEventMalformed)?;
+                .await?;
             match le.schema {
                 LeafSchema::V1 {
                     id,

@@ -1,6 +1,5 @@
 mod backfiller;
 mod error;
-mod events;
 mod program_transformers;
 mod tasks;
 mod utils;
@@ -40,13 +39,6 @@ use crate::error::IngesterError;
 use crate::program_handler::ProgramHandlerManager;
 use crate::tasks::{BgTask, TaskManager};
 
-async fn setup_manager<'a, 'b>(
-    mut manager: ProgramTransformer<'a>,
-    pool: Pool<Postgres>,
-    task_manager: UnboundedSender<Box<dyn BgTask>>,
-) -> ProgramTransformer<'a> {
-    // Panic if thread cant be made for background tasks
-}
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -60,7 +52,7 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 
 // Struct used for Figment configuration items.
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct IngesterConfig {
     pub database_config: DatabaseConfig,
     pub messenger_config: MessengerConfig,
@@ -138,9 +130,7 @@ async fn service_transaction_stream<T: Messenger>(
     messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut manager = ProgramTransformer::new();
-
-        manager = setup_manager(manager, pool, tasks).await;
+        let manager = ProgramTransformer::new(pool, tasks);
         let mut messenger = T::new(messenger_config).await.unwrap();
         println!("Setting up transaction listener");
         loop {
@@ -159,9 +149,7 @@ async fn service_account_stream<T: Messenger>(
     messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut manager = ProgramTransformer::new();
-        let task_manager = TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
-        manager = setup_manager(manager, pool, tasks).await;
+        let manager = ProgramTransformer::new(pool, tasks);
         let mut messenger = T::new(messenger_config).await.unwrap();
         println!("Setting up account listener");
         loop {
@@ -174,7 +162,7 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer<'static>, data: Vec<(i64, &[u8])>) {
+async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     for (_message_id, data) in data {
         // Get root of account info flatbuffers object.
         let account_update = match root_as_account_info(data) {
@@ -184,29 +172,14 @@ async fn handle_account(manager: &ProgramTransformer<'static>, data: Vec<(i64, &
             }
             Ok(account_update) => account_update,
         };
-        let program_id = account_update.owner();
-        let parser = manager.match_program(program_id.unwrap());
         statsd_count!("ingester.account_update_seen", 1);
-        match parser {
-            Some(p) if p.config().responds_to_account == true => {
-                let _ = p.handle_account(&account_update).map_err(|e| {
-                    println!("Error in instruction handling {:?}", e);
-                    e
-                });
-            }
-            _ => {
-                println!(
-                    "Program Handler not found for program id {:?}",
-                    program_id.map(|p| Pubkey::new(p))
-                );
-            }
-        }
+        manager.handle_account_update(account_update).await?
+
     }
 }
 
-async fn handle_transaction(manager: &ProgramTransformer<'static>, data: Vec<(i64, &[u8])>) {
+async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     for (message_id, data) in data {
-        println!("RECV");
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
@@ -226,7 +199,7 @@ async fn handle_transaction(manager: &ProgramTransformer<'static>, data: Vec<(i6
         }
         let seen_at = Utc::now();
         statsd_time!("ingester.bus_ingest_time", (seen_at.timestamp_millis() - transaction.seen_at()) as u64);
-        manager.handle_transaction(transaction)?;
+        manager.handle_transaction(transaction).await?;
     }
 }
 // Associates logs with the given program ID

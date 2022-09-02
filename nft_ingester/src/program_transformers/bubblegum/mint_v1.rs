@@ -1,30 +1,28 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::process::Output;
-use sea_orm::ActiveValue::{Set, Unchanged};
+use sea_orm::{entity::*, query::*, DbErr};
 use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, JsonValue};
 use sea_orm::sea_query::OnConflict;
 use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
+use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
 use digital_asset_types::adapter::{TokenStandard, UseMethod, Uses};
 use digital_asset_types::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType};
 use digital_asset_types::json::ChainDataV1;
 use crate::IngesterError;
 use crate::program_transformers::bubblegum::task::DownloadMetadata;
-use crate::program_transformers::bubblegum::update_asset;
 use crate::program_transformers::common::save_changelog_event;
 
 // TODO -> consider moving structs into these functions to avoid clone
 
-pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<DownloadMetadata, IngesterError>> + Send + 'c>> {
+pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c InstructionBundle, txn: &'c DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<DownloadMetadata, IngesterError>> + Send + 'c>> {
     Box::pin(async move {
         if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (&parsing_result.leaf_update, &parsing_result.tree_update, &parsing_result.payload) {
             let seq = save_changelog_event(&cl, bundle.slot, txn)
-                .await?
-                .ok_or(IngesterError::ChangeLogEventMalformed)?;
+                .await?;
             let metadata = args;
-            match le.schema {
+            return match le.schema {
                 LeafSchema::V1 {
                     id,
                     delegate,
@@ -69,11 +67,11 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                     let delegate = if owner == delegate {
                         None
                     } else {
-                        Some(delegate)
+                        Some(delegate.to_bytes().to_vec())
                     };
                     let model = asset::ActiveModel {
                         id: Set(id.to_bytes().to_vec()),
-                        owner: Set(owner),
+                        owner: Set(owner.to_bytes().to_vec()),
                         owner_type: Set(OwnerType::Single),
                         delegate: Set(delegate),
                         frozen: Set(false),
@@ -81,7 +79,7 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                         supply_mint: Set(None),
                         compressed: Set(true),
                         compressible: Set(false),
-                        tree_id: Set(Some(merkle_slab)),
+                        tree_id: Set(Some(bundle.keys[7].0.to_vec())), //will change when we remove requests
                         specification_version: Set(1),
                         nonce: Set(nonce as i64),
                         leaf: Set(Some(le.leaf_hash.to_vec())),
@@ -132,7 +130,7 @@ pub fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBu
                         // Insert into `asset_authority` table.
                         let model = asset_authority::ActiveModel {
                             asset_id: Set(id.to_bytes().to_vec()),
-                            authority: Set(update_authority),
+                            authority: Set(bundle.keys[0].0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
                             seq: Set(seq as i64), // gummyroll seq
                             ..Default::default()
                         };
