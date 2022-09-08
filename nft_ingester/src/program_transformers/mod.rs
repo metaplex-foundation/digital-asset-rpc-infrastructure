@@ -1,7 +1,7 @@
 use cadence_macros::statsd_time;
 use chrono::{DateTime, Utc};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
-use sqlx::{Pool, Postgres};
+use sqlx::{PgPool, Pool, Postgres};
 use tokio::sync::mpsc::UnboundedSender;
 use {
     crate::{error::IngesterError, utils::IxPair},
@@ -35,12 +35,11 @@ pub struct ProgramTransformer {
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: Pool<Postgres>,
+    pub fn new(pool: PgPool,
                task_sender: UnboundedSender<Box<dyn BgTask>>) -> Self {
         let mut matchers = HashMap::with_capacity(1);
         matchers.insert(BubblegumParser::key(), ParsedProgram::Bubblegum);
-
-
+        let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             task_sender,
@@ -49,35 +48,18 @@ impl ProgramTransformer {
     }
 
     pub fn match_program(&self, key: FBPubkey) -> Option<&ParsedProgram> {
-        self.matchers.get(&(key.0 as Pubkey))
+        self.matchers.get(&Pubkey::new(key.0.as_slice()))
     }
 
-    pub async fn handle_transaction(&self, tx: TransactionInfo) -> Result<(), IngesterError> {
-        // Update metadata associated with the programs that store data in leaves
-        let instructions = order_instructions(&tx);
-        let keys = tx.account_keys().ok_or(IngesterError::DeserializationError("Missing Accounts".to_string()))?;
-        for (outer_ix, inner_ix) in instructions {
-            let (program, instruction) = outer_ix;
-            let program_id = program.key().unwrap();
-            if let Some(program) = self.match_program(program_id) {
-                let bundle = &InstructionBundle {
-                    txn_id: "".to_string(),
-                    instruction,
-                    inner_ix,
-                    keys,
-                    slot: tx.slot(),
-                };
-                match program {
-                    ParsedProgram::Bubblegum => {
-                        let parsing_result = BubblegumParser::handle_instruction(bundle)?;
-                        handle_bubblegum_instruction(parsing_result, bundle, &self.storage, &self.task_sender).await
-                    }
-                    _ => Err(IngesterError::NotImplemented)
-                }?;
-            }
-            let finished_at = Utc::now();
-            let str_program_id = bs58::encode(program_id).into_string();
-            statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
+    pub async fn handle_instruction<'a>(&self, ix: &'a InstructionBundle<'a>) -> Result<(), IngesterError> {
+        if let Some(program) = self.match_program(ix.program) {
+            match program {
+                ParsedProgram::Bubblegum => {
+                    let parsing_result = BubblegumParser::handle_instruction(&ix)?;
+                    handle_bubblegum_instruction(&parsing_result, &ix, &self.storage, &self.task_sender).await
+                }
+                _ => Err(IngesterError::NotImplemented)
+            }?;
         }
         Ok(())
     }

@@ -31,6 +31,8 @@ use {
     sqlx::{self, postgres::PgListener, Pool, Postgres},
     std::str::FromStr,
     tokio::time::{sleep, Duration},
+    blockbuster::program_handler::ProgramMatcher,
+    blockbuster::programs::bubblegum::BubblegumParser,
 };
 
 // Constants used for varying delays when failures occur.
@@ -305,8 +307,8 @@ impl<T: Messenger> Backfiller<T> {
             WHERE backfill_items.force_chk = TRUE",
             vec![],
         ))
-        .all(&self.db)
-        .await?;
+            .all(&self.db)
+            .await?;
 
         // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut trees: Vec<BackfillTree> = force_chk_trees
@@ -322,8 +324,8 @@ impl<T: Messenger> Backfiller<T> {
             HAVING COUNT(*) > 1",
             vec![],
         ))
-        .all(&self.db)
-        .await?;
+            .all(&self.db)
+            .await?;
 
         // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut multi_row_trees: Vec<BackfillTree> = multi_row_trees
@@ -504,7 +506,7 @@ impl<T: Messenger> Backfiller<T> {
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tree = bs58::encode(tree).into_string();
-                let bubblegum = BubblegumProgramID().to_string();
+                let bubblegum = BubblegumParser::key().to_string();
                 if ui_raw_message
                     .account_keys
                     .iter()
@@ -714,7 +716,7 @@ fn serialize_transaction<'a>(
             outer_instructions,
             slot,
             seen_at: seen_at.timestamp_millis(),
-            slot_index: None
+            slot_index: None,
         },
     );
 

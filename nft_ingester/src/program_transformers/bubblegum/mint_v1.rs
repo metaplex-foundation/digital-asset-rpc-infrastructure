@@ -1,8 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::process::Output;
-use sea_orm::{entity::*, query::*, DbErr};
-use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, JsonValue};
+use sea_orm::{entity::*, query::*, ConnectionTrait, EntityTrait, ColumnTrait, DatabaseTransaction, DbBackend, JsonValue, DbErr};
 use sea_orm::sea_query::OnConflict;
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
@@ -13,11 +11,11 @@ use digital_asset_types::json::ChainDataV1;
 use crate::IngesterError;
 use crate::program_transformers::bubblegum::task::DownloadMetadata;
 use crate::program_transformers::common::save_changelog_event;
+use num_traits::FromPrimitive;
 
 // TODO -> consider moving structs into these functions to avoid clone
 
-pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c InstructionBundle, txn: &'c DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<DownloadMetadata, IngesterError>> + Send + 'c>> {
-    Box::pin(async move {
+pub async fn mint_v1<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle<'c>, txn: &'c DatabaseTransaction) -> Result<DownloadMetadata, IngesterError> {
         if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (&parsing_result.leaf_update, &parsing_result.tree_update, &parsing_result.payload) {
             let seq = save_changelog_event(&cl, bundle.slot, txn)
                 .await?;
@@ -36,7 +34,7 @@ pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c Instruc
                         edition_nonce: metadata.edition_nonce,
                         primary_sale_happened: metadata.primary_sale_happened,
                         token_standard: Some(TokenStandard::NonFungible),
-                        uses: metadata.uses.map(|u| Uses {
+                        uses: metadata.uses.clone().map(|u| Uses {
                             use_method: UseMethod::from_u8(u.use_method as u8).unwrap(),
                             remaining: u.remaining,
                             total: u.total,
@@ -79,7 +77,7 @@ pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c Instruc
                         supply_mint: Set(None),
                         compressed: Set(true),
                         compressible: Set(false),
-                        tree_id: Set(Some(bundle.keys[7].0.to_vec())), //will change when we remove requests
+                        tree_id: Set(Some(bundle.keys.get(7).unwrap().0.to_vec())), //will change when we remove requests
                         specification_version: Set(1),
                         nonce: Set(nonce as i64),
                         leaf: Set(Some(le.leaf_hash.to_vec())),
@@ -105,7 +103,7 @@ pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c Instruc
                     // Insert into `asset_creators` table.
                     if metadata.creators.len() > 0 {
                         let mut creators = Vec::with_capacity(metadata.creators.len());
-                        for c in metadata.creators {
+                        for c in metadata.creators.iter() {
                             creators.push(asset_creators::ActiveModel {
                                 asset_id: Set(id.to_bytes().to_vec()),
                                 creator: Set(c.address.to_bytes().to_vec()),
@@ -130,7 +128,7 @@ pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c Instruc
                         // Insert into `asset_authority` table.
                         let model = asset_authority::ActiveModel {
                             asset_id: Set(id.to_bytes().to_vec()),
-                            authority: Set(bundle.keys[0].0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
+                            authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
                             seq: Set(seq as i64), // gummyroll seq
                             ..Default::default()
                         };
@@ -181,5 +179,4 @@ pub fn mint_v1<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c Instruc
             }?;
         }
         Err(IngesterError::ParsingError("Ix not parsed correctly".to_string()))
-    })
 }

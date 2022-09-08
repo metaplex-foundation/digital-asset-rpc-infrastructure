@@ -5,7 +5,10 @@ mod tasks;
 mod utils;
 mod metrics;
 
+use std::cell::RefCell;
 use chrono::Utc;
+use flatbuffers::{Vector, VerifierOptions};
+use sqlx::PgPool;
 use plerkle_messenger::{ACCOUNT_STREAM, Messenger, MessengerConfig, RedisMessenger, TRANSACTION_STREAM};
 
 use {
@@ -15,9 +18,10 @@ use {
         utils::{order_instructions, parse_logs},
     },
     futures_util::TryFutureExt,
-    messenger::{Messenger, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM},
+    blockbuster::{
+        instruction::InstructionBundle},
     plerkle_serialization::account_info_generated::account_info::root_as_account_info,
-    plerkle_serialization::transaction_info_generated::transaction_info::root_as_transaction_info,
+    plerkle_serialization::transaction_info_generated::transaction_info::{root_as_transaction_info, root_as_transaction_info_with_opts},
     solana_sdk::pubkey::Pubkey,
     sqlx::{self, postgres::PgPoolOptions, Pool, Postgres},
     tokio::sync::mpsc::UnboundedSender,
@@ -31,12 +35,8 @@ use {
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     std::net::UdpSocket,
 };
-use blockbuster::{
-    instruction::InstructionBundle
-};
-use messenger::MessengerConfig;
 use crate::error::IngesterError;
-use crate::program_handler::ProgramHandlerManager;
+use crate::program_transformers::ProgramTransformer;
 use crate::tasks::{BgTask, TaskManager};
 
 
@@ -52,7 +52,7 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 
 // Struct used for Figment configuration items.
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
     pub database_config: DatabaseConfig,
     pub messenger_config: MessengerConfig,
@@ -137,7 +137,8 @@ async fn service_transaction_stream<T: Messenger>(
             // This call to messenger.recv() blocks with no timeout until
             // a message is received on the stream.
             if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                handle_transaction(&manager, data).await;
+                //TODO -> do not ACK until this is Ok(())
+                handle_transaction(&manager, data).await
             }
         }
     })
@@ -173,33 +174,47 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             Ok(account_update) => account_update,
         };
         statsd_count!("ingester.account_update_seen", 1);
-        manager.handle_account_update(account_update).await?
-
+        manager.handle_account_update(account_update).await.expect("Processing Failed");
     }
 }
 
 async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (message_id, data) in data {
+    for (message_id, tx_data) in data.iter() {
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
         //  1. only 1 ingest instance picks it up, two the stream coming out of the ingester can be considered deduped
+        //
+        // can we paralellize this : yes
 
         // Get root of transaction info flatbuffers object.
-        let transaction = match root_as_transaction_info(data) {
-            Err(err) => {
-                println!("Flatbuffers TransactionInfo deserialization error: {err}");
-                continue;
+        if let Ok(tx) = root_as_transaction_info(tx_data) {
+            let instructions = order_instructions(&tx);
+            let keys = tx.account_keys();
+            if let Some(si) = tx.slot_index() {
+                let slt_idx = format!("{}-{}", tx.slot(), si);
+                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
             }
-            Ok(transaction) => transaction,
-        };
-        if let Some(si) = transaction.slot_index() {
-            let slt_idx = format!("{}-{}", transaction.slot(), si);
-            statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+            let seen_at = Utc::now();
+            for (outer_ix, inner_ix) in instructions {
+                let (program, instruction) = outer_ix;
+                let bundle = InstructionBundle {
+                    txn_id: "".to_string(),
+                    program,
+                    instruction,
+                    inner_ix,
+                    keys: &keys.unwrap(),
+                    slot: tx.slot(),
+                };
+                let (program, _) = &outer_ix;
+                statsd_time!("ingester.bus_ingest_time", (seen_at.timestamp_millis() - tx.seen_at()) as u64);
+                manager.handle_instruction(&bundle).await.expect("Processing Failed");
+                let finished_at = Utc::now();
+                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
+                statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
+            }
+            // TODO -> DLQ message if it failed.
         }
-        let seen_at = Utc::now();
-        statsd_time!("ingester.bus_ingest_time", (seen_at.timestamp_millis() - transaction.seen_at()) as u64);
-        manager.handle_transaction(transaction).await?;
     }
 }
 // Associates logs with the given program ID

@@ -1,22 +1,18 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::process::Output;
-use sea_orm::{entity::*, query::*, DbErr};
-use sea_orm::DatabaseTransaction;
+use sea_orm::{entity::*, query::*, EntityTrait, ColumnTrait, DbErr, DatabaseTransaction};
 use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::BubblegumInstruction;
+use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema};
 use digital_asset_types::dao::asset;
 use crate::IngesterError;
 use crate::program_transformers::bubblegum::db::update_asset;
 use crate::program_transformers::common::save_changelog_event;
 
-pub fn transfer<'c, T>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle, txn: &DatabaseTransaction) -> Pin<Box<dyn Future<Output=Result<T, IngesterError>> + Send + 'c>> {
-    Box::pin(async move {
+pub async fn transfer<'c>(parsing_result: &'c BubblegumInstruction, bundle: &'c InstructionBundle<'c>, txn: &'c DatabaseTransaction) -> Result<(), IngesterError> {
         if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
             let seq = save_changelog_event(&cl, bundle.slot, txn)
-                .await
-                .ok_or(IngesterError::ChangeLogEventMalformed)?;
-            match le.schema {
+                .await?;
+            return match le.schema {
                 LeafSchema::V1 {
                     id,
                     delegate,
@@ -41,8 +37,7 @@ pub fn transfer<'c, T>(parsing_result: &BubblegumInstruction, bundle: &Instructi
                     update_asset(txn, id_bytes, Some(seq), asset_to_update).await
                 }
                 _ => Err(IngesterError::NotImplemented),
-            }?;
+            }
         }
         Err(IngesterError::ParsingError("Ix not parsed correctly".to_string()))
-    })
 }

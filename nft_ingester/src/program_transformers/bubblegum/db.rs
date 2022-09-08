@@ -1,8 +1,8 @@
 use crate::IngesterError;
-use sea_orm::{entity::*, query::*, DbErr, DatabaseTransaction};
+use sea_orm::{entity::*, query::*, EntityTrait, ColumnTrait, DbErr, DatabaseTransaction};
 use digital_asset_types::dao::asset;
 
-pub(crate) async fn update_asset(
+pub async fn update_asset(
     txn: &DatabaseTransaction,
     id: Vec<u8>,
     seq: Option<u64>,

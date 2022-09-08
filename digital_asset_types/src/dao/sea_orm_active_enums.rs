@@ -30,8 +30,8 @@ pub enum RoyaltyTargetType {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
     #[sea_orm(string_value = "immutable")]
     Immutable,
     #[sea_orm(string_value = "mutable")]
@@ -40,8 +40,8 @@ pub enum Mutability {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
+pub enum Mutability {
     #[sea_orm(string_value = "immutable")]
     Immutable,
     #[sea_orm(string_value = "mutable")]
