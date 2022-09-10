@@ -3,10 +3,6 @@ kind: Config
 build:
   artifacts:
     - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
-      docker:
-        dockerfile: Load.Dockerfile
-    - context: .
       image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
       docker:
         dockerfile: Api.Dockerfile
@@ -21,7 +17,6 @@ deploy:
         chartPath: helm/ingest
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
-          loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
         setValueTemplates:
           ingest.db_url: "{{.DATABASE_URL}}"
           ingest.redis_url: "{{.REDIS_URL}}"
