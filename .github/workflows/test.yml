@@ -1,0 +1,54 @@
+name: Build & Test
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+env:
+  RUST_TOOLCHAIN: stable
+jobs:
+#  ensure-db-api:
+#    runs-on: ubuntu-latest
+#    services:
+#      postgres:
+#        image: postgres:latest
+#        volumes:
+#          - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+#        env:
+#          POSTGRES_USER: solana
+#          POSTGRES_PASSWORD: solana
+#          POSTGRES_DB: solana
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Generate Dao
+#        run: |
+#          cd digital_asset_types
+#          cargo install sea-orm-cli
+#          sea-orm-cli generate entity -o src/dao2 --database-url postgres://solana:solana@localhost/solana --with-serde both --expanded-format
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          cd das_api
+          cargo build
+        shell: bash
+  build-ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          cd nft_ingester
+          cargo build
+        shell: bash
+
+
+
+
