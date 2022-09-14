@@ -1,18 +1,21 @@
-use std::future::Future;
-use std::pin::Pin;
-use sea_orm::{entity::*, query::*, DbErr};
-use sea_orm::DatabaseTransaction;
-use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema};
+use crate::{
+    program_transformers::{bubblegum::db::update_asset, common::save_changelog_event},
+    IngesterError,
+};
+use blockbuster::{
+    instruction::InstructionBundle,
+    programs::bubblegum::{BubblegumInstruction, LeafSchema},
+};
 use digital_asset_types::dao::asset;
-use crate::IngesterError;
-use crate::program_transformers::bubblegum::db::update_asset;
-use crate::program_transformers::common::save_changelog_event;
+use sea_orm::{entity::*, DatabaseTransaction};
 
-pub async fn burn<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle<'c>, txn: &'c DatabaseTransaction) -> Result<(), IngesterError> {
+pub async fn burn<'c>(
+    parsing_result: &BubblegumInstruction,
+    bundle: &InstructionBundle<'c>,
+    txn: &'c DatabaseTransaction,
+) -> Result<(), IngesterError> {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn)
-            .await?;
+        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
         return match le.schema {
             LeafSchema::V1 { id, .. } => {
                 let id_bytes = id.to_bytes().to_vec();
@@ -22,12 +25,14 @@ pub async fn burn<'c>(parsing_result: &BubblegumInstruction, bundle: &Instructio
                     seq: Set(seq as i64), // gummyroll seq
                     ..Default::default()
                 };
-// Don't send sequence number with this update, because we will always
-// run this update even if it's from a backfill/replay.
+                // Don't send sequence number with this update, because we will always
+                // run this update even if it's from a backfill/replay.
                 update_asset(txn, id_bytes, None, asset_to_update).await
             }
             _ => Err(IngesterError::NotImplemented),
         };
     }
-    Err(IngesterError::ParsingError("Ix not parsed correctly".to_string()))
+    Err(IngesterError::ParsingError(
+        "Ix not parsed correctly".to_string(),
+    ))
 }

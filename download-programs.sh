@@ -11,7 +11,6 @@ pushd metaplex_program_library/token-metadata/program
   mv ./here/mpl_token_metadata.so $CWD/programs/metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s.so
 popd
 
-
 pushd metaplex_program_library/bubblegum/program
   cargo build-bpf --bpf-out-dir ./here
   mv ./here/mpl_bubblegum.so $CWD/programs/BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY.so
@@ -22,12 +21,12 @@ curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarba
 tar -zxf -C /solana_program_library solana-program-library.tar.gz
 pushd solana_program_library/account-compression/programs/account-compression
   cargo build-bpf --bpf-out-dir ./here
-  mv ./here/spl_compression.so $CWD/programs/GRoLLzvxpxxu2PGNJMMeZPyMxjAUH9pKqxGXV9DGiceU.so
+  mv ./here/spl_account_compression.so $CWD/programs/GRoLLzvxpxxu2PGNJMMeZPyMxjAUH9pKqxGXV9DGiceU.so
 popd
 
 pushd solana_program_library/account-compression/programs/wrapper
   cargo build-bpf --bpf-out-dir ./here
-  mv ./here/wrapper.so $CWD/programs/WRAPYChf58WFCnyjXKJHtrPgzKXgHp6MD9aVDqJBbGh.so
+  mv ./here/spl_noop.so $CWD/programs/WRAPYChf58WFCnyjXKJHtrPgzKXgHp6MD9aVDqJBbGh.so
 popd
 
 pushd solana_program_library

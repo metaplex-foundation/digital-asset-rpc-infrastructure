@@ -72,7 +72,7 @@ You need to run the following script (which takes a long time) in order to get a
 chmod
 ./dowload-programs.sh
 ```
-This script grabs all the code for these programs and compiles it, and chucks it into your programs folder.
+This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
 
 
 We use ``docker-compose`` on some systems its ``docker compose``.

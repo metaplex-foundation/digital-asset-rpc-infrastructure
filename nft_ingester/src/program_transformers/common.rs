@@ -1,13 +1,7 @@
-use std::future::Future;
-use std::pin::Pin;
-use std::process::Output;
-use digital_asset_types::dao::{backfill_items, cl_items};
 use crate::IngesterError;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, DatabaseConnection, DatabaseTransaction,
-    DbBackend, DbErr, JsonValue, SqlxPostgresConnector, TransactionTrait,
-};
 use blockbuster::programs::bubblegum::ChangeLogEvent;
+use digital_asset_types::dao::{backfill_items, cl_items};
+use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
 
 pub async fn save_changelog_event(
     change_log_event: &ChangeLogEvent,

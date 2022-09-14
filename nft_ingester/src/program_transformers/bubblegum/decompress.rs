@@ -1,12 +1,15 @@
-use std::future::Future;
-use std::pin::Pin;
-use sea_orm::{entity::*, query::*, EntityTrait, ColumnTrait, DbErr, DatabaseTransaction, ConnectionTrait, DbBackend};
-use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
-use digital_asset_types::dao::asset;
 use crate::IngesterError;
+use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
+use digital_asset_types::dao::asset;
+use sea_orm::{
+    entity::*, query::*, ColumnTrait, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait,
+};
 
-pub async fn decompress<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle<'c>, txn: &'c DatabaseTransaction) -> Result<(), IngesterError> {
+pub async fn decompress<'c>(
+    _parsing_result: &BubblegumInstruction,
+    bundle: &InstructionBundle<'c>,
+    txn: &'c DatabaseTransaction,
+) -> Result<(), IngesterError> {
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice().to_vec();
 
     let model = asset::ActiveModel {

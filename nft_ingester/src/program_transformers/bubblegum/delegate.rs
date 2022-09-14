@@ -1,17 +1,21 @@
-use std::future::Future;
-use std::pin::Pin;
-use sea_orm::{entity::*, query::*, EntityTrait, ColumnTrait, DbErr, DatabaseTransaction};
-use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema};
+use crate::{
+    program_transformers::{bubblegum::db::update_asset, common::save_changelog_event},
+    IngesterError,
+};
+use blockbuster::{
+    instruction::InstructionBundle,
+    programs::bubblegum::{BubblegumInstruction, LeafSchema},
+};
 use digital_asset_types::dao::asset;
-use crate::IngesterError;
-use crate::program_transformers::bubblegum::db::update_asset;
-use crate::program_transformers::common::save_changelog_event;
+use sea_orm::{entity::*, DatabaseTransaction};
 
-pub async fn delegate<'c>(parsing_result: &BubblegumInstruction, bundle: &InstructionBundle<'c>, txn: &'c DatabaseTransaction) -> Result<(), IngesterError> {
+pub async fn delegate<'c>(
+    parsing_result: &BubblegumInstruction,
+    bundle: &InstructionBundle<'c>,
+    txn: &'c DatabaseTransaction,
+) -> Result<(), IngesterError> {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn)
-            .await?;
+        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
         return match le.schema {
             LeafSchema::V1 {
                 id,
@@ -39,6 +43,7 @@ pub async fn delegate<'c>(parsing_result: &BubblegumInstruction, bundle: &Instru
             _ => Err(IngesterError::NotImplemented),
         };
     }
-    Err(IngesterError::ParsingError("Ix not parsed correctly".to_string()))
+    Err(IngesterError::ParsingError(
+        "Ix not parsed correctly".to_string(),
+    ))
 }
-

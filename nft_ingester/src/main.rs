@@ -1,44 +1,36 @@
 mod backfiller;
 mod error;
+mod metrics;
 mod program_transformers;
 mod tasks;
-mod utils;
-mod metrics;
 
-use std::cell::RefCell;
 use chrono::Utc;
-use flatbuffers::{Vector, VerifierOptions};
-use sqlx::PgPool;
-use plerkle_messenger::{ACCOUNT_STREAM, Messenger, MessengerConfig, RedisMessenger, TRANSACTION_STREAM};
 
-use {
-    crate::{
-        backfiller::backfiller,
-        program_transformers::*,
-        utils::{order_instructions, parse_logs},
-    },
-    futures_util::TryFutureExt,
-    blockbuster::{
-        instruction::InstructionBundle},
-    plerkle_serialization::account_info_generated::account_info::root_as_account_info,
-    plerkle_serialization::transaction_info_generated::transaction_info::{root_as_transaction_info, root_as_transaction_info_with_opts},
-    solana_sdk::pubkey::Pubkey,
-    sqlx::{self, postgres::PgPoolOptions, Pool, Postgres},
-    tokio::sync::mpsc::UnboundedSender,
-    serde::Deserialize,
-    figment::{Figment, providers::Env},
-    cadence_macros::{
-        set_global_default,
-        statsd_count,
-        statsd_time,
-    },
-    cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
-    std::net::UdpSocket,
+use plerkle_messenger::{
+    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
 };
-use crate::error::IngesterError;
-use crate::program_transformers::ProgramTransformer;
-use crate::tasks::{BgTask, TaskManager};
 
+use std::collections::HashSet;
+
+use crate::{
+    backfiller::backfiller,
+    error::IngesterError,
+    program_transformers::ProgramTransformer,
+    tasks::{BgTask, TaskManager},
+};
+use blockbuster::instruction::{order_instructions, InstructionBundle};
+use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
+use cadence_macros::{set_global_default, statsd_count, statsd_time};
+use figment::{providers::Env, Figment};
+use futures_util::TryFutureExt;
+use plerkle_serialization::{
+    account_info_generated::account_info::root_as_account_info,
+    transaction_info_generated::transaction_info::root_as_transaction_info,
+};
+use serde::Deserialize;
+use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
+use std::net::UdpSocket;
+use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -105,7 +97,14 @@ async fn main() {
     // Service streams as separate concurrent processes.
     println!("Setting up tasks");
     setup_metrics(&config);
-    tasks.push(service_transaction_stream::<RedisMessenger>(pool.clone(), background_task_manager.get_sender(), config.messenger_config.clone()).await);
+    tasks.push(
+        service_transaction_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
+        .await,
+    );
     statsd_count!("ingester.startup", 1);
 
     tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
@@ -174,12 +173,15 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             Ok(account_update) => account_update,
         };
         statsd_count!("ingester.account_update_seen", 1);
-        manager.handle_account_update(account_update).await.expect("Processing Failed");
+        manager
+            .handle_account_update(account_update)
+            .await
+            .expect("Processing Failed");
     }
 }
 
 async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (message_id, tx_data) in data.iter() {
+    for (_message_id, tx_data) in data.iter() {
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
@@ -189,7 +191,12 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
 
         // Get root of transaction info flatbuffers object.
         if let Ok(tx) = root_as_transaction_info(tx_data) {
-            let instructions = order_instructions(&tx);
+            //TODO -> load this from config in the transformer
+            let bgum = blockbuster::programs::bubblegum::program_id();
+            let mut programs: HashSet<&[u8]> = HashSet::new();
+            programs.insert(bgum.as_ref());
+
+            let instructions = order_instructions(programs, &tx);
             let keys = tx.account_keys();
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
@@ -199,7 +206,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
             for (outer_ix, inner_ix) in instructions {
                 let (program, instruction) = outer_ix;
                 let bundle = InstructionBundle {
-                    txn_id: "".to_string(),
+                    txn_id: "",
                     program,
                     instruction,
                     inner_ix,
@@ -207,8 +214,14 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     slot: tx.slot(),
                 };
                 let (program, _) = &outer_ix;
-                statsd_time!("ingester.bus_ingest_time", (seen_at.timestamp_millis() - tx.seen_at()) as u64);
-                manager.handle_instruction(&bundle).await.expect("Processing Failed");
+                statsd_time!(
+                    "ingester.bus_ingest_time",
+                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                );
+                manager
+                    .handle_instruction(&bundle)
+                    .await
+                    .expect("Processing Failed");
                 let finished_at = Utc::now();
                 let str_program_id = bs58::encode(program.0.as_slice()).into_string();
                 statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);

@@ -1,10 +1,9 @@
-use std::fmt::{Display, Formatter};
+use crate::{BgTask, IngesterError};
 use async_trait::async_trait;
 use digital_asset_types::dao::asset_data;
-use crate::{BgTask, IngesterError};
-use sea_orm::*;
-use digital_asset_types::dao::prelude::AssetData;
-use sea_orm::{entity::*, query::*, DatabaseConnection};
+
+use sea_orm::{DatabaseConnection, *};
+use std::fmt::{Display, Formatter};
 pub struct DownloadMetadata {
     pub asset_data_id: i64,
     pub uri: String,

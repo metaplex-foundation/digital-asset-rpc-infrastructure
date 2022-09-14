@@ -1,11 +1,9 @@
-use {
-    crate::BgTask,
-    plerkle_messenger::MessengerError,
-    sea_orm::{DbErr, TransactionError},
-    thiserror::Error,
-    tokio::sync::mpsc::error::SendError,
-};
+use crate::BgTask;
 use blockbuster::error::BlockbusterError;
+use plerkle_messenger::MessengerError;
+use sea_orm::{DbErr, TransactionError};
+use thiserror::Error;
+use tokio::sync::mpsc::error::SendError;
 
 #[derive(Error, Debug)]
 pub enum IngesterError {
@@ -38,7 +36,7 @@ pub enum IngesterError {
     #[error("Messenger error {0}")]
     MessengerError(String),
     #[error("Blockbuster Parsing error {0}")]
-    ParsingError(String)
+    ParsingError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {

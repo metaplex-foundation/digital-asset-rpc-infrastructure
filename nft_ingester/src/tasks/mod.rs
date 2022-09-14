@@ -1,11 +1,11 @@
-use {
-    crate::error::IngesterError,
-    async_trait::async_trait,
-    sea_orm::{DatabaseConnection, SqlxPostgresConnector},
-    sqlx::{Pool, Postgres},
-    std::fmt::Display,
-    tokio::runtime::{Builder, Runtime},
-    tokio::sync::mpsc::{self, UnboundedSender},
+use crate::error::IngesterError;
+use async_trait::async_trait;
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
+use sqlx::{Pool, Postgres};
+use std::fmt::Display;
+use tokio::{
+    runtime::{Builder, Runtime},
+    sync::mpsc::{self, UnboundedSender},
 };
 
 #[async_trait]

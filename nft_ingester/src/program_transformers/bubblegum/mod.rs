@@ -1,34 +1,24 @@
-use {
-    plerkle_serialization::transaction_info_generated::transaction_info::{self},
-    sea_orm::{
-        entity::*, query::*, sea_query::OnConflict, DatabaseConnection, DatabaseTransaction,
-        DbBackend, DbErr, JsonValue, SqlxPostgresConnector, TransactionTrait,
-    },
-    serde_json, solana_sdk,
-    solana_sdk::pubkeys,
-    sqlx::{self, Pool, Postgres},
-    std::fmt::{Display, Formatter},
-    tokio::sync::mpsc::UnboundedSender,
-    blockbuster,
+use blockbuster::{
+    self,
+    instruction::InstructionBundle,
+    programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, InstructionName};
-use crate::program_transformers::bubblegum::task::DownloadMetadata;
+use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
+use tokio::sync::mpsc::UnboundedSender;
 
-mod transfer;
 mod burn;
-mod task;
+mod cancel_redeem;
+mod db;
+mod decompress;
 mod delegate;
 mod mint_v1;
 mod redeem;
-mod cancel_redeem;
-mod decompress;
-mod db;
+mod task;
+mod transfer;
 
 pub use db::*;
 
 use crate::{BgTask, IngesterError};
-
 
 pub async fn handle_bubblegum_instruction<'c>(
     parsing_result: &'c BubblegumInstruction,
@@ -49,7 +39,6 @@ pub async fn handle_bubblegum_instruction<'c>(
         }
         InstructionName::Delegate => {
             delegate::delegate(parsing_result, bundle, &txn).await?;
-
         }
         InstructionName::MintV1 => {
             let task = mint_v1::mint_v1(parsing_result, bundle, &txn).await?;

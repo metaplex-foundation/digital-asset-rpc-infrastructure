@@ -1,39 +1,32 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
-use {
-    chrono::Utc,
-    crate::{
-        error::IngesterError, program_transformers::*, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
-        RPC_COMMITMENT_KEY, RPC_URL_KEY,
-    },
-    digital_asset_types::dao::backfill_items,
-    flatbuffers::FlatBufferBuilder,
-    plerkle_messenger::{Messenger, TRANSACTION_STREAM},
-    plerkle_serialization::transaction_info_generated::transaction_info::{
-        self, TransactionInfo, TransactionInfoArgs,
-    },
-    sea_orm::{
-        entity::*,
-        query::*,
-        TryGetableMany,
-        sea_query::{Expr, Query},
-        DatabaseConnection, DbBackend, DbErr, FromQueryResult, SqlxPostgresConnector,
-    },
-    solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcBlockConfig},
-    solana_sdk::{
-        commitment_config::{CommitmentConfig, CommitmentLevel},
-        pubkey::Pubkey,
-    },
-    solana_transaction_status::{
-        EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
-        UiTransactionStatusMeta,
-    },
-    sqlx::{self, postgres::PgListener, Pool, Postgres},
-    std::str::FromStr,
-    tokio::time::{sleep, Duration},
-    blockbuster::program_handler::ProgramMatcher,
-    blockbuster::programs::bubblegum::BubblegumParser,
+use crate::{
+    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
+    RPC_URL_KEY,
 };
+use chrono::Utc;
+use digital_asset_types::dao::backfill_items;
+use flatbuffers::FlatBufferBuilder;
+use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
+use plerkle_serialization::transaction_info_generated::transaction_info::{
+    self, TransactionInfo, TransactionInfoArgs,
+};
+use sea_orm::{
+    entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
+    SqlxPostgresConnector, TryGetableMany,
+};
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcBlockConfig};
+use solana_sdk::{
+    commitment_config::{CommitmentConfig, CommitmentLevel},
+    pubkey::Pubkey,
+};
+use solana_transaction_status::{
+    EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
+    UiTransactionStatusMeta,
+};
+use sqlx::{self, postgres::PgListener, Pool, Postgres};
+use std::str::FromStr;
+use tokio::time::{sleep, Duration};
 
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
@@ -54,7 +47,6 @@ pub async fn backfiller<T: Messenger>(
         backfiller.run().await;
     })
 }
-
 
 /// Struct used when querying for unique trees.
 #[derive(Debug, FromQueryResult)]
@@ -307,8 +299,8 @@ impl<T: Messenger> Backfiller<T> {
             WHERE backfill_items.force_chk = TRUE",
             vec![],
         ))
-            .all(&self.db)
-            .await?;
+        .all(&self.db)
+        .await?;
 
         // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut trees: Vec<BackfillTree> = force_chk_trees
@@ -324,8 +316,8 @@ impl<T: Messenger> Backfiller<T> {
             HAVING COUNT(*) > 1",
             vec![],
         ))
-            .all(&self.db)
-            .await?;
+        .all(&self.db)
+        .await?;
 
         // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut multi_row_trees: Vec<BackfillTree> = multi_row_trees
@@ -506,7 +498,7 @@ impl<T: Messenger> Backfiller<T> {
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tree = bs58::encode(tree).into_string();
-                let bubblegum = BubblegumParser::key().to_string();
+                let bubblegum = blockbuster::programs::bubblegum::program_id().to_string();
                 if ui_raw_message
                     .account_keys
                     .iter()

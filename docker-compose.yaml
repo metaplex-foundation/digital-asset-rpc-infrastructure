@@ -39,6 +39,7 @@ services:
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:0.0.6
     volumes:
+    - ./programs:/so/:ro
     - ./ledger:/config:rw
     environment:
       RUST_LOG: warn
