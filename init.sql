@@ -173,8 +173,8 @@ create table candy_machine_data
     max_supply                 int              not null,
     is_mutable                 bool             not null,
     retain_authority           bool             not null,
-    go_live_date               int, 
-    items_available            int,
+    go_live_date               int,
+    items_available            int              not null,
 );
 
 create table candy_machine_state
@@ -190,7 +190,7 @@ create table candy_machine_state
 create table candy_machine_creators
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
     creator               bytea                                    not null,
     share                 int                                      not null default 0,
     verified              bool                                     not null default false
@@ -202,7 +202,7 @@ create index candy_machine_verified_creator on candy_machine_creators (candy_mac
 create table candy_machine_whitelist_mint_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
     mode                  whitelist_mint_mode                      not null,
     mint                  bytea                                    not null,
     presale               bool                                     not null,
@@ -214,7 +214,7 @@ create unique index candy_machine_whitelist_mint_settings_candy_machine_data_id 
 create table candy_machine_hidden_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
     name                  varchar(50)                              not null,
     uri                   varchar(200)                             not null,
     hash                  bytea                                    not null
@@ -225,7 +225,7 @@ create unique index candy_machine_hidden_settings_candy_machine_data_id on candy
 create table candy_machine_end_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
     number                int                                      not null,
     end_setting_type      end_setting_type                         not null
     
@@ -235,7 +235,7 @@ create unique index candy_machine_end_settings_candy_machine_data_id on candy_ma
 create table candy_machine_gatekeeper
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
     gatekeeper_network    bytea                                    not null,
     expire_on_use         bool                                     not null
     
