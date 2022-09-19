@@ -159,3 +159,87 @@ create table asset_creators
 create unique index asset_creators_asset_id on asset_creators (asset_id);
 create index asset_creator on asset_creators (asset_id, creator);
 create index asset_verified_creator on asset_creators (asset_id, verified);
+
+create type whitelist_mint_mode AS ENUM ('burn_every_time', 'never_burn');
+create type end_setting_type AS ENUM ('date', 'amount');
+
+create table candy_machine_data
+(
+    id                         bigserial        PRIMARY KEY,
+    uuid                       varchar(6)       not null,
+    price                      int              not null,
+    symbol                     varchar(5)       not null,
+    seller_fee_basis_points    int              not null,
+    max_supply                 int              not null,
+    is_mutable                 bool             not null,
+    retain_authority           bool             not null,
+    go_live_date               int, 
+    items_available            int,
+);
+
+create table candy_machine_state
+(
+    id                       bigserial           PRIMARY KEY,
+    candy_machine_data_id    bigint references candy_machine_data (id),
+    authority                bytea               not null,
+    wallet                   bytea               not null,
+    token_mint               bytea,
+    items_redeemdd           int                 not null               
+);
+
+create table candy_machine_creators
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    creator               bytea                                    not null,
+    share                 int                                      not null default 0,
+    verified              bool                                     not null default false
+);
+create unique index candy_machine_creators_candy_machine_data_id on candy_machine_creators (candy_machine_data_id);
+create index candy_machine_creator on candy_machine_creators (candy_machine_data_id, creator);
+create index candy_machine_verified_creator on candy_machine_creators (candy_machine_data_id, verified);
+
+create table candy_machine_whitelist_mint_settings
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    mode                  whitelist_mint_mode                      not null,
+    mint                  bytea                                    not null,
+    presale               bool                                     not null,
+    discount_price        int
+) 
+create unique index candy_machine_whitelist_mint_settings_candy_machine_data_id on candy_machine_whitelist_mint_settings (candy_machine_data_id);
+
+
+create table candy_machine_hidden_settings
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    name                  varchar(50)                              not null,
+    uri                   varchar(200)                             not null,
+    hash                  bytea                                    not null
+) 
+create unique index candy_machine_hidden_settings_candy_machine_data_id on candy_machine_hidden_settings (candy_machine_data_id);
+
+
+create table candy_machine_end_settings
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    number                int                                      not null,
+    end_setting_type      end_setting_type                         not null
+    
+) 
+create unique index candy_machine_end_settings_candy_machine_data_id on candy_machine_end_settings (candy_machine_data_id);
+
+create table candy_machine_gatekeeper
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine_data_id bytea references candy_machine_data (id) not null,
+    gatekeeper_network    bytea                                    not null,
+    expire_on_use         bool                                     not null
+    
+) 
+create unique index candy_machine_end_settings_candy_machine_data_id on candy_machine_end_settings (candy_machine_data_id);
+
+
