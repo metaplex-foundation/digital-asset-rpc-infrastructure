@@ -242,4 +242,20 @@ create table candy_machine_gatekeeper
 ) 
 create unique index candy_machine_end_settings_candy_machine_data_id on candy_machine_end_settings (candy_machine_data_id);
 
+create table candy_machine_collections
+(
+    id                    bigserial                                PRIMARY KEY,
+    mint                  bytea                                    not null,
+    candy_machine         bytea                                    not null
+)
 
+create table candy_machine_freeze
+(
+    id                    bigserial                                PRIMARY KEY,
+    candy_machine         bytea                                    not null,
+    allow_thaw            bool                                     not null, 
+    frozen_count          int                                      not null,
+    mint_start            int,
+    freeze_time           int                                      not null,
+    freeze_fee            int                                      not null
+)

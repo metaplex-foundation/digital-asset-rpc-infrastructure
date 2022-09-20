@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod get_assets_by_owner {
-    use sea_orm::{
-        entity::prelude::*, Condition, DatabaseBackend, JoinType, MockDatabase, QuerySelect,
-    };
+    use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
     use solana_sdk::{signature::Keypair, signer::Signer};
 
     use crate::{
