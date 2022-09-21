@@ -26,6 +26,12 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
+    CandyMachineDataId,
+    Features,
+    Authority,
+    MintAuthority,
+    CollectionMint,
+    ItemsRedeemed,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -45,6 +51,12 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
+            Self::CandyMachineDataId => ColumnType::BigInteger.def(),
+            Self::Features => ColumnType::Integer.def(),
+            Self::Authority => ColumnType::Binary.def(),
+            Self::MintAuthority => ColumnType::Binary.def(),
+            Self::CollectionMint => ColumnType::Binary.def(),
+            Self::ItemsRedeemed => ColumnType::Integer.def(),
         }
     }
 }

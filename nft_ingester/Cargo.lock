@@ -2309,6 +2309,8 @@ dependencies = [
  "futures-util",
  "hex",
  "lazy_static",
+ "mpl-candy-guard",
+ "mpl-candy-machine-core",
  "num-integer",
  "num-traits",
  "plerkle_messenger",

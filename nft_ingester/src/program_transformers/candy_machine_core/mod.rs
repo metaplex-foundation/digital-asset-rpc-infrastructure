@@ -13,6 +13,8 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{BgTask, IngesterError};
 
+pub mod candy_machine_core;
+
 pub async fn handle_candy_machine_core_account_update<'c>(
     parsing_result: &'c CandyMachineCoreAccountData,
     acct: &'c AccountInfo<'c>,

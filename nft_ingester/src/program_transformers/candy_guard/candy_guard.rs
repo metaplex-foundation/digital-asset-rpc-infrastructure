@@ -1,4 +1,3 @@
-
 use crate::{
     program_transformers::{candy_machine::state::CandyMachine, common::save_changelog_event},
     IngesterError,
@@ -13,6 +12,7 @@ use digital_asset_types::{
     dao::candy_machine_collections,
     json::ChainDataV1,
 };
+use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
 use num_traits::FromPrimitive;
 use plerkle_serialization::{
     account_info_generated::account_info::AccountInfo,
@@ -25,11 +25,10 @@ use sea_orm::{
 
 pub async fn candy_guard<'c>(
     candy_guard: &CandyGuard,
+    candy_guard_data: &CandyGuardData,
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let (candy_guard, candy_guard_data) = candy_guard;
-
     // let candy_guard = candy_machine_collections::ActiveModel {
     //     mint: Set(collections.mint.to_bytes().to_vec()),
     //     candy_machine: Set(collections.candy_machine.to_bytes().to_vec()),

@@ -4,6 +4,7 @@ use blockbuster::{
     programs::candy_guard::{CandyGuardAccountData, InstructionName},
 };
 
+use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
 use plerkle_serialization::{
     account_info_generated::account_info::AccountInfo,
     transaction_info_generated::transaction_info::{self},
@@ -12,6 +13,8 @@ use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{BgTask, IngesterError};
+
+mod candy_guard;
 
 pub async fn handle_candy_guard_account_update<'c>(
     parsing_result: &'c CandyGuardAccountData,
