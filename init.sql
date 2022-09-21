@@ -259,3 +259,8 @@ create table candy_machine_freeze
     freeze_time           int                                      not null,
     freeze_fee            int                                      not null
 )
+
+create table candy_machine_core
+(
+
+)

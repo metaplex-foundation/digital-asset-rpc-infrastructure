@@ -40,7 +40,7 @@ pub async fn handle_candy_machine_account_update<'c>(
             freeze::freeze(freeze_pda, acct, &txn).await?;
             txn.commit().await?;
         }
-        _ => println!("Candy Machine: Account update invalid"),
+        _ => println!("Candy Machine: Account update invalid."),
     }
     Ok(())
 }

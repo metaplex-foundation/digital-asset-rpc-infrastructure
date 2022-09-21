@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Default, Debug, DeriveEntity)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Entity;
 
 impl EntityName for Entity {
@@ -36,11 +36,6 @@ impl PrimaryKeyTrait for PrimaryKey {
     fn auto_increment() -> bool {
         true
     }
-}
-
-#[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    CandyMachineData,
 }
 
 impl ColumnTrait for Column {

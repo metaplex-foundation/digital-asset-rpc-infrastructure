@@ -8,30 +8,24 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_freeze"
+        "candy_machine_core"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: i64,
-    pub candy_machine: Vec<u8>,
-    pub allow_thaw: bool,
-    pub frozen_count: u64,
-    pub mint_start: Option<i64>,
-    pub freeze_time: i64,
-    pub freeze_fee: u64,
+    pub candy_machine_data_id: i64,
+    pub features: u64,
+    pub authority: Vec<u8>,
+    pub mint_authority: Vec<u8>,
+    pub collection_mint: Vec<u8>,
+    pub items_redeemed: u64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    CandyMachine,
-    AllowThaw,
-    FrozenCount,
-    MintStart,
-    FreezeTime,
-    FreezeFee,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -51,12 +45,6 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::CandyMachine => ColumnType::Binary.def(),
-            Self::AllowThaw => ColumnType::Boolean.def(),
-            Self::FrozenCount => ColumnType::Integer.def(),
-            Self::MintStart => ColumnType::Integer.def().null(),
-            Self::FreezeTime => ColumnType::Integer.def(),
-            Self::FreezeFee => ColumnType::Integer.def(),
         }
     }
 }

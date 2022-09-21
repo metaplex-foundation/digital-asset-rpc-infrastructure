@@ -2231,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "mpl-candy-machine-core"
 version = "0.0.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#ef297861a1bb176fd4a630fd5ff4c2ed2c2504fc"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#3f129a0566769251df8c6cd81f61fdf8a8d7bf92"
 dependencies = [
  "anchor-lang",
  "anchor-spl",

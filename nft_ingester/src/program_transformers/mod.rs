@@ -21,6 +21,7 @@ use crate::program_transformers::candy_machine::handle_candy_machine_account_upd
 
 mod bubblegum;
 mod candy_machine;
+mod candy_machine_core;
 mod common;
 
 pub struct ProgramTransformer {
@@ -81,6 +82,15 @@ impl ProgramTransformer {
             match concrete {
                 ProgramParseResult::CandyMachine(parsing_result) => {
                     handle_candy_machine_account_update(
+                        parsing_result,
+                        &acct,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
+                }
+                ProgramParseResult::CandyMachineCore(parsing_result) => {
+                    handle_candy_machine_core_account_update(
                         parsing_result,
                         &acct,
                         &self.storage,
