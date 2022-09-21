@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: i64,
-    pub candy_machine: Pubkey,
+    pub candy_machine: Vec<u8>,
     pub allow_thaw: bool,
     pub frozen_count: u64,
     pub mint_start: Option<i64>,
