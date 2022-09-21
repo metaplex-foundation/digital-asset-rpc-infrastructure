@@ -12,10 +12,9 @@ use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod candy_machine;
+mod collection;
+mod freeze;
 mod state;
-
-// mod collection;
-// mod freeze;
 
 pub use db::*;
 
