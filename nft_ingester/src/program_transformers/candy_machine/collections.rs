@@ -42,7 +42,7 @@ pub async fn collections<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
