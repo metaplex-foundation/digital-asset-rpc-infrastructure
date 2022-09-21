@@ -12,7 +12,7 @@ use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod candy_machine;
-mod collection;
+mod collections;
 mod freeze;
 mod state;
 
@@ -33,11 +33,14 @@ pub async fn handle_candy_machine_account_update<'c>(
             txn.commit().await?;
         }
         CandyMachineAccountData::CollectionPDA(collection_pda) => {
+            collections::collections(collection_pda, acct, &txn).await?;
             txn.commit().await?;
         }
         CandyMachineAccountData::FreezePDA(freeze_pda) => {
+            freeze::freeze(freeze_pda, acct, &txn).await?;
             txn.commit().await?;
         }
+        _ => println!("Candy Machine: Account update invalid"),
     }
     Ok(())
 }
