@@ -153,6 +153,7 @@ pub async fn candy_machine<'c>(
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
     }
+
     // TODO: fix hidden_settings db structure
     // TODO: fix error handling look at collections
     Ok(())

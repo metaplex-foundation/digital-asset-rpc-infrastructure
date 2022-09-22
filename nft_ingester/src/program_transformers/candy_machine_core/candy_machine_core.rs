@@ -5,7 +5,7 @@ use blockbuster::{
 };
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_machine, candy_machine_data},
+    dao::{candy_machine, candy_machine_config_line_settings, candy_machine_data},
     json::ChainDataV1,
 };
 use mpl_candy_machine_core::CandyMachine;
@@ -97,66 +97,29 @@ pub async fn candy_machine_core<'c>(
         txn.execute(query).await?;
     };
 
-    if let Some(whitelist_mint_setting) = data.whitelist_mint_settings {
-        let candy_machine_whitelist_mint_settings =
-            candy_machine_whitelist_mint_settings::ActiveModel {
-                candy_machine_data_id: Set(candy_machine_data.id),
-                mode: Set(whitelist_mint_settings.mode),
-                mint: Set(whitelist_mint_settings.mint.to_bytes().to_vec()),
-                presale: Set(whitelist_mint_settings.presale),
-                discount_price: Set(whitelist_mint_settings.discount_price),
-                ..Default::default()
-            };
+    if let Some(config_line_settings) = data.config_line_settings {
+        let candy_machine_config_line_settings = candy_machine_config_line_settings::ActiveModel {
+            candy_machine_data_id: Set(data.id),
+            prefix_name: Set(config_line_settings.prefix_name),
+            name_length: Set(config_line_settings.name_length),
+            prefix_uri: Set(config_line_settings.prefix_uri),
+            uri_length: Set(config_line_settings.uri_length),
+            is_sequential: Set(config_line_settings.is_sequential),
+            ..Default::default()
+        };
 
-        let query = candy_machine_whitelist_mint_settings::Entity::insert_one(
-            candy_machine_whitelist_mint_settings,
+        let query = candy_machine_config_line_settings::Entity::insert_one(
+            candy_machine_config_line_settings,
         )
         .on_conflict(
-            OnConflict::columns([
-                candy_machine_whitelist_mint_settings::Column::CandyMachineDataId,
-            ])
-            .do_nothing()
-            .to_owned(),
+            OnConflict::columns([candy_machine_config_line_settings::Column::CandyMachineDataId])
+                .do_nothing()
+                .to_owned(),
         )
         .build(DbBackend::Postgres);
-        txn.execute(query).await?
-    }
-
-    if let Some(gatekeeper) = data.gatekeeper {
-        let candy_machine_gatekeeper = candy_machine_gatekeeper::ActiveModel {
-            candy_machine_data_id: Set(candy_machine_data.id),
-            gatekeeper_network: Set(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
-            expire_on_use: Set(gatekeeper.expire_on_use),
-            ..Default::default()
-        };
-
-        let query = candy_machine_gatekeeper::Entity::insert_one(candy_machine_gatekeeper)
-            .on_conflict(
-                OnConflict::columns([candy_machine_gatekeeper::Column::CandyMachineDataId])
-                    .do_nothing()
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
         txn.execute(query).await?;
     }
 
-    if let Some(end_settings) = data.end_settings {
-        let candy_machine_end_settings = candy_machine_end_settings::ActiveModel {
-            candy_machine_data_id: Set(candy_machine_data.id),
-            number: Set(end_settings.number),
-            end_setting_type: Set(end_settings.end_setting_type),
-            ..Default::default()
-        };
-
-        let query = candy_machine_end_settings::Entity::insert_one(candy_machine_end_settings)
-            .on_conflict(
-                OnConflict::columns([candy_machine_end_settings::Column::CandyMachineDataId])
-                    .do_nothing()
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        txn.execute(query).await?;
-    }
-
+    //TODO: hidden settings here, fix in DB structure :/
     Ok(())
 }
