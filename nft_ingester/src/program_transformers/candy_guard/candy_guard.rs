@@ -29,20 +29,7 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    // let candy_guard = candy_machine_collections::ActiveModel {
-    //     mint: Set(collections.mint.to_bytes().to_vec()),
-    //     candy_machine: Set(collections.candy_machine.to_bytes().to_vec()),
-    //     ..Default::default()
-    // };
-
-    // let query = candy_machine_collections::Entity::insert(model)
-    //     .on_conflict(
-    //         OnConflict::columns([candy_machine_collections::Column::Id])
-    //             .do_nothing()
-    //             .to_owned(),
-    //     )
-    //     .build(DbBackend::Postgres);
-    // txn.execute(query).await.map(|_| ()).map_err(Into::into);
+    
 
     Ok(())
 }

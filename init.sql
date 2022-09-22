@@ -272,3 +272,34 @@ create table candy_machine_config_line_settings
     is_sequential         bool                                    not null,
 )
 create unique index candy_machine_config_line_settings_candy_machine_data_id on candy_machine_config_line_settings (candy_machine_data_id);
+
+create table candy_guard_mint_limit
+(
+    id                   int                                     PRIMARY KEY,
+    limit                int                                     not null,
+    candy_guard_id       bigint references candy_guard (id)      not null, 
+)
+
+create table candy_guard_allow_list
+(
+    id                   bigserial                              PRIMARY KEY,
+    merkle_root          bytea                                  not null,
+    candy_guard_id       bigint references candy_guard (id)     not null, 
+)
+
+create table candy_guard_nft_payment
+(
+    id                   bigserial                              PRIMARY KEY,
+    burn                 bool                                   not null,
+    required_collection  bytea                                  not null,
+    candy_guard_id       bigint references candy_guard (id)     not null, 
+)
+
+create table candy_guard_third_party_signer
+(
+    id                   bigserial                              PRIMARY KEY,
+    signer_key           bytea                                  not null,
+    candy_guard_id       bigint references candy_guard (id)     not null, 
+)
+
+

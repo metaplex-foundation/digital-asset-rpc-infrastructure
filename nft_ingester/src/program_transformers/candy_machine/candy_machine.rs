@@ -156,5 +156,6 @@ pub async fn candy_machine<'c>(
 
     // TODO: fix hidden_settings db structure
     // TODO: fix error handling look at collections
+    // txn.execute(query).await.map(|_| ()).map_err(Into::into);
     Ok(())
 }
