@@ -302,4 +302,41 @@ create table candy_guard_third_party_signer
     candy_guard_id       bigint references candy_guard (id)     not null, 
 )
 
+create table candy_guard_live_date
+(
+    id                   bigserial                              PRIMARY KEY,
+    date                int,
+    candy_guard_id       bigint references candy_guard (id)     not null,
+)
 
+create table candy_guard_spl_token
+(
+    id                   bigserial                              PRIMARY KEY,
+    amount               int                                    not null,
+    token_mint           bytea                                  not null,
+    destination_ata      bytea                                  not null,
+    candy_guard_id       bigint references candy_guard (id)     not null,
+)
+
+create table candy_guard_lamports
+(
+    id                   bigserial                              PRIMARY KEY,
+    amount               int                                    not null,
+    destination          bytea                                  not null,
+    candy_guard_id       bigint references candy_guard (id)     not null,
+)
+
+create table candy_guard_bot_tax
+(
+    id                   bigserial                              PRIMARY KEY,
+    lamports             int                                    not null,
+    last_instruction     bool                                   not null,
+    candy_guard_id       bigint references candy_guard (id)     not null,
+)
+
+create table candy_guard_group
+(
+    id                   bigserial                              PRIMARY KEY,
+    label                varchar(50)                            not null,
+    candy_guard_id       bigint references candy_guard (id)     not null,
+)
