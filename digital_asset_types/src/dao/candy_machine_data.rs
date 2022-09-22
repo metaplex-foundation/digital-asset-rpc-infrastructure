@@ -24,6 +24,7 @@ pub struct Model {
     pub retain_authority: Option<bool>,
     pub go_live_date: Option<i64>,
     pub items_available: u64,
+    pub candy_machine_id: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -38,6 +39,7 @@ pub enum Column {
     RetainAuthority,
     GoLiveDate,
     ItemsAvailable,
+    CandyMachine,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -59,6 +61,8 @@ pub enum Relation {
     CandyMachineGatekeeper,
     CandyMachineWhitelistMintSettings,
     CandyMachineCreators,
+    CandyMachine,
+    CandyMachineConfigLineSettings,
 }
 
 impl ColumnTrait for Column {
@@ -72,9 +76,10 @@ impl ColumnTrait for Column {
             Self::SellerFeeBasisPoints => ColumnType::Binary.def(),
             Self::MaxSupply => ColumnType::Integer.def(),
             Self::IsMutable => ColumnType::Boolean.def().null(),
-            Self::RelationAuthority => ColumnType::Boolean.def(),
+            Self::RetainAuthority => ColumnType::Boolean.def(),
             Self::GoLiveDate => ColumnType::Integer.def().null(),
             Self::ItemsAvailable => ColumnType::Integer.def(),
+            Self::CandyMachine => ColumnType::BigInteger.def(),
         }
     }
 }
@@ -97,9 +102,10 @@ impl RelationTrait for Relation {
             Self::CandyMachineCreators => {
                 Entity::has_many(super::candy_machine_creators::Entity).into()
             }
-            Self::ConfigLineSettings => {
+            Self::CandyMachineConfigLineSettings => {
                 Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
             }
+            Self::CandyMachine => Entity::has_one(super::candy_machine::Entity).into(),
         }
     }
 }
@@ -137,6 +143,12 @@ impl Related<super::candy_machine_creators::Entity> for Entity {
 impl Related<super::candy_machine_config_line_settings::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CandyMachineConfigLineSettings.def()
+    }
+}
+
+impl Related<super::candy_machine::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachine.def()
     }
 }
 

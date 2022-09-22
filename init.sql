@@ -163,6 +163,17 @@ create index asset_verified_creator on asset_creators (asset_id, verified);
 create type whitelist_mint_mode AS ENUM ('burn_every_time', 'never_burn');
 create type end_setting_type AS ENUM ('date', 'amount');
 
+create table candy_machine
+(
+    id                       bigserial           PRIMARY KEY,
+    features                 int,
+    authority                bytea               not null,
+    wallet                   bytea               not null,
+    token_mint               bytea,
+    items_redeemed           int                 not null,
+    version                  int                 not null,         
+);
+
 create table candy_machine_data
 (
     id                         bigserial        PRIMARY KEY,
@@ -175,17 +186,7 @@ create table candy_machine_data
     retain_authority           bool,
     go_live_date               int,
     items_available            int              not null,
-);
-
-create table candy_machine
-(
-    id                       bigserial           PRIMARY KEY,
-    candy_machine_data_id    bigint references candy_machine_data (id),
-    features                 int,
-    authority                bytea               not null,
-    wallet                   bytea               not null,
-    token_mint               bytea,
-    items_redeemed           int                 not null               
+    candy_machine_id           bigint references candy_machine (id),
 );
 
 create table candy_machine_creators

@@ -21,6 +21,7 @@ pub struct Model {
     pub wallet: Vec<u8>,
     pub token_mint: Option<Vec<u8>>,
     pub items_redeemed: i32,
+    pub version: u8,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -32,6 +33,7 @@ pub enum Column {
     Wallet,
     TokenMint,
     ItemsRedeemed,
+    Version,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -62,6 +64,7 @@ impl ColumnTrait for Column {
             Self::Wallet => ColumnType::Binary.def(),
             Self::TokenMint => ColumnType::Binary.def().null(),
             Self::ItemsRedeemed => ColumnType::Integer.def(),
+            Self::Version => ColumnType::Integer.def(),
         }
     }
 }
