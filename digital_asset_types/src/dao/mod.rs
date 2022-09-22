@@ -10,6 +10,7 @@ pub mod asset_grouping;
 pub mod backfill_items;
 pub mod candy_guard_allow_list;
 pub mod candy_guard_bot_tax;
+pub mod candy_guard_group;
 pub mod candy_guard_lamports;
 pub mod candy_guard_live_date;
 pub mod candy_guard_mint_limit;

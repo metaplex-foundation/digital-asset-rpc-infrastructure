@@ -35,7 +35,7 @@ pub async fn candy_machine<'c>(
 ) -> Result<(), IngesterError> {
     let data = candy_machine.data;
 
-    //TODO: should fetch first here ? then update or insert
+    //TODO should fetch first here ? then update or insert
     let candy_machine_data = candy_machine_data::ActiveModel {
         uuid: Set(Some(data.uuid)),
         price: Set(Some(data.price)),
@@ -72,6 +72,7 @@ pub async fn candy_machine<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
+    // TODO move creators out to helper file
     if candy_machine.data.creators.len() > 0 {
         let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
         for c in metadata.creators.iter() {
@@ -97,8 +98,6 @@ pub async fn candy_machine<'c>(
     };
 
     process_candy_machine_change(&data, txn).await?;
-
-    // TODO: fix error handling look at collections
 
     Ok(())
 }

@@ -340,3 +340,5 @@ create table candy_guard_group
     label                varchar(50)                            not null,
     candy_guard_id       bigint references candy_guard (id)     not null,
 )
+
+

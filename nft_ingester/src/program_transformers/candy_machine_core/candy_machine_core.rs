@@ -60,7 +60,7 @@ pub async fn candy_machine_core<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     // Do not attempt to modify any existing values:
     // `ON CONFLICT ('id') DO NOTHING`.
@@ -71,8 +71,9 @@ pub async fn candy_machine_core<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
+    // TODO move creators out to helper file
     if candy_machine.data.creators.len() > 0 {
         let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
         for c in metadata.creators.iter() {
@@ -94,32 +95,13 @@ pub async fn candy_machine_core<'c>(
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        txn.execute(query).await?;
+        txn.execute(query).await.map(|_| ()).map_err(Into::into);
     };
 
     if let Some(config_line_settings) = data.config_line_settings {
-        let candy_machine_config_line_settings = candy_machine_config_line_settings::ActiveModel {
-            candy_machine_data_id: Set(data.id),
-            prefix_name: Set(config_line_settings.prefix_name),
-            name_length: Set(config_line_settings.name_length),
-            prefix_uri: Set(config_line_settings.prefix_uri),
-            uri_length: Set(config_line_settings.uri_length),
-            is_sequential: Set(config_line_settings.is_sequential),
-            ..Default::default()
-        };
-
-        let query = candy_machine_config_line_settings::Entity::insert_one(
-            candy_machine_config_line_settings,
-        )
-        .on_conflict(
-            OnConflict::columns([candy_machine_config_line_settings::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-        txn.execute(query).await?;
+        process_config_line_change(config_line_settings, txn).await?;
     }
 
-    //TODO: hidden settings here, fix in DB structure :/
+    // TODO hidden settings here
     Ok(())
 }

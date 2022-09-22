@@ -100,7 +100,7 @@ pub async fn process_candy_machine_change(
         process_end_settings_change(end_settings, 7, txn)?;
     }
 
-    // TODO: add hidden settings
+    // TODO add hidden settings
 
     Ok(())
 }

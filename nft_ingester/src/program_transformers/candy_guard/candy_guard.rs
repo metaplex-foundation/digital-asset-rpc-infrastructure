@@ -12,7 +12,7 @@ use blockbuster::{
 use candy_machine::state::CandyMachine;
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
-    dao::candy_machine_collections,
+    dao::{candy_guard_group, candy_machine_collections},
     json::ChainDataV1,
 };
 use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
@@ -39,18 +39,32 @@ pub async fn candy_guard<'c>(
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let default_guard_set = candy_guard_data.default;
-    //TODO: what to do with CandyGuard here?
+    //TODO what to do with CandyGuard here?
 
-    // TODO: find some kind of way to get candy id in here
+    // TODO find some kind of way to get candy id in here
     process_guard_set_change(&default_guard_set, txn);
 
-    // TODO: should these be inserted and/or updated all in one db trx
+    // TODO should these be inserted and/or updated all in one db trx
 
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {
+                let candy_guard_group = candy_guard_group::ActiveModel {
+                    label: Set(g.label),
+                    candy_guard_id: todo!(),
+                    ..Default::default()
+                };
+
+                let query = candy_guard_nft_payment::Entity::insert_one(candy_guard_nft_payment)
+                    .on_conflict(
+                        OnConflict::columns([candy_guard_nft_payment::Column::CandyMachineDataId])
+                            .do_nothing()
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
                 let guard_set = g.guards;
-                // TODO: add label to DB
                 process_guard_set_change(&guard_set, txn);
             }
         };
