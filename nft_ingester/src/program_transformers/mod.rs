@@ -5,16 +5,12 @@ use blockbuster::{
 };
 
 use crate::{error::IngesterError, BgTask};
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
+use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
-use transaction_info::Pubkey as FBPubkey;
 
 use crate::program_transformers::bubblegum::handle_bubblegum_instruction;
 

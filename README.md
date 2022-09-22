@@ -1,6 +1,8 @@
 ### This repo was originally built inside https://github.com/jarry-xiao/candyland as a join effort between Solana X Metaplex
 This repo is in transition, and we are factoring out components from CandyLand here.
 
+## IMPORTANT: See Prerequisites below
+
 ## Digital Asset RPC API Infrastructure
 This repo houses the API Ingester and Database Types components of the Metaplex Digital Asset RPC API. Together these 
 components are responsible for the aggregation of Solana Validator Data into an extremely fast and well typed api. This 
@@ -24,10 +26,13 @@ This repo houses Helm Charts, Docker files and Terraform files to assist in the 
 
 ### Developing
 
+#### Prerequisites:
+You must clone the https://github.com/metaplex-foundation/blockbuster repo, this is un publishable for now due to active development in like 1000 branches and serious mathematics avoiding dependency hell.
+
 Because this is a multi component system the easiest way to develop or locally test this system is with docker but developing locally without docker is possible.
 
 #### Developing Locally
- *Prerequisites* 
+ *Prerequisites*
  * A Postgres Server running with the database setup according to ./init.sql
  * A Redis instance that has streams enabled or a version that supports streams
  * A local solana validator with the Plerkle plugin running.

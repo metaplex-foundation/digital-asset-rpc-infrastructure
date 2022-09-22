@@ -4,14 +4,6 @@ mod metrics;
 mod program_transformers;
 mod tasks;
 
-use chrono::Utc;
-
-use plerkle_messenger::{
-    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
-};
-
-use std::collections::HashSet;
-
 use crate::{
     backfiller::backfiller,
     error::IngesterError,
@@ -21,15 +13,16 @@ use crate::{
 use blockbuster::instruction::{order_instructions, InstructionBundle};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_time};
+use chrono::Utc;
 use figment::{providers::Env, Figment};
 use futures_util::TryFutureExt;
-use plerkle_serialization::{
-    account_info_generated::account_info::root_as_account_info,
-    transaction_info_generated::transaction_info::root_as_transaction_info,
+use plerkle_messenger::{
+    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
 };
+use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::net::UdpSocket;
+use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.
@@ -210,7 +203,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     program,
                     instruction,
                     inner_ix,
-                    keys: &keys.unwrap(),
+                    keys: keys.unwrap(),
                     slot: tx.slot(),
                 };
                 let (program, _) = &outer_ix;

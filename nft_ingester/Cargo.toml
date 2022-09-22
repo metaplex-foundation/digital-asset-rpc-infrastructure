@@ -11,7 +11,7 @@ base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
 tokio = { version = "1.14.1", features = ["full"] }
-sqlx= { version = "0.6.1", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sqlx = { version = "0.6.1", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { version = "0.9.2", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.26.3", features = ["postgres-array"] }
 chrono = "0.4.19"
@@ -19,8 +19,8 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "0.0.7", features = ['redis'] }
-plerkle_serialization = { version = "0.0.7" }
+plerkle_messenger = { version = "0.2.0", features = ['redis'] }
+plerkle_serialization = { version = "0.2.0" }
 flatbuffers = "2.1.2"
 lazy_static = "1.4.0"
 regex = "1.5.5"
@@ -28,14 +28,14 @@ digital_asset_types = { path = "../digital_asset_types", features = ["json_types
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version="0.0.2" }
+blockbuster = { path = "../../blockbuster/blockbuster", version = "0.1.0" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-sdk = "~1.10.29"
-solana-client = "~1.10.29"
-spl-token = { version = "~3.3.0", features = ["no-entrypoint"] }
-solana-transaction-status = "1.10.29"
+solana-sdk = "~1.10.38"
+solana-client = "~1.10.38"
+spl-token = { version = "~3.5.0", features = ["no-entrypoint"] }
+solana-transaction-status = "1.10.38"
 
 [dependencies.num-integer]
 version = "0.1.44"
