@@ -8,7 +8,7 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_core"
+        "candy_machine"
     }
 }
 
@@ -16,11 +16,11 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub candy_machine_data_id: i64,
-    pub features: u64,
+    pub features: Option<u64>,
     pub authority: Vec<u8>,
-    pub mint_authority: Vec<u8>,
-    pub collection_mint: Vec<u8>,
-    pub items_redeemed: u64,
+    pub wallet: Vec<u8>,
+    pub token_mint: Option<Vec<u8>>,
+    pub items_redeemed: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -29,8 +29,8 @@ pub enum Column {
     CandyMachineDataId,
     Features,
     Authority,
-    MintAuthority,
-    CollectionMint,
+    Wallet,
+    TokenMint,
     ItemsRedeemed,
 }
 
@@ -46,18 +46,40 @@ impl PrimaryKeyTrait for PrimaryKey {
     }
 }
 
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {
+    CandyMachineData,
+}
+
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::CandyMachineDataId => ColumnType::BigInteger.def(),
-            Self::Features => ColumnType::Integer.def(),
+            Self::CandyMachineDataId => ColumnType::BigInteger.def().null(),
+            Self::Features => ColumnType::Integer.def().null(),
             Self::Authority => ColumnType::Binary.def(),
-            Self::MintAuthority => ColumnType::Binary.def(),
-            Self::CollectionMint => ColumnType::Binary.def(),
+            Self::Wallet => ColumnType::Binary.def(),
+            Self::TokenMint => ColumnType::Binary.def().null(),
             Self::ItemsRedeemed => ColumnType::Integer.def(),
         }
+    }
+}
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyMachineData => Entity::belongs_to(super::candy_machine_data::Entity)
+                .from(Column::CandyMachineDataId)
+                .to(super::candy_machine_data::Column::Id)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::candy_machine_data::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineData.def()
     }
 }
 

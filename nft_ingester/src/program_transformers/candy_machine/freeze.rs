@@ -11,7 +11,7 @@ use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
     dao::{
         candy_machine_data, candy_machine_end_settings, candy_machine_freeze,
-        candy_machine_gatekeeper, candy_machine_state, candy_machine_whitelist_mint_settings,
+        candy_machine_gatekeeper, candy_machine, candy_machine_whitelist_mint_settings,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,

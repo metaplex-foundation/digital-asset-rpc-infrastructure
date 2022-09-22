@@ -10,8 +10,8 @@ use candy_machine::state::CandyMachine;
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
     dao::{
-        candy_machine_data, candy_machine_end_settings, candy_machine_gatekeeper,
-        candy_machine_state, candy_machine_whitelist_mint_settings,
+        candy_machine, candy_machine_data, candy_machine_end_settings, candy_machine_gatekeeper,
+        candy_machine_whitelist_mint_settings,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
@@ -34,13 +34,13 @@ pub async fn candy_machine<'c>(
     let data = candy_machine.data;
 
     let candy_machine_data = candy_machine_data::ActiveModel {
-        uuid: Set(data.uuid),
-        price: Set(data.price),
+        uuid: Set(Some(data.uuid)),
+        price: Set(Some(data.price)),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
         max_suppy: Set(data.max_supply),
         is_mutable: Set(data.is_mutable),
-        retain_authority: Set(data.retain_authority),
+        retain_authority: Set(Some(data.retain_authority)),
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
         ..Default::default()
@@ -48,8 +48,9 @@ pub async fn candy_machine<'c>(
     .insert(txn)
     .await?;
 
-    let candy_machine_state = candy_machine_state::ActiveModel {
+    let candy_machine_state = candy_machine::ActiveModel {
         candy_machine_data_id: Set(candy_machine_data.id),
+        features: Set(None),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
         wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
         token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
@@ -59,9 +60,9 @@ pub async fn candy_machine<'c>(
 
     // Do not attempt to modify any existing values:
     // `ON CONFLICT ('id') DO NOTHING`.
-    let query = candy_machine_state::Entity::insert(model)
+    let query = candy_machine::Entity::insert(model)
         .on_conflict(
-            OnConflict::columns([candy_machine_state::Column::Id])
+            OnConflict::columns([candy_machine::Column::Id])
                 .do_nothing()
                 .to_owned(),
         )
@@ -92,17 +93,20 @@ pub async fn candy_machine<'c>(
         txn.execute(query).await?;
     };
 
-    let candy_machine_whitelist_mint_settings =
-        candy_machine_whitelist_mint_settings::ActiveModel {
-            candy_machine_data_id: Set(candy_machine_data.id),
-            mode: Set(data.whitelist_mint_settings.mode),
-            mint: Set(data.whitelist_mint_settings.mint.to_bytes().to_vec()),
-            presale: Set(data.whitelist_mint_settings.presale),
-            discount_price: Set(data.whitelist_mint_settings.discount_price),
-            ..Default::default()
-        };
+    if let Some(whitelist_mint_setting) = data.whitelist_mint_settings {
+        let candy_machine_whitelist_mint_settings =
+            candy_machine_whitelist_mint_settings::ActiveModel {
+                candy_machine_data_id: Set(candy_machine_data.id),
+                mode: Set(whitelist_mint_settings.mode),
+                mint: Set(whitelist_mint_settings.mint.to_bytes().to_vec()),
+                presale: Set(whitelist_mint_settings.presale),
+                discount_price: Set(whitelist_mint_settings.discount_price),
+                ..Default::default()
+            };
 
-    let query = candy_machine_whitelist_mint_settings::Entity::insert_one(creators)
+        let query = candy_machine_whitelist_mint_settings::Entity::insert_one(
+            candy_machine_whitelist_mint_settings,
+        )
         .on_conflict(
             OnConflict::columns([
                 candy_machine_whitelist_mint_settings::Column::CandyMachineDataId,
@@ -111,40 +115,45 @@ pub async fn candy_machine<'c>(
             .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+        txn.execute(query).await?
+    }
 
-    let candy_machine_gatekeeper = candy_machine_gatekeeper::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
-        gatekeeper_network: Set(data.gatekeeper.gatekeeper_network.to_bytes().to_vec()),
-        expire_on_use: Set(data.gatekeeper.expire_on_use),
-        ..Default::default()
-    };
+    if let Some(gatekeeper) = data.gatekeeper {
+        let candy_machine_gatekeeper = candy_machine_gatekeeper::ActiveModel {
+            candy_machine_data_id: Set(candy_machine_data.id),
+            gatekeeper_network: Set(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
+            expire_on_use: Set(gatekeeper.expire_on_use),
+            ..Default::default()
+        };
 
-    let query = candy_machine_gatekeeper::Entity::insert_one(candy_machine_gatekeeper)
-        .on_conflict(
-            OnConflict::columns([candy_machine_gatekeeper::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+        let query = candy_machine_gatekeeper::Entity::insert_one(candy_machine_gatekeeper)
+            .on_conflict(
+                OnConflict::columns([candy_machine_gatekeeper::Column::CandyMachineDataId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+    }
 
-    let candy_machine_end_settings = candy_machine_end_settings::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
-        number: Set(data.end_settings.number),
-        end_setting_type: Set(data.end_settings.end_setting_type),
-        ..Default::default()
-    };
+    if let Some(end_settings) = data.end_settings {
+        let candy_machine_end_settings = candy_machine_end_settings::ActiveModel {
+            candy_machine_data_id: Set(candy_machine_data.id),
+            number: Set(end_settings.number),
+            end_setting_type: Set(end_settings.end_setting_type),
+            ..Default::default()
+        };
 
-    let query = candy_machine_end_settings::Entity::insert_one(candy_machine_end_settings)
-        .on_conflict(
-            OnConflict::columns([candy_machine_end_settings::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await?;
-
+        let query = candy_machine_end_settings::Entity::insert_one(candy_machine_end_settings)
+            .on_conflict(
+                OnConflict::columns([candy_machine_end_settings::Column::CandyMachineDataId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+    }
     // TODO: fix hidden_settings db structure
+    // TODO: fix error handling look at collections
     Ok(())
 }

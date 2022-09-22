@@ -8,7 +8,7 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_state"
+        "candy_machine_config_line_settings"
     }
 }
 
@@ -16,20 +16,22 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub candy_machine_data_id: i64,
-    pub authority: Vec<u8>,
-    pub wallet: Vec<u8>,
-    pub token_mint: Option<Vec<u8>>,
-    pub items_redeemed: i32,
+    pub prefix_name: String,
+    pub name_length: u32,
+    pub prefix_uri: String,
+    pub uri_length: u32,
+    pub is_sequential: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     CandyMachineDataId,
-    Authority,
-    Wallet,
-    TokenMint,
-    ItemsRedeemed,
+    PrefixName,
+    NameLength,
+    PrefixUri,
+    UriLength,
+    IsSequential,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -38,7 +40,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
@@ -54,11 +56,12 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::CandyMachineDataId => ColumnType::BigInteger.def().null(),
-            Self::Authority => ColumnType::Binary.def(),
-            Self::Wallet => ColumnType::Binary.def(),
-            Self::TokenMint => ColumnType::Binary.def().null(),
-            Self::ItemsRedeemed => ColumnType::Integer.def(),
+            Self::CandyMachineDataId => ColumnType::BigInteger.def(),
+            Self::PrefixName => ColumnType::String.def(),
+            Self::NameLength => ColumnType::Integer.def(),
+            Self::PrefixUri => ColumnType::String.def(),
+            Self::UriLength => ColumnType::Integer.def(),
+            Self::IsSequential => ColumnType::Boolean.def(),
         }
     }
 }
@@ -76,7 +79,7 @@ impl RelationTrait for Relation {
 
 impl Related<super::candy_machine_data::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::CandyMachineData.def()
+        Relation::candy_machine_data.def()
     }
 }
 

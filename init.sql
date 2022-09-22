@@ -166,25 +166,26 @@ create type end_setting_type AS ENUM ('date', 'amount');
 create table candy_machine_data
 (
     id                         bigserial        PRIMARY KEY,
-    uuid                       varchar(6)       not null,
-    price                      int              not null,
+    uuid                       varchar(6),
+    price                      int,
     symbol                     varchar(5)       not null,
     seller_fee_basis_points    int              not null,
     max_supply                 int              not null,
     is_mutable                 bool             not null,
-    retain_authority           bool             not null,
+    retain_authority           bool,
     go_live_date               int,
     items_available            int              not null,
 );
 
-create table candy_machine_state
+create table candy_machine
 (
     id                       bigserial           PRIMARY KEY,
     candy_machine_data_id    bigint references candy_machine_data (id),
+    features                 int,
     authority                bytea               not null,
     wallet                   bytea               not null,
     token_mint               bytea,
-    items_redeemdd           int                 not null               
+    items_redeemed           int                 not null               
 );
 
 create table candy_machine_creators
@@ -260,7 +261,14 @@ create table candy_machine_freeze
     freeze_fee            int                                      not null
 )
 
-create table candy_machine_core
+create table candy_machine_config_line_settings
 (
-
+    id                    bigserial                               PRIMARY KEY,
+    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    prefix_name           varchar(10)                             not null,
+    name_length           int                                     not null,
+    prefix_uri            varchar(10)                             not null,
+    uri_length            int                                     not null,
+    is_sequential         bool                                    not null,
 )
+create unique index candy_machine_config_line_settings_candy_machine_data_id on candy_machine_config_line_settings (candy_machine_data_id);
