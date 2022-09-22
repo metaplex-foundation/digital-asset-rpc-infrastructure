@@ -6,7 +6,8 @@ use digital_asset_types::dao::{
     candy_guard_third_party_signer, cl_items,
 };
 use mpl_candy_guard::guards::{
-    AllowList, BotTax, GuardSet, Lamports, MintLimit, NftPayment, SplToken, ThirdPartySigner,
+    AllowList, BotTax, GuardSet, Lamports, LiveDate, MintLimit, NftPayment, SplToken,
+    ThirdPartySigner,
 };
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
 
@@ -18,8 +19,8 @@ pub async fn process_nft_payment_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_nft_payment = candy_guard_nft_payment::ActiveModel {
-        burn: todo!(),
-        required_collection: todo!(),
+        burn: Set(nft_payment.burn),
+        required_collection: Set(nft_payment.required_collection.to_bytes().to_vec()),
         candy_guard_id: todo!(),
         ..Default::default()
     };
@@ -31,7 +32,7 @@ pub async fn process_nft_payment_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -41,7 +42,7 @@ pub async fn process_mint_limit_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_mint_limit = candy_guard_mint_limit::ActiveModel {
-        limit: todo!(),
+        limit: Set(mint_limit.limit),
         candy_guard_id: todo!(),
         ..Default::default()
     };
@@ -53,7 +54,7 @@ pub async fn process_mint_limit_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -63,7 +64,7 @@ pub async fn process_allow_list_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_allow_list = candy_guard_allow_list::ActiveModel {
-        merkle_root: todo!(),
+        merkle_root: Set(allow_list.merkle_root),
         candy_guard_id: todo!(),
         ..Default::default()
     };
@@ -75,7 +76,7 @@ pub async fn process_allow_list_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -84,7 +85,11 @@ pub async fn process_third_party_signer_change(
     third_party_signer: &ThirdPartySigner,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard_third_party_signer = candy_guard_third_party_signer::ActiveModel {};
+    let candy_guard_third_party_signer = candy_guard_third_party_signer::ActiveModel {
+        signer_key: Set(third_party_signer.signer_key.to_bytes().to_vec()),
+        candy_guard_id: todo!(),
+        ..Default::default()
+    };
 
     let query = candy_guard_third_party_signer::Entity::insert_one(candy_guard_third_party_signer)
         .on_conflict(
@@ -93,7 +98,7 @@ pub async fn process_third_party_signer_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -102,7 +107,11 @@ pub async fn process_live_date_change(
     live_date: &LiveDate,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard_live_date = candy_guard_live_date::ActiveModel {};
+    let candy_guard_live_date = candy_guard_live_date::ActiveModel {
+        live_date: Set(live_date.date),
+        candy_guard_id: todo!(),
+        ..Default::default()
+    };
 
     let query = candy_guard_live_date::Entity::insert_one(candy_guard_live_date)
         .on_conflict(
@@ -111,7 +120,7 @@ pub async fn process_live_date_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -120,7 +129,13 @@ pub async fn process_spl_token_change(
     spl_token: &SplToken,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard_spl_token = candy_guard_spl_token::ActiveModel {};
+    let candy_guard_spl_token = candy_guard_spl_token::ActiveModel {
+        amount: Set(spl_token.amount),
+        token_mint: Set(spl_token.token_mint.to_bytes().to_vec()),
+        destination_ata: Set(spl_token.destination_ata.to_bytes().to_vec()),
+        candy_guard_id: todo!(),
+        ..Default::default()
+    };
 
     let query = candy_guard_spl_token::Entity::insert_one(candy_guard_spl_token)
         .on_conflict(
@@ -129,7 +144,7 @@ pub async fn process_spl_token_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -138,7 +153,12 @@ pub async fn process_lamports_change(
     lamports: &Lamports,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard_lamports = candy_guard_lamports::ActiveModel {};
+    let candy_guard_lamports = candy_guard_lamports::ActiveModel {
+        amount: Set(lamports.amount),
+        destination: Set(lamports.destination.to_bytes().to_vec()),
+        candy_guard_id: todo!(),
+        ..Default::default()
+    };
 
     let query = candy_guard_lamports::Entity::insert_one(candy_guard_lamports)
         .on_conflict(
@@ -147,7 +167,7 @@ pub async fn process_lamports_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
@@ -156,7 +176,12 @@ pub async fn process_bot_tax_change(
     bot_tax: &BotTax,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard_bot_tax = candy_guard_bot_tax::ActiveModel {};
+    let candy_guard_bot_tax = candy_guard_bot_tax::ActiveModel {
+        lamports: Set(bot_tax.lamports),
+        last_instruction: Set(bot_tax.last_instruction),
+        candy_guard_id: todo!(),
+        ..Default::default()
+    };
 
     let query = candy_guard_bot_tax::Entity::insert_one(candy_guard_bot_tax)
         .on_conflict(
@@ -165,12 +190,10 @@ pub async fn process_bot_tax_change(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
 }
-
-// TODO: put appropriate field for each model, currently copied all from end settings
 
 pub async fn process_guard_set_change(
     guard_set: &GuardSet,

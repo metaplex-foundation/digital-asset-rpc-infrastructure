@@ -39,6 +39,7 @@ pub async fn candy_guard<'c>(
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let default_guard_set = candy_guard_data.default;
+    //TODO: what to do with CandyGuard here?
 
     // TODO: find some kind of way to get candy id in here
     process_guard_set_change(&default_guard_set, txn);
@@ -49,6 +50,7 @@ pub async fn candy_guard<'c>(
         if groups.len() > 0 {
             for g in groups.iter() {
                 let guard_set = g.guards;
+                // TODO: add label to DB
                 process_guard_set_change(&guard_set, txn);
             }
         };
