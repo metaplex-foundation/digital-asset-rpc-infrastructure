@@ -24,6 +24,7 @@ use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
+use crate::metrics::safe_metric;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -42,20 +43,22 @@ pub struct IngesterConfig {
     pub database_config: DatabaseConfig,
     pub messenger_config: MessengerConfig,
     pub rpc_config: RpcConfig,
-    pub metrics_port: u16,
-    pub metrics_host: String,
+    pub metrics_port: Option<u16>,
+    pub metrics_host: Option<String>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
     let uri = config.metrics_host.clone();
     let port = config.metrics_port.clone();
-    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    socket.set_nonblocking(true).unwrap();
-    let host = (uri, port);
-    let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
-    let queuing_sink = QueuingMetricSink::from(udp_sink);
-    let client = StatsdClient::from_sink("das_ingester", queuing_sink);
-    set_global_default(client);
+    if uri.is_some() || port.is_some() {
+        let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let host = (uri.unwrap(), port.unwrap());
+        let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
+        let queuing_sink = QueuingMetricSink::from(udp_sink);
+        let client = StatsdClient::from_sink("das_ingester", queuing_sink);
+        set_global_default(client);
+    }
 }
 
 #[tokio::main]
@@ -96,9 +99,11 @@ async fn main() {
             background_task_manager.get_sender(),
             config.messenger_config.clone(),
         )
-        .await,
+            .await,
     );
-    statsd_count!("ingester.startup", 1);
+    safe_metric(|| {
+        statsd_count!("ingester.startup", 1);
+    });
 
     tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
     // Wait for ctrl-c.
@@ -165,7 +170,9 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             }
             Ok(account_update) => account_update,
         };
-        statsd_count!("ingester.account_update_seen", 1);
+        safe_metric(|| {
+            statsd_count!("ingester.account_update_seen", 1);
+        });
         manager
             .handle_account_update(account_update)
             .await
@@ -193,7 +200,9 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
             let keys = tx.account_keys();
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
-                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+                safe_metric(|| {
+                    statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+                });
             }
             let seen_at = Utc::now();
             for (outer_ix, inner_ix) in instructions {
@@ -207,17 +216,20 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     slot: tx.slot(),
                 };
                 let (program, _) = &outer_ix;
-                statsd_time!(
+                safe_metric(|| {
+                    statsd_time!(
                     "ingester.bus_ingest_time",
-                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
-                );
+                    (seen_at.timestamp_millis() - tx.seen_at()) as u64);
+                });
                 manager
                     .handle_instruction(&bundle)
                     .await
                     .expect("Processing Failed");
                 let finished_at = Utc::now();
                 let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-                statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
+                safe_metric(|| {
+                    statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
+                });
             }
             // TODO -> DLQ message if it failed.
         }

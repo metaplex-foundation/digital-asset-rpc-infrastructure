@@ -6,8 +6,8 @@ services:
     restart: always
     environment:
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
-      INGESTER_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
-      INGESTER_RPC_CONFIG: '{url="http://candyland-solana-1:8899", commitment="finalized"}'
+      INGESTER_MESSENGER_CONFIG: '{connection_config={redis_connection_str="redis://redis"}, messenger_type="Redis"}'
+      INGESTER_RPC_CONFIG: '{url="http://digital-asset-rpc-solana-1:8899", commitment="finalized"}'
     build:
       context: .
       dockerfile: Ingest.Dockerfile
@@ -37,13 +37,14 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:0.2.0
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:0.3.1
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw
     environment:
       RUST_LOG: warn
-      PLUGIN_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
+      PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
+      PLUGIN_MESSENGER_CONFIG.connection_config: '{redis_connection_str="redis://redis"}'
     ports:
       - "8900:8900"
       - "8001:8001"

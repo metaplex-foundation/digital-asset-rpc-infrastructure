@@ -93,3 +93,4 @@ docker-compose up
 ```
 
 When making changes you will need to ``docker compose up --force-recreate`` again to get the latest changes.
+Also when mucking about with the docker fi=le if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
