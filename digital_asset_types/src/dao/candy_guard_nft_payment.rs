@@ -16,7 +16,7 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: u8,
     pub burn: bool,
-    pub required_collection: Pubkey,
+    pub required_collection: Vec<u8>,
     pub candy_guard_id: i64,
 }
 
@@ -44,8 +44,8 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::Integer.def(),
-            Self::Burn => ColumnType::Bool.def(),
+            Self::Id => ColumnType::BigInteger.def(),
+            Self::Burn => ColumnType::Boolean.def(),
             Self::RequiredCollection => ColumnType::Binary.def(),
             Self::CandyGuardId => ColumnType::BigInteger.def(),
         }

@@ -8,21 +8,25 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_guard_mint_limit"
+        "candy_guard_spl_token"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
-    pub limit: u16,
+    pub id: u8,
+    pub amount: u64,
+    pub token_mint: Vec<u8>,
+    pub destination_ata: Vec<u8>,
     pub candy_guard_id: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    Limit,
+    Amount,
+    TokenMint,
+    DestinationAta,
     CandyGuardId,
 }
 
@@ -43,7 +47,9 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::Limit => ColumnType::Integer.def(),
+            Self::Amount => ColumnType::Integer.def(),
+            Self::TokenMint => ColumnType::Binary.def(),
+            Self::DestinationAta => ColumnType::Binary.def(),
             Self::CandyGuardId => ColumnType::BigInteger.def(),
         }
     }

@@ -14,6 +14,7 @@ use tokio::sync::mpsc::UnboundedSender;
 mod candy_machine;
 mod collections;
 mod freeze;
+mod helpers;
 mod state;
 
 pub use db::*;

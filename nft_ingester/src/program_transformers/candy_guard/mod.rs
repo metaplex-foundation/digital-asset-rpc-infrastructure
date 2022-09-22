@@ -15,6 +15,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{BgTask, IngesterError};
 
 mod candy_guard;
+mod helpers;
 
 pub async fn handle_candy_guard_account_update<'c>(
     parsing_result: &'c CandyGuardAccountData,

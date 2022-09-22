@@ -3,23 +3,29 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, DeriveEntity)]
 pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_guard"
+        "candy_guard_lamports"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
+    pub id: u8,
+    pub amount: u64,
+    pub destination: Vec<u8>,
+    pub candy_guard_id: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
+    Amount,
+    Destination,
+    CandyGuardId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -39,6 +45,9 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
+            Self::Amount => ColumnType::Integer.def(),
+            Self::Destination => ColumnType::Binary.def(),
+            Self::CandyGuardId => ColumnType::BigInteger.def(),
         }
     }
 }

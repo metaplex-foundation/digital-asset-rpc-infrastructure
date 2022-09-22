@@ -14,7 +14,7 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: u8,
+    pub id: i64,
     pub merkle_root: [u8; 32],
     pub candy_guard_id: i64,
 }
@@ -42,7 +42,7 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::Integer.def(),
+            Self::Id => ColumnType::BigInteger.def(),
             Self::MerkleRoot => ColumnType::Binary.def(),
             Self::CandyGuardId => ColumnType::BigInteger.def(),
         }
