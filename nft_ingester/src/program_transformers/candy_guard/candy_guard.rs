@@ -78,7 +78,7 @@ pub async fn candy_guard<'c>(
 
                 let query = candy_guard_group::Entity::insert_one(candy_guard_group)
                     .on_conflict(
-                        OnConflict::columns([candy_guard_group::Column::CandyMachineDataId])
+                        OnConflict::columns([candy_guard_group::Column::CandyMachineId])
                             .do_nothing()
                             .to_owned(),
                     )
@@ -86,7 +86,7 @@ pub async fn candy_guard<'c>(
                 txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
                 let guard_set = g.guards;
-                process_guard_set_change(&guard_set, txn);
+                process_guard_set_change(&guard_set, acct.key().to_bytes().to_vec(), txn);
             }
         };
     }

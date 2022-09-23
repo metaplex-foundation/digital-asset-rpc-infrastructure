@@ -44,7 +44,6 @@ pub enum Relation {
     Lamports,
     SplToken,
     LiveDate,
-    Creators,
     ThirdPartySigner,
     Whitelist,
     Gatekeeper,
@@ -68,12 +67,10 @@ impl ColumnTrait for Column {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            // TODO figure out belongs to
-            // Self::AssetData => Entity::belongs_to(super::asset_data::Entity)
-            //     .from(Column::ChainDataId)
-            //     .to(super::asset_data::Column::Id)
-            //     .into(),
-            // TODO add creators here
+            Self::CandyMachine => Entity::belongs_to(super::candy_machine::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_machine::Column::MintAuthority)
+                .into(),
             Self::BotTax => Entity::has_one(super::candy_guard_bot_tax::Entity).into(),
             Self::Lamports => Entity::has_one(super::candy_guard_lamports::Entity).into(),
             Self::SplToken => Entity::has_one(super::candy_guard_spl_token::Entity).into(),
@@ -98,8 +95,6 @@ impl Related<super::candy_guard_bot_tax::Entity> for Entity {
         Relation::BotTax.def()
     }
 }
-
-// TODO figur out if naming relations are correct
 
 impl Related<super::candy_guard_lamports::Entity> for Entity {
     fn to() -> RelationDef {

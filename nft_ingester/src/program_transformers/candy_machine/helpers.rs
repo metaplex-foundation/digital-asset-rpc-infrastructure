@@ -17,7 +17,7 @@ pub async fn process_whitelist_change(
 ) -> Result<(), IngesterError> {
     let candy_machine_whitelist_mint_settings =
         candy_machine_whitelist_mint_settings::ActiveModel {
-            candy_machine_data_id: Set(candy_machine_data_id),
+            candy_machine_id: Set(candy_machine_data_id),
             mode: Set(whitelist_mint_settings.mode),
             mint: Set(whitelist_mint_settings.mint.to_bytes().to_vec()),
             presale: Set(whitelist_mint_settings.presale),
@@ -45,7 +45,7 @@ pub async fn process_gatekeeper_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_machine_gatekeeper = candy_machine_gatekeeper::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
+        candy_machine_id: Set(candy_machine_data_id),
         gatekeeper_network: Set(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
         expire_on_use: Set(gatekeeper.expire_on_use),
         ..Default::default()
@@ -69,7 +69,7 @@ pub async fn process_end_settings_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_machine_end_settings = candy_machine_end_settings::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
+        candy_machine_id: Set(candy_machine_data_id),
         number: Set(end_settings.number),
         end_setting_type: Set(end_settings.end_setting_type),
         ..Default::default()
@@ -77,7 +77,7 @@ pub async fn process_end_settings_change(
 
     let query = candy_machine_end_settings::Entity::insert_one(candy_machine_end_settings)
         .on_conflict(
-            OnConflict::columns([candy_machine_end_settings::Column::CandyMachineDataId])
+            OnConflict::columns([candy_machine_end_settings::Column::CandyMachineId])
                 .do_nothing()
                 .to_owned(),
         )
@@ -93,7 +93,7 @@ pub async fn process_hidden_settings_change(
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_machine_hidden_settings = candy_machine_hidden_settings::ActiveModel {
-        candy_machine_data_id: todo!(),
+        candy_machine_id: Set(candy_machine_data_id),
         name: Set(hidden_settings.name),
         uri: Set(hidden_settings.uri),
         hash: Set(hidden_settings.hash),
@@ -114,13 +114,13 @@ pub async fn process_hidden_settings_change(
 
 pub async fn process_creators_change(
     creators: &Vec<Creator>,
-    candy_machine_data_id: i64,
+    candy_machine_data_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
     for c in metadata.creators.iter() {
         creators.push(candy_machine_creators::ActiveModel {
-            candy_machine_data_id: Set(candy_machine_data.id),
+            candy_machine_id: Set(candy_machine_data_id),
             creator: Set(c.address.to_bytes().to_vec()),
             share: Set(c.share as i32),
             verified: Set(c.verified),
@@ -144,10 +144,11 @@ pub async fn process_creators_change(
 
 pub async fn process_candy_machine_change(
     candy_machine_data: &CandyMachineData,
+    candy_machine_data_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    if let Some(whitelist) = candy_machine_data.whitelist {
-        process_whitelist_change(whitelist, candy_machine_data_id, txn)?;
+    if let Some(whitelist) = candy_machine_data.whitelist_mint_settings {
+        process_whitelist_change(&whitelist, candy_machine_data_id, txn)?;
     }
 
     if let Some(gatekeeper) = candy_machine_data.gatekeeper {

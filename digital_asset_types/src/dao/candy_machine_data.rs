@@ -83,7 +83,7 @@ impl ColumnTrait for Column {
         }
     }
 }
-
+// TODO move data below into candy machine file
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {

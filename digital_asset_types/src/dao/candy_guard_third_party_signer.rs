@@ -16,7 +16,7 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub signer_key: Vec<u8>,
-    pub candy_guard_id: Vec<u8>,
+    pub candy_machine_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
