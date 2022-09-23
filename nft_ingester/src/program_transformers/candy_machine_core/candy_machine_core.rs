@@ -34,13 +34,17 @@ pub async fn candy_machine_core<'c>(
     let data = candy_machine_core.data;
 
     let candy_machine_core = candy_machine::ActiveModel {
+        id: Set(acct.key().to_bytes().to_vec()),
         features: Set(Some(candy_machine.features)),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
         wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
         token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
         items_redeemed: Set(candy_machine.items_redeemed),
-        ..Default::default()
+        mint_authority: Set(candy_machine.mint_authority.to_bytes().to_vec()),
+        version: Set(3),
     };
+
+    // TODO fix indexes properly in init.sql
 
     let query = candy_machine::Entity::insert(candy_machine_core)
         .on_conflict(
@@ -52,6 +56,7 @@ pub async fn candy_machine_core<'c>(
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     let candy_machine_data = candy_machine_data::ActiveModel {
+        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
         uuid: Set(None),
         price: Set(None),
         symbol: Set(data.symbol),
@@ -62,11 +67,16 @@ pub async fn candy_machine_core<'c>(
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
         ..Default::default()
-    }
-    .insert(txn)
-    .await?;
+    };
 
-    // TODO  put onconflic statement here ^
+    let query = candy_machine_data::Entity::insert(candy_machine_data)
+        .on_conflict(
+            OnConflict::columns([candy_machine_data::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     if candy_machine.data.creators.len() > 0 {
         process_creators_change(candy_machine.data.creators, candy_machine_data_id, txn).await?;

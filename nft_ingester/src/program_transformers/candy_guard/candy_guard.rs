@@ -60,7 +60,6 @@ pub async fn candy_guard<'c>(
     let default_guard_set = candy_guard_data.default;
 
     // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
-    // TODO need table for CandyGuard
     process_guard_set_change(&default_guard_set, candy_guard_group.id, txn);
 
     // TODO should these be inserted and/or updated all in one db trx

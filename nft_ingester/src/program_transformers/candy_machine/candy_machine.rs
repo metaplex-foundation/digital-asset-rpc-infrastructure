@@ -37,16 +37,16 @@ pub async fn candy_machine<'c>(
 
     //TODO should fetch first here ? then update or insert
     let candy_machine_state = candy_machine::ActiveModel {
+        id: Set(acct.key().to_bytes().to_vec()),
         features: Set(None),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
         wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
         token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
         items_redeemed: Set(candy_machine.items_redeemed),
-        ..Default::default()
+        mint_authority: Set(None),
+        version: Set(2),
     };
 
-    // Do not attempt to modify any existing values:
-    // `ON CONFLICT ('id') DO NOTHING`.
     let query = candy_machine::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
@@ -57,6 +57,7 @@ pub async fn candy_machine<'c>(
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     let candy_machine_data = candy_machine_data::ActiveModel {
+        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
         uuid: Set(Some(data.uuid)),
         price: Set(Some(data.price)),
         symbol: Set(data.symbol),
@@ -67,10 +68,16 @@ pub async fn candy_machine<'c>(
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
         ..Default::default()
-    }
-    .insert(txn)
-    .await?;
-    // TODO  put onconflic statement here
+    };
+
+    let query = candy_machine_data::Entity::insert(candy_machine_data)
+        .on_conflict(
+            OnConflict::columns([candy_machine_data::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     process_candy_machine_change(&data, txn).await?;
 
