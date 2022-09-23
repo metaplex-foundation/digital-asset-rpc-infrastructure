@@ -7,7 +7,10 @@ use crate::{
 };
 use blockbuster::{
     instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+    programs::{
+        bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        candy_guard,
+    },
 };
 use candy_machine::state::CandyMachine;
 use digital_asset_types::{
@@ -38,9 +41,7 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard = candy_guard::ActiveModel {
-      
-    };
+    let candy_guard = candy_guard::ActiveModel {};
 
     let query = candy_guard::Entity::insert_one(candy_guard_nft_payment)
         .on_conflict(
@@ -51,14 +52,16 @@ pub async fn candy_guard<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    let guard_set = g.guards;
-    process_guard_set_change(&guard_set, txn);
-
+    let candy_guard_group = candy_guard_group::ActiveModel {
+        label: Set(None),
+        candy_machine_id: todo!(),
+        ..Default::default()
+    };
     let default_guard_set = candy_guard_data.default;
 
     // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
     // TODO need table for CandyGuard
-    process_guard_set_change(&default_guard_set, txn);
+    process_guard_set_change(&default_guard_set, candy_guard_group.id, txn);
 
     // TODO should these be inserted and/or updated all in one db trx
     // TODO use mint authority as linking key for candy guard
@@ -68,8 +71,8 @@ pub async fn candy_guard<'c>(
         if groups.len() > 0 {
             for g in groups.iter() {
                 let candy_guard_group = candy_guard_group::ActiveModel {
-                    label: Set(g.label),
-                    candy_guard_id: todo!(),
+                    label: Set(Some(g.label)),
+                    candy_machine_id: todo!(),
                     ..Default::default()
                 };
 

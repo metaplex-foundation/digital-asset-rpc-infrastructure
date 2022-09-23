@@ -56,6 +56,7 @@ impl ColumnTrait for Column {
             Self::Base => ColumnType::Binary.def(),
             Self::Bump => ColumnType::Integer.def(),
             Self::Authority => ColumnType::Binary.def(),
+            
         }
     }
 }

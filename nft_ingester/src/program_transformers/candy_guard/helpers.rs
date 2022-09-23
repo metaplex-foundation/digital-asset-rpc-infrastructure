@@ -227,50 +227,51 @@ pub async fn process_config_line_change(
 
 pub async fn process_guard_set_change(
     guard_set: &GuardSet,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     if let Some(whitelist) = guard_set.whitelist {
-        process_whitelist_change(whitelist, 7, txn)?;
+        process_whitelist_change(whitelist, candy_guard_group_id, txn)?;
     }
 
     if let Some(gatekeeper) = guard_set.gatekeeper {
-        process_gatekeeper_change(gatekeeper, 7, txn)?;
+        process_gatekeeper_change(gatekeeper, candy_guard_group_id, txn)?;
     }
 
     if let Some(end_settings) = guard_set.end_settings {
-        process_end_settings_change(end_settings, 7, txn)?;
+        process_end_settings_change(end_settings, candy_guard_group_id, txn)?;
     }
 
     if let Some(bot_tax) = guard_set.bot_tax {
-        process_bot_tax_change(&bot_tax, txn)?;
+        process_bot_tax_change(&bot_tax, candy_guard_group_id, txn)?;
     }
 
     if let Some(lamports) = guard_set.lamports {
-        process_lamports_change(&lamports, txn)?;
+        process_lamports_change(&lamports, candy_guard_group_id, txn)?;
     }
 
     if let Some(spl_token) = guard_set.spl_token {
-        process_spl_token_change(&spl_token, txn)?;
+        process_spl_token_change(&spl_token, candy_guard_group_id, txn)?;
     }
 
     if let Some(live_date) = guard_set.live_date {
-        process_live_date_change(&live_date, txn)?;
+        process_live_date_change(&live_date, candy_guard_group_id, txn)?;
     }
 
     if let Some(third_party_signer) = guard_set.third_party_signer {
-        process_third_party_signer_change(&third_party_signer, txn)?;
+        process_third_party_signer_change(&third_party_signer, candy_guard_group_id, txn)?;
     }
 
     if let Some(allow_list) = guard_set.allow_list {
-        process_allow_list_change(&allow_list, txn)?;
+        process_allow_list_change(&allow_list, candy_guard_group_id, txn)?;
     }
 
     if let Some(mint_limit) = guard_set.mint_limit {
-        process_mint_limit_change(&mint_limit, txn)?;
+        process_mint_limit_change(&mint_limit, candy_guard_group_id, txn)?;
     }
 
     if let Some(nft_payment) = guard_set.nft_payment {
-        process_nft_payment_change(&nft_payment, txn)?;
+        process_nft_payment_change(&nft_payment, candy_guard_group_id, txn)?;
     }
 
     Ok(())
