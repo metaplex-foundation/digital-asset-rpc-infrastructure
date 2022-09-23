@@ -38,8 +38,23 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
+    let candy_guard = candy_guard::ActiveModel {
+      
+    };
+
+    let query = candy_guard::Entity::insert_one(candy_guard_nft_payment)
+        .on_conflict(
+            OnConflict::columns([candy_guard::Column::CandyMachineDataId])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
+    let guard_set = g.guards;
+    process_guard_set_change(&guard_set, txn);
+
     let default_guard_set = candy_guard_data.default;
-    //TODO what to do with CandyGuard here?
 
     // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
     // TODO need table for CandyGuard

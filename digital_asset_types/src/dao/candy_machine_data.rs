@@ -39,7 +39,7 @@ pub enum Column {
     RetainAuthority,
     GoLiveDate,
     ItemsAvailable,
-    CandyMachine,
+    CandyMachineId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -79,7 +79,7 @@ impl ColumnTrait for Column {
             Self::RetainAuthority => ColumnType::Boolean.def(),
             Self::GoLiveDate => ColumnType::Integer.def().null(),
             Self::ItemsAvailable => ColumnType::Integer.def(),
-            Self::CandyMachine => ColumnType::BigInteger.def(),
+            Self::CandyMachineId => ColumnType::BigInteger.def(),
         }
     }
 }
@@ -105,7 +105,10 @@ impl RelationTrait for Relation {
             Self::CandyMachineConfigLineSettings => {
                 Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
             }
-            Self::CandyMachine => Entity::has_one(super::candy_machine::Entity).into(),
+            Self::CandyMachine => Entity::belongs_to(super::candy_machine::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_machine::Column::Id)
+                .into(),
         }
     }
 }
