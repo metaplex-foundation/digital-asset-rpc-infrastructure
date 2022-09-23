@@ -14,11 +14,11 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: u8,
+    pub id: i64,
     pub amount: u64,
     pub token_mint: Vec<u8>,
     pub destination_ata: Vec<u8>,
-    pub candy_guard_id: i64,
+    pub candy_machine_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -27,7 +27,7 @@ pub enum Column {
     Amount,
     TokenMint,
     DestinationAta,
-    CandyGuardId,
+    CandyMachineId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -42,6 +42,11 @@ impl PrimaryKeyTrait for PrimaryKey {
     }
 }
 
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {
+    CandyGuardGroup,
+}
+
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
@@ -50,8 +55,25 @@ impl ColumnTrait for Column {
             Self::Amount => ColumnType::Integer.def(),
             Self::TokenMint => ColumnType::Binary.def(),
             Self::DestinationAta => ColumnType::Binary.def(),
-            Self::CandyGuardId => ColumnType::BigInteger.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
         }
+    }
+}
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyGuardGroup => Entity::belongs_to(super::candy_guard_group::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_guard_group::Column::CandyMachineId)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::candy_guard_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyGuardGroup.def()
     }
 }
 

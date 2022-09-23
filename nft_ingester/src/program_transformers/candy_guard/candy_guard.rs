@@ -7,15 +7,12 @@ use crate::{
 };
 use blockbuster::{
     instruction::InstructionBundle,
-    programs::{
-        bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-        candy_guard,
-    },
+    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use candy_machine::state::CandyMachine;
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_guard_group, candy_machine_collections},
+    dao::{candy_guard, candy_guard_group, candy_machine_collections},
     json::ChainDataV1,
 };
 use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
@@ -41,11 +38,18 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_guard = candy_guard::ActiveModel {};
+    // TODO is this security vulnerability ???? does this need to be stored ??
+    let candy_guard = candy_guard::ActiveModel {
+        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
+        base: Set(candy_guard.base.to_bytes().to_vec()),
+        bump: Set(candy_guard.bump),
+        authority: Set(candy_guard.authority.to_bytes().to_vec()),
+        ..Default::default()
+    };
 
-    let query = candy_guard::Entity::insert_one(candy_guard_nft_payment)
+    let query = candy_guard::Entity::insert_one(candy_guard)
         .on_conflict(
-            OnConflict::columns([candy_guard::Column::CandyMachineDataId])
+            OnConflict::columns([candy_guard::Column::CandyMachineId])
                 .do_nothing()
                 .to_owned(),
         )
@@ -54,30 +58,27 @@ pub async fn candy_guard<'c>(
 
     let candy_guard_group = candy_guard_group::ActiveModel {
         label: Set(None),
-        candy_machine_id: todo!(),
+        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
         ..Default::default()
     };
     let default_guard_set = candy_guard_data.default;
 
-    // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
-    process_guard_set_change(&default_guard_set, candy_guard_group.id, txn);
+    process_guard_set_change(&default_guard_set, acct.key().to_bytes().to_vec(), txn);
 
     // TODO should these be inserted and/or updated all in one db trx
-    // TODO use mint authority as linking key for candy guard
-    // TODO insert id as acct.key and this will be foreign key
 
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {
                 let candy_guard_group = candy_guard_group::ActiveModel {
                     label: Set(Some(g.label)),
-                    candy_machine_id: todo!(),
+                    candy_machine_id: Set(acct.key().to_bytes().to_vec()),
                     ..Default::default()
                 };
 
-                let query = candy_guard_nft_payment::Entity::insert_one(candy_guard_nft_payment)
+                let query = candy_guard_group::Entity::insert_one(candy_guard_group)
                     .on_conflict(
-                        OnConflict::columns([candy_guard_nft_payment::Column::CandyMachineDataId])
+                        OnConflict::columns([candy_guard_group::Column::CandyMachineDataId])
                             .do_nothing()
                             .to_owned(),
                     )

@@ -51,12 +51,11 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::BigInteger.def(),
+            Self::Id => ColumnType::Binary.def(),
             Self::CandyMachineId => ColumnType::Binary.def(),
             Self::Base => ColumnType::Binary.def(),
             Self::Bump => ColumnType::Integer.def(),
             Self::Authority => ColumnType::Binary.def(),
-            
         }
     }
 }

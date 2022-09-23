@@ -14,9 +14,9 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: u8,
+    pub id: i64,
     pub label: Option<String>,
-    pub candy_machine_id: i64,
+    pub candy_machine_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -44,6 +44,7 @@ pub enum Relation {
     Lamports,
     SplToken,
     LiveDate,
+    Creators,
     ThirdPartySigner,
     Whitelist,
     Gatekeeper,
@@ -59,7 +60,7 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
             Self::Label => ColumnType::String.def().null(),
-            Self::CandyMachineId => ColumnType::BigInteger.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
         }
     }
 }
@@ -72,6 +73,7 @@ impl RelationTrait for Relation {
             //     .from(Column::ChainDataId)
             //     .to(super::asset_data::Column::Id)
             //     .into(),
+            // TODO add creators here
             Self::BotTax => Entity::has_one(super::candy_guard_bot_tax::Entity).into(),
             Self::Lamports => Entity::has_one(super::candy_guard_lamports::Entity).into(),
             Self::SplToken => Entity::has_one(super::candy_guard_spl_token::Entity).into(),
@@ -123,9 +125,9 @@ impl Related<super::candy_guard_third_party_signer::Entity> for Entity {
     }
 }
 
-impl Related<super::asset_creators::Entity> for Entity {
+impl Related<super::candy_machine_creators::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::AssetCreators.def()
+        Relation::Creators.def()
     }
 }
 
