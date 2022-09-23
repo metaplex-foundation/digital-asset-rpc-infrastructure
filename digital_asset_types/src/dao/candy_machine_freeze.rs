@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: i64,
-    pub candy_machine: Vec<u8>,
+    pub candy_machine_id: Vec<u8>,
     pub allow_thaw: bool,
     pub frozen_count: u64,
     pub mint_start: Option<i64>,
@@ -26,7 +26,7 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    CandyMachine,
+    CandyMachineId,
     AllowThaw,
     FrozenCount,
     MintStart,
@@ -34,6 +34,7 @@ pub enum Column {
     FreezeFee,
 }
 
+// TODO determine relation here to candy machine
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
 pub enum PrimaryKey {
     Id,
@@ -51,7 +52,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::CandyMachine => ColumnType::Binary.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
             Self::AllowThaw => ColumnType::Boolean.def(),
             Self::FrozenCount => ColumnType::Integer.def(),
             Self::MintStart => ColumnType::Integer.def().null(),

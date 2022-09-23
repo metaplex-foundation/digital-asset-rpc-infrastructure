@@ -38,6 +38,8 @@ impl PrimaryKeyTrait for PrimaryKey {
     }
 }
 
+// TODO figure this one out
+
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {

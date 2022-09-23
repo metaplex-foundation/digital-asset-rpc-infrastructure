@@ -44,7 +44,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    CandyMachineData,
+    CandyMachine,
 }
 
 impl ColumnTrait for Column {
