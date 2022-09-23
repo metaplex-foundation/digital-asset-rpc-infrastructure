@@ -1,4 +1,11 @@
-use crate::{program_transformers::common::save_changelog_event, IngesterError};
+use crate::{
+    program_transformers::{
+        candy_guard::helpers::process_config_line_change,
+        candy_machine::helpers::{process_creators_change, process_hidden_settings_change},
+        common::save_changelog_event,
+    },
+    IngesterError,
+};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -26,6 +33,24 @@ pub async fn candy_machine_core<'c>(
 ) -> Result<(), IngesterError> {
     let data = candy_machine_core.data;
 
+    let candy_machine_core = candy_machine::ActiveModel {
+        features: Set(Some(candy_machine.features)),
+        authority: Set(candy_machine.authority.to_bytes().to_vec()),
+        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
+        token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
+        items_redeemed: Set(candy_machine.items_redeemed),
+        ..Default::default()
+    };
+
+    let query = candy_machine::Entity::insert(candy_machine_core)
+        .on_conflict(
+            OnConflict::columns([candy_machine::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
     let candy_machine_data = candy_machine_data::ActiveModel {
         uuid: Set(None),
         price: Set(None),
@@ -41,67 +66,19 @@ pub async fn candy_machine_core<'c>(
     .insert(txn)
     .await?;
 
-    let candy_machine_core = candy_machine::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
-        features: Set(Some(candy_machine.features)),
-        authority: Set(candy_machine.authority.to_bytes().to_vec()),
-        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
-        token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
-        items_redeemed: Set(candy_machine.items_redeemed),
-        ..Default::default()
-    };
+    // TODO  put onconflic statement here ^
 
-    // Do not attempt to modify any existing values:
-    // `ON CONFLICT ('id') DO NOTHING`.
-    let query = candy_machine::Entity::insert(model)
-        .on_conflict(
-            OnConflict::columns([candy_machine::Column::Id])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    // Do not attempt to modify any existing values:
-    // `ON CONFLICT ('id') DO NOTHING`.
-    let query = candy_machine::Entity::insert(model)
-        .on_conflict(
-            OnConflict::columns([candy_machine::Column::Id])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    // TODO move creators out to helper file
     if candy_machine.data.creators.len() > 0 {
-        let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
-        for c in metadata.creators.iter() {
-            creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_data_id: Set(candy_machine_data.id),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                ..Default::default()
-            });
-        }
-
-        // Do not attempt to modify any existing values:
-        // `ON CONFLICT ('asset_id') DO NOTHING`.
-        let query = candy_machine_creators::Entity::insert_many(creators)
-            .on_conflict(
-                OnConflict::columns([candy_machine_creators::Column::CandyMachineDataId])
-                    .do_nothing()
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        txn.execute(query).await.map(|_| ()).map_err(Into::into);
+        process_creators_change(candy_machine.data.creators, candy_machine_data_id, txn).await?;
     };
 
     if let Some(config_line_settings) = data.config_line_settings {
-        process_config_line_change(config_line_settings, txn).await?;
+        process_config_line_change(&config_line_settings, candy_machine_data_id, txn).await?;
     }
 
-    // TODO hidden settings here
+    if let Some(hidden_settings) = data.hidden_settings {
+        process_hidden_settings_change(&hidden_settings, candy_machine_data_id, txn).await?;
+    }
+
     Ok(())
 }

@@ -26,7 +26,7 @@ use sea_orm::{
     EntityTrait, JsonValue,
 };
 
-use super::helpers::process_candy_machine_change;
+use super::helpers::{process_candy_machine_change, process_creators_change};
 
 pub async fn candy_machine<'c>(
     candy_machine: &CandyMachine,
@@ -36,23 +36,7 @@ pub async fn candy_machine<'c>(
     let data = candy_machine.data;
 
     //TODO should fetch first here ? then update or insert
-    let candy_machine_data = candy_machine_data::ActiveModel {
-        uuid: Set(Some(data.uuid)),
-        price: Set(Some(data.price)),
-        symbol: Set(data.symbol),
-        seller_fee_basis_points: Set(data.seller_fee_basis_points),
-        max_suppy: Set(data.max_supply),
-        is_mutable: Set(data.is_mutable),
-        retain_authority: Set(Some(data.retain_authority)),
-        go_live_date: Set(data.go_live_date),
-        items_available: Set(data.items_available),
-        ..Default::default()
-    }
-    .insert(txn)
-    .await?;
-
     let candy_machine_state = candy_machine::ActiveModel {
-        candy_machine_data_id: Set(candy_machine_data.id),
         features: Set(None),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
         wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
@@ -72,30 +56,21 @@ pub async fn candy_machine<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    // TODO move creators out to helper file
-    if candy_machine.data.creators.len() > 0 {
-        let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
-        for c in metadata.creators.iter() {
-            creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_data_id: Set(candy_machine_data.id),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                ..Default::default()
-            });
-        }
-
-        // Do not attempt to modify any existing values:
-        // `ON CONFLICT ('asset_id') DO NOTHING`.
-        let query = candy_machine_creators::Entity::insert_many(creators)
-            .on_conflict(
-                OnConflict::columns([candy_machine_creators::Column::CandyMachineDataId])
-                    .do_nothing()
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        txn.execute(query).await.map(|_| ()).map_err(Into::into);
-    };
+    let candy_machine_data = candy_machine_data::ActiveModel {
+        uuid: Set(Some(data.uuid)),
+        price: Set(Some(data.price)),
+        symbol: Set(data.symbol),
+        seller_fee_basis_points: Set(data.seller_fee_basis_points),
+        max_suppy: Set(data.max_supply),
+        is_mutable: Set(data.is_mutable),
+        retain_authority: Set(Some(data.retain_authority)),
+        go_live_date: Set(data.go_live_date),
+        items_available: Set(data.items_available),
+        ..Default::default()
+    }
+    .insert(txn)
+    .await?;
+    // TODO  put onconflic statement here
 
     process_candy_machine_change(&data, txn).await?;
 

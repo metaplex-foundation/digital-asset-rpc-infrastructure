@@ -17,6 +17,7 @@ use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, D
 
 pub async fn process_nft_payment_change(
     nft_payment: &NftPayment,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_nft_payment = candy_guard_nft_payment::ActiveModel {
@@ -40,6 +41,7 @@ pub async fn process_nft_payment_change(
 
 pub async fn process_mint_limit_change(
     mint_limit: &MintLimit,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_mint_limit = candy_guard_mint_limit::ActiveModel {
@@ -62,6 +64,7 @@ pub async fn process_mint_limit_change(
 
 pub async fn process_allow_list_change(
     allow_list: &AllowList,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_allow_list = candy_guard_allow_list::ActiveModel {
@@ -84,6 +87,7 @@ pub async fn process_allow_list_change(
 
 pub async fn process_third_party_signer_change(
     third_party_signer: &ThirdPartySigner,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_third_party_signer = candy_guard_third_party_signer::ActiveModel {
@@ -106,6 +110,7 @@ pub async fn process_third_party_signer_change(
 
 pub async fn process_live_date_change(
     live_date: &LiveDate,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_live_date = candy_guard_live_date::ActiveModel {
@@ -128,6 +133,7 @@ pub async fn process_live_date_change(
 
 pub async fn process_spl_token_change(
     spl_token: &SplToken,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_spl_token = candy_guard_spl_token::ActiveModel {
@@ -152,6 +158,7 @@ pub async fn process_spl_token_change(
 
 pub async fn process_lamports_change(
     lamports: &Lamports,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_lamports = candy_guard_lamports::ActiveModel {
@@ -175,6 +182,7 @@ pub async fn process_lamports_change(
 
 pub async fn process_bot_tax_change(
     bot_tax: &BotTax,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_bot_tax = candy_guard_bot_tax::ActiveModel {
@@ -198,6 +206,7 @@ pub async fn process_bot_tax_change(
 
 pub async fn process_config_line_change(
     config_line_settings: &ConfigLineSettings,
+    candy_guard_group_id: i64,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_machine_config_line_settings = candy_machine_config_line_settings::ActiveModel {
