@@ -41,10 +41,13 @@ pub async fn candy_guard<'c>(
     let default_guard_set = candy_guard_data.default;
     //TODO what to do with CandyGuard here?
 
-    // TODO find some kind of way to get candy id in here
+    // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
+    // TODO need table for CandyGuard
     process_guard_set_change(&default_guard_set, txn);
 
     // TODO should these be inserted and/or updated all in one db trx
+    // TODO use mint authority as linking key for candy guard
+    // TODO insert id as acct.key and this will be foreign key
 
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {

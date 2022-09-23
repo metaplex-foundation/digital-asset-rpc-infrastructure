@@ -168,6 +168,7 @@ create table candy_machine
     id                       bigserial           PRIMARY KEY,
     features                 int,
     authority                bytea               not null,
+    mint_authority           bytea,
     wallet                   bytea               not null,
     token_mint               bytea,
     items_redeemed           int                 not null,
@@ -273,6 +274,14 @@ create table candy_machine_config_line_settings
     is_sequential         bool                                    not null,
 )
 create unique index candy_machine_config_line_settings_candy_machine_data_id on candy_machine_config_line_settings (candy_machine_data_id);
+
+create table candy_guard
+(   
+    id                   bigserial                               PRIMARY KEY,
+    base                 bytea                                   not null,
+    bump                 int                                     not null,
+    authority            bytea                                   not null,
+)
 
 create table candy_guard_mint_limit
 (

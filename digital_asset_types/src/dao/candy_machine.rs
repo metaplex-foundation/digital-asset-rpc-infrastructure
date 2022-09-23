@@ -18,6 +18,7 @@ pub struct Model {
     pub candy_machine_data_id: i64,
     pub features: Option<u64>,
     pub authority: Vec<u8>,
+    pub mint_authority: Option<u8>,
     pub wallet: Vec<u8>,
     pub token_mint: Option<Vec<u8>>,
     pub items_redeemed: i32,
