@@ -34,17 +34,21 @@ pub enum Column {
     FreezeFee,
 }
 
-// TODO determine relation here to candy machine
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
 pub enum PrimaryKey {
     Id,
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
+}
+
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {
+    CandyMachine,
 }
 
 impl ColumnTrait for Column {
@@ -59,6 +63,23 @@ impl ColumnTrait for Column {
             Self::FreezeTime => ColumnType::Integer.def(),
             Self::FreezeFee => ColumnType::Integer.def(),
         }
+    }
+}
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyMachine => Entity::belongs_to(super::candy_machine::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_machine::Column::Id)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::candy_machine::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::candy_machine.def()
     }
 }
 

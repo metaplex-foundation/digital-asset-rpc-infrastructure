@@ -165,14 +165,14 @@ create type end_setting_type AS ENUM ('date', 'amount');
 
 create table candy_machine
 (
-    id                       bigserial           PRIMARY KEY,
+    id                       bytea               PRIMARY KEY,
     features                 int,
     authority                bytea               not null,
     mint_authority           bytea,
     wallet                   bytea               not null,
     token_mint               bytea,
     items_redeemed           int                 not null,
-    version                  int                 not null,         
+    version                  int                 not null,     
 );
 
 create table candy_machine_data
@@ -189,61 +189,64 @@ create table candy_machine_data
     items_available            int              not null,
     candy_machine_id           bigint references candy_machine (id),
 );
+create unique index candy_machine_data_candy_machine_id on candy_machine_data (candy_machine_id);
 
 create table candy_machine_creators
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    candy_machine_id      bytea references candy_machine (id)      not null,
     creator               bytea                                    not null,
     share                 int                                      not null default 0,
     verified              bool                                     not null default false
 );
-create unique index candy_machine_creators_candy_machine_data_id on candy_machine_creators (candy_machine_data_id);
-create index candy_machine_creator on candy_machine_creators (candy_machine_data_id, creator);
-create index candy_machine_verified_creator on candy_machine_creators (candy_machine_data_id, verified);
+create unique index candy_machine_creators_candy_machine_id on candy_machine_creators (candy_machine_id);
+create index candy_machine_creator on candy_machine_creators (candy_machine_id, creator);
+create index candy_machine_verified_creator on candy_machine_creators (candy_machine_id, verified);
 
 create table candy_machine_whitelist_mint_settings
 (
-    id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
-    mode                  whitelist_mint_mode                      not null,
-    mint                  bytea                                    not null,
-    presale               bool                                     not null,
-    discount_price        int
+    id                           bigserial                                                PRIMARY KEY,
+    candy_machine_id             bytea references candy_machine (id),
+    candy_machine_mint_authority bytea references candy_machine (mint_authority),
+    mode                         whitelist_mint_mode                                      not null,
+    mint                         bytea                                                    not null,
+    presale                      bool                                                     not null,
+    discount_price               int
 ) 
-create unique index candy_machine_whitelist_mint_settings_candy_machine_data_id on candy_machine_whitelist_mint_settings (candy_machine_data_id);
+create unique index candy_machine_whitelist_mint_settings_candy_machine_id on candy_machine_whitelist_mint_settings (candy_machine_id);
+create unique index candy_machine_whitelist_mint_settings_candy_machine_mint_authority on candy_machine_whitelist_mint_settings (candy_machine_id);
 
 
 create table candy_machine_hidden_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    candy_machine_id      bytea references candy_machine (id)      not null,
     name                  varchar(50)                              not null,
     uri                   varchar(200)                             not null,
     hash                  bytea                                    not null
 ) 
-create unique index candy_machine_hidden_settings_candy_machine_data_id on candy_machine_hidden_settings (candy_machine_data_id);
+create unique index candy_machine_hidden_settings_candy_machine_id on candy_machine_hidden_settings (candy_machine_id);
 
 
 create table candy_machine_end_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    candy_machine_id      bytea references candy_machine (id)      not null,
     number                int                                      not null,
     end_setting_type      end_setting_type                         not null
     
 ) 
-create unique index candy_machine_end_settings_candy_machine_data_id on candy_machine_end_settings (candy_machine_data_id);
+create unique index candy_machine_end_settings_candy_machine_id on candy_machine_end_settings (candy_machine_id);
 
 create table candy_machine_gatekeeper
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    candy_machine_id      bytea references candy_machine (id)      not null,
     gatekeeper_network    bytea                                    not null,
     expire_on_use         bool                                     not null
     
 ) 
-create unique index candy_machine_end_settings_candy_machine_data_id on candy_machine_end_settings (candy_machine_data_id);
+create unique index candy_machine_end_settings_candy_machine_id on candy_machine_end_settings (candy_machine_id);
 
 create table candy_machine_collections
 (
@@ -255,7 +258,7 @@ create table candy_machine_collections
 create table candy_machine_freeze
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine         bytea                                    not null,
+    candy_machine_id      bytea references candy_machine (id)      not null,
     allow_thaw            bool                                     not null, 
     frozen_count          int                                      not null,
     mint_start            int,
@@ -266,14 +269,14 @@ create table candy_machine_freeze
 create table candy_machine_config_line_settings
 (
     id                    bigserial                               PRIMARY KEY,
-    candy_machine_data_id bigint references candy_machine_data (id) not null,
+    candy_machine_id      bytea references candy_machine (id)     not null,
     prefix_name           varchar(10)                             not null,
     name_length           int                                     not null,
     prefix_uri            varchar(10)                             not null,
     uri_length            int                                     not null,
     is_sequential         bool                                    not null,
 )
-create unique index candy_machine_config_line_settings_candy_machine_data_id on candy_machine_config_line_settings (candy_machine_data_id);
+create unique index candy_machine_config_line_settings_candy_machine_id on candy_machine_config_line_settings (candy_machine_id);
 
 create table candy_guard
 (   
@@ -348,7 +351,7 @@ create table candy_guard_group
 (
     id                   bigserial                              PRIMARY KEY,
     label                varchar(50)                            not null,
-    candy_guard_id       bigint references candy_guard (id)     not null,
+    candy_machine_id     bytea references candy_machine (id)    not null,
 )
 
 

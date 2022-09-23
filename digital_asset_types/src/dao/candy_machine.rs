@@ -44,21 +44,27 @@ pub enum PrimaryKey {
 impl PrimaryKeyTrait for PrimaryKey {
     type ValueType = Vec<u8>;
     fn auto_increment() -> bool {
-        true
+        false
     }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     CandyMachineData,
-    CandyGuard,
+    CandyGuardGroup,
+    CandyMachineHiddenSettings,
+    CandyMachineEndSettings,
+    CandyMachineGatekeeper,
+    CandyMachineWhitelistMintSettings,
+    CandyMachineCreators,
+    CandyMachineConfigLineSettings,
 }
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::BigInteger.def(),
+            Self::Id => ColumnType::Binary.def(),
             Self::Features => ColumnType::Integer.def().null(),
             Self::Authority => ColumnType::Binary.def(),
             Self::MintAuthority => ColumnType::Binary.def().null(),
@@ -73,11 +79,30 @@ impl ColumnTrait for Column {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
+            Self::CandyMachineHiddenSettings => {
+                Entity::has_one(super::candy_machine_hidden_settings::Entity).into()
+            }
+            Self::CandyMachineEndSettings => {
+                Entity::has_one(super::candy_machine_end_settings::Entity).into()
+            }
+            Self::CandyMachineGatekeeper => {
+                Entity::has_one(super::candy_machine_gatekeeper::Entity).into()
+            }
+            Self::CandyMachineWhitelistMintSettings => {
+                Entity::has_one(super::candy_machine_whitelist_mint_settings::Entity).into()
+            }
+            Self::CandyMachineCreators => {
+                Entity::has_many(super::candy_machine_creators::Entity).into()
+            }
+            Self::CandyMachineConfigLineSettings => {
+                Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
+            }
             Self::CandyMachineData => Entity::has_one(super::candy_machine_data::Entity).into(),
-            Self::CandyGuard => Entity::belongs_to(super::candy_guard::Entity)
+            Self::CandyGuardGroup => Entity::belongs_to(super::candy_guard_group::Entity)
                 .from(Column::MintAuthority)
-                .to(super::candy_guard::Column::CandyMachineId)
+                .to(super::candy_guard_group::Column::CandyMachineId)
                 .into(),
+            // TODO ^^ should this be switched, pk on guard group is id(mint_authority) and fk on cm is mint_authority
         }
     }
 }
@@ -88,9 +113,45 @@ impl Related<super::candy_machine_data::Entity> for Entity {
     }
 }
 
-impl Related<super::candy_guard::Entity> for Entity {
+impl Related<super::candy_guard_group::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::CandyGuard.def()
+        Relation::CandyGuardGroup.def()
+    }
+}
+
+impl Related<super::candy_machine_whitelist_mint_settings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineWhitelistMintSettings.def()
+    }
+}
+
+impl Related<super::candy_machine_gatekeeper::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineGatekeeper.def()
+    }
+}
+
+impl Related<super::candy_machine_end_settings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineEndSettings.def()
+    }
+}
+
+impl Related<super::candy_machine_hidden_settings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineHiddenSettings.def()
+    }
+}
+
+impl Related<super::candy_machine_creators::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineCreators.def()
+    }
+}
+
+impl Related<super::candy_machine_config_line_settings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachineConfigLineSettings.def()
     }
 }
 

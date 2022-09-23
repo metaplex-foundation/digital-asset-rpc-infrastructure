@@ -77,7 +77,7 @@ impl RelationTrait for Relation {
 
 impl Related<super::candy_machine::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::candy_machine.def()
+        Relation::CandyMachine.def()
     }
 }
 

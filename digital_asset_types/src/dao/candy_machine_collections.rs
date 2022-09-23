@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Default, Debug)]
+#[derive(Copy, Clone, Default, Debug, DeriveEntity)]
 pub struct Entity;
 
 impl EntityName for Entity {
@@ -16,14 +16,14 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub mint: Vec<u8>,
-    pub candy_machine: Vec<u8>,
+    pub candy_machine_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     Mint,
-    CandyMachine,
+    CandyMachineId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -32,13 +32,16 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
 }
 
-// TODO figure this one out
+#[derive(Copy, Clone, Debug, EnumIter)]
+pub enum Relation {
+    CandyMachine,
+}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -46,8 +49,25 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
             Self::Mint => ColumnType::Binary.def(),
-            Self::CandyMachine => ColumnType::Binary.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
         }
+    }
+}
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyMachine => Entity::belongs_to(super::candy_machine::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_machine::Column::Id)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::candy_machine::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::candy_machine.def()
     }
 }
 

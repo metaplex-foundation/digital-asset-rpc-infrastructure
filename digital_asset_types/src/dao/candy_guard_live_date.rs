@@ -32,7 +32,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
@@ -53,7 +53,6 @@ impl ColumnTrait for Column {
         }
     }
 }
-
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {

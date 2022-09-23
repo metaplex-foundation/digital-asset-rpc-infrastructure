@@ -31,11 +31,11 @@ pub async fn collections<'c>(
 ) -> Result<(), IngesterError> {
     let candy_machine_collections = candy_machine_collections::ActiveModel {
         mint: Set(collections.mint.to_bytes().to_vec()),
-        candy_machine: Set(collections.candy_machine.to_bytes().to_vec()),
+        candy_machine_id: Set(collections.candy_machine.to_bytes().to_vec()),
         ..Default::default()
     };
 
-    let query = candy_machine_collections::Entity::insert(model)
+    let query = candy_machine_collections::Entity::insert(candy_machine_collections)
         .on_conflict(
             OnConflict::columns([candy_machine_collections::Column::Id])
                 .do_nothing()
