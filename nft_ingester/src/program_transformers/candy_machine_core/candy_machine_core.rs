@@ -44,8 +44,6 @@ pub async fn candy_machine_core<'c>(
         version: Set(3),
     };
 
-    // TODO fix indexes properly in init.sql
-
     let query = candy_machine::Entity::insert(candy_machine_core)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])

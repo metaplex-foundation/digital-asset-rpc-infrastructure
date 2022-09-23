@@ -66,7 +66,6 @@ pub async fn candy_guard<'c>(
     process_guard_set_change(&default_guard_set, acct.key().to_bytes().to_vec(), txn);
 
     // TODO should these be inserted and/or updated all in one db trx
-
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {

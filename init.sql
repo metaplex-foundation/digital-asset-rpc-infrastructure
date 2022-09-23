@@ -172,7 +172,7 @@ create table candy_machine
     wallet                   bytea               not null,
     token_mint               bytea,
     items_redeemed           int                 not null,
-    version                  int                 not null,     
+    version                  int                 not null,
 );
 
 create table candy_machine_data
@@ -203,20 +203,36 @@ create unique index candy_machine_creators_candy_machine_id on candy_machine_cre
 create index candy_machine_creator on candy_machine_creators (candy_machine_id, creator);
 create index candy_machine_verified_creator on candy_machine_creators (candy_machine_id, verified);
 
+create table candy_guard
+(   
+    id                   bigserial                               PRIMARY KEY,
+    base                 bytea                                   not null,
+    bump                 int                                     not null,
+    authority            bytea                                   not null,
+)
+
+create table candy_guard_group
+(
+    id                   bigserial                              PRIMARY KEY,
+    label                varchar(50)                            not null,
+    candy_machine_id     bytea                                  not null,
+    CONSTRAINT fk_candy_guard_group_candy_machine_mint_authority FOREIGN KEY (candy_machine_id) REFERENCES candy_machine (mint_authority)
+)
+
 create table candy_machine_whitelist_mint_settings
 (
     id                           bigserial                                                PRIMARY KEY,
     candy_machine_id             bytea references candy_machine (id),
-    candy_machine_mint_authority bytea references candy_machine (mint_authority),
+    candy_guard_group            int references candy_guard_group (id),
     mode                         whitelist_mint_mode                                      not null,
     mint                         bytea                                                    not null,
     presale                      bool                                                     not null,
     discount_price               int
 ) 
 create unique index candy_machine_whitelist_mint_settings_candy_machine_id on candy_machine_whitelist_mint_settings (candy_machine_id);
-create unique index candy_machine_whitelist_mint_settings_candy_machine_mint_authority on candy_machine_whitelist_mint_settings (candy_machine_id);
+create unique index candy_machine_whitelist_mint_settings_candy_guard_group on candy_machine_whitelist_mint_settings (candy_guard_group);
 
-
+-- TODO finish off indexes and foreign key stuff
 create table candy_machine_hidden_settings
 (
     id                    bigserial                                PRIMARY KEY,
@@ -277,14 +293,6 @@ create table candy_machine_config_line_settings
     is_sequential         bool                                    not null,
 )
 create unique index candy_machine_config_line_settings_candy_machine_id on candy_machine_config_line_settings (candy_machine_id);
-
-create table candy_guard
-(   
-    id                   bigserial                               PRIMARY KEY,
-    base                 bytea                                   not null,
-    bump                 int                                     not null,
-    authority            bytea                                   not null,
-)
 
 create table candy_guard_mint_limit
 (
@@ -347,11 +355,6 @@ create table candy_guard_bot_tax
     candy_guard_id       bigint references candy_guard (id)     not null,
 )
 
-create table candy_guard_group
-(
-    id                   bigserial                              PRIMARY KEY,
-    label                varchar(50)                            not null,
-    candy_machine_id     bytea references candy_machine (id)    not null,
-)
+
 
 
