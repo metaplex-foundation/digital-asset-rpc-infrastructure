@@ -45,6 +45,8 @@ pub async fn candy_machine_core<'c>(
         candy_guard_pda: Set(None),
     };
 
+    // TODO should consider moving settings back to part of data ?
+
     let query = candy_machine::Entity::insert(candy_machine_core)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
