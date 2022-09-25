@@ -172,6 +172,7 @@ create table candy_machine
     wallet                   bytea               not null,
     token_mint               bytea,
     items_redeemed           int                 not null,
+    candy_guard_pda          bytea,
     version                  int                 not null,
 );
 
@@ -205,8 +206,7 @@ create index candy_machine_verified_creator on candy_machine_creators (candy_mac
 
 create table candy_guard
 (   
-    id                   bigserial                               PRIMARY KEY,
-    base                 bytea                                   not null,
+    id                   bytea                                   PRIMARY KEY,
     bump                 int                                     not null,
     authority            bytea                                   not null,
 )
@@ -215,8 +215,7 @@ create table candy_guard_group
 (
     id                   bigserial                              PRIMARY KEY,
     label                varchar(50)                            not null,
-    candy_machine_id     bytea                                  not null,
-    CONSTRAINT fk_candy_guard_group_candy_machine_mint_authority FOREIGN KEY (candy_machine_id) REFERENCES candy_machine (mint_authority)
+    candy_machine_id     bytea references candy_machine (id)    not null,
 )
 
 create table candy_machine_whitelist_mint_settings
@@ -236,18 +235,21 @@ create unique index candy_machine_whitelist_mint_settings_candy_guard_group on c
 create table candy_machine_hidden_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id)      not null,
+    candy_machine_id      bytea references candy_machine (id),
+    candy_guard_group     int references candy_guard_group (id),
     name                  varchar(50)                              not null,
     uri                   varchar(200)                             not null,
     hash                  bytea                                    not null
 ) 
 create unique index candy_machine_hidden_settings_candy_machine_id on candy_machine_hidden_settings (candy_machine_id);
+create unique index candy_machine_hidden_settings_candy_guard_group on candy_machine_hidden_settings (candy_guard_group);
 
 
 create table candy_machine_end_settings
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id)      not null,
+    candy_machine_id      bytea references candy_machine (id),
+    candy_guard_group     int references candy_guard_group (id),
     number                int                                      not null,
     end_setting_type      end_setting_type                         not null
     
@@ -257,7 +259,8 @@ create unique index candy_machine_end_settings_candy_machine_id on candy_machine
 create table candy_machine_gatekeeper
 (
     id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id)      not null,
+    candy_machine_id      bytea references candy_machine (id),
+    candy_guard_group     int references candy_guard_group (id),
     gatekeeper_network    bytea                                    not null,
     expire_on_use         bool                                     not null
     
@@ -268,7 +271,7 @@ create table candy_machine_collections
 (
     id                    bigserial                                PRIMARY KEY,
     mint                  bytea                                    not null,
-    candy_machine         bytea                                    not null
+    candy_machine_id      bytea                                    not null
 )
 
 create table candy_machine_freeze
@@ -298,14 +301,16 @@ create table candy_guard_mint_limit
 (
     id                   int                                     PRIMARY KEY,
     limit                int                                     not null,
-    candy_guard_id       bigint references candy_guard (id)      not null, 
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_allow_list
 (
     id                   bigserial                              PRIMARY KEY,
     merkle_root          bytea                                  not null,
-    candy_guard_id       bigint references candy_guard (id)     not null, 
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id), 
 )
 
 create table candy_guard_nft_payment
@@ -313,21 +318,24 @@ create table candy_guard_nft_payment
     id                   bigserial                              PRIMARY KEY,
     burn                 bool                                   not null,
     required_collection  bytea                                  not null,
-    candy_guard_id       bigint references candy_guard (id)     not null, 
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_third_party_signer
 (
     id                   bigserial                              PRIMARY KEY,
     signer_key           bytea                                  not null,
-    candy_guard_id       bigint references candy_guard (id)     not null, 
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_live_date
 (
     id                   bigserial                              PRIMARY KEY,
-    date                int,
-    candy_guard_id       bigint references candy_guard (id)     not null,
+    date                 int,
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_spl_token
@@ -336,7 +344,8 @@ create table candy_guard_spl_token
     amount               int                                    not null,
     token_mint           bytea                                  not null,
     destination_ata      bytea                                  not null,
-    candy_guard_id       bigint references candy_guard (id)     not null,
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_lamports
@@ -344,7 +353,8 @@ create table candy_guard_lamports
     id                   bigserial                              PRIMARY KEY,
     amount               int                                    not null,
     destination          bytea                                  not null,
-    candy_guard_id       bigint references candy_guard (id)     not null,
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 create table candy_guard_bot_tax
@@ -352,7 +362,8 @@ create table candy_guard_bot_tax
     id                   bigserial                              PRIMARY KEY,
     lamports             int                                    not null,
     last_instruction     bool                                   not null,
-    candy_guard_id       bigint references candy_guard (id)     not null,
+    candy_machine_id     bytea references candy_machine (id),
+    candy_guard_group    int references candy_guard_group (id),
 )
 
 

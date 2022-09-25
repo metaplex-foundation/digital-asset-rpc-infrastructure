@@ -45,6 +45,7 @@ pub async fn candy_machine<'c>(
         items_redeemed: Set(candy_machine.items_redeemed),
         mint_authority: Set(None),
         version: Set(2),
+        candy_guard_pda: Set(None),
     };
 
     let query = candy_machine::Entity::insert(model)
@@ -79,7 +80,7 @@ pub async fn candy_machine<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    process_candy_machine_change(&data, txn).await?;
+    process_candy_machine_change(&data, candy_machine_state.id, txn).await?;
 
     Ok(())
 }

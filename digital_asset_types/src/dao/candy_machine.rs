@@ -21,6 +21,7 @@ pub struct Model {
     pub wallet: Vec<u8>,
     pub token_mint: Option<Vec<u8>>,
     pub items_redeemed: i32,
+    pub candy_guard_pda: Option<Vec<u8>>,
     pub version: u8,
 }
 
@@ -33,6 +34,7 @@ pub enum Column {
     Wallet,
     TokenMint,
     ItemsRedeemed,
+    CandyGuardPda,
     Version,
 }
 
@@ -71,6 +73,7 @@ impl ColumnTrait for Column {
             Self::Wallet => ColumnType::Binary.def(),
             Self::TokenMint => ColumnType::Binary.def().null(),
             Self::ItemsRedeemed => ColumnType::Integer.def(),
+            Self::CandyGuardPda => ColumnType::Binary.def().null(),
             Self::Version => ColumnType::Integer.def(),
         }
     }

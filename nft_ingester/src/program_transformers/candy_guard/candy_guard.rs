@@ -40,11 +40,9 @@ pub async fn candy_guard<'c>(
 ) -> Result<(), IngesterError> {
     // TODO is this security vulnerability ???? does this need to be stored ??
     let candy_guard = candy_guard::ActiveModel {
-        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
-        base: Set(candy_guard.base.to_bytes().to_vec()),
+        id: Set(candy_guard.base.to_bytes().to_vec()),
         bump: Set(candy_guard.bump),
         authority: Set(candy_guard.authority.to_bytes().to_vec()),
-        ..Default::default()
     };
 
     let query = candy_guard::Entity::insert_one(candy_guard)

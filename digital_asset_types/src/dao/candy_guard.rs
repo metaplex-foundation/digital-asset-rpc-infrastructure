@@ -14,9 +14,7 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
-    pub candy_machine_id: Vec<u8>,
-    pub base: Vec<u8>,
+    pub id: Vec<u8>,
     pub bump: u8,
     pub authority: Vec<u8>,
 }
@@ -24,8 +22,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    CandyMachineId,
-    Base,
     Bump,
     Authority,
 }
@@ -38,7 +34,7 @@ pub enum PrimaryKey {
 impl PrimaryKeyTrait for PrimaryKey {
     type ValueType = i64;
     fn auto_increment() -> bool {
-        true
+        false
     }
 }
 
@@ -52,8 +48,6 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
-            Self::CandyMachineId => ColumnType::Binary.def(),
-            Self::Base => ColumnType::Binary.def(),
             Self::Bump => ColumnType::Integer.def(),
             Self::Authority => ColumnType::Binary.def(),
         }

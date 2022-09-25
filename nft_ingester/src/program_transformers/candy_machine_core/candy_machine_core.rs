@@ -42,6 +42,7 @@ pub async fn candy_machine_core<'c>(
         items_redeemed: Set(candy_machine.items_redeemed),
         mint_authority: Set(candy_machine.mint_authority.to_bytes().to_vec()),
         version: Set(3),
+        candy_guard_pda: Set(None),
     };
 
     let query = candy_machine::Entity::insert(candy_machine_core)
