@@ -188,7 +188,7 @@ create table candy_machine_data
     retain_authority           bool,
     go_live_date               int,
     items_available            int              not null,
-    candy_machine_id           bigint references candy_machine (id),
+    candy_machine_id           bytea references candy_machine (id),
 );
 create unique index candy_machine_data_candy_machine_id on candy_machine_data (candy_machine_id);
 
@@ -231,7 +231,8 @@ create table candy_machine_whitelist_mint_settings
 create unique index candy_machine_whitelist_mint_settings_candy_machine_id on candy_machine_whitelist_mint_settings (candy_machine_id);
 create unique index candy_machine_whitelist_mint_settings_candy_guard_group on candy_machine_whitelist_mint_settings (candy_guard_group);
 
--- TODO finish off indexes and foreign key stuff
+-- TODO finish off indexes and foreign key stuff, fix foreign keys
+-- TODO should version be an enum on cm table
 create table candy_machine_hidden_settings
 (
     id                    bigserial                                PRIMARY KEY,
