@@ -8,30 +8,22 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_freeze"
+        "candy_guard"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
-    pub candy_machine: Vec<u8>,
-    pub allow_thaw: bool,
-    pub frozen_count: u64,
-    pub mint_start: Option<i64>,
-    pub freeze_time: i64,
-    pub freeze_fee: u64,
+    pub id: Vec<u8>,
+    pub bump: u8,
+    pub authority: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    CandyMachine,
-    AllowThaw,
-    FrozenCount,
-    MintStart,
-    FreezeTime,
-    FreezeFee,
+    Bump,
+    Authority,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -40,29 +32,41 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
-        true
+        false
     }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    CandyMachineData,
+    CandyMachine,
 }
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::BigInteger.def(),
-            Self::CandyMachine => ColumnType::Binary.def(),
-            Self::AllowThaw => ColumnType::Boolean.def(),
-            Self::FrozenCount => ColumnType::Integer.def(),
-            Self::MintStart => ColumnType::Integer.def().null(),
-            Self::FreezeTime => ColumnType::Integer.def(),
-            Self::FreezeFee => ColumnType::Integer.def(),
+            Self::Id => ColumnType::Binary.def(),
+            Self::Bump => ColumnType::Integer.def(),
+            Self::Authority => ColumnType::Binary.def(),
         }
+    }
+}
+
+// TODO check relation here for CM, i think can be removed
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyMachine => Entity::has_one(super::candy_machine::Entity).into(),
+        }
+    }
+}
+
+impl Related<super::candy_machine::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachine.def()
     }
 }
 

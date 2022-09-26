@@ -8,22 +8,22 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_collections"
+        "candy_guard_mint_limit"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: i64,
-    pub mint: Vec<u8>,
-    pub candy_machine: Vec<u8>,
+    pub limit: u16,
+    pub candy_machine_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    Mint,
-    CandyMachine,
+    Limit,
+    CandyMachineId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -32,7 +32,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
@@ -40,7 +40,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    CandyMachineData,
+    CandyGuardGroup,
 }
 
 impl ColumnTrait for Column {
@@ -48,9 +48,26 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::Mint => ColumnType::Binary.def(),
-            Self::CandyMachine => ColumnType::Binary.def(),
+            Self::Limit => ColumnType::Integer.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
         }
+    }
+}
+
+impl RelationTrait for Relation {
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::CandyGuardGroup => Entity::belongs_to(super::candy_guard_group::Entity)
+                .from(Column::CandyMachineId)
+                .to(super::candy_guard_group::Column::CandyMachineId)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::candy_guard_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyGuardGroup.def()
     }
 }
 

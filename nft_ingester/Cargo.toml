@@ -29,6 +29,8 @@ uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
 # blockbuster = { version="0.0.2" }
+mpl-candy-guard = { git = "https://github.com/metaplex-foundation/candy-guard", branch = "danenbm/expose-mint-counter", features = ["no-entrypoint"] }
+mpl-candy-machine-core = { git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "febo/candy-machine-core", features = ["no-entrypoint"] }
 blockbuster = {path = "../../blockbuster/blockbuster"}
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
