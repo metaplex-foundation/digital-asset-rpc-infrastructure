@@ -30,6 +30,8 @@ pub struct Model {
     pub whitelist_mint: Option<Vec<u8>>,
     pub presale: Option<bool>,
     pub discount_price: Option<u64>,
+    pub gatekeeper_network: Option<Vec<u8>>,
+    pub expire_on_use: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -49,6 +51,8 @@ pub enum Column {
     CollectionMint,
     Presale,
     DiscountPrice,
+    GatekeeperNetwork,
+    ExpireOnUse,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -87,6 +91,8 @@ impl ColumnTrait for Column {
             Self::CollectionMint => ColumnType::Binary.def().null(),
             Self::Presale => ColumnType::Boolean.def().null(),
             Self::DiscountPrice => ColumnType::Integer.def().null(),
+            Self::GatekeeperNetwork => ColumnType::Binary.def().null(),
+            Self::ExpireOnUse => ColumnType::Boolean.def().null(),
         }
     }
 }
