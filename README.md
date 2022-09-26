@@ -53,7 +53,7 @@ cargo run -p das_api
 For the Ingester you need the following environment variables:
 ```bash
 INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}' # your database host
-INGESTER_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}' #your redis
+INGESTER_MESSENGER_CONFIG: '{messenger_type="Redis", connection_config={ redis_connection_str="redis://redis" } }' #your redis
 INGESTER_RPC_CONFIG: '{url="http://validator:8899", commitment="finalized"}' # your solana validator or same network rpc, if local you must use your solana instance running localy
 ```
 
