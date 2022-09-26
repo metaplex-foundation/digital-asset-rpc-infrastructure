@@ -16,14 +16,14 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub label: Option<String>,
-    pub candy_machine_id: Vec<u8>,
+    pub candy_guard_id: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     Label,
-    CandyMachineId,
+    CandyGuardId,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -59,7 +59,7 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
             Self::Label => ColumnType::String.def().null(),
-            Self::CandyMachineId => ColumnType::Binary.def(),
+            Self::CandyGuardId => ColumnType::Binary.def(),
         }
     }
 }

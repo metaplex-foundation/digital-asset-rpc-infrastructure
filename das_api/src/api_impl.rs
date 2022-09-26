@@ -8,13 +8,13 @@ use {
     async_trait::async_trait,
     digital_asset_types::{
         dapi::{
-            asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*, change_logs::*,
-            listed_assets_by_owner::*, offers_by_owner::*,
+            asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*,
+            candy_machine::*, change_logs::*, listed_assets_by_owner::*, offers_by_owner::*,
         },
         rpc::{
             filter::{AssetSorting, ListingSorting, OfferSorting},
             response::{AssetList, ListingsList, OfferList},
-            Asset, AssetProof,
+            Asset, AssetProof, CandyMachine,
         },
     },
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
@@ -313,5 +313,16 @@ impl ApiContract for DasApi {
         _after: String,
     ) -> Result<AssetList, DasApiError> {
         todo!()
+    }
+
+    async fn get_candy_machine(
+        self: &DasApi,
+        candy_machine_id: String,
+    ) -> Result<Asset, DasApiError> {
+        let id = validate_pubkey(candy_machine_id.clone())?;
+        let id_bytes = id.to_bytes().to_vec();
+        get_candy_machine(&self.db_connection, id_bytes)
+            .await
+            .map_err(Into::into)
     }
 }

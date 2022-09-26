@@ -54,6 +54,8 @@ impl ColumnTrait for Column {
     }
 }
 
+// TODO check relation here for CM, i think can be removed
+
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {

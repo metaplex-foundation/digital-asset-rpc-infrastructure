@@ -19,7 +19,7 @@ pub struct Model {
     pub price: Option<u64>,
     pub symbol: String,
     pub seller_fee_basis_points: u16,
-    pub max_suppy: u64,
+    pub max_supply: u64,
     pub is_mutable: bool,
     pub retain_authority: Option<bool>,
     pub go_live_date: Option<i64>,

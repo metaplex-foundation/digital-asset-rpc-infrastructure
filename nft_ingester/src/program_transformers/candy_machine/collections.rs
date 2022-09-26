@@ -7,11 +7,7 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use candy_machine::state::CandyMachine;
-use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
-    dao::candy_machine_collections,
-    json::ChainDataV1,
-};
+use digital_asset_types::dao::candy_machine;
 use num_traits::FromPrimitive;
 use plerkle_serialization::{
     account_info_generated::account_info::AccountInfo,
@@ -29,19 +25,16 @@ pub async fn collections<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let candy_machine_collections = candy_machine_collections::ActiveModel {
-        mint: Set(collections.mint.to_bytes().to_vec()),
-        candy_machine_id: Set(collections.candy_machine.to_bytes().to_vec()),
+    let model = candy_machine::ActiveModel {
+        id: Unchanged(collections.candy_machine.to_bytes().to_vec()),
+        collection_mint: Set(Some(collections.mint.to_bytes().to_vec())),
         ..Default::default()
     };
 
-    let query = candy_machine_collections::Entity::insert(candy_machine_collections)
-        .on_conflict(
-            OnConflict::columns([candy_machine_collections::Column::Id])
-                .do_nothing()
-                .to_owned(),
-        )
+    let query = candy_machine::Entity::update(model)
+        .filter(candy_machine::Column::Id.eq(collections.candy_machine.to_bytes().to_vec()))
         .build(DbBackend::Postgres);
+
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     Ok(())
