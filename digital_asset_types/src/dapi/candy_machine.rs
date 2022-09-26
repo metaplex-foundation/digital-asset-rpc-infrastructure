@@ -1,9 +1,6 @@
-use crate::dao::prelude::{CandyMachine, CandyMachineCollections, CandyMachineData};
-use crate::dao::{candy_machine, candy_machine_collections, candy_machine_data};
-use crate::rpc::{
-    Authority, CandyMachine as RpcCandyMachine, Compression, Content, Creator, File, Group,
-    Interface, Ownership, Royalty, Scope,
-};
+use crate::dao::prelude::{CandyMachine, CandyMachineData};
+use crate::dao::{candy_machine, candy_machine_data};
+use crate::rpc::{CandyMachine as RpcCandyMachine, Creator};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
