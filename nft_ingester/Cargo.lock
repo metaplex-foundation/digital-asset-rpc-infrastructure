@@ -103,10 +103,10 @@ checksum = "70f6ee9518f50ff4d434471ccf569186022bdd5ef65a21d14da3ea5231af944f"
 dependencies = [
  "anchor-syn",
  "anyhow",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
  "regex",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -118,10 +118,17 @@ dependencies = [
  "anchor-syn",
  "anyhow",
  "bs58 0.4.0",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "rustversion",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "rustversion",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -131,8 +138,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0844974ac35e8ced62056b0d63777ebcdc5807438b8b189c881e2b647450b70a"
 dependencies = [
  "anchor-syn",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -142,9 +154,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f7467345e67a6f1d4b862b9763a4160ad89d18c247b8c902807768f7b6e23df"
 dependencies = [
  "anchor-syn",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -155,9 +167,9 @@ checksum = "8774e4c1ac71f71a5aea7e4932fb69c30e3b8155c4fa59fd69401195434528a9"
 dependencies = [
  "anchor-syn",
  "anyhow",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -169,9 +181,9 @@ dependencies = [
  "anchor-syn",
  "anyhow",
  "heck 0.3.3",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -182,9 +194,9 @@ checksum = "ac515a7a5a4fea7fc768b1cec40ddb948e148ea657637c75f94f283212326cb9"
 dependencies = [
  "anchor-syn",
  "anyhow",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -195,9 +207,15 @@ checksum = "43dc667b62ff71450f19dcfcc37b0c408fd4ddd89e8650368c2b0984b110603f"
 dependencies = [
  "anchor-syn",
  "anyhow",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -208,9 +226,9 @@ checksum = "7354d583a06701d24800a8ec4c2b0491f62581a331af349205e23421e0b56643"
 dependencies = [
  "anchor-syn",
  "anyhow",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -258,13 +276,13 @@ dependencies = [
  "anyhow",
  "bs58 0.3.1",
  "heck 0.3.3",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "proc-macro2-diagnostics",
  "quote 1.0.21",
  "serde",
  "serde_json",
  "sha2 0.9.9",
- "syn 1.0.101",
+ "syn 1.0.100",
  "thiserror",
 ]
 
@@ -332,9 +350,9 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "726535892e8eae7e70657b4c8ea93d26b8553afb1ce617caee529ef96d7dee6c"
 dependencies = [
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
  "synstructure",
 ]
 
@@ -344,9 +362,9 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2777730b2039ac0f95f093556e61b6d26cebed5393ca6f152717777cec3a42ed"
 dependencies = [
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -394,9 +412,9 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f203db73a71dfa2fb6dd22763990fa26f3d2625a6da2da900d23b87d26be27"
 dependencies = [
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -405,9 +423,9 @@ version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76464446b8bc32758d7e88ee1a804d9914cd9b1cb264c029899680b0be29826f"
 dependencies = [
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -453,9 +471,9 @@ checksum = "33b8de67cc41132507eeece2584804efcb15f85ba516e34c944b7667f480397a"
 dependencies = [
  "heck 0.3.3",
  "proc-macro-error",
- "proc-macro2 1.0.44",
+ "proc-macro2 1.0.43",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -542,8 +560,11 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "0.0.2"
+<<<<<<< HEAD
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0bb64646ade672895cc0886996de5f5161c3714c9ddbdf780dce7d71dbe0e9a7"
+=======
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -551,8 +572,10 @@ dependencies = [
  "flatbuffers",
  "lazy_static",
  "mpl-bubblegum",
+ "mpl-candy-guard",
+ "mpl-candy-machine-core",
  "mpl-token-metadata",
- "plerkle_serialization 0.3.1",
+ "plerkle_serialization 0.1.8",
  "solana-sdk",
  "spl-account-compression",
  "spl-noop",
@@ -579,8 +602,8 @@ dependencies = [
  "borsh-derive-internal",
  "borsh-schema-derive-internal",
  "proc-macro-crate 0.1.5",
- "proc-macro2 1.0.44",
- "syn 1.0.101",
+ "proc-macro2 1.0.43",
+ "syn 1.0.100",
 ]
 
 [[package]]
@@ -589,9 +612,15 @@ version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5449c28a7b352f2d1e592a8a28bf139bc71afb0764a14f3c02500935d8c44065"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -600,9 +629,15 @@ version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdbd5696d8bfa21d53d9fe39a714a18538bad11492a42d066dbbc395fb1951c0"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -669,9 +704,15 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9e1f5fa78f69496407a27ae9ed989e3c3b072310286f5ef385525e4cbc24a9"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -1168,9 +1209,15 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bf95dc3f046b9da4f2d51833c0d3547d8564ef6910f5c1ed130306a75b92886"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -1279,9 +1326,15 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c134c37760b27a871ba422106eedbb8247da973a09e82558bf26d619c882b159"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -1291,9 +1344,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0eb359f1476bf611266ac1f5355bc14aeca37b299d0ebccc038ee7058891c9cb"
 dependencies = [
  "once_cell",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -1477,9 +1536,15 @@ version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42cd15d1c7456c04dbdf7e88bcd69760d74f3a798d6444e16974b505b0e62f17"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -1782,13 +1847,23 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
+<<<<<<< HEAD
 version = "0.1.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd911b35d940d2bd0bea0f9100068e5b97b51a1cbe13d13382f132e0365257a0"
+=======
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "237a0714f28b1ee39ccec0770ccb544eb02c9ef2c82bb096230eefcffa6468b0"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
  "js-sys",
+<<<<<<< HEAD
+=======
+ "once_cell",
+>>>>>>> origin/stranzhay/rpc-routes
  "wasm-bindgen",
  "winapi",
 ]
@@ -1894,9 +1969,15 @@ checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
 
 [[package]]
 name = "jobserver"
+<<<<<<< HEAD
 version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "068b1ee6743e4d11fb9c6a1e6064b3693a1b600e7f5f5988047d98b3dc9fb90b"
+=======
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af25a77299a7f711a01975c35a6a424eb6862092cc2d6c72c4ed6cbc56dfc1fa"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "libc",
 ]
@@ -2068,9 +2149,15 @@ dependencies = [
 
 [[package]]
 name = "md-5"
+<<<<<<< HEAD
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6365506850d44bff6e2fbcb5176cf63650e48bd45ef2fe2665ae1570e0f4b9ca"
+=======
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66b48670c893079d3c2ed79114e3644b7004df1c361a4e0ad52e2e6940d07c3d"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "digest 0.10.5",
 ]
@@ -2180,9 +2267,15 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a7d5f7076603ebc68de2dc6a650ec331a062a13abaa346975be747bbfa4b789"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2202,6 +2295,49 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "mpl-candy-guard"
+version = "0.0.1"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=danenbm/expose-mint-counter#360f82db68a5433703f3a8deca7ff5afaecf7abe"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "arrayref",
+ "mpl-candy-guard-derive",
+ "mpl-candy-machine-core",
+ "mpl-token-metadata",
+ "solana-gateway",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+]
+
+[[package]]
+name = "mpl-candy-guard-derive"
+version = "0.0.1"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=danenbm/expose-mint-counter#360f82db68a5433703f3a8deca7ff5afaecf7abe"
+dependencies = [
+ "quote 1.0.21",
+ "syn 1.0.100",
+]
+
+[[package]]
+name = "mpl-candy-machine-core"
+version = "0.0.2"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#3f129a0566769251df8c6cd81f61fdf8a8d7bf92"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "arrayref",
+ "mpl-token-metadata",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+]
+
+[[package]]
+>>>>>>> origin/stranzhay/rpc-routes
 name = "mpl-token-metadata"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2268,6 +2404,11 @@ dependencies = [
  "futures-util",
  "hex",
  "lazy_static",
+<<<<<<< HEAD
+=======
+ "mpl-candy-guard",
+ "mpl-candy-machine-core",
+>>>>>>> origin/stranzhay/rpc-routes
  "num-integer",
  "num-traits",
  "plerkle_messenger",
@@ -2374,9 +2515,15 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2447,9 +2594,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b0498641e53dd6ac1a4f22547548caa6864cc4933784319cd1775271c5a46ce"
 dependencies = [
  "proc-macro-crate 1.2.1",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2509,9 +2662,15 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b501e44f11665960c7e7fcf062c7d96a14ade4aa98116c004b2e37b5be7d736c"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2562,9 +2721,15 @@ checksum = "ed9a247206016d424fe8497bc611e510887af5c261fbbf977877c4bb55ca4d82"
 dependencies = [
  "Inflector",
  "proc-macro-error",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2575,9 +2740,15 @@ checksum = "4a0d9d1a6191c4f391f87219d1ea42b23f09ee84d64763cd05ee6ea88d9f384d"
 dependencies = [
  "Inflector",
  "proc-macro-error",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2669,10 +2840,17 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82a5ca643c2303ecb740d506539deba189e16f2754040a42901cd8105d0282d0"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "proc-macro2-diagnostics",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "proc-macro2-diagnostics",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2774,6 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
+<<<<<<< HEAD
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85bad2b03c26f999f84d4af252efc9b825ee18309378e8f1b7b80893aff3d7fe"
@@ -2782,6 +2961,13 @@ dependencies = [
  "flatbuffers",
  "solana-geyser-plugin-interface",
  "solana-runtime",
+=======
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e628612dc22307343609991eb17d78991ad252729836ef7b87be5b24bfc5287c"
+dependencies = [
+ "flatbuffers",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -2864,9 +3050,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
 dependencies = [
  "proc-macro-error-attr",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "version_check",
 ]
 
@@ -2876,7 +3068,11 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
+=======
+ "proc-macro2 1.0.43",
+>>>>>>> origin/stranzhay/rpc-routes
  "quote 1.0.21",
  "version_check",
 ]
@@ -2892,9 +3088,15 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
+<<<<<<< HEAD
 version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bd7356a8122b6c4a24a82b278680c73357984ca2fc79a0f9fa6dea7dced7c58"
+=======
+version = "1.0.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a2ca2c61bc9f3d74d2886294ab7b9853abd9c1ad903a3ac7815c58989bb7bab"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "unicode-ident",
 ]
@@ -2905,9 +3107,15 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bf29726d67464d49fa6224a1d07936a8c08bb3fba727c7493f6cf1616fdaada"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "version_check",
  "yansi",
 ]
@@ -2989,7 +3197,11 @@ version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
+=======
+ "proc-macro2 1.0.43",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3404,9 +3616,15 @@ checksum = "08d9708f945febe8625ccb0334654b97d1a1a0bffa0473d86e6108ad13f79bd5"
 dependencies = [
  "bae",
  "heck 0.3.3",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3432,9 +3650,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34cdc022b4f606353fe5dc85b09713a04e433323b70163e81513b141c6ae6eb5"
 dependencies = [
  "heck 0.3.3",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "thiserror",
 ]
 
@@ -3444,9 +3668,15 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d7f0cae2e7ebb2affc378c40bc343c8197181d601d6755c3e66f1bd18cac253"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3465,10 +3695,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69b4397b825df6ccf1e98bcdabef3bbcfc47ff5853983467850eeab878384f21"
 dependencies = [
  "heck 0.3.3",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "rustversion",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "rustversion",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3502,9 +3739,15 @@ checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 
 [[package]]
 name = "serde"
+<<<<<<< HEAD
 version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
+=======
+version = "1.0.144"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "serde_derive",
 ]
@@ -3520,6 +3763,7 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
+<<<<<<< HEAD
 version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
@@ -3527,6 +3771,15 @@ dependencies = [
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+version = "1.0.144"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
+dependencies = [
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3663,10 +3916,17 @@ version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b43a02ae007b64b177f4dbb21d322f276458e4860f9fefbd8b9b791c21644ab"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "shank_macro_impl",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "shank_macro_impl",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3676,10 +3936,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d36cdf68202db080a13ef0300c369fc691695265e3d0ab0fa08d4734b0cfb66"
 dependencies = [
  "anyhow",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "serde",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "serde",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -3739,6 +4006,22 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "sol-did"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2546d424d6898908c205d99d3af07ad42e2e8aec8f0d459235dc0bd4e9866fe"
+dependencies = [
+ "borsh",
+ "num-derive",
+ "num-traits",
+ "solana-program",
+ "thiserror",
+]
+
+[[package]]
+>>>>>>> origin/stranzhay/rpc-routes
 name = "solana-account-decoder"
 version = "1.10.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3963,6 +4246,7 @@ version = "1.10.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "635c60ac96b1347af272c625465068b908aff919d19f29b5795a44310310494d"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "rustc_version",
@@ -3978,6 +4262,26 @@ dependencies = [
  "log",
  "solana-sdk",
  "solana-transaction-status",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "rustc_version",
+ "syn 1.0.100",
+]
+
+[[package]]
+name = "solana-gateway"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "243daaf437dff89891d520c3e9be7b4a6940c30a1bda2ac094e621046f303eda"
+dependencies = [
+ "bitflags",
+ "borsh",
+ "num-derive",
+ "num-traits",
+ "sol-did",
+ "solana-program",
+>>>>>>> origin/stranzhay/rpc-routes
  "thiserror",
 ]
 
@@ -4277,10 +4581,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b8bcac4394644f21dc013e932a7df9f536fcecef3e5df43fe362b4ec532ce30"
 dependencies = [
  "bs58 0.4.0",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "rustversion",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "rustversion",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -4529,7 +4840,11 @@ dependencies = [
 [[package]]
 name = "spl-concurrent-merkle-tree"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/solana-labs/solana-program-library#271c13b20ce31b8703438306fac790b99947620e"
+=======
+source = "git+https://github.com/solana-labs/solana-program-library#54695b233484722458b18c0e26ebb8334f98422c"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "bytemuck",
  "solana-program",
@@ -4676,14 +4991,22 @@ dependencies = [
  "heck 0.4.0",
  "hex",
  "once_cell",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
+=======
+ "proc-macro2 1.0.43",
+>>>>>>> origin/stranzhay/rpc-routes
  "quote 1.0.21",
  "serde",
  "serde_json",
  "sha2 0.10.6",
  "sqlx-core",
  "sqlx-rt",
+<<<<<<< HEAD
  "syn 1.0.101",
+=======
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "url",
 ]
 
@@ -4742,10 +5065,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
 dependencies = [
  "heck 0.4.0",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "rustversion",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "rustversion",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -4773,11 +5103,19 @@ dependencies = [
 
 [[package]]
 name = "syn"
+<<<<<<< HEAD
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e90cde112c4b9690b8cbe810cba9ddd8bc1d7472e2cae317b69e9438c1cba7d2"
 dependencies = [
  "proc-macro2 1.0.44",
+=======
+version = "1.0.100"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52205623b1b0f064a4e71182c3b18ae902267282930c6d5462c91b859668426e"
+dependencies = [
+ "proc-macro2 1.0.43",
+>>>>>>> origin/stranzhay/rpc-routes
  "quote 1.0.21",
  "unicode-ident",
 ]
@@ -4788,9 +5126,15 @@ version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "unicode-xid 0.2.4",
 ]
 
@@ -4849,15 +5193,22 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
+<<<<<<< HEAD
 version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a99cb8c4b9a8ef0e7907cd3b617cc8dc04d571c4e73c8ae403d80ac160bb122"
+=======
+version = "1.0.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c53f98874615aea268107765aa1ed8f6116782501d18e53d08b471733bea6c85"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
+<<<<<<< HEAD
 version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a891860d3c8d66fec8e73ddb3765f90082374dbaaa833407b904a94f1a7eb43"
@@ -4865,6 +5216,15 @@ dependencies = [
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+version = "1.0.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8b463991b4eab2d801e724172285ec4195c650e8ec79b149e6c2a8e6dd3f783"
+dependencies = [
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -4956,9 +5316,15 @@ version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -5094,9 +5460,15 @@ version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11c75893af559bc8e10716548bdef5cb2b983f8e637db9d0e15126b61b484ee2"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
 ]
 
 [[package]]
@@ -5340,9 +5712,15 @@ dependencies = [
  "bumpalo",
  "log",
  "once_cell",
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "wasm-bindgen-shared",
 ]
 
@@ -5374,9 +5752,15 @@ version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07bc0c051dc5f23e307b13285f9d75df86bfdf816c5721e573dec1f9b8aa193c"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -5409,9 +5793,15 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
+<<<<<<< HEAD
 version = "0.22.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "368bfe657969fb01238bb756d351dcade285e0f6fcbd36dcb23359a5169975be"
+=======
+version = "0.22.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1c760f0d366a6c24a02ed7816e23e691f5d92291f94d15e836006fd11b04daf"
+>>>>>>> origin/stranzhay/rpc-routes
 dependencies = [
  "webpki",
 ]
@@ -5576,9 +5966,15 @@ version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f8f187641dad4f680d25c4bfc4225b418165984179f26ca76ec4fb6441d3a17"
 dependencies = [
+<<<<<<< HEAD
  "proc-macro2 1.0.44",
  "quote 1.0.21",
  "syn 1.0.101",
+=======
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.100",
+>>>>>>> origin/stranzhay/rpc-routes
  "synstructure",
 ]
 

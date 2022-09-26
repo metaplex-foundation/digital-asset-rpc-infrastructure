@@ -429,7 +429,7 @@ impl<T: Messenger> Backfiller<T> {
 
     // Similar to `plugGaps()` in `backfiller.ts`.
     async fn plug_gap(&mut self, gap: &GapInfo, tree: &[u8]) -> Result<(), IngesterError> {
-        // TODO: This needs to make sure all slots are available otherwise it will partially
+        // TODO This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
         let _ = self

@@ -8,13 +8,14 @@ use {
     async_trait::async_trait,
     digital_asset_types::{
         dapi::{
-            asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*, change_logs::*,
+            asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*,
+            candy_machine::*, candy_machines_by_creator::*, change_logs::*,
             listed_assets_by_owner::*, offers_by_owner::*,
         },
         rpc::{
             filter::{AssetSorting, ListingSorting, OfferSorting},
             response::{AssetList, ListingsList, OfferList},
-            Asset, AssetProof,
+            Asset, AssetProof, CandyMachine,
         },
     },
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
@@ -313,5 +314,62 @@ impl ApiContract for DasApi {
         _after: String,
     ) -> Result<AssetList, DasApiError> {
         todo!()
+    }
+
+    async fn get_candy_machine(
+        self: &DasApi,
+        candy_machine_id: String,
+    ) -> Result<CandyMachine, DasApiError> {
+        let id = validate_pubkey(candy_machine_id.clone())?;
+        let id_bytes = id.to_bytes().to_vec();
+        get_candy_machine(&self.db_connection, id_bytes)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn get_candy_machines_by_creator(
+        self: &DasApi,
+        creator_expression: Vec<String>,
+        sort_by: CandyMachineSorting,
+        limit: u32,
+        page: u32,
+        before: String,
+        after: String,
+    ) -> Result<CandyMachineList, DasApiError> {
+        let creator_addresses = creator_expression
+            .into_iter()
+            .map(|x| validate_pubkey(x).unwrap().to_bytes().to_vec())
+            .collect::<Vec<_>>();
+
+        if page > 0 && (!before.is_empty() || !after.is_empty()) {
+            return Err(DasApiError::PaginationError);
+        };
+
+        if !before.is_empty() || !after.is_empty() {
+            return Err(DasApiError::PaginationError);
+        };
+        let before = if !before.is_empty() {
+            validate_pubkey(before.clone())?.to_bytes().to_vec()
+        } else {
+            before.as_bytes().to_vec()
+        };
+
+        let after = if !after.is_empty() {
+            validate_pubkey(after.clone())?.to_bytes().to_vec()
+        } else {
+            after.as_bytes().to_vec()
+        };
+
+        get_candy_machines_by_creator(
+            &self.db_connection,
+            creator_addresses,
+            sort_by,
+            limit,
+            page,
+            before,
+            after,
+        )
+        .await
+        .map_err(Into::into)
     }
 }

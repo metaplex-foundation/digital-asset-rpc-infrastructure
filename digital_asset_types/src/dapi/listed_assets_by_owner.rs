@@ -80,7 +80,7 @@ pub async fn get_listed_assets_by_owner(
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })
         .collect();
-    let build_listings_list = filter_assets?.into_iter().map(|(asset)| async move {
+    let build_listings_list = filter_assets?.into_iter().map(|asset| async move {
         AssetSale {
             listing_id: todo!(),
             asset_id: todo!(),
