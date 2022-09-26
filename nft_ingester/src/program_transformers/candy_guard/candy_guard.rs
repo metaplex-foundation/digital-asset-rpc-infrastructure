@@ -38,12 +38,13 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    // TODO is this security vulnerability ???? does this need to be stored ??
     let candy_guard = candy_guard::ActiveModel {
         id: Set(candy_guard.base.to_bytes().to_vec()),
         bump: Set(candy_guard.bump),
         authority: Set(candy_guard.authority.to_bytes().to_vec()),
     };
+
+    // TODO need to get from DB for value cm and update the candy guard pda value
 
     let query = candy_guard::Entity::insert_one(candy_guard)
         .on_conflict(
@@ -56,7 +57,7 @@ pub async fn candy_guard<'c>(
 
     let candy_guard_group = candy_guard_group::ActiveModel {
         label: Set(None),
-        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
+        candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
         ..Default::default()
     };
     let default_guard_set = candy_guard_data.default;
@@ -69,7 +70,7 @@ pub async fn candy_guard<'c>(
             for g in groups.iter() {
                 let candy_guard_group = candy_guard_group::ActiveModel {
                     label: Set(Some(g.label)),
-                    candy_machine_id: Set(acct.key().to_bytes().to_vec()),
+                    candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
                     ..Default::default()
                 };
 

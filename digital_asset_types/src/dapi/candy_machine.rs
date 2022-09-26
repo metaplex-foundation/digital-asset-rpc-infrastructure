@@ -1,8 +1,8 @@
-use crate::dao::prelude::{CandyMachine, CandyMachineData};
-use crate::dao::{candy_machine, candy_machine_data};
+use crate::dao::prelude::{CandyMachine, CandyMachineCollections, CandyMachineData};
+use crate::dao::{candy_machine, candy_machine_collections, candy_machine_data};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
-    Royalty, Scope,
+    Authority, CandyMachine as RpcCandyMachine, Compression, Content, Creator, File, Group,
+    Interface, Ownership, Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 
-pub async fn get_asset(
+pub async fn get_candy_machine(
     db: &DatabaseConnection,
     candy_machine_id: Vec<u8>,
-) -> Result<RpcAsset, DbErr> {
+) -> Result<RpcCandyMachine, DbErr> {
     let candy_machine_data: (candy_machine::Model, candy_machine_data::Model) =
         CandyMachine::find_by_id(candy_machine_id)
             .find_also_related(CandyMachineData)

@@ -53,7 +53,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     CandyMachineData,
-    CandyGuardGroup,
+    CandyGuard,
     CandyMachineHiddenSettings,
     CandyMachineEndSettings,
     CandyMachineGatekeeper,
@@ -101,11 +101,10 @@ impl RelationTrait for Relation {
                 Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
             }
             Self::CandyMachineData => Entity::has_one(super::candy_machine_data::Entity).into(),
-            Self::CandyGuardGroup => Entity::belongs_to(super::candy_guard_group::Entity)
-                .from(Column::MintAuthority)
-                .to(super::candy_guard_group::Column::CandyMachineId)
+            Self::CandyGuard => Entity::belongs_to(super::candy_guard::Entity)
+                .from(Column::CandyGuardPda)
+                .to(super::candy_guard::Column::Base)
                 .into(),
-            // TODO ^^ should this be switched, pk on guard group is id(mint_authority) and fk on cm is mint_authority
         }
     }
 }
@@ -116,9 +115,9 @@ impl Related<super::candy_machine_data::Entity> for Entity {
     }
 }
 
-impl Related<super::candy_guard_group::Entity> for Entity {
+impl Related<super::candy_guard::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::CandyGuardGroup.def()
+        Relation::CandyGuard.def()
     }
 }
 

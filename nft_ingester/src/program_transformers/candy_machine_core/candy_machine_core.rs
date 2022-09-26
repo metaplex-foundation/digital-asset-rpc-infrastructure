@@ -62,7 +62,7 @@ pub async fn candy_machine_core<'c>(
         price: Set(None),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
-        max_suppy: Set(data.max_supply),
+        max_supply: Set(data.max_supply),
         is_mutable: Set(data.is_mutable),
         retain_authority: Set(None),
         go_live_date: Set(data.go_live_date),
