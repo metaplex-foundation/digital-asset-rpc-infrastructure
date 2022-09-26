@@ -24,6 +24,8 @@ pub async fn get_candy_machine(
                 _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
             })?;
 
+    // TODO add builder to check if any freeze is present
+    
     Ok(RpcCandyMachine {
         id: candy_machine.id,
         collection: candy_machine.collection_mint,
