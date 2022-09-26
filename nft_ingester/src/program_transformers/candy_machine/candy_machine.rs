@@ -46,6 +46,12 @@ pub async fn candy_machine<'c>(
         mint_authority: Set(None),
         version: Set(2),
         candy_guard_pda: Set(None),
+        collection_mint: Set(None),
+        allow_thaw: Set(None),
+        frozen_count: Set(None),
+        mint_start: Set(None),
+        freeze_time: Set(None),
+        freeze_fee: Set(None),
     };
 
     let query = candy_machine::Entity::insert(model)

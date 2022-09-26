@@ -43,6 +43,13 @@ pub async fn candy_machine_core<'c>(
         mint_authority: Set(candy_machine.mint_authority.to_bytes().to_vec()),
         version: Set(3),
         candy_guard_pda: Set(None),
+        candy_guard_pda: Set(None),
+        collection_mint: Set(None),
+        allow_thaw: Set(None),
+        frozen_count: Set(None),
+        mint_start: Set(None),
+        freeze_time: Set(None),
+        freeze_fee: Set(None),
     };
 
     // TODO should consider moving settings back to part of data ?

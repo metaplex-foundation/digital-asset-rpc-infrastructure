@@ -23,6 +23,12 @@ pub struct Model {
     pub items_redeemed: i32,
     pub candy_guard_pda: Option<Vec<u8>>,
     pub version: u8,
+    pub collection_mint: Option<Vec<u8>>,
+    pub allow_thaw: Option<bool>,
+    pub frozen_count: Option<u64>,
+    pub mint_start: Option<i64>,
+    pub freeze_time: Option<i64>,
+    pub freeze_fee: Option<u64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -36,6 +42,12 @@ pub enum Column {
     ItemsRedeemed,
     CandyGuardPda,
     Version,
+    CollectionMint,
+    AllowThaw,
+    FrozenCount,
+    MintStart,
+    FreezeTime,
+    FreezeFee,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -75,6 +87,12 @@ impl ColumnTrait for Column {
             Self::ItemsRedeemed => ColumnType::Integer.def(),
             Self::CandyGuardPda => ColumnType::Binary.def().null(),
             Self::Version => ColumnType::Integer.def(),
+            Self::CollectionMint => ColumnType::Binary.def().null(),
+            Self::AllowThaw => ColumnType::Boolean.def().null(),
+            Self::FrozenCount => ColumnType::Integer.def().null(),
+            Self::MintStart => ColumnType::Integer.def().null(),
+            Self::FreezeTime => ColumnType::Integer.def().null(),
+            Self::FreezeFee => ColumnType::Integer.def().null(),
         }
     }
 }

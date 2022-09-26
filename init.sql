@@ -174,6 +174,12 @@ create table candy_machine
     items_redeemed           int                 not null,
     candy_guard_pda          bytea,
     version                  int                 not null,
+    collection_mint          bytea,                            
+    allow_thaw               bool,                                    
+    frozen_count             int,                                      
+    mint_start               int,
+    freeze_time              int,                                     
+    freeze_fee               int,                                      
 );
 
 create table candy_machine_data
