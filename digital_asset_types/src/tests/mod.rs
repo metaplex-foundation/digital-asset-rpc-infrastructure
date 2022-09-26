@@ -2,18 +2,21 @@ mod get_asset_by_id;
 mod get_assets_by_creator;
 mod get_assets_by_group;
 mod get_assets_by_owner;
+mod get_candy_machine_by_id;
 
 pub use get_asset_by_id::*;
 pub use get_assets_by_creator::*;
 pub use get_assets_by_group::*;
 pub use get_assets_by_owner::*;
+pub use get_candy_machine_by_id::*;
 use sea_orm::{JsonValue, Set};
-use solana_sdk::{signature::Keypair, signer::Signer, pubkey::Pubkey};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
 use crate::{
     adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses},
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
+        candy_machine_data,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
@@ -43,6 +46,84 @@ pub struct MetadataArgs {
     pub uses: Option<Uses>,
     pub token_program_version: TokenProgramVersion,
     pub creators: Vec<Creator>,
+}
+
+pub fn create_candy_machine(
+    id: Vec<u8>,
+    features: Option<u64>,
+    authority: Vec<u8>,
+    mint_authority: Option<u8>,
+    wallet: Vec<u8>,
+    token_mint: Option<Vec<u8>>,
+    items_redeemed: i32,
+    candy_guard_pda: Option<Vec<u8>>,
+    version: u8,
+) -> (candy_machine::ActiveModel, candy_machine::Model) {
+    candy_machine::ActiveModel {
+        id: Set(id),
+        features: Set(features),
+        authority: Set(authority),
+        mint_authority: Set(mint_authority),
+        wallet: Set(wallet),
+        token_mint: Set(token_mint),
+        items_redeemed: Set(items_redeemed),
+        candy_guard_pda: Set(candy_guard_pda),
+        version: Set(version),
+    };
+
+    candy_machine::Model {
+        id,
+        features,
+        authority,
+        mint_authority,
+        wallet,
+        token_mint,
+        items_redeemed,
+        candy_guard_pda,
+        version,
+    }
+}
+
+pub fn create_candy_machine_data(
+    row_num: i64,
+    uuid: Option<String>,
+    price: Option<u64>,
+    symbol: String,
+    seller_fee_basis_points: u16,
+    max_supply: u64,
+    is_mutable: bool,
+    retain_authority: Option<bool>,
+    go_live_date: Option<i64>,
+    items_available: u64,
+    candy_machine_id: i64,
+) -> (candy_machine_data::ActiveModel, candy_machine_data::Model) {
+    candy_machine_data::ActiveModel {
+        uuid: Set(uuid),
+        price: Set(price),
+        symbol: Set(symbol),
+        seller_fee_basis_points: Set(seller_fee_basis_points),
+        max_supply: Set(max_supply),
+        is_mutable: Set(is_mutable),
+        retain_authority: Set(retain_authority),
+        go_live_date: Set(go_live_date),
+        items_available: Set(items_available),
+        candy_machine_id: Set(candy_machine_id),
+        ..Default::default()
+    };
+
+    candy_machine_data::Model {
+        id: row_num,
+        uuid,
+        price,
+        symbol,
+        seller_fee_basis_points,
+        max_supply,
+        is_mutable,
+        retain_authority,
+        go_live_date,
+        items_available,
+        candy_machine_id,
+    }
 }
 
 pub fn create_asset_data(

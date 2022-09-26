@@ -63,13 +63,15 @@ pub async fn candy_machine<'c>(
         price: Set(Some(data.price)),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
-        max_suppy: Set(data.max_supply),
+        max_supply: Set(data.max_supply),
         is_mutable: Set(data.is_mutable),
         retain_authority: Set(Some(data.retain_authority)),
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
         ..Default::default()
     };
+
+    // TODO move everything related to cm inside one table??
 
     let query = candy_machine_data::Entity::insert(candy_machine_data)
         .on_conflict(
