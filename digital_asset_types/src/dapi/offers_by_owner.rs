@@ -68,7 +68,7 @@ pub async fn get_offers_by_owner(
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })
         .collect();
-    let build_listings_list = filter_assets?.into_iter().map(|(asset)| async move {
+    let build_listings_list = filter_assets?.into_iter().map(|asset| async move {
         Offer {
             from: todo!(),
             amount: todo!(),

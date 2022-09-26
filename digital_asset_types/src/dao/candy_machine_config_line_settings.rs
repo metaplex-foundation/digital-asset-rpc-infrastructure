@@ -8,38 +8,30 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_machine_data"
+        "candy_machine_config_line_settings"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: i64,
-    pub uuid: Option<String>,
-    pub price: Option<u64>,
-    pub symbol: String,
-    pub seller_fee_basis_points: u16,
-    pub max_supply: u64,
-    pub is_mutable: bool,
-    pub retain_authority: Option<bool>,
-    pub go_live_date: Option<i64>,
-    pub items_available: u64,
-    pub candy_machine_id: i64,
+    pub candy_machine_id: Vec<u8>,
+    pub prefix_name: String,
+    pub name_length: u32,
+    pub prefix_uri: String,
+    pub uri_length: u32,
+    pub is_sequential: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    Uuid,
-    Price,
-    Symbol,
-    SellerFeeBasisPoints,
-    MaxSupply,
-    IsMutable,
-    RetainAuthority,
-    GoLiveDate,
-    ItemsAvailable,
     CandyMachineId,
+    PrefixName,
+    NameLength,
+    PrefixUri,
+    UriLength,
+    IsSequential,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -64,19 +56,16 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::Uuid => ColumnType::BigInteger.def().null(),
-            Self::Price => ColumnType::Binary.def().null(),
-            Self::Symbol => ColumnType::Binary.def(),
-            Self::SellerFeeBasisPoints => ColumnType::Binary.def(),
-            Self::MaxSupply => ColumnType::Integer.def(),
-            Self::IsMutable => ColumnType::Boolean.def().null(),
-            Self::RetainAuthority => ColumnType::Boolean.def(),
-            Self::GoLiveDate => ColumnType::Integer.def().null(),
-            Self::ItemsAvailable => ColumnType::Integer.def(),
-            Self::CandyMachineId => ColumnType::BigInteger.def(),
+            Self::CandyMachineId => ColumnType::Binary.def(),
+            Self::PrefixName => ColumnType::String.def(),
+            Self::NameLength => ColumnType::Integer.def(),
+            Self::PrefixUri => ColumnType::String.def(),
+            Self::UriLength => ColumnType::Integer.def(),
+            Self::IsSequential => ColumnType::Boolean.def(),
         }
     }
 }
+
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
@@ -90,7 +79,7 @@ impl RelationTrait for Relation {
 
 impl Related<super::candy_machine::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::CandyMachine.def()
+        Relation::candy_machine.def()
     }
 }
 

@@ -174,7 +174,7 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
         };
         statsd_count!("ingester.account_update_seen", 1);
         manager
-            .handle_account_update(account_update)
+            .handle_account_update(&account_update)
             .await
             .expect("Processing Failed");
     }

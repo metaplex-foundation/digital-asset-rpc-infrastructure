@@ -1,8 +1,8 @@
 use crate::dao::prelude::{Asset, AssetData};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links,
-    Ownership, Royalty, Scope,
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
