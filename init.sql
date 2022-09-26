@@ -275,26 +275,6 @@ create table candy_machine_gatekeeper
 create unique index candy_machine_gatekeeper_candy_machine_id on candy_machine_gatekeeper (candy_machine_id);
 create unique index candy_machine_gatekeeper_candy_guard_group on candy_machine_gatekeeper (candy_guard_group);
 
-create table candy_machine_collections
-(
-    id                    bigserial                                PRIMARY KEY,
-    mint                  bytea                                    not null,
-    candy_machine_id      bytea                                    not null
-)
-create unique index candy_machine_collections_candy_machine_id on candy_machine_collections (candy_machine_id);
-
-create table candy_machine_freeze
-(
-    id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id)      not null,
-    allow_thaw            bool                                     not null, 
-    frozen_count          int                                      not null,
-    mint_start            int,
-    freeze_time           int                                      not null,
-    freeze_fee            int                                      not null
-)
-create unique index candy_machine_freeze_candy_machine_id on candy_machine_freeze (candy_machine_id);
-
 create table candy_machine_config_line_settings
 (
     id                    bigserial                               PRIMARY KEY,
