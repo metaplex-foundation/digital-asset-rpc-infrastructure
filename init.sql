@@ -195,6 +195,10 @@ create table candy_machine_data
     go_live_date               int,
     items_available            int              not null,
     candy_machine_id           bytea references candy_machine (id),
+    mode                       whitelist_mint_mode,                                      
+    whitelist_mint             bytea,                                                    
+    presale                    bool,                                                    
+    discount_price             int,
 );
 create unique index candy_machine_data_candy_machine_id on candy_machine_data (candy_machine_id);
 
@@ -221,21 +225,12 @@ create table candy_guard_group
 (
     id                   bigserial                              PRIMARY KEY,
     label                varchar(50)                            not null,
-    candy_guard_id       bytea references candy_guard (id)    not null,
+    candy_guard_id       bytea references candy_guard (id)      not null,
+    mode                 whitelist_mint_mode,                                      
+    whitelist_mint       bytea,                                                    
+    presale              bool,                                                    
+    discount_price       int,
 )
-
-create table candy_machine_whitelist_mint_settings
-(
-    id                           bigserial                                                PRIMARY KEY,
-    candy_machine_id             bytea references candy_machine (id),
-    candy_guard_group            int references candy_guard_group (id),
-    mode                         whitelist_mint_mode                                      not null,
-    mint                         bytea                                                    not null,
-    presale                      bool                                                     not null,
-    discount_price               int
-) 
-create unique index candy_machine_whitelist_mint_settings_candy_machine_id on candy_machine_whitelist_mint_settings (candy_machine_id);
-create unique index candy_machine_whitelist_mint_settings_candy_guard_group on candy_machine_whitelist_mint_settings (candy_guard_group);
 
 -- TODO should version be an enum on cm table
 create table candy_machine_hidden_settings

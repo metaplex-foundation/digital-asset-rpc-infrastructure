@@ -16,6 +16,7 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+use mpl_candy_guard::guards::Whitelist;
 use num_traits::FromPrimitive;
 use plerkle_serialization::{
     account_info_generated::account_info::AccountInfo,
@@ -63,6 +64,18 @@ pub async fn candy_machine<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
+    let (mode, presale, whitelist_mint, discount_price) =
+        if let Some(whitelist) = data.whitelist_mint_settings {
+            (
+                Some(whitelist.mode),
+                Some(whitelist.presale),
+                Some(whitelist.mint),
+                whitelist.discount_price,
+            )
+        } else {
+            (None, None, None, None)
+        };
+
     let candy_machine_data = candy_machine_data::ActiveModel {
         candy_machine_id: Set(acct.key().to_bytes().to_vec()),
         uuid: Set(Some(data.uuid)),
@@ -74,11 +87,14 @@ pub async fn candy_machine<'c>(
         retain_authority: Set(Some(data.retain_authority)),
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
+        mode: Set(whitelist_mint_settings.mode),
+        whitelist_mint: Set(whitelist_mint_settings.mint.to_bytes().to_vec()),
+        presale: Set(whitelist_mint_settings.presale),
+        discount_price: Set(whitelist_mint_settings.discount_price),
         ..Default::default()
     };
 
     // TODO move everything related to cm inside one table??
-
     let query = candy_machine_data::Entity::insert(candy_machine_data)
         .on_conflict(
             OnConflict::columns([candy_machine_data::Column::Id])

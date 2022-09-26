@@ -25,7 +25,6 @@ pub mod candy_machine_data;
 pub mod candy_machine_end_settings;
 pub mod candy_machine_gatekeeper;
 pub mod candy_machine_hidden_settings;
-pub mod candy_machine_whitelist_mint_settings;
 pub mod cl_items;
 pub mod raw_txn;
 pub mod sea_orm_active_enums;

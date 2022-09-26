@@ -69,7 +69,6 @@ pub enum Relation {
     CandyMachineHiddenSettings,
     CandyMachineEndSettings,
     CandyMachineGatekeeper,
-    CandyMachineWhitelistMintSettings,
     CandyMachineCreators,
     CandyMachineConfigLineSettings,
 }
@@ -109,9 +108,6 @@ impl RelationTrait for Relation {
             Self::CandyMachineGatekeeper => {
                 Entity::has_one(super::candy_machine_gatekeeper::Entity).into()
             }
-            Self::CandyMachineWhitelistMintSettings => {
-                Entity::has_one(super::candy_machine_whitelist_mint_settings::Entity).into()
-            }
             Self::CandyMachineCreators => {
                 Entity::has_many(super::candy_machine_creators::Entity).into()
             }
@@ -136,12 +132,6 @@ impl Related<super::candy_machine_data::Entity> for Entity {
 impl Related<super::candy_guard::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CandyGuard.def()
-    }
-}
-
-impl Related<super::candy_machine_whitelist_mint_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineWhitelistMintSettings.def()
     }
 }
 

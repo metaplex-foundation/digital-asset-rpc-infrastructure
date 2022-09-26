@@ -6,19 +6,6 @@ use {
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct CandyMachineData {
-    pub uuid: Option<String>,
-    pub price: Option<u64>,
-    pub symbol: String,
-    pub seller_fee_basis_points: u16,
-    pub max_suppy: u64,
-    pub is_mutable: bool,
-    pub retain_authority: Option<bool>,
-    pub go_live_date: Option<i64>,
-    pub items_available: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Creator {
     pub address: String,
     pub share: i32,
@@ -125,6 +112,25 @@ pub struct WhitelistMintSettings {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct CandyMachineData {
+    pub uuid: Option<String>,
+    pub price: Option<u64>,
+    pub symbol: String,
+    pub seller_fee_basis_points: u16,
+    pub max_suppy: u64,
+    pub is_mutable: bool,
+    pub retain_authority: Option<bool>,
+    pub go_live_date: Option<i64>,
+    pub items_available: u64,
+    pub config_line_settings: Option<ConfigLineSettings>,
+    pub hidden_settings: Option<HiddenSettings>,
+    pub end_settings: Option<EndSettings>,
+    pub gatekeeper: Option<Gatekeeper>,
+    pub whitelist_mint_settings: Option<WhitelistMintSettings>,
+    pub creators: Option<Vec<Creator>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CandyMachine {
     pub id: String,
     pub collection: Option<String>,
@@ -134,10 +140,4 @@ pub struct CandyMachine {
     pub wallet: String,
     pub token_mint: Option<String>,
     pub items_redeemed: u64,
-    pub creators: Option<Vec<Creator>>,
-    pub config_line_settings: Option<ConfigLineSettings>,
-    pub hidden_settings: Option<HiddenSettings>,
-    pub end_settings: Option<EndSettings>,
-    pub gatekeeper: Option<Gatekeeper>,
-    pub whitelist_mint_settings: Option<WhitelistMintSettings>,
 }
