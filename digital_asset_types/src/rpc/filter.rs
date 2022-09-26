@@ -31,3 +31,13 @@ pub enum ListingSorting {
     #[serde(rename = "number_of_offers")]
     NumberOfOffers,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+pub enum CandyMachineSorting {
+    #[serde(rename = "created")]
+    Created,
+    #[serde(rename = "updated")]
+    Updated,
+    #[serde(rename = "last_mint")]
+    LastMint,
+}

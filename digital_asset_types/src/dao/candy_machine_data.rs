@@ -19,7 +19,7 @@ pub struct Model {
     pub price: Option<u64>,
     pub symbol: String,
     pub seller_fee_basis_points: u16,
-    pub max_suppy: u64,
+    pub max_supply: u64,
     pub is_mutable: bool,
     pub retain_authority: Option<bool>,
     pub go_live_date: Option<i64>,
@@ -48,7 +48,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         true
     }
@@ -56,13 +56,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    CandyMachineHiddenSettings,
-    CandyMachineEndSettings,
-    CandyMachineGatekeeper,
-    CandyMachineWhitelistMintSettings,
-    CandyMachineCreators,
     CandyMachine,
-    CandyMachineConfigLineSettings,
 }
 
 impl ColumnTrait for Column {
@@ -83,69 +77,14 @@ impl ColumnTrait for Column {
         }
     }
 }
-
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Self::CandyMachineHiddenSettings => {
-                Entity::has_one(super::candy_machine_hidden_settings::Entity).into()
-            }
-            Self::CandyMachineEndSettings => {
-                Entity::has_one(super::candy_machine_end_settings::Entity).into()
-            }
-            Self::CandyMachineGatekeeper => {
-                Entity::has_one(super::candy_machine_gatekeeper::Entity).into()
-            }
-            Self::CandyMachineWhitelistMintSettings => {
-                Entity::has_one(super::candy_machine_whitelist_mint_settings::Entity).into()
-            }
-            Self::CandyMachineCreators => {
-                Entity::has_many(super::candy_machine_creators::Entity).into()
-            }
-            Self::CandyMachineConfigLineSettings => {
-                Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
-            }
             Self::CandyMachine => Entity::belongs_to(super::candy_machine::Entity)
                 .from(Column::CandyMachineId)
                 .to(super::candy_machine::Column::Id)
                 .into(),
         }
-    }
-}
-
-impl Related<super::candy_machine_whitelist_mint_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineWhitelistMintSettings.def()
-    }
-}
-
-impl Related<super::candy_machine_gatekeeper::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineGatekeeper.def()
-    }
-}
-
-impl Related<super::candy_machine_end_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineEndSettings.def()
-    }
-}
-
-impl Related<super::candy_machine_hidden_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineHiddenSettings.def()
-    }
-}
-
-impl Related<super::candy_machine_creators::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineCreators.def()
-    }
-}
-
-impl Related<super::candy_machine_config_line_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineConfigLineSettings.def()
     }
 }
 

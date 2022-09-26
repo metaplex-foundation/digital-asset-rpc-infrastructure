@@ -17,12 +17,13 @@ use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, D
 
 pub async fn process_nft_payment_change(
     nft_payment: &NftPayment,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_nft_payment = candy_guard_nft_payment::ActiveModel {
         burn: Set(nft_payment.burn),
         required_collection: Set(nft_payment.required_collection.to_bytes().to_vec()),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -40,11 +41,12 @@ pub async fn process_nft_payment_change(
 
 pub async fn process_mint_limit_change(
     mint_limit: &MintLimit,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_mint_limit = candy_guard_mint_limit::ActiveModel {
         limit: Set(mint_limit.limit),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -62,11 +64,12 @@ pub async fn process_mint_limit_change(
 
 pub async fn process_allow_list_change(
     allow_list: &AllowList,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_allow_list = candy_guard_allow_list::ActiveModel {
         merkle_root: Set(allow_list.merkle_root),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -84,11 +87,12 @@ pub async fn process_allow_list_change(
 
 pub async fn process_third_party_signer_change(
     third_party_signer: &ThirdPartySigner,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_third_party_signer = candy_guard_third_party_signer::ActiveModel {
         signer_key: Set(third_party_signer.signer_key.to_bytes().to_vec()),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -106,11 +110,12 @@ pub async fn process_third_party_signer_change(
 
 pub async fn process_live_date_change(
     live_date: &LiveDate,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_live_date = candy_guard_live_date::ActiveModel {
         live_date: Set(live_date.date),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -128,13 +133,14 @@ pub async fn process_live_date_change(
 
 pub async fn process_spl_token_change(
     spl_token: &SplToken,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_spl_token = candy_guard_spl_token::ActiveModel {
         amount: Set(spl_token.amount),
         token_mint: Set(spl_token.token_mint.to_bytes().to_vec()),
         destination_ata: Set(spl_token.destination_ata.to_bytes().to_vec()),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -152,12 +158,13 @@ pub async fn process_spl_token_change(
 
 pub async fn process_lamports_change(
     lamports: &Lamports,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_lamports = candy_guard_lamports::ActiveModel {
         amount: Set(lamports.amount),
         destination: Set(lamports.destination.to_bytes().to_vec()),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -175,12 +182,13 @@ pub async fn process_lamports_change(
 
 pub async fn process_bot_tax_change(
     bot_tax: &BotTax,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard_bot_tax = candy_guard_bot_tax::ActiveModel {
         lamports: Set(bot_tax.lamports),
         last_instruction: Set(bot_tax.last_instruction),
-        candy_guard_id: todo!(),
+        candy_machine_id: Set(candy_guard_group_id),
         ..Default::default()
     };
 
@@ -198,10 +206,11 @@ pub async fn process_bot_tax_change(
 
 pub async fn process_config_line_change(
     config_line_settings: &ConfigLineSettings,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_machine_config_line_settings = candy_machine_config_line_settings::ActiveModel {
-        candy_machine_data_id: Set(data.id),
+        candy_machine_id: Set(candy_guard_group_id),
         prefix_name: Set(config_line_settings.prefix_name),
         name_length: Set(config_line_settings.name_length),
         prefix_uri: Set(config_line_settings.prefix_uri),
@@ -227,50 +236,51 @@ pub async fn process_config_line_change(
 
 pub async fn process_guard_set_change(
     guard_set: &GuardSet,
+    candy_guard_group_id: Vec<u8>,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     if let Some(whitelist) = guard_set.whitelist {
-        process_whitelist_change(whitelist, 7, txn)?;
+        process_whitelist_change(whitelist, candy_guard_group_id, txn)?;
     }
 
     if let Some(gatekeeper) = guard_set.gatekeeper {
-        process_gatekeeper_change(gatekeeper, 7, txn)?;
+        process_gatekeeper_change(gatekeeper, candy_guard_group_id, txn)?;
     }
 
     if let Some(end_settings) = guard_set.end_settings {
-        process_end_settings_change(end_settings, 7, txn)?;
+        process_end_settings_change(end_settings, candy_guard_group_id, txn)?;
     }
 
     if let Some(bot_tax) = guard_set.bot_tax {
-        process_bot_tax_change(&bot_tax, txn)?;
+        process_bot_tax_change(&bot_tax, candy_guard_group_id, txn)?;
     }
 
     if let Some(lamports) = guard_set.lamports {
-        process_lamports_change(&lamports, txn)?;
+        process_lamports_change(&lamports, candy_guard_group_id, txn)?;
     }
 
     if let Some(spl_token) = guard_set.spl_token {
-        process_spl_token_change(&spl_token, txn)?;
+        process_spl_token_change(&spl_token, candy_guard_group_id, txn)?;
     }
 
     if let Some(live_date) = guard_set.live_date {
-        process_live_date_change(&live_date, txn)?;
+        process_live_date_change(&live_date, candy_guard_group_id, txn)?;
     }
 
     if let Some(third_party_signer) = guard_set.third_party_signer {
-        process_third_party_signer_change(&third_party_signer, txn)?;
+        process_third_party_signer_change(&third_party_signer, candy_guard_group_id, txn)?;
     }
 
     if let Some(allow_list) = guard_set.allow_list {
-        process_allow_list_change(&allow_list, txn)?;
+        process_allow_list_change(&allow_list, candy_guard_group_id, txn)?;
     }
 
     if let Some(mint_limit) = guard_set.mint_limit {
-        process_mint_limit_change(&mint_limit, txn)?;
+        process_mint_limit_change(&mint_limit, candy_guard_group_id, txn)?;
     }
 
     if let Some(nft_payment) = guard_set.nft_payment {
-        process_nft_payment_change(&nft_payment, txn)?;
+        process_nft_payment_change(&nft_payment, candy_guard_group_id, txn)?;
     }
 
     Ok(())

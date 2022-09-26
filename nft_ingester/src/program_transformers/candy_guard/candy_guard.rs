@@ -12,7 +12,7 @@ use blockbuster::{
 use candy_machine::state::CandyMachine;
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_guard_group, candy_machine_collections},
+    dao::{candy_guard, candy_guard_group, candy_machine_collections},
     json::ChainDataV1,
 };
 use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
@@ -39,43 +39,44 @@ pub async fn candy_guard<'c>(
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let candy_guard = candy_guard::ActiveModel {
-      
+        id: Set(candy_guard.base.to_bytes().to_vec()),
+        bump: Set(candy_guard.bump),
+        authority: Set(candy_guard.authority.to_bytes().to_vec()),
     };
 
-    let query = candy_guard::Entity::insert_one(candy_guard_nft_payment)
+    // TODO need to get from DB for value cm and update the candy guard pda value
+
+    let query = candy_guard::Entity::insert_one(candy_guard)
         .on_conflict(
-            OnConflict::columns([candy_guard::Column::CandyMachineDataId])
+            OnConflict::columns([candy_guard::Column::CandyMachineId])
                 .do_nothing()
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    let guard_set = g.guards;
-    process_guard_set_change(&guard_set, txn);
-
+    let candy_guard_group = candy_guard_group::ActiveModel {
+        label: Set(None),
+        candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
+        ..Default::default()
+    };
     let default_guard_set = candy_guard_data.default;
 
-    // TODO find some kind of way to get candy id in here, add foreign key linking all db tables for candy_guard?
-    // TODO need table for CandyGuard
-    process_guard_set_change(&default_guard_set, txn);
+    process_guard_set_change(&default_guard_set, acct.key().to_bytes().to_vec(), txn);
 
     // TODO should these be inserted and/or updated all in one db trx
-    // TODO use mint authority as linking key for candy guard
-    // TODO insert id as acct.key and this will be foreign key
-
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {
                 let candy_guard_group = candy_guard_group::ActiveModel {
-                    label: Set(g.label),
-                    candy_guard_id: todo!(),
+                    label: Set(Some(g.label)),
+                    candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
                     ..Default::default()
                 };
 
-                let query = candy_guard_nft_payment::Entity::insert_one(candy_guard_nft_payment)
+                let query = candy_guard_group::Entity::insert_one(candy_guard_group)
                     .on_conflict(
-                        OnConflict::columns([candy_guard_nft_payment::Column::CandyMachineDataId])
+                        OnConflict::columns([candy_guard_group::Column::CandyMachineId])
                             .do_nothing()
                             .to_owned(),
                     )
@@ -83,7 +84,7 @@ pub async fn candy_guard<'c>(
                 txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
                 let guard_set = g.guards;
-                process_guard_set_change(&guard_set, txn);
+                process_guard_set_change(&guard_set, acct.key().to_bytes().to_vec(), txn);
             }
         };
     }
