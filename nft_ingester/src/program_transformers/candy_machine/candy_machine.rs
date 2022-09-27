@@ -91,10 +91,18 @@ pub async fn candy_machine<'c>(
         whitelist_mint: Set(whitelist_mint_settings.mint.to_bytes().to_vec()),
         presale: Set(whitelist_mint_settings.presale),
         discount_price: Set(whitelist_mint_settings.discount_price),
-        ..Default::default()
+        mint_start: todo!(),
+        gatekeeper_network: todo!(),
+        expire_on_use: todo!(),
+        prefix_name: todo!(),
+        name_length: todo!(),
+        prefix_uri: todo!(),
+        uri_length: todo!(),
+        is_sequential: todo!(),
+        number: todo!(),
+        end_setting_type: todo!(),
     };
 
-    // TODO move everything related to cm inside one table??
     let query = candy_machine_data::Entity::insert(candy_machine_data)
         .on_conflict(
             OnConflict::columns([candy_machine_data::Column::Id])
