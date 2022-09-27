@@ -33,13 +33,16 @@ pub struct Model {
     pub mint_start: Option<i64>,
     pub gatekeeper_network: Option<Vec<u8>>,
     pub expire_on_use: Option<bool>,
-    pub prefix_name: String,
-    pub name_length: u32,
-    pub prefix_uri: String,
-    pub uri_length: u32,
-    pub is_sequential: bool,
-    pub number: u64,
-    pub end_setting_type: EndSettingType,
+    pub prefix_name: Option<String>,
+    pub name_length: Option<u32>,
+    pub prefix_uri: Option<String>,
+    pub uri_length: Option<u32>,
+    pub is_sequential: Option<bool>,
+    pub number: Option<u64>,
+    pub end_setting_type: Option<EndSettingType>,
+    pub name: Option<String>,
+    pub uri: Option<String>,
+    pub hash: Option<[u8; 32]>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -69,6 +72,9 @@ pub enum Column {
     IsSequential,
     Number,
     EndSettingType,
+    Name,
+    Uri,
+    Hash,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -110,13 +116,16 @@ impl ColumnTrait for Column {
             Self::MintStart => ColumnType::Integer.def().null(),
             Self::GatekeeperNetwork => ColumnType::Binary.def().null(),
             Self::ExpireOnUse => ColumnType::Boolean.def().null(),
-            Self::PrefixName => ColumnType::String.def(),
-            Self::NameLength => ColumnType::Integer.def(),
-            Self::PrefixUri => ColumnType::String.def(),
-            Self::UriLength => ColumnType::Integer.def(),
-            Self::IsSequential => ColumnType::Boolean.def(),
+            Self::PrefixName => ColumnType::String.def().null(),
+            Self::NameLength => ColumnType::Integer.def().null(),
+            Self::PrefixUri => ColumnType::String.def().null(),
+            Self::UriLength => ColumnType::Integer.def().null(),
+            Self::IsSequential => ColumnType::Boolean.def().null(),
             Self::Number => ColumnType::Integer.def().null(),
             Self::EndSettingType => EndSettingType::db_type().null(),
+            Self::Name => ColumnType::String.def().null(),
+            Self::Uri => ColumnType::String.def().null(),
+            Self::Hash => ColumnType::Binary.def().null(),
         }
     }
 }

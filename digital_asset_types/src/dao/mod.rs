@@ -13,7 +13,6 @@ pub mod candy_guard_group;
 pub mod candy_machine;
 pub mod candy_machine_creators;
 pub mod candy_machine_data;
-pub mod candy_machine_hidden_settings;
 pub mod cl_items;
 pub mod raw_txn;
 pub mod sea_orm_active_enums;
