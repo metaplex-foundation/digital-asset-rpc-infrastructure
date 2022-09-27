@@ -58,13 +58,14 @@ pub async fn candy_guard<'c>(
     let candy_guard_group = candy_guard_group::ActiveModel {
         label: Set(None),
         candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
-        ..Default::default()
+        ..Default::default() // TODO finish this refactor
     };
     let default_guard_set = candy_guard_data.default;
 
     process_guard_set_change(&default_guard_set, acct.key().to_bytes().to_vec(), txn);
 
     // TODO should these be inserted and/or updated all in one db trx
+    // TODO fix this with newest changes
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {

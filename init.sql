@@ -185,7 +185,7 @@ create table candy_machine
 create table candy_machine_data
 (
     id                         bigserial        PRIMARY KEY,
-    uuid                       varchar(6),
+    uuid                       varchar(MAX),
     price                      int,
     symbol                     varchar(5)       not null,
     seller_fee_basis_points    int              not null,
@@ -199,6 +199,18 @@ create table candy_machine_data
     whitelist_mint             bytea,                                                    
     presale                    bool,                                                    
     discount_price             int,
+    prefix_name                varchar(10),                             
+    name_length                int,                                     
+    prefix_uri                 varchar(10),                            
+    uri_length                 int,                                    
+    is_sequential              bool,
+    gatekeeper_network         bytea,                                    
+    expire_on_use              bool,  
+    number                     int,                                     
+    end_setting_type           end_setting_type,    
+    name                       varchar(50),                              
+    uri                        varchar(200),                             
+    hash                       bytea                                                                    
 );
 create unique index candy_machine_data_candy_machine_id on candy_machine_data (candy_machine_id);
 
@@ -224,132 +236,51 @@ create table candy_guard
 create table candy_guard_group
 (
     id                   bigserial                              PRIMARY KEY,
-    label                varchar(50)                            not null,
+    label                varchar(50),
     candy_guard_id       bytea references candy_guard (id)      not null,
     mode                 whitelist_mint_mode,                                      
     whitelist_mint       bytea,                                                    
     presale              bool,                                                    
     discount_price       int,
+    lamports             int,
+    last_instruction     bool,
+    amount               int,
+    destination          bytea,
+    spl_token_amount     int,                                    
+    token_mint           bytea,                        
+    destination_ata      bytea,         
+    date                 int,    
+    signer_key           bytea,    
+    burn                 bool,                        
+    required_collection  bytea,        
+    merkle_root          bytea,      
+    limit                int,     
+    gatekeeper_network   bytea,                                    
+    expire_on_use        bool,   
+    number               int,                                     
+    end_setting_type     end_setting_type,                                                                                     
 )
-
--- TODO should version be an enum on cm table
-create table candy_machine_hidden_settings
-(
-    id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id),
-    candy_guard_group     int references candy_guard_group (id),
-    name                  varchar(50)                              not null,
-    uri                   varchar(200)                             not null,
-    hash                  bytea                                    not null
-) 
-create unique index candy_machine_hidden_settings_candy_machine_id on candy_machine_hidden_settings (candy_machine_id);
-create unique index candy_machine_hidden_settings_candy_guard_group on candy_machine_hidden_settings (candy_guard_group);
+create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
 
 
-create table candy_machine_end_settings
-(
-    id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id),
-    candy_guard_group     int references candy_guard_group (id),
-    number                int                                      not null,
-    end_setting_type      end_setting_type                         not null
-    
-) 
-create unique index candy_machine_end_settings_candy_machine_id on candy_machine_end_settings (candy_machine_id);
-create unique index candy_machine_end_settings_candy_guard_group on candy_machine_whitelist_mint_settings (candy_guard_group);
-
-create table candy_machine_gatekeeper
-(
-    id                    bigserial                                PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id),
-    candy_guard_group     int references candy_guard_group (id),
-    gatekeeper_network    bytea                                    not null,
-    expire_on_use         bool                                     not null
-    
-) 
-create unique index candy_machine_gatekeeper_candy_machine_id on candy_machine_gatekeeper (candy_machine_id);
-create unique index candy_machine_gatekeeper_candy_guard_group on candy_machine_gatekeeper (candy_guard_group);
-
-create table candy_machine_config_line_settings
-(
-    id                    bigserial                               PRIMARY KEY,
-    candy_machine_id      bytea references candy_machine (id)     not null,
-    prefix_name           varchar(10)                             not null,
-    name_length           int                                     not null,
-    prefix_uri            varchar(10)                             not null,
-    uri_length            int                                     not null,
-    is_sequential         bool                                    not null,
-)
-create unique index candy_machine_config_line_settings_candy_machine_id on candy_machine_config_line_settings (candy_machine_id);
-
-create table candy_guard_mint_limit
-(
-    id                   bigserial                               PRIMARY KEY,
-    limit                int                                     not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_mint_limit_candy_guard_group on candy_guard_mint_limit (candy_guard_group);
 
 
-create table candy_guard_allow_list
-(
-    id                   bigserial                              PRIMARY KEY,
-    merkle_root          bytea                                  not null,
-    candy_guard_group    int references candy_guard_group (id), 
-)
-create unique index candy_guard_allow_list_candy_guard_group on candy_guard_allow_list (candy_guard_group);
 
-create table candy_guard_nft_payment
-(
-    id                   bigserial                              PRIMARY KEY,
-    burn                 bool                                   not null,
-    required_collection  bytea                                  not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_nft_payment_candy_guard_group on candy_guard_nft_payment (candy_guard_group);
 
-create table candy_guard_third_party_signer
-(
-    id                   bigserial                              PRIMARY KEY,
-    signer_key           bytea                                  not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_third_party_signer_candy_guard_group on candy_guard_third_party_signer (candy_guard_group);
 
-create table candy_guard_live_date
-(
-    id                   bigserial                              PRIMARY KEY,
-    date                 int,
-    candy_guard_group    int references candy_guard_group (id),
-)
 
-create table candy_guard_spl_token
-(
-    id                   bigserial                              PRIMARY KEY,
-    amount               int                                    not null,
-    token_mint           bytea                                  not null,
-    destination_ata      bytea                                  not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_spl_token_candy_guard_group on candy_guard_spl_token (candy_guard_group);
 
-create table candy_guard_lamports
-(
-    id                   bigserial                              PRIMARY KEY,
-    amount               int                                    not null,
-    destination          bytea                                  not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_lamports_candy_guard_group on candy_guard_lamports (candy_guard_group);
 
-create table candy_guard_bot_tax
-(
-    id                   bigserial                              PRIMARY KEY,
-    lamports             int                                    not null,
-    last_instruction     bool                                   not null,
-    candy_guard_group    int references candy_guard_group (id),
-)
-create unique index candy_guard_bot_tax_candy_guard_group on candy_guard_bot_tax (candy_guard_group);
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -66,11 +66,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 pub enum Relation {
     CandyMachineData,
     CandyGuard,
-    CandyMachineHiddenSettings,
-    CandyMachineEndSettings,
-    CandyMachineGatekeeper,
     CandyMachineCreators,
-    CandyMachineConfigLineSettings,
 }
 
 impl ColumnTrait for Column {
@@ -99,20 +95,8 @@ impl ColumnTrait for Column {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Self::CandyMachineHiddenSettings => {
-                Entity::has_one(super::candy_machine_hidden_settings::Entity).into()
-            }
-            Self::CandyMachineEndSettings => {
-                Entity::has_one(super::candy_machine_end_settings::Entity).into()
-            }
-            Self::CandyMachineGatekeeper => {
-                Entity::has_one(super::candy_machine_gatekeeper::Entity).into()
-            }
             Self::CandyMachineCreators => {
                 Entity::has_many(super::candy_machine_creators::Entity).into()
-            }
-            Self::CandyMachineConfigLineSettings => {
-                Entity::has_one(super::candy_machine_config_line_settings::Entity).into()
             }
             Self::CandyMachineData => Entity::has_one(super::candy_machine_data::Entity).into(),
             Self::CandyGuard => Entity::belongs_to(super::candy_guard::Entity)
@@ -135,33 +119,9 @@ impl Related<super::candy_guard::Entity> for Entity {
     }
 }
 
-impl Related<super::candy_machine_gatekeeper::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineGatekeeper.def()
-    }
-}
-
-impl Related<super::candy_machine_end_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineEndSettings.def()
-    }
-}
-
-impl Related<super::candy_machine_hidden_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineHiddenSettings.def()
-    }
-}
-
 impl Related<super::candy_machine_creators::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CandyMachineCreators.def()
-    }
-}
-
-impl Related<super::candy_machine_config_line_settings::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyMachineConfigLineSettings.def()
     }
 }
 
