@@ -8,14 +8,9 @@ use crate::rpc::{
     Creator, EndSettings, FreezeInfo, Gatekeeper, GuardSet, HiddenSettings, Lamports, LiveDate,
     MintLimit, NftPayment, SplToken, ThirdPartySigner, WhitelistMintSettings,
 };
-use jsonpath_lib::JsonPathError;
-use mime_guess::Mime;
+
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::path::Path;
-use url::Url;
 
 pub fn to_creators(creators: Vec<candy_machine_creators::Model>) -> Vec<Creator> {
     creators
