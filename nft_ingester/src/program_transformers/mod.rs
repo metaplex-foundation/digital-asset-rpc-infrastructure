@@ -65,8 +65,12 @@ impl ProgramTransformer {
 
     pub async fn handle_account_update<'b>(
         &self,
-        _acct: AccountInfo<'b>,
+        acct: AccountInfo<'b>,
     ) -> Result<(), IngesterError> {
+        let owner = acct.owner().unwrap();
+        if let Some(program) = self.match_program(FBPubkey::new(owner)) {
+
+        }
         Ok(())
     }
 }
