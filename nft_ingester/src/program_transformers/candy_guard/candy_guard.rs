@@ -59,6 +59,8 @@ pub async fn candy_guard<'c>(
         label: Set(None),
         candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
         ..Default::default()
+
+        // TODO finish this refactor
     };
     let default_guard_set = candy_guard_data.default;
 

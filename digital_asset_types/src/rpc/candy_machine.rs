@@ -116,9 +116,98 @@ pub struct WhitelistMintSettings {
     pub discount_price: Option<u64>,
 }
 
-// TODO fill this out
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct CandyGuard {}
+pub struct BotTax {
+    pub lamports: u64,
+    pub last_instruction: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Lamports {
+    pub amount: u64,
+    pub destination: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct SplToken {
+    pub amount: u64,
+    pub token_mint: String,
+    pub destination_ata: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LiveDate {
+    pub date: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ThirdPartySigner {
+    pub signer_key: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct AllowList {
+    pub merkle_root: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct MintLimit {
+    pub id: u8,
+    pub limit: u16,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NftPayment {
+    pub burn: bool,
+    pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct GuardSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bot_tax: Option<BotTax>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lamports: Option<Lamports>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spl_token: Option<SplToken>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live_date: Option<LiveDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub third_party_signer: Option<ThirdPartySigner>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub whitelist: Option<WhitelistMintSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gatekeeper: Option<Gatekeeper>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_settings: Option<EndSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_list: Option<AllowList>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_limit: Option<MintLimit>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nft_payment: Option<NftPayment>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Group {
+    pub label: String,
+    pub guards: GuardSet,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct CandyGuardData {
+    pub default: GuardSet,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub groups: Option<Vec<Group>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct CandyGuard {
+    pub id: String,
+    pub bump: u8,
+    pub authority: String,
+    pub candy_guard_data: CandyGuardData,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CandyMachineData {

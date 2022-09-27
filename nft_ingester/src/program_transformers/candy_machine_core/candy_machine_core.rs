@@ -63,6 +63,29 @@ pub async fn candy_machine_core<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
+    let (name, uri, hash) = if let Some(hidden_settings) = data.hidden_settings {
+        (
+            Some(hidden_settings.name),
+            Some(hidden_settings.uri),
+            Some(hidden_settings.hash),
+        )
+    } else {
+        (None, None, None)
+    };
+
+    let (prefix_name, name_length, prefix_uri, uri_length) =
+        if let Some(config_line_settings) = data.config_line_settings {
+            (
+                Some(config_line_settings.prefix_name),
+                Some(config_line_settings.name_length),
+                Some(config_line_settings.prefix_uri),
+                Some(config_line_settings.uri_length),
+                Some(config_line_settings.is_sequential),
+            )
+        } else {
+            (None, None, None, None, None)
+        };
+
     let candy_machine_data = candy_machine_data::ActiveModel {
         candy_machine_id: Set(acct.key().to_bytes().to_vec()),
         uuid: Set(None),
@@ -74,6 +97,22 @@ pub async fn candy_machine_core<'c>(
         retain_authority: Set(None),
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
+        mode: Set(None),
+        whitelist_mint: Set(None),
+        presale: Set(None),
+        discount_price: Set(None),
+        gatekeeper_network: Set(None),
+        expire_on_use: Set(None),
+        prefix_name: Set(prefix_name),
+        name_length: Set(name_length),
+        prefix_uri: Set(prefix_uri),
+        uri_length: Set(uri_length),
+        is_sequential: Set(is_sequential),
+        number: Set(None),
+        end_setting_type: Set(None),
+        name: Set(name),
+        uri: Set(uri),
+        hash: Set(hash),
         ..Default::default()
     };
 
@@ -86,16 +125,26 @@ pub async fn candy_machine_core<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    if candy_machine.data.creators.len() > 0 {
-        process_creators_change(candy_machine.data.creators, candy_machine_data_id, txn).await?;
-    };
+    if candy_machine_data.creators.len() > 0 {
+        let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
+        for c in metadata.creators.iter() {
+            creators.push(candy_machine_creators::ActiveModel {
+                candy_machine_id: Set(candy_machine_id),
+                creator: Set(c.address.to_bytes().to_vec()),
+                share: Set(c.share as i32),
+                verified: Set(c.verified),
+                ..Default::default()
+            });
+        }
 
-    if let Some(config_line_settings) = data.config_line_settings {
-        process_config_line_change(&config_line_settings, candy_machine_data_id, txn).await?;
-    }
-
-    if let Some(hidden_settings) = data.hidden_settings {
-        process_hidden_settings_change(&hidden_settings, candy_machine_data_id, txn).await?;
+        let query = candy_machine_creators::Entity::insert_many(creators)
+            .on_conflict(
+                OnConflict::columns([candy_machine_creators::Column::CandyMachineId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await.map(|_| ()).map_err(Into::into);
     }
 
     Ok(())
