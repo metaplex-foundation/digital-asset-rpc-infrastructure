@@ -236,7 +236,7 @@ create table candy_guard
 create table candy_guard_group
 (
     id                   bigserial                              PRIMARY KEY,
-    label                varchar(50)                            not null,
+    label                varchar(50),
     candy_guard_id       bytea references candy_guard (id)      not null,
     mode                 whitelist_mint_mode,                                      
     whitelist_mint       bytea,                                                    
@@ -260,7 +260,7 @@ create table candy_guard_group
     number               int,                                     
     end_setting_type     end_setting_type,                                                                                     
 )
-
+create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
 
 
 
