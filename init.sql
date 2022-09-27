@@ -185,7 +185,7 @@ create table candy_machine
 create table candy_machine_data
 (
     id                         bigserial        PRIMARY KEY,
-    uuid                       varchar(6),
+    uuid                       varchar(MAX),
     price                      int,
     symbol                     varchar(5)       not null,
     seller_fee_basis_points    int              not null,

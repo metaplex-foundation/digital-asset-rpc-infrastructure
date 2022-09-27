@@ -1,8 +1,11 @@
-use crate::dao::prelude::{CandyMachine, CandyMachineData};
-use crate::dao::{candy_machine, candy_machine_creators, candy_machine_data};
+use crate::dao::prelude::{CandyGuard, CandyGuardGroup, CandyMachine, CandyMachineData};
+use crate::dao::{
+    candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
+};
 use crate::rpc::{
-    CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData, ConfigLineSettings,
-    Creator, EndSettings, FreezeInfo, Gatekeeper, HiddenSettings, WhitelistMintSettings,
+    CandyGuard as RpcCandyGuard, CandyMachine as RpcCandyMachine,
+    CandyMachineData as RpcCandyMachineData, ConfigLineSettings, Creator, EndSettings, FreezeInfo,
+    Gatekeeper, HiddenSettings, WhitelistMintSettings, CandyGuardData,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
@@ -112,6 +115,31 @@ pub async fn get_candy_machine(
         .all(db)
         .await?;
 
+    let candy_guard = if let Some(candy_guard_pda) = candy_machine.candy_guard_pda {
+        let (candy_guard, candy_guard_group): (candy_guard::Model, Vec<candy_guard_group::Model>) =
+            CandyGuard::find_by_id(candy_guard_pda)
+                .find_also_related(CandyGuardGroup)
+                .all(db)
+                .await
+                .and_then(|o| match o {
+                    Some((a, Some(d))) => Ok((a, d)),
+                    _ => Err(DbErr::RecordNotFound("Candy Guard Not Found".to_string())),
+                })?;
+
+
+         for g in groups.iter(){
+
+        }   
+        RpcCandyGuard {
+            id: candy_guard.id,
+            bump: candy_guard.bump,
+            authority: candy_guard.authority,
+            candy_guard_data: CandyGuardData{ default: todo!(), groups: todo!() },
+        }
+    } else {
+        None
+    };
+
     let rpc_creators = to_creators(creators);
 
     let freeze_info = get_freeze_info(
@@ -155,6 +183,6 @@ pub async fn get_candy_machine(
         wallet: candy_machine.wallet,
         token_mint: candy_machine.token_mint,
         items_redeemed: candy_machine.items_redeemed,
-        candy_guard: todo!(),
+        candy_guard,
     })
 }

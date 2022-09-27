@@ -41,6 +41,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     CandyMachine,
+    CandyGuardGroup,
 }
 
 impl ColumnTrait for Column {
@@ -54,12 +55,11 @@ impl ColumnTrait for Column {
     }
 }
 
-// TODO check relation here for CM, i think can be removed
-
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::CandyMachine => Entity::has_one(super::candy_machine::Entity).into(),
+            Self::CandyGuardGroup => Entity::has_many(super::candy_guard_group::Entity).into(),
         }
     }
 }
@@ -67,6 +67,12 @@ impl RelationTrait for Relation {
 impl Related<super::candy_machine::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CandyMachine.def()
+    }
+}
+
+impl Related<super::candy_guard_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyGuardGroup.def()
     }
 }
 
