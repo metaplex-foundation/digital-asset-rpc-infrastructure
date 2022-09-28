@@ -64,16 +64,12 @@ pub struct EndSettings {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FreezeInfo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allow_thaw: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frozen_count: Option<u64>,
+    pub allow_thaw: bool,
+    pub frozen_count: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_start: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub freeze_time: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub freeze_fee: Option<u64>,
+    pub freeze_time: i64,
+    pub freeze_fee: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

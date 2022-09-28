@@ -38,12 +38,9 @@ pub fn get_freeze_info(
     freeze_fee: Option<u64>,
     mint_start: Option<i64>,
 ) -> Option<FreezeInfo> {
-    if allow_thaw.is_some()
-        && frozen_count.is_some()
-        && freeze_time.is_some()
-        && freeze_fee.is_some()
+    if let (Some(allow_thaw), Some(frozen_count), Some(freeze_time), Some(freeze_fee)) =
+        (allow_thaw, frozen_count, freeze_time, freeze_fee)
     {
-        // TODO extract these value from options minus mint_start
         Some(FreezeInfo {
             allow_thaw,
             frozen_count,
@@ -58,6 +55,7 @@ pub fn get_freeze_info(
 
 pub fn get_hidden_settings(hidden_settings: &Option<HiddenSettings>) -> Option<HiddenSettings> {
     if hidden_settings.is_some() {
+        // TODO what to do with hash here ? turn into string? or return as [u8]
         hidden_settings
     } else {
         None
@@ -90,18 +88,13 @@ pub fn get_whitelist_settings(
     }
 }
 
-pub fn get_bot_tax(bot_tax: &Option<BotTax>) -> Option<BotTax> {
-    if bot_tax.is_some() {
-        bot_tax
-    } else {
-        None
-    }
-}
-
 // TODO move all these ^ function to one big match function
 pub fn get_lamports(lamports: &Option<Lamports>) -> Option<Lamports> {
-    if lamports.is_some() {
-        lamports
+    if let Some(lamports) = lamports {
+        Some(Lamports {
+            amount: lamports.amount,
+            destination: bs58::encode(lamports.destination).into_string(),
+        })
     } else {
         None
     }
@@ -109,47 +102,41 @@ pub fn get_lamports(lamports: &Option<Lamports>) -> Option<Lamports> {
 
 pub fn get_allow_list(allow_list: &Option<AllowList>) -> Option<AllowList> {
     if allow_list.is_some() {
+        // TODO what to do with merkle root here ? turn into string? or return as [u8]
         allow_list
     } else {
         None
     }
 }
 
-pub fn get_mint_limit(mint_limit: &Option<MintLimit>) -> Option<MintLimit> {
-    if mint_limit.is_some() {
-        mint_limit
-    } else {
-        None
-    }
-}
-
 pub fn get_nft_payment(nft_payment: &Option<NftPayment>) -> Option<NftPayment> {
-    if nft_payment.is_some() {
-        nft_payment
-    } else {
-        None
-    }
-}
-
-pub fn get_live_date(live_date: &Option<LiveDate>) -> Option<LiveDate> {
-    if live_date.is_some() {
-        live_date
+    if let Some(nft_payment) = nft_payment {
+        Some(NftPayment {
+            burn: nft_payment.burn,
+            required_collection: bs58::encode(nft_payment).into_string(),
+        })
     } else {
         None
     }
 }
 
 pub fn get_third_party_signer(signer: &Option<ThirdPartySigner>) -> Option<ThirdPartySigner> {
-    if signer.is_some() {
-        signer
+    if let Some(signer) = signer {
+        Some(ThirdPartySigner {
+            signer_key: bs58::encode(signer.signer_key).to_string(),
+        })
     } else {
         None
     }
 }
 
 pub fn get_spl_token(spl_token: &Option<SplToken>) -> Option<SplToken> {
-    if spl_token.is_some() {
-        spl_token
+    if let Some(spl_token) = spl_token {
+        Some(SplToken {
+            amount: spl_token.amount,
+            token_mint: bs58::encode(spl_token.token_mint).to_string(),
+            destination_ata: bs58::encode(spl_token.destination_ata).to_string(),
+        })
     } else {
         None
     }
@@ -190,27 +177,24 @@ pub async fn get_candy_machine(
             .find(|&group| group.label.is_none())
             .map(|&group| {
                 let gatekeeper = get_gatekeeper(group.gatekeeper);
-                let bot_tax = get_bot_tax(group.bot_tax);
                 let lamports = get_lamports(group.lamports);
                 let spl_token = get_spl_token(group.spl_token);
-                let live_date = get_live_date(group.live_date);
                 let third_party_signer = get_third_party_signer(group.third_party_signer);
                 let allow_list = get_allow_list(group.allow_list);
-                let mint_limit = get_mint_limit(group.mint_limit);
                 let nft_payment = get_nft_payment(group.nft_payment);
                 let whitelist_settings = get_whitelist_settings(group.whitelist_mint_settings);
 
                 GuardSet {
-                    bot_tax,
+                    bot_tax: group.bot_tax,
                     lamports,
                     spl_token,
-                    live_date,
+                    live_date: group.live_date,
                     third_party_signer,
                     whitelist: whitelist_settings,
                     gatekeeper,
                     end_settings: group.end_settings,
                     allow_list,
-                    mint_limit,
+                    mint_limit: group.mint_limit,
                     nft_payment,
                 }
             })
@@ -225,7 +209,6 @@ pub async fn get_candy_machine(
             let bot_tax = get_bot_tax(group.bot_tax);
             let lamports = get_lamports(group.lamports);
             let spl_token = get_spl_token(group.spl_token);
-            let live_date = get_live_date(group.live_date);
             let third_party_signer = get_third_party_signer(group.third_party_signer);
             let allow_list = get_allow_list(group.allow_list);
             let mint_limit = get_mint_limit(group.mint_limit);
@@ -236,7 +219,7 @@ pub async fn get_candy_machine(
                 bot_tax,
                 lamports,
                 spl_token,
-                live_date,
+                live_date: group.live_date,
                 third_party_signer,
                 whitelist: whitelist_settings,
                 gatekeeper,
