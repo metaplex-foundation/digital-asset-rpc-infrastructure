@@ -28,8 +28,8 @@ pub async fn get_candy_machines_by_creator(
 ) -> Result<CandyMachineList, DbErr> {
     let sort_column = match sort_by {
         CandyMachineSorting::Created => candy_machine::Column::CreatedAt,
-        CandyMachineSorting::Updated => todo!(),
-        CandyMachineSorting::RecentAction => todo!(),
+        // TODO figure out how this is handled
+        CandyMachineSorting::LastMint => todo!(),
     };
 
     let mut conditions = Condition::any();

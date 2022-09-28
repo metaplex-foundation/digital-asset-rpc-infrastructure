@@ -36,8 +36,6 @@ pub enum ListingSorting {
 pub enum CandyMachineSorting {
     #[serde(rename = "created")]
     Created,
-    #[serde(rename = "updated")]
-    Updated,
     #[serde(rename = "last_mint")]
     LastMint,
 }
