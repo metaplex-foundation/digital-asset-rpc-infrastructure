@@ -41,10 +41,16 @@ pub async fn candy_machine<'c>(
         None
     };
 
+    let wallet = if let Some(wallet) = candy_machine.wallet {
+        Some(wallet.to_bytes().to_vec())
+    } else {
+        None
+    };
+
     let candy_machine_state = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
-        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
+        wallet: Set(wallet),
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed),
         version: Set(2),

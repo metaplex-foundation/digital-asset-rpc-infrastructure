@@ -30,30 +30,40 @@ pub async fn candy_machine_core<'c>(
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let data = candy_machine_core.data;
+    let collection_mint = if let Some(collection_mint) = candy_machine_core.collection_mint {
+        Some(collection_mint.to_bytes().to_vec())
+    } else {
+        None
+    };
+
+    let mint_authority = if let Some(mint_authority) = candy_machine_core.mint_authority {
+        Some(mint_authority.to_bytes().to_vec())
+    } else {
+        None
+    };
 
     let candy_machine_core = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
-        features: Set(Some(candy_machine.features)),
-        authority: Set(candy_machine.authority.to_bytes().to_vec()),
-        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
-        token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
-        items_redeemed: Set(candy_machine.items_redeemed),
-        mint_authority: Set(candy_machine.mint_authority.to_bytes().to_vec()),
+        features: Set(Some(candy_machine_core.features)),
+        authority: Set(candy_machine_core.authority.to_bytes().to_vec()),
+        items_redeemed: Set(candy_machine_core.items_redeemed),
+        mint_authority: Set(mint_authority),
+        collection_mint: Set(collection_mint),
         version: Set(3),
-        candy_guard_pda: Set(None),
-        candy_guard_pda: Set(None),
-        collection_mint: Set(None),
-        allow_thaw: Set(None),
-        frozen_count: Set(None),
-        mint_start: Set(None),
-        freeze_time: Set(None),
-        freeze_fee: Set(None),
+        ..Default::default()
     };
 
     let query = candy_machine::Entity::insert(candy_machine_core)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
-                .do_nothing()
+                .update_columns([
+                    candy_machine::Column::Authority,
+                    candy_machine::Column::Features,
+                    candy_machine::Column::ItemsRedeemed,
+                    candy_machine::Column::MintAuthority,
+                    candy_machine::Column::CollectionMint,
+                    candy_machine::Column::Version,
+                ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -84,28 +94,17 @@ pub async fn candy_machine_core<'c>(
 
     let candy_machine_data = candy_machine_data::ActiveModel {
         candy_machine_id: Set(acct.key().to_bytes().to_vec()),
-        uuid: Set(None),
-        price: Set(None),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
         max_supply: Set(data.max_supply),
         is_mutable: Set(data.is_mutable),
-        retain_authority: Set(None),
         go_live_date: Set(data.go_live_date),
         items_available: Set(data.items_available),
-        mode: Set(None),
-        whitelist_mint: Set(None),
-        presale: Set(None),
-        discount_price: Set(None),
-        gatekeeper_network: Set(None),
-        expire_on_use: Set(None),
         prefix_name: Set(prefix_name),
         name_length: Set(name_length),
         prefix_uri: Set(prefix_uri),
         uri_length: Set(uri_length),
         is_sequential: Set(is_sequential),
-        number: Set(None),
-        end_setting_type: Set(None),
         name: Set(name),
         uri: Set(uri),
         hash: Set(hash),
@@ -114,8 +113,18 @@ pub async fn candy_machine_core<'c>(
 
     let query = candy_machine_data::Entity::insert(candy_machine_data)
         .on_conflict(
-            OnConflict::columns([candy_machine_data::Column::Id])
-                .do_nothing()
+            OnConflict::columns([candy_machine_data::Column::CandyMachineId])
+                .update_columns([
+                    candy_machine_data::Column::Symbol,
+                    candy_machine_data::Column::SellerFeeBasisPoints,
+                    candy_machine_data::Column::MaxSupply,
+                    candy_machine_data::Column::IsMutable,
+                    candy_machine_data::Column::GoLiveDate,
+                    candy_machine_data::Column::ItemsAvailable,
+                    candy_machine_data::Column::Name,
+                    candy_machine_data::Column::Uri,
+                    candy_machine_data::Column::Hash,
+                ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
