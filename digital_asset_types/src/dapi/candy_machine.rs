@@ -56,16 +56,6 @@ pub fn get_freeze_info(
     }
 }
 
-pub fn get_config_line_settings(
-    config_line_settings: &Option<ConfigLineSettings>,
-) -> Option<ConfigLineSettings> {
-    if config_line_settings.is_some() {
-        config_line_settings
-    } else {
-        None
-    }
-}
-
 pub fn get_hidden_settings(hidden_settings: &Option<HiddenSettings>) -> Option<HiddenSettings> {
     if hidden_settings.is_some() {
         hidden_settings
@@ -74,27 +64,9 @@ pub fn get_hidden_settings(hidden_settings: &Option<HiddenSettings>) -> Option<H
     }
 }
 
-pub fn get_end_settings(end_settings: &Option<EndSettings>) -> Option<HiddenSettings> {
-    if end_settings.is_some() {
-        end_settings
-    } else {
-        None
-    }
-}
-
 pub fn get_gatekeeper(gatekeeper: &Option<Gatekeeper>) -> Option<Gatekeeper> {
     if gatekeeper.is_some() {
         gatekeeper
-    } else {
-        None
-    }
-}
-
-pub fn get_whitelist_mint_settings(
-    whitelist_mint_settings: &Option<WhitelistMintSettings>,
-) -> Option<WhitelistMintSettings> {
-    if whitelist_mint_settings.is_some() {
-        whitelist_mint_settings
     } else {
         None
     }
@@ -200,9 +172,6 @@ pub async fn get_candy_machine(
             .find(|&group| group.label.is_none())
             .map(|&group| {
                 let gatekeeper = get_gatekeeper(group.gatekeeper);
-                let end_settings = get_end_settings(group.end_settings);
-                let whitelist_mint_settings =
-                    get_whitelist_mint_settings(group.whitelist_mint_settings);
                 let bot_tax = get_bot_tax(group.bot_tax);
                 let lamports = get_lamports(group.lamports);
                 let spl_token = get_spl_token(group.spl_token);
@@ -218,9 +187,9 @@ pub async fn get_candy_machine(
                     spl_token,
                     live_date,
                     third_party_signer,
-                    whitelist: whitelist_mint_settings,
+                    whitelist: group.whitelist_mint_settings,
                     gatekeeper,
-                    end_settings,
+                    end_settings: group.end_settings,
                     allow_list,
                     mint_limit,
                     nft_payment,
@@ -234,9 +203,6 @@ pub async fn get_candy_machine(
             .filter(|group| group.label.is_some())
         {
             let gatekeeper = get_gatekeeper(group.gatekeeper);
-            let end_settings = get_end_settings(group.end_settings);
-            let whitelist_mint_settings =
-                get_whitelist_mint_settings(group.whitelist_mint_settings);
             let bot_tax = get_bot_tax(group.bot_tax);
             let lamports = get_lamports(group.lamports);
             let spl_token = get_spl_token(group.spl_token);
@@ -252,9 +218,10 @@ pub async fn get_candy_machine(
                 spl_token,
                 live_date,
                 third_party_signer,
-                whitelist: whitelist_mint_settings,
+                // TODO change this back
+                whitelist: group.whitelist_mint_settings,
                 gatekeeper,
-                end_settings,
+                end_settings: group.end_settings,
                 allow_list,
                 mint_limit,
                 nft_payment,
@@ -286,13 +253,8 @@ pub async fn get_candy_machine(
         candy_machine.mint_start,
     );
 
-    let data_config_line_settings =
-        get_config_line_settings(candy_machine_data.config_line_settings);
     let data_hidden_settings = get_hidden_settings(candy_machine_data.hidden_settings);
-    let data_end_settings = get_end_settings(candy_machine_data.end_settings);
     let data_gatekeeper = get_gatekeeper(candy_machine_data.gatekeeper);
-    let data_whitelist_mint_settings =
-        get_whitelist_mint_settings(candy_machine_data.whitelist_mint_settings);
 
     // TODO figure out which option types were not saved in db asvec u8 when they should have been
     // TODO figure out which ones need bs58 encoding added to them
@@ -310,11 +272,11 @@ pub async fn get_candy_machine(
             retain_authority: candy_machine_data.retain_authority,
             go_live_date: candy_machine_data.go_live_date,
             items_available: candy_machine_data.items_available,
-            config_line_settings: data_config_line_settings,
+            config_line_settings: candy_machine_data.config_line_settings,
             hidden_settings: data_hidden_settings,
-            end_settings: data_end_settings,
+            end_settings: candy_machine_data.end_settings,
             gatekeeper: data_gatekeeper,
-            whitelist_mint_settings: data_whitelist_mint_settings,
+            whitelist_mint_settings: candy_machine_data.whitelist_mint_settings,
             creators: Some(rpc_creators),
         },
         authority: bs58::encode(candy_machine.authority).into_string(),

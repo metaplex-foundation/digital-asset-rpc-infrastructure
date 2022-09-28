@@ -20,6 +20,7 @@ pub struct ConfigLineSettings {
     pub uri_length: u32,
     pub is_sequential: bool,
 }
+// TODO go through this and figure out which getters to remove from dapi
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct HiddenSettings {
@@ -113,6 +114,7 @@ pub struct WhitelistMintSettings {
     pub mode: WhitelistMintMode,
     pub mint: String,
     pub presale: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub discount_price: Option<u64>,
 }
 
@@ -137,6 +139,7 @@ pub struct SplToken {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct LiveDate {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date: Option<i64>,
 }
 

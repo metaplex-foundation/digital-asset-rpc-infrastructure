@@ -28,7 +28,6 @@ use sea_orm::{
     EntityTrait, JsonValue,
 };
 
-
 pub async fn candy_machine<'c>(
     candy_machine: &CandyMachine,
     acct: &AccountInfo<'c>,
@@ -36,29 +35,31 @@ pub async fn candy_machine<'c>(
 ) -> Result<(), IngesterError> {
     let data = candy_machine.data;
 
-    //TODO should fetch first here ? then update or insert
-    let candy_machine_state = candy_machine::ActiveModel {
-        id: Set(acct.key().to_bytes().to_vec()),
-        features: Set(None),
-        authority: Set(candy_machine.authority.to_bytes().to_vec()),
-        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
-        token_mint: Set(candy_machine.token_mint.to_bytes().to_vec()),
-        items_redeemed: Set(candy_machine.items_redeemed),
-        mint_authority: Set(None),
-        version: Set(2),
-        candy_guard_pda: Set(None),
-        collection_mint: Set(None),
-        allow_thaw: Set(None),
-        frozen_count: Set(None),
-        mint_start: Set(None),
-        freeze_time: Set(None),
-        freeze_fee: Set(None),
+    let token_mint = if let Some(token_mint) = candy_machine.token_mint {
+        Some(token_mint.to_bytes().to_vec())
+    } else {
+        None
     };
 
-    let query = candy_machine::Entity::insert(model)
+    let candy_machine_state = candy_machine::ActiveModel {
+        id: Set(acct.key().to_bytes().to_vec()),
+        authority: Set(candy_machine.authority.to_bytes().to_vec()),
+        wallet: Set(candy_machine.wallet.to_bytes().to_vec()),
+        token_mint: Set(token_mint),
+        items_redeemed: Set(candy_machine.items_redeemed),
+        version: Set(2),
+        ..Default::default()
+    };
+
+    let query = candy_machine::Entity::insert(candy_machine_state)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
-                .do_nothing()
+                .update_columns([
+                    candy_machine::Column::Authority,
+                    candy_machine::Column::Wallet,
+                    candy_machine::Column::TokenMint,
+                    candy_machine::Column::ItemsRedeemed,
+                ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -69,7 +70,7 @@ pub async fn candy_machine<'c>(
             (
                 Some(whitelist.mode),
                 Some(whitelist.presale),
-                Some(whitelist.mint),
+                Some(whitelist.mint.to_bytes().to_vec()),
                 whitelist.discount_price,
             )
         } else {
@@ -89,7 +90,7 @@ pub async fn candy_machine<'c>(
     let (expire_on_use, gatekeeper_network) = if let Some(gatekeeper) = data.gatekeeper {
         (
             Some(gatekeeper.expire_on_use),
-            Some(gatekeeper.gatekeeper_network),
+            Some(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
         )
     } else {
         (None, None)
@@ -119,14 +120,8 @@ pub async fn candy_machine<'c>(
         whitelist_mint: Set(whitelist_mint),
         presale: Set(presale),
         discount_price: Set(discount_price),
-        mint_start: Set(None),
         gatekeeper_network: Set(gatekeeper_network),
         expire_on_use: Set(expire_on_use),
-        prefix_name: Set(None),
-        name_length: Set(None),
-        prefix_uri: Set(None),
-        uri_length: Set(None),
-        is_sequential: Set(None),
         number: Set(number),
         end_setting_type: Set(end_setting_type),
         name: Set(name),
@@ -137,8 +132,29 @@ pub async fn candy_machine<'c>(
 
     let query = candy_machine_data::Entity::insert(candy_machine_data)
         .on_conflict(
-            OnConflict::columns([candy_machine_data::Column::Id])
-                .do_nothing()
+            OnConflict::columns([candy_machine_data::Column::CandyMachineId])
+                .update_columns([
+                    candy_machine_data::Column::Uuid,
+                    candy_machine_data::Column::Price,
+                    candy_machine_data::Column::Symbol,
+                    candy_machine_data::Column::SellerFeeBasisPoints,
+                    candy_machine_data::Column::MaxSupply,
+                    candy_machine_data::Column::IsMutable,
+                    candy_machine_data::Column::RetainAuthority,
+                    candy_machine_data::Column::GoLiveDate,
+                    candy_machine_data::Column::ItemsAvailable,
+                    candy_machine_data::Column::Mode,
+                    candy_machine_data::Column::WhitelistMint,
+                    candy_machine_data::Column::Presale,
+                    candy_machine_data::Column::DiscountPrice,
+                    candy_machine_data::Column::GatekeeperNetwork,
+                    candy_machine_data::Column::ExpireOnUse,
+                    candy_machine_data::Column::Number,
+                    candy_machine_data::Column::EndSettingType,
+                    candy_machine_data::Column::Name,
+                    candy_machine_data::Column::Uri,
+                    candy_machine_data::Column::Hash,
+                ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -159,7 +175,11 @@ pub async fn candy_machine<'c>(
         let query = candy_machine_creators::Entity::insert_many(creators)
             .on_conflict(
                 OnConflict::columns([candy_machine_creators::Column::CandyMachineId])
-                    .do_nothing()
+                    .update_columns([
+                        candy_machine_creators::Column::Creator,
+                        candy_machine_creators::Column::Share,
+                        candy_machine_creators::Column::Verified,
+                    ])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);

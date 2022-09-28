@@ -38,6 +38,8 @@ pub async fn candy_guard<'c>(
     acct: &AccountInfo<'c>,
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
+
+    
     let candy_guard = candy_guard::ActiveModel {
         id: Set(candy_guard.base.to_bytes().to_vec()),
         bump: Set(candy_guard.bump),

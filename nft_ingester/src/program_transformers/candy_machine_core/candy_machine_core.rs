@@ -1,22 +1,20 @@
 use crate::{
     program_transformers::{
-        candy_guard::helpers::process_config_line_change,
         candy_machine::helpers::{process_creators_change, process_hidden_settings_change},
         common::save_changelog_event,
     },
     IngesterError,
 };
+use digital_asset_types::dao::prelude::{
+    CandyGuard, CandyGuardGroup, CandyMachine as CandyMachineEntity, CandyMachineData,
+};
+
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
-use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_machine, candy_machine_config_line_settings, candy_machine_data},
-    json::ChainDataV1,
-};
+use digital_asset_types::dao::{candy_machine, candy_machine_data};
 use mpl_candy_machine_core::CandyMachine;
-use num_traits::FromPrimitive;
 use plerkle_serialization::{
     account_info_generated::account_info::AccountInfo,
     transaction_info_generated::transaction_info::{self},
@@ -51,8 +49,6 @@ pub async fn candy_machine_core<'c>(
         freeze_time: Set(None),
         freeze_fee: Set(None),
     };
-
-    // TODO should consider moving settings back to part of data ?
 
     let query = candy_machine::Entity::insert(candy_machine_core)
         .on_conflict(
@@ -140,7 +136,11 @@ pub async fn candy_machine_core<'c>(
         let query = candy_machine_creators::Entity::insert_many(creators)
             .on_conflict(
                 OnConflict::columns([candy_machine_creators::Column::CandyMachineId])
-                    .do_nothing()
+                    .update_columns([
+                        candy_machine_creators::Column::Creator,
+                        candy_machine_creators::Column::Share,
+                        candy_machine_creators::Column::Verified,
+                    ])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
