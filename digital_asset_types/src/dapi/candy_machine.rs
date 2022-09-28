@@ -65,8 +65,26 @@ pub fn get_hidden_settings(hidden_settings: &Option<HiddenSettings>) -> Option<H
 }
 
 pub fn get_gatekeeper(gatekeeper: &Option<Gatekeeper>) -> Option<Gatekeeper> {
-    if gatekeeper.is_some() {
-        gatekeeper
+    if let Some(gatekeeper) = gatekeeper {
+        Some(Gatekeeper {
+            gatekeeper_network: bs58::encode(gatekeeper.network).into_string(),
+            expire_on_use: gatekeeper.expire_on_use,
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_whitelist_settings(
+    whitelist_settings: &Option<WhitelistMintSettings>,
+) -> Option<WhitelistMintSettings> {
+    if let Some(whitelist_settings) = whitelist_settings {
+        Some(WhitelistMintSettings {
+            mode: whitelist_settings.mode,
+            mint: bs58::encode(whitelist_settings.mint).into_string(),
+            presale: whitelist_settings.presale,
+            discount_price: whitelist_settings.discount_price,
+        })
     } else {
         None
     }
@@ -180,6 +198,7 @@ pub async fn get_candy_machine(
                 let allow_list = get_allow_list(group.allow_list);
                 let mint_limit = get_mint_limit(group.mint_limit);
                 let nft_payment = get_nft_payment(group.nft_payment);
+                let whitelist_settings = get_whitelist_settings(group.whitelist_mint_settings);
 
                 GuardSet {
                     bot_tax,
@@ -187,7 +206,7 @@ pub async fn get_candy_machine(
                     spl_token,
                     live_date,
                     third_party_signer,
-                    whitelist: group.whitelist_mint_settings,
+                    whitelist: whitelist_settings,
                     gatekeeper,
                     end_settings: group.end_settings,
                     allow_list,
@@ -211,6 +230,7 @@ pub async fn get_candy_machine(
             let allow_list = get_allow_list(group.allow_list);
             let mint_limit = get_mint_limit(group.mint_limit);
             let nft_payment = get_nft_payment(group.nft_payment);
+            let whitelist_settings = get_whitelist_settings(group.whitelist_mint_settings);
 
             groups.push(GuardSet {
                 bot_tax,
@@ -218,8 +238,7 @@ pub async fn get_candy_machine(
                 spl_token,
                 live_date,
                 third_party_signer,
-                // TODO change this back
-                whitelist: group.whitelist_mint_settings,
+                whitelist: whitelist_settings,
                 gatekeeper,
                 end_settings: group.end_settings,
                 allow_list,
@@ -255,6 +274,8 @@ pub async fn get_candy_machine(
 
     let data_hidden_settings = get_hidden_settings(candy_machine_data.hidden_settings);
     let data_gatekeeper = get_gatekeeper(candy_machine_data.gatekeeper);
+    let data_whitelist_mint_settings =
+        get_whitelist_settings(candy_machine_data.whitelist_mint_settings);
 
     // TODO figure out which option types were not saved in db asvec u8 when they should have been
     // TODO figure out which ones need bs58 encoding added to them
@@ -276,13 +297,15 @@ pub async fn get_candy_machine(
             hidden_settings: data_hidden_settings,
             end_settings: candy_machine_data.end_settings,
             gatekeeper: data_gatekeeper,
-            whitelist_mint_settings: candy_machine_data.whitelist_mint_settings,
+            whitelist_mint_settings: data_whitelist_mint_settings,
             creators: Some(rpc_creators),
         },
         authority: bs58::encode(candy_machine.authority).into_string(),
-        wallet: bs58::encode(candy_machine.wallet).into_string(),
+        wallet: transform_optional_pubkeys(candy_machine.wallet),
         token_mint: transform_optional_pubkeys(candy_machine.token_mint),
         items_redeemed: candy_machine.items_redeemed,
+        features: candy_machine.features,
+        mint_authority: transform_optional_pubkeys(candy_machine.mint_authority),
         candy_guard,
     })
 }

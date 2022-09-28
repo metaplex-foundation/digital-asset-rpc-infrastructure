@@ -87,6 +87,7 @@ pub async fn candy_machine<'c>(
         (
             Some(hidden_settings.name),
             Some(hidden_settings.uri),
+            // TODO does this need a to_vec
             Some(hidden_settings.hash),
         )
     } else {

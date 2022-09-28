@@ -249,8 +249,13 @@ pub struct CandyMachine {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub freeze_info: Option<FreezeInfo>,
     pub data: CandyMachineData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_authority: Option<String>,
     pub authority: String,
-    pub wallet: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wallet: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_mint: Option<String>,
     pub items_redeemed: u64,
