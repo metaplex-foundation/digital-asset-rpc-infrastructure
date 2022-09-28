@@ -3,10 +3,10 @@ use crate::dao::{
     candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
 };
 use crate::rpc::{
-    AllowList, BotTax, CandyGuard as RpcCandyGuard, CandyGuardData,
-    CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData, ConfigLineSettings,
-    Creator, EndSettings, FreezeInfo, Gatekeeper, GuardSet, HiddenSettings, Lamports, LiveDate,
-    MintLimit, NftPayment, SplToken, ThirdPartySigner, WhitelistMintSettings,
+    AllowList, CandyGuard as RpcCandyGuard, CandyGuardData, CandyMachine as RpcCandyMachine,
+    CandyMachineData as RpcCandyMachineData, Creator, FreezeInfo, Gatekeeper,
+    GuardSet, HiddenSettings, Lamports, NftPayment, SplToken, ThirdPartySigner,
+    WhitelistMintSettings,
 };
 
 use sea_orm::DatabaseConnection;
@@ -206,17 +206,15 @@ pub async fn get_candy_machine(
             .filter(|group| group.label.is_some())
         {
             let gatekeeper = get_gatekeeper(group.gatekeeper);
-            let bot_tax = get_bot_tax(group.bot_tax);
             let lamports = get_lamports(group.lamports);
             let spl_token = get_spl_token(group.spl_token);
             let third_party_signer = get_third_party_signer(group.third_party_signer);
             let allow_list = get_allow_list(group.allow_list);
-            let mint_limit = get_mint_limit(group.mint_limit);
             let nft_payment = get_nft_payment(group.nft_payment);
             let whitelist_settings = get_whitelist_settings(group.whitelist_mint_settings);
 
             groups.push(GuardSet {
-                bot_tax,
+                bot_tax: group.bot_tax,
                 lamports,
                 spl_token,
                 live_date: group.live_date,
@@ -225,7 +223,7 @@ pub async fn get_candy_machine(
                 gatekeeper,
                 end_settings: group.end_settings,
                 allow_list,
-                mint_limit,
+                mint_limit: group.mint_limit,
                 nft_payment,
             })
         }
