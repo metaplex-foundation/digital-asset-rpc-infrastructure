@@ -29,6 +29,8 @@ pub struct Model {
     pub mint_start: Option<i64>,
     pub freeze_time: Option<i64>,
     pub freeze_fee: Option<u64>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub last_minted: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -48,6 +50,8 @@ pub enum Column {
     MintStart,
     FreezeTime,
     FreezeFee,
+    CreatedAt,
+    LastMinted,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -88,6 +92,8 @@ impl ColumnTrait for Column {
             Self::MintStart => ColumnType::Integer.def().null(),
             Self::FreezeTime => ColumnType::Integer.def().null(),
             Self::FreezeFee => ColumnType::Integer.def().null(),
+            Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
+            Self::LastMinted => ColumnType::TimestampWithTimeZone.def().null(),
         }
     }
 }

@@ -17,7 +17,7 @@ use super::candy_machine::{
     transform_optional_pubkeys,
 };
 
-pub async fn get_candy_machines_by_creator(
+pub async fn get_candy_machines_by_size(
     db: &DatabaseConnection,
     creator_expression: Vec<Vec<u8>>,
     sort_by: CandyMachineSorting,
@@ -28,8 +28,7 @@ pub async fn get_candy_machines_by_creator(
 ) -> Result<CandyMachineList, DbErr> {
     let sort_column = match sort_by {
         CandyMachineSorting::Created => candy_machine::Column::CreatedAt,
-        // TODO figure out how this is handled
-        CandyMachineSorting::LastMint => todo!(),
+        CandyMachineSorting::LastMint => candy_machine::Column::LastMint,
     };
 
     let mut conditions = Condition::any();

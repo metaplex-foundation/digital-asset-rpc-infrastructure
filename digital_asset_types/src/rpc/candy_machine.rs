@@ -20,7 +20,6 @@ pub struct ConfigLineSettings {
     pub uri_length: u32,
     pub is_sequential: bool,
 }
-// TODO go through this and figure out which getters to remove from dapi
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct HiddenSettings {

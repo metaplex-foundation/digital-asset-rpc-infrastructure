@@ -28,8 +28,7 @@ pub async fn get_candy_machines_by_creator(
 ) -> Result<CandyMachineList, DbErr> {
     let sort_column = match sort_by {
         CandyMachineSorting::Created => candy_machine::Column::CreatedAt,
-        // TODO figure out how this is handled
-        CandyMachineSorting::LastMint => todo!(),
+        CandyMachineSorting::LastMint => candy_machine::Column::LastMint,
     };
 
     let mut conditions = Condition::any();
@@ -220,8 +219,6 @@ pub async fn get_candy_machines_by_creator(
                 let data_whitelist_mint_settings =
                     get_whitelist_settings(candy_machine_data.whitelist_mint_settings);
 
-                // TODO figure out which option types were not saved in db asvec u8 when they should have been
-                // TODO figure out which ones need bs58 encoding added to them
                 Ok(RpcCandyMachine {
                     id: bs58::encode(candy_machine.id).into_string(),
                     collection: transform_optional_pubkeys(candy_machine.collection_mint),

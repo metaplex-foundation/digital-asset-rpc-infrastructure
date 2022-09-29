@@ -1,10 +1,6 @@
 use crate::IngesterError;
 use blockbuster::programs::bubblegum::ChangeLogEvent;
-use digital_asset_types::dao::{
-    backfill_items, candy_guard_allow_list, candy_guard_bot_tax, candy_guard_lamports,
-    candy_guard_live_date, candy_guard_mint_limit, candy_guard_nft_payment, candy_guard_spl_token,
-    candy_guard_third_party_signer, cl_items,
-};
+use digital_asset_types::dao::{backfill_items, cl_items};
 use mpl_candy_guard::guards::{
     AllowList, BotTax, GuardSet, Lamports, LiveDate, MintLimit, NftPayment, SplToken,
     ThirdPartySigner,
@@ -12,276 +8,135 @@ use mpl_candy_guard::guards::{
 use mpl_candy_machine_core::ConfigLineSettings;
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
 
-// TODO clarify if needing to call to db to see if exists first,
-// then add or update accordingly
+pub enum EndSettingType {
+    Date,
+    Amount,
+}
 
-pub async fn process_nft_payment_change(
-    nft_payment: &NftPayment,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_nft_payment = candy_guard_nft_payment::ActiveModel {
-        burn: Set(nft_payment.burn),
-        required_collection: Set(nft_payment.required_collection.to_bytes().to_vec()),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_nft_payment::Entity::insert_one(candy_guard_nft_payment)
-        .on_conflict(
-            OnConflict::columns([candy_guard_nft_payment::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_nft_payment(nft_payment: Option<NftPayment>) -> (Option<bool>, Option<Vec<u8, Global>>) {
+    if let Some(nft_payment) = candy_guard_data.nft_payment {
+        (
+            Some(nft_payment.nft_payment_burn),
+            Some(
+                nft_payment
+                    .nft_payment_required_collection
+                    .to_bytes()
+                    .to_vec(),
+            ),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        None
+    }
 }
 
-pub async fn process_mint_limit_change(
-    mint_limit: &MintLimit,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_mint_limit = candy_guard_mint_limit::ActiveModel {
-        limit: Set(mint_limit.limit),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
+pub fn get_third_party_signer(
+    third_party_signer: Option<ThirdPartySigner>,
+) -> Option<Vec<u8, Global>> {
+    if let Some(third_party_signer) = third_party_signer {
+        Some(third_party_signer.signer_key.to_bytes().to_vec())
+    } else {
+        None
+    }
+}
 
-    let query = candy_guard_mint_limit::Entity::insert_one(candy_guard_mint_limit)
-        .on_conflict(
-            OnConflict::columns([candy_guard_mint_limit::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_live_date(live_date: Option<LiveDate>) -> Option<i64> {
+    if let Some(live_date) = live_date {
+        live_date.date
+    } else {
+        None
+    }
+}
+pub fn get_allow_list(allow_list: Option<AllowList>) -> Option<[u8; 32]> {
+    if let Some(allow_list) = candy_guard_data.allow_list {
+        Some(allow_list.merkle_root)
+    } else {
+        None
+    }
+}
+
+pub fn get_mint_limit(mint_limit: Option<MintLimit>) -> (Option<u8>, Option<u16>) {
+    if let Some(mint_limit) = candy_guard_data.mint_limit {
+        (
+            Some(mint_limit.mint_limit_id),
+            Some(mint_limit.mint_limit_limit),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        (None, None)
+    }
 }
 
-pub async fn process_allow_list_change(
-    allow_list: &AllowList,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_allow_list = candy_guard_allow_list::ActiveModel {
-        merkle_root: Set(allow_list.merkle_root),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_allow_list::Entity::insert_one(candy_guard_allow_list)
-        .on_conflict(
-            OnConflict::columns([candy_guard_allow_list::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_spl_token(
+    spl_token: Option<SplToken>,
+) -> (
+    Option<u64>,
+    Option<Vec<u8, Global>>,
+    Option<Vec<u8, Global>>,
+) {
+    if let Some(spl_token) = spl_token {
+        (
+            Some(spl_token.amount),
+            Some(spl_token.token_mint.to_bytes().to_vec()),
+            Some(spl_token.destination_ata.to_bytes().to_vec()),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        (None, None, None)
+    }
 }
 
-pub async fn process_third_party_signer_change(
-    third_party_signer: &ThirdPartySigner,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_third_party_signer = candy_guard_third_party_signer::ActiveModel {
-        signer_key: Set(third_party_signer.signer_key.to_bytes().to_vec()),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_third_party_signer::Entity::insert_one(candy_guard_third_party_signer)
-        .on_conflict(
-            OnConflict::columns([candy_guard_third_party_signer::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_lamports(lamports: Option<Lamports>) -> (Option<u64>, Option<Vec<u8, Global>>) {
+    if let Some(lamports) = lamports {
+        (
+            Some(lamports.amount),
+            Some(lamports.destination.to_bytes().to_vec()),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        (None, None)
+    }
 }
 
-pub async fn process_live_date_change(
-    live_date: &LiveDate,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_live_date = candy_guard_live_date::ActiveModel {
-        live_date: Set(live_date.date),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_live_date::Entity::insert_one(candy_guard_live_date)
-        .on_conflict(
-            OnConflict::columns([candy_guard_live_date::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_whitelist_settings(
+    whitelist_mint_settings: Option<Whitelist>,
+) -> Option<Option<WhitelistMintMode>, Option<bool>, Option<Vec<u8, Global>>, Option<u64>> {
+    if let Some(whitelist) = whitelist_mint_settings {
+        (
+            Some(whitelist.mode),
+            Some(whitelist.presale),
+            Some(whitelist.mint.to_bytes().to_vec()),
+            whitelist.discount_price,
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        (None, None, None, None)
+    }
 }
 
-pub async fn process_spl_token_change(
-    spl_token: &SplToken,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_spl_token = candy_guard_spl_token::ActiveModel {
-        amount: Set(spl_token.amount),
-        token_mint: Set(spl_token.token_mint.to_bytes().to_vec()),
-        destination_ata: Set(spl_token.destination_ata.to_bytes().to_vec()),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_spl_token::Entity::insert_one(candy_guard_spl_token)
-        .on_conflict(
-            OnConflict::columns([candy_guard_spl_token::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_gatekeeper(gatekeeper: Option<Gatekeeper>) -> (Option<bool>, Option<Vec<u8, Global>>) {
+    if let Some(gatekeeper) = gatekeeper {
+        (
+            Some(gatekeeper.expire_on_use),
+            Some(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
+    } else {
+        (None, None)
+    }
 }
 
-pub async fn process_lamports_change(
-    lamports: &Lamports,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_lamports = candy_guard_lamports::ActiveModel {
-        amount: Set(lamports.amount),
-        destination: Set(lamports.destination.to_bytes().to_vec()),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
+pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<u64>, Option<bool>) {
+    if let Some(bot_tax) = bot_tax {
+        (Some(bot_tax.lamports), Some(bot_tax.last_instruction))
+    } else {
+        (None, None)
+    }
+}
 
-    let query = candy_guard_lamports::Entity::insert_one(candy_guard_lamports)
-        .on_conflict(
-            OnConflict::columns([candy_guard_lamports::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
+pub fn get_end_settings(
+    end_settings: Option<EndSettings>,
+) -> (Option<EndSettingType>, Option<u64>) {
+    if let Some(end_settings) = end_settings {
+        (
+            Some(end_settings.end_setting_type),
+            Some(end_settings.number),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
-}
-
-pub async fn process_bot_tax_change(
-    bot_tax: &BotTax,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_guard_bot_tax = candy_guard_bot_tax::ActiveModel {
-        lamports: Set(bot_tax.lamports),
-        last_instruction: Set(bot_tax.last_instruction),
-        candy_machine_id: Set(candy_guard_group_id),
-        ..Default::default()
-    };
-
-    let query = candy_guard_bot_tax::Entity::insert_one(candy_guard_bot_tax)
-        .on_conflict(
-            OnConflict::columns([candy_guard_bot_tax::Column::CandyMachineDataId])
-                .do_nothing()
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
-}
-
-pub async fn process_config_line_change(
-    config_line_settings: &ConfigLineSettings,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let candy_machine_config_line_settings = candy_machine_config_line_settings::ActiveModel {
-        candy_machine_id: Set(candy_guard_group_id),
-        prefix_name: Set(config_line_settings.prefix_name),
-        name_length: Set(config_line_settings.name_length),
-        prefix_uri: Set(config_line_settings.prefix_uri),
-        uri_length: Set(config_line_settings.uri_length),
-        is_sequential: Set(config_line_settings.is_sequential),
-        ..Default::default()
-    };
-
-    let query =
-        candy_machine_config_line_settings::Entity::insert_one(candy_machine_config_line_settings)
-            .on_conflict(
-                OnConflict::columns([
-                    candy_machine_config_line_settings::Column::CandyMachineDataId,
-                ])
-                .do_nothing()
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
-
-    Ok(())
-}
-
-pub async fn process_guard_set_change(
-    guard_set: &GuardSet,
-    candy_guard_group_id: Vec<u8>,
-    txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    if let Some(whitelist) = guard_set.whitelist {
-        process_whitelist_change(whitelist, candy_guard_group_id, txn)?;
+    } else {
+        (None, None)
     }
-
-    if let Some(gatekeeper) = guard_set.gatekeeper {
-        process_gatekeeper_change(gatekeeper, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(end_settings) = guard_set.end_settings {
-        process_end_settings_change(end_settings, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(bot_tax) = guard_set.bot_tax {
-        process_bot_tax_change(&bot_tax, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(lamports) = guard_set.lamports {
-        process_lamports_change(&lamports, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(spl_token) = guard_set.spl_token {
-        process_spl_token_change(&spl_token, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(live_date) = guard_set.live_date {
-        process_live_date_change(&live_date, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(third_party_signer) = guard_set.third_party_signer {
-        process_third_party_signer_change(&third_party_signer, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(allow_list) = guard_set.allow_list {
-        process_allow_list_change(&allow_list, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(mint_limit) = guard_set.mint_limit {
-        process_mint_limit_change(&mint_limit, candy_guard_group_id, txn)?;
-    }
-
-    if let Some(nft_payment) = guard_set.nft_payment {
-        process_nft_payment_change(&nft_payment, candy_guard_group_id, txn)?;
-    }
-
-    Ok(())
 }

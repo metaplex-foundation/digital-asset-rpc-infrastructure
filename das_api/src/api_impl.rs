@@ -372,4 +372,45 @@ impl ApiContract for DasApi {
         .await
         .map_err(Into::into)
     }
+
+    async fn get_candy_machines_by_size(
+        self: &DasApi,
+        candy_machine_size: u64,
+        sort_by: CandyMachineSorting,
+        limit: u32,
+        page: u32,
+        before: String,
+        after: String,
+    ) -> Result<CandyMachineList, DasApiError> {
+        if page > 0 && (!before.is_empty() || !after.is_empty()) {
+            return Err(DasApiError::PaginationError);
+        };
+
+        if !before.is_empty() || !after.is_empty() {
+            return Err(DasApiError::PaginationError);
+        };
+        let before = if !before.is_empty() {
+            validate_pubkey(before.clone())?.to_bytes().to_vec()
+        } else {
+            before.as_bytes().to_vec()
+        };
+
+        let after = if !after.is_empty() {
+            validate_pubkey(after.clone())?.to_bytes().to_vec()
+        } else {
+            after.as_bytes().to_vec()
+        };
+
+        get_candy_machines_by_size(
+            &self.db_connection,
+            candy_machine_size,
+            sort_by,
+            limit,
+            page,
+            before,
+            after,
+        )
+        .await
+        .map_err(Into::into)
+    }
 }

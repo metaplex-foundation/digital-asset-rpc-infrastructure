@@ -78,6 +78,15 @@ pub trait ApiContract: Send + Sync + 'static {
         before: String,
         after: String,
     ) -> Result<CandyMachineList, DasApiError>;
+    async fn get_candy_machines_by_size(
+        &self,
+        candy_machine_size: u64,
+        sort_by: CandyMachineSorting,
+        limit: u32,
+        page: u32,
+        before: String,
+        after: String,
+    ) -> Result<CandyMachineList, DasApiError>;
 }
 
 pub struct RpcApiBuilder;
@@ -178,6 +187,25 @@ impl<'a> RpcApiBuilder {
                 rpc_context
                     .get_candy_machines_by_creator(
                         creator_expression,
+                        sort_by,
+                        limit,
+                        page,
+                        before,
+                        after,
+                    )
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+
+        module.register_async_method(
+            "get_candy_machines_by_size",
+            |rpc_params, rpc_context| async move {
+                let (candy_machine_size, sort_by, limit, page, before, after) =
+                    rpc_params.parse().unwrap();
+                rpc_context
+                    .get_candy_machines_by_creator(
+                        candy_machine_size,
                         sort_by,
                         limit,
                         page,

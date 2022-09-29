@@ -4,9 +4,8 @@ use crate::dao::{
 };
 use crate::rpc::{
     AllowList, CandyGuard as RpcCandyGuard, CandyGuardData, CandyMachine as RpcCandyMachine,
-    CandyMachineData as RpcCandyMachineData, Creator, FreezeInfo, Gatekeeper,
-    GuardSet, HiddenSettings, Lamports, NftPayment, SplToken, ThirdPartySigner,
-    WhitelistMintSettings,
+    CandyMachineData as RpcCandyMachineData, Creator, FreezeInfo, Gatekeeper, GuardSet,
+    HiddenSettings, Lamports, NftPayment, SplToken, ThirdPartySigner, WhitelistMintSettings,
 };
 
 use sea_orm::DatabaseConnection;
@@ -172,6 +171,9 @@ pub async fn get_candy_machine(
                     _ => Err(DbErr::RecordNotFound("Candy Guard Not Found".to_string())),
                 })?;
 
+        // to make db simpler, all guard sets are added to db as type 'candy_guard_group',
+        // since there is always a default but just no label
+        // that is the differentiating factor between the two when storing in table
         let default_set = candy_guard_group
             .into_iter()
             .find(|&group| group.label.is_none())
@@ -258,8 +260,6 @@ pub async fn get_candy_machine(
     let data_whitelist_mint_settings =
         get_whitelist_settings(candy_machine_data.whitelist_mint_settings);
 
-    // TODO figure out which option types were not saved in db asvec u8 when they should have been
-    // TODO figure out which ones need bs58 encoding added to them
     Ok(RpcCandyMachine {
         id: bs58::encode(candy_machine.id).into_string(),
         collection: transform_optional_pubkeys(candy_machine.collection_mint),

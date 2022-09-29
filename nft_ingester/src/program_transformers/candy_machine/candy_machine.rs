@@ -9,12 +9,7 @@ use blockbuster::{
 use candy_machine::state::CandyMachine;
 use digital_asset_types::{
     adapter::{TokenStandard, UseMethod, Uses},
-    dao::{
-        candy_machine, candy_machine_data, candy_machine_end_settings, candy_machine_gatekeeper,
-        candy_machine_whitelist_mint_settings,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
-    },
-    json::ChainDataV1,
+    dao::{candy_machine, candy_machine_data},
     rpc::HiddenSettings,
 };
 use mpl_candy_guard::guards::{Gatekeeper, Whitelist};
@@ -35,6 +30,7 @@ pub async fn candy_machine<'c>(
 ) -> Result<(), IngesterError> {
     let data = candy_machine.data;
 
+    // TODO add last minted column here and candy core and init sql
     let token_mint = if let Some(token_mint) = candy_machine.token_mint {
         Some(token_mint.to_bytes().to_vec())
     } else {
@@ -47,6 +43,17 @@ pub async fn candy_machine<'c>(
         None
     };
 
+    let (candy_machine): (candy_machine::Model) =
+        CandyMachine::find_by_id(acct.key().to_bytes().to_vec())
+            .one(db)
+            .await
+            .and_then(|o| match o {
+                Some((a, Some(d))) => Ok((a, d)),
+                _ => Err(DbErr::RecordNotFound("Candy Machine Not Found".to_string())),
+            })?;
+
+    // TODO figure this out, why no linting?
+
     let candy_machine_state = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
@@ -54,6 +61,7 @@ pub async fn candy_machine<'c>(
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed),
         version: Set(2),
+        created_at: Set(Utc::now()),
         ..Default::default()
     };
 
@@ -103,6 +111,7 @@ pub async fn candy_machine<'c>(
         (None, None)
     };
 
+    // TODO change the rpc json file
     let (end_setting_type, number) = if let Some(end_settings) = data.end_settings {
         (
             Some(end_settings.end_setting_type),
