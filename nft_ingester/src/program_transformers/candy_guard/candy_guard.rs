@@ -17,7 +17,7 @@ use digital_asset_types::{
     rpc::LiveDate,
 };
 use mpl_candy_guard::{
-    guards::{AllowList, EndSettings, Gatekeeper, ThirdPartySigner, Whitelist},
+    guards::{AllowList, EndSettings, Gatekeeper, SplToken, ThirdPartySigner, Whitelist},
     state::{CandyGuard, CandyGuardData},
 };
 use num_traits::FromPrimitive;
@@ -133,6 +133,43 @@ pub fn get_live_date(live_date: Option<LiveDate>) -> Option<i64> {
     }
 }
 
+pub fn get_spl_token(
+    spl_token: Option<SplToken>,
+) -> (
+    Option<u64>,
+    Option<Vec<u8, Global>>,
+    Option<Vec<u8, Global>>,
+) {
+    if let Some(spl_token) = spl_token {
+        (
+            Some(spl_token.amount),
+            Some(spl_token.token_mint.to_bytes().to_vec()),
+            Some(spl_token.destination_ata.to_bytes().to_vec()),
+        )
+    } else {
+        (None, None, None)
+    }
+}
+
+pub fn get_lamports(lamports: Option<Lamports>) -> (Option<u64>, Option<Vec<u8, Global>>) {
+    if let Some(lamports) = lamports {
+        (
+            Some(lamports.amount),
+            Some(lamports.destination.to_bytes().to_vec()),
+        )
+    } else {
+        (None, None)
+    }
+}
+
+pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<u64>, Option<bool>) {
+    if let Some(bot_tax) = bot_tax {
+        (Some(bot_tax.lamports), Some(bot_tax.last_instruction))
+    } else {
+        (None, None)
+    }
+}
+
 pub async fn candy_guard<'c>(
     candy_guard: &CandyGuard,
     candy_guard_data: &CandyGuardData,
@@ -160,7 +197,7 @@ pub async fn candy_guard<'c>(
         get_whitelist_settings(candy_guard_data.whitelist);
     let (gatekeeper_network, expire_on_use) =
         get_gatekeeper_network(candy_guard_data.gatekeeper_network);
-    let (merkle_root) = get_allow_list(candy_guard_data.allow_list);
+    let merkle_root = get_allow_list(candy_guard_data.allow_list);
     let (lamports, last_instruction) = get_bot_tax(candy_guard_data.bot_tax);
     let (amount, destination) = get_lamports(candy_guard_data.lamports);
     let (spl_token_amount, token_mint, destination_ata) = get_spl_token(candy_guard_data.spl_token);
@@ -208,7 +245,6 @@ pub async fn candy_guard<'c>(
         )
         .build(DbBackend::Postgres);
 
-    // TODO finish filling this out ^^
     if let Some(groups) = candy_guard_data.groups {
         if groups.len() > 0 {
             for g in groups.iter() {
