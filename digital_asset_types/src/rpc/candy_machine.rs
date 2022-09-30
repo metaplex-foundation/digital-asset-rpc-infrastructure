@@ -125,6 +125,7 @@ pub struct Lamports {
     pub destination: String,
 }
 
+// TODO figure what to do with the hash values everywhere including json rpc file
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SplToken {
     pub amount: u64,

@@ -302,6 +302,129 @@
           "message": "slow down sheesh"
         }
       ]
+    },
+    {
+      "name": "get_candy_machine",
+      "summary": "Get candy machine by id",
+      "tags": [
+        {
+          "name": "candy_machine"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/candy_machine_id"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/candyMachine"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_candy_machines_by_creator",
+      "summary": "Gets a List of candy machines based on a creator filter expression",
+      "tags": [
+        {
+          "name": "search"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/creator_expression"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/candy_machine_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/candyMachineList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
+    },
+    {
+      "name": "get_candy_machines_by_size",
+      "summary": "Gets a List of candy machines based on size",
+      "tags": [
+        {
+          "name": "search"
+        }
+      ],
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/size"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/candy_machine_sort_by"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/limit"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/page"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/before"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/after"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/candyMachineList"
+      },
+      "errors": [
+        {
+          "code": 500,
+          "message": "server error"
+        },
+        {
+          "code": 400,
+          "message": "invalid request $msg"
+        },
+        {
+          "code": 429,
+          "message": "slow down sheesh"
+        }
+      ]
     }
   ],
   "components": {
@@ -335,17 +458,20 @@
           "$ref": "#/components/schemas/AssetProof"
         }
       },
+      "candyMachineList": {
+        "name": "candy_machines",
+        "description": "A paged an array of candy machines",
+        "schema": {
+          "$ref": "#/components/schemas/CandyMachineList"
+        }
+      },
       "assetIdSaleList": {
         "name": "asset_id_sale_list",
         "description": "A paged an array of listings",
         "schema": {
           "title": "AssetListings",
           "type": "object",
-          "required": [
-            "items",
-            "total",
-            "limit"
-          ],
+          "required": ["items", "total", "limit"],
           "properties": {
             "total": {
               "type": "number"
@@ -431,6 +557,15 @@
           "type": "string"
         }
       },
+      "candy_machine_id": {
+        "name": "candy_machine_id",
+        "description": "ID of the CandyMachine",
+        "required": true,
+        "schema": {
+          "title": "CandyMachineId",
+          "type": "string"
+        }
+      },
       "limit": {
         "name": "limit",
         "description": "How many items to return at one time (max 1000)",
@@ -457,11 +592,7 @@
         "schema": {
           "title": "AssetSorting",
           "type": "string",
-          "enum": [
-            "created",
-            "updated",
-            "recent_action"
-          ]
+          "enum": ["created", "updated", "recent_action"]
         }
       },
       "offer_sort_by": {
@@ -471,11 +602,17 @@
         "schema": {
           "title": "OfferSorting",
           "type": "string",
-          "enum": [
-            "created",
-            "updated",
-            "price"
-          ]
+          "enum": ["created", "updated", "price"]
+        }
+      },
+      "candy_machine_sort_by": {
+        "name": "sort_by",
+        "description": "How many items to return at one time (max 1000)",
+        "required": false,
+        "schema": {
+          "title": "CandyMachineSorting",
+          "type": "string",
+          "enum": ["created_at", "last_minted"]
         }
       }
     },
@@ -558,11 +695,7 @@
       "AssetProof": {
         "title": "AssetProof",
         "type": "object",
-        "required": [
-          "node_index",
-          "tree_id",
-          "proof"
-        ],
+        "required": ["node_index", "tree_id", "proof"],
         "properties": {
           "proof": {
             "type": "array",
@@ -584,21 +717,12 @@
       "Asset": {
         "title": "Asset",
         "type": "object",
-        "required": [
-          "interface",
-          "id"
-        ],
+        "required": ["interface", "id"],
         "properties": {
           "interface": {
             "title": "Interface",
             "type": "string",
-            "enum": [
-              "NFT1.0",
-              "NFT",
-              "FungibleAsset",
-              "Custom",
-              "Identity"
-            ]
+            "enum": ["NFT1.0", "NFT", "FungibleAsset", "Custom", "Identity"]
           },
           "id": {
             "title": "Id",
@@ -607,9 +731,7 @@
           "content": {
             "title": "Content",
             "type": "object",
-            "required": [
-              "$schema"
-            ],
+            "required": ["$schema"],
             "properties": {
               "$schema": {
                 "title": "Schema",
@@ -716,9 +838,7 @@
             "items": {
               "title": "Group",
               "type": "object",
-              "required": [
-                "$$schema"
-              ],
+              "required": ["$$schema"],
               "properties": {
                 "$$schema": {
                   "title": "SubSchema",
@@ -742,11 +862,7 @@
               "royalty_model": {
                 "type": "string",
                 "title": "RoyaltyModel",
-                "enum": [
-                  "creators",
-                  "fanout",
-                  "single"
-                ]
+                "enum": ["creators", "fanout", "single"]
               },
               "target": {
                 "title": "Target",
@@ -803,13 +919,344 @@
               "ownership_model": {
                 "title": "OwnershipModel",
                 "type": "string",
-                "enum": [
-                  "Single",
-                  "Token"
-                ]
+                "enum": ["Single", "Token"]
               },
               "address": {
                 "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CandyMachine": {
+        "title": "CandyMachine",
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "freeze_info": {
+            "title": "FreezeInfo",
+            "type": "object",
+            "properties": {
+              "allow_thaw": {
+                "title": "AllowThaw",
+                "type": "boolean"
+              },
+              "frozen_count": {
+                "title": "FrozenCount",
+                "type": "number"
+              },
+              "mint_start": {
+                "title": "MintStart",
+                "type": "number"
+              },
+              "freeze_time": {
+                "title": "FreezeTime",
+                "type": "number"
+              },
+              "freeze_fee": {
+                "title": "FreezeFee",
+                "type": "number"
+              }
+            }
+          },
+          "data": {
+            "title": "CandyMachineData",
+            "type": "object",
+            "properties": {
+              "uuid": {
+                "title": "UUID",
+                "type": "string"
+              },
+              "price": {
+                "title": "Price",
+                "type": "number"
+              },
+              "symbol": {
+                "title": "Symbol",
+                "type": "string"
+              },
+              "seller_fee_basis_points": {
+                "title": "SellerFeeBasisPoints",
+                "type": "number"
+              },
+              "max_supply": { "title": "MaxSupply", "type": "number" },
+              "is_mutable": {
+                "title": "IsMutable",
+                "type": "boolean"
+              },
+              "retain_authority": {
+                "title": "RetainAuthority",
+                "type": "boolean"
+              },
+              "go_live_date": { "title": "GoLiveDate", "type": "number" },
+              "items_available": {
+                "title": "ItemsAvailable",
+                "type": "number"
+              },
+              "config_line_settings": {
+                "title": "ConfigLineSettings",
+                "type": "object",
+                "properties": {
+                  "prefix_name": { "title": "PrefixName", "type": "string" },
+                  "name_length": { "title": "NameLength", "type": "number" },
+                  "prefix_uri": { "title": "PrefixUri", "type": "string" },
+                  "uri_length": { "title": "UriLength", "type": "number" },
+                  "is_sequential": { "title": "IsSequential", "type": "string" }
+                }
+              },
+              "end_settings": {
+                "title": "EndSettings",
+                "type": "object",
+                "properties": {
+                  "end_setting_type": {
+                    "type": "string",
+                    "title": "EndSettingType",
+                    "enum": ["date", "amount"]
+                  },
+                  "number": { "title": "Number", "type": "number" }
+                }
+              },
+              "hidden_settings": {
+                "title": "HiddenSettings",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "title": "Name",
+                    "type": "string"
+                  },
+                  "uri": {
+                    "title": "URI",
+                    "type": "string"
+                  }
+                }
+              },
+              "gatekeeper": {
+                "title": "Gatekeeper",
+                "type": "object",
+                "properties": {
+                  "gatekeeper_network": {
+                    "title": "GatekeeperNetwork",
+                    "type": "string"
+                  },
+                  "expire_on_use": { "title": "ExpireOnUse", "type": "boolean" }
+                }
+              },
+              "whitelist_mint_settings": {
+                "title": "WhitelistMintSettings",
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "title": "Mode",
+                    "enum": ["burn_every_time", "never_burn"],
+                    "type": "string"
+                  },
+                  "mint": { "title": "Mint", "type": "string" },
+                  "presale": { "title": "Presale", "type": "boolean" },
+                  "discount_price": {
+                    "title": "DiscountPrice",
+                    "type": "number"
+                  }
+                }
+              },
+              "creators": {
+                "type": "array",
+                "title": "Creators",
+                "items": {
+                  "type": "object",
+                  "title": "Creator",
+                  "properties": {
+                    "address": {
+                      "title": "Address",
+                      "type": "string"
+                    },
+                    "share": {
+                      "title": "Share",
+                      "type": "string"
+                    },
+                    "verified": {
+                      "title": "Verified",
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "features": { "title": "Features", "type": "number" },
+          "mint_authority": { "title": "MintAuthority", "type": "string" },
+          "authority": { "title": "Authority", "type": "string" },
+          "wallet": { "title": "Wallet", "type": "string" },
+          "token_mint": { "title": "TokenMint", "type": "string" },
+          "items_redeemed": { "title": "ItemsRedeemed", "type": "number" },
+          "candy_guard": {
+            "title": "CandyGuard",
+            "type": "object",
+            "properties": {
+              "id": { "title": "Id", "type": "string" },
+              "bump": { "title": "Bump", "type": "number" },
+              "authority": { "title": "Authority", "type": "string" },
+              "candy_guard_data": {
+                "title": "CandyGuardData",
+                "type": "object",
+                "properties": {
+                  "default": { "title": "Default", "type": "object" },
+                  "groups": {
+                    "title": "Groups",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "title": "Group",
+                      "properties": {
+                        "label": { "title": "Label", "type": "string" },
+                        "guards": {
+                          "title": "Guards",
+                          "type": "object",
+                          "properties": {
+                            "bot_tax": {
+                              "title": "BotTax",
+                              "type": "object",
+                              "properties": {
+                                "lamports": {
+                                  "title": "Lamports",
+                                  "type": "number"
+                                },
+                                "last_instruction": {
+                                  "title": "LastInstruction",
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "lamports": {
+                              "title": "Lamports",
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "title": "Amount",
+                                  "type": "number"
+                                },
+                                "destination": {
+                                  "title": "Destination",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "spl_token": {
+                              "title": "SplToken",
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "title": "Amount",
+                                  "type": "number"
+                                },
+                                "token_mint": {
+                                  "title": "TokenMint",
+                                  "type": "string"
+                                },
+                                "destination_ata": {
+                                  "title": "DestinationAta",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "live_date": {
+                              "title": "LiveDate",
+                              "type": "object",
+                              "properties": {
+                                "date": { "title": "Date", "type": "number" }
+                              }
+                            },
+                            "mint_limit": {
+                              "title": "MintLimit",
+                              "type": "object",
+                              "properties": {
+                                "id": { "title": "Id", "type": "number" },
+                                "limit": { "title": "Limit", "type": "number" }
+                              }
+                            },
+                            "nft_payment": {
+                              "title": "NftPayment",
+                              "type": "object",
+                              "properties": {
+                                "burn": { "title": "Burn", "type": "boolean" },
+                                "required_collection": {
+                                  "title": "RequiredCollection",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "third_party_signer": {
+                              "title": "ThirdPartySigner",
+                              "type": "object",
+                              "properties": {
+                                "signer_key": {
+                                  "title": "SignerKey",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "gatekeeper": {
+                              "title": "Gatekeeper",
+                              "type": "object",
+                              "properties": {
+                                "gatekeeper_network": {
+                                  "title": "GatekeeperNetwork",
+                                  "type": "string"
+                                },
+                                "expire_on_use": {
+                                  "title": "ExpireOnUse",
+                                  "type": "boolean"
+                                }
+                              }
+                            },
+                            "whitelist_mint_settings": {
+                              "title": "WhitelistMintSettings",
+                              "type": "object",
+                              "properties": {
+                                "mode": {
+                                  "title": "Mode",
+                                  "enum": ["burn_every_time", "never_burn"],
+                                  "type": "string"
+                                },
+                                "mint": { "title": "Mint", "type": "string" },
+                                "presale": {
+                                  "title": "Presale",
+                                  "type": "boolean"
+                                },
+                                "discount_price": {
+                                  "title": "DiscountPrice",
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            "end_settings": {
+                              "title": "EndSettings",
+                              "type": "object",
+                              "properties": {
+                                "end_setting_type": {
+                                  "type": "string",
+                                  "title": "EndSettingType",
+                                  "enum": ["date", "amount"]
+                                },
+                                "number": {
+                                  "title": "Number",
+                                  "type": "number"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -820,6 +1267,13 @@
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/Asset"
+        }
+      },
+      "CandyMachineList": {
+        "title": "CandyMachineList",
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CandyMachine"
         }
       }
     }

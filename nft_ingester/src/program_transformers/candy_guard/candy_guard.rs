@@ -70,7 +70,6 @@ pub async fn candy_guard<'c>(
     let (nft_payment_burn, nft_payment_required_collection) =
         get_nft_payment(candy_guard_data.nft_payment);
 
-    // TODO edit init sql for more descriptive naming fields
     let candy_guard_default_set = candy_guard_group::ActiveModel {
         label: Set(None),
         candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
