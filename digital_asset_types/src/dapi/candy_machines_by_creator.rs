@@ -9,12 +9,11 @@ use crate::rpc::{
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
 
-use super::candy_machine::{
-    get_allow_list, get_freeze_info, get_gatekeeper, get_hidden_settings, get_lamports,
-    get_nft_payment, get_spl_token, get_third_party_signer, get_whitelist_settings, to_creators,
-    transform_optional_pubkeys,
+use super::candy_machine::{to_creators, transform_optional_pubkeys};
+use super::candy_machine_helpers::{
+    get_bot_tax, get_config_line_settings, get_end_settings, get_freeze_info, get_gatekeeper,
+    get_hidden_settings, get_live_date, get_mint_limit, get_whitelist_settings, get_nft_payment, get_third_party_signer, get_allow_list,
 };
-use super::candy_machine_helpers::{get_config_line_settings, get_end_settings};
 
 pub async fn get_candy_machines_by_creator(
     db: &DatabaseConnection,
@@ -157,22 +156,27 @@ pub async fn get_candy_machines_by_creator(
                                 group.whitelist_discount_price,
                             );
 
-                            let end_settings = get_end_settings(
-                                candy_machine_data.end_setting_number,
-                                candy_machine_data.end_setting_type,
-                            );
+                            let end_settings =
+                                get_end_settings(group.end_setting_number, group.end_setting_type);
+
+                            let mint_limit =
+                                get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
+
+                            let live_date = get_live_date(group.live_date);
+                            let bot_tax =
+                                get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
 
                             GuardSet {
-                                bot_tax: group.bot_tax,
+                                bot_tax,
                                 lamports,
                                 spl_token,
-                                live_date: group.live_date,
+                                live_date,
                                 third_party_signer,
                                 whitelist: whitelist_settings,
                                 gatekeeper,
                                 end_settings,
                                 allow_list,
-                                mint_limit: group.mint_limit,
+                                mint_limit,
                                 nft_payment,
                             }
                         })
@@ -206,22 +210,26 @@ pub async fn get_candy_machines_by_creator(
                             group.whitelist_discount_price,
                         );
 
-                        let end_settings = get_end_settings(
-                            candy_machine_data.end_setting_number,
-                            candy_machine_data.end_setting_type,
-                        );
+                        let end_settings =
+                            get_end_settings(group.end_setting_number, group.end_setting_type);
+
+                        let mint_limit =
+                            get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
+                        let live_date = get_live_date(group.live_date);
+                        let bot_tax =
+                            get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
 
                         groups.push(GuardSet {
-                            bot_tax: group.bot_tax,
+                            bot_tax,
                             lamports,
                             spl_token,
-                            live_date: group.live_date,
+                            live_date,
                             third_party_signer,
                             whitelist: whitelist_settings,
                             gatekeeper,
                             end_settings,
                             allow_list,
-                            mint_limit: group.mint_limit,
+                            mint_limit,
                             nft_payment,
                         })
                     }
