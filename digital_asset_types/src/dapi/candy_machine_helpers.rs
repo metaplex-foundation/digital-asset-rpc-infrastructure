@@ -216,7 +216,7 @@ pub fn get_mint_limit(
 }
 
 pub fn get_live_date(live_date: Option<i64>) -> Option<LiveDate> {
-    if let Some(date) = live_date {
+    if live_date.is_some() {
         Some(LiveDate { date: live_date })
     } else {
         None

@@ -6,17 +6,14 @@ use crate::rpc::filter::CandyMachineSorting;
 use crate::rpc::response::CandyMachineList;
 use crate::rpc::{
     CandyGuard as RpcCandyGuard, CandyGuardData, CandyGuardGroup as RpcCandyGuardGroup,
-    CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData, GuardSet,
+    CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData,
 };
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{
-    get_allow_list, get_bot_tax, get_candy_guard_group, get_candy_machine_data,
-    get_config_line_settings, get_end_settings, get_freeze_info, get_gatekeeper,
-    get_hidden_settings, get_lamports, get_live_date, get_mint_limit, get_nft_payment,
-    get_spl_token, get_third_party_signer, get_whitelist_settings,
+    get_candy_guard_group, get_candy_machine_data, get_freeze_info,
 };
 
 pub async fn get_candy_machines_by_size(
@@ -123,12 +120,13 @@ pub async fn get_candy_machines_by_size(
                         .find_with_related(CandyGuardGroup)
                         .all(db)
                         .await
-                        .and_then(|o| match o {
-                            o => {
+                        .and_then(|o| {
+                            if o.len() > 0 {
                                 let index = o.get(0).unwrap();
                                 Ok(index.clone())
+                            } else {
+                                Err(DbErr::RecordNotFound("Candy Guard Not Found".to_string()))
                             }
-                            _ => Err(DbErr::RecordNotFound("Candy Guard Not Found".to_string())),
                         })
                         .unwrap();
 
