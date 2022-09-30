@@ -4,7 +4,6 @@ mod get_candy_machine_by_id {
     use solana_sdk::{signature::Keypair, signer::Signer};
 
     use crate::{
-        adapter::{Creator, TokenProgramVersion, TokenStandard},
         dao::{
             candy_machine, candy_machine_data,
             prelude::CandyMachineData,
@@ -13,8 +12,7 @@ mod get_candy_machine_by_id {
         tests::{create_candy_machine, create_candy_machine_data},
     };
 
-    #[cfg(feature = "mock")]
-    #[tokio::test]
+    #[async_std::test]
     async fn get_candy_machine_by_id() -> Result<(), DbErr> {
         let id = Keypair::new().pubkey();
         let wallet = Keypair::new().pubkey();
@@ -27,7 +25,7 @@ mod get_candy_machine_by_id {
             None,
             authority.to_bytes().to_vec(),
             None,
-            wallet.to_bytes().to_vec(),
+            Some(wallet.to_bytes().to_vec()),
             None,
             0,
             None,
@@ -37,7 +35,7 @@ mod get_candy_machine_by_id {
         let candy_machine_data = create_candy_machine_data(
             1,
             None,
-            Some(1.5),
+            Some(1),
             String::from("TEST"),
             1000,
             399,

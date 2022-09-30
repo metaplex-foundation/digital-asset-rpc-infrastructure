@@ -25,7 +25,7 @@ pub struct Model {
     pub retain_authority: Option<bool>,
     pub go_live_date: Option<i64>,
     pub items_available: u64,
-    pub candy_machine_id: i64,
+    pub candy_machine_id: Vec<u8>,
     pub whitelist_mode: Option<WhitelistMintMode>,
     pub whitelist_mint: Option<Vec<u8>>,
     pub whitelist_presale: Option<bool>,

@@ -1,14 +1,10 @@
-mod get_asset_by_id;
-mod get_assets_by_creator;
-mod get_assets_by_group;
-mod get_assets_by_owner;
-mod get_candy_machine_by_id;
 
-pub use get_asset_by_id::*;
-pub use get_assets_by_creator::*;
-pub use get_assets_by_group::*;
-pub use get_assets_by_owner::*;
-pub use get_candy_machine_by_id::*;
+mod get_candy_machine_by_id;
+mod get_assets_by_owner;
+mod get_assets_by_creator;
+mod get_asset_by_id;
+mod get_assets_by_group;
+
 use sea_orm::{JsonValue, Set};
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
@@ -52,36 +48,53 @@ pub fn create_candy_machine(
     id: Vec<u8>,
     features: Option<u64>,
     authority: Vec<u8>,
-    mint_authority: Option<u8>,
-    wallet: Vec<u8>,
+    mint_authority: Option<Vec<u8>>,
+    wallet: Option<Vec<u8>>,
     token_mint: Option<Vec<u8>>,
-    items_redeemed: i32,
+    items_redeemed: u64,
     candy_guard_pda: Option<Vec<u8>>,
     version: u8,
 ) -> (candy_machine::ActiveModel, candy_machine::Model) {
-    candy_machine::ActiveModel {
-        id: Set(id),
-        features: Set(features),
-        authority: Set(authority),
-        mint_authority: Set(mint_authority),
-        wallet: Set(wallet),
-        token_mint: Set(token_mint),
-        items_redeemed: Set(items_redeemed),
-        candy_guard_pda: Set(candy_guard_pda),
-        version: Set(version),
-    };
-
-    candy_machine::Model {
-        id,
-        features,
-        authority,
-        mint_authority,
-        wallet,
-        token_mint,
-        items_redeemed,
-        candy_guard_pda,
-        version,
-    }
+    (
+        candy_machine::ActiveModel {
+            id: Set(id),
+            features: Set(features),
+            authority: Set(authority),
+            mint_authority: Set(mint_authority),
+            wallet: Set(wallet),
+            token_mint: Set(token_mint),
+            items_redeemed: Set(items_redeemed),
+            candy_guard_pda: Set(candy_guard_pda),
+            version: Set(version),
+            collection_mint: todo!(),
+            allow_thaw: todo!(),
+            frozen_count: todo!(),
+            mint_start: todo!(),
+            freeze_time: todo!(),
+            freeze_fee: todo!(),
+            created_at: todo!(),
+            last_minted: todo!(),
+        },
+        candy_machine::Model {
+            id,
+            features,
+            authority,
+            mint_authority,
+            wallet,
+            token_mint,
+            items_redeemed,
+            candy_guard_pda,
+            version,
+            collection_mint: todo!(),
+            allow_thaw: todo!(),
+            frozen_count: todo!(),
+            mint_start: todo!(),
+            freeze_time: todo!(),
+            freeze_fee: todo!(),
+            created_at: todo!(),
+            last_minted: todo!(),
+        },
+    )
 }
 
 pub fn create_candy_machine_data(
@@ -95,35 +108,52 @@ pub fn create_candy_machine_data(
     retain_authority: Option<bool>,
     go_live_date: Option<i64>,
     items_available: u64,
-    candy_machine_id: i64,
+    candy_machine_id: Vec<u8>,
 ) -> (candy_machine_data::ActiveModel, candy_machine_data::Model) {
-    candy_machine_data::ActiveModel {
-        uuid: Set(uuid),
-        price: Set(price),
-        symbol: Set(symbol),
-        seller_fee_basis_points: Set(seller_fee_basis_points),
-        max_supply: Set(max_supply),
-        is_mutable: Set(is_mutable),
-        retain_authority: Set(retain_authority),
-        go_live_date: Set(go_live_date),
-        items_available: Set(items_available),
-        candy_machine_id: Set(candy_machine_id),
-        ..Default::default()
-    };
-
-    candy_machine_data::Model {
-        id: row_num,
-        uuid,
-        price,
-        symbol,
-        seller_fee_basis_points,
-        max_supply,
-        is_mutable,
-        retain_authority,
-        go_live_date,
-        items_available,
-        candy_machine_id,
-    }
+    (
+        candy_machine_data::ActiveModel {
+            uuid: Set(uuid.clone()),
+            price: Set(price),
+            symbol: Set(symbol.clone()),
+            seller_fee_basis_points: Set(seller_fee_basis_points),
+            max_supply: Set(max_supply),
+            is_mutable: Set(is_mutable),
+            retain_authority: Set(retain_authority),
+            go_live_date: Set(go_live_date),
+            items_available: Set(items_available),
+            candy_machine_id: Set(candy_machine_id.clone()),
+            ..Default::default()
+        },
+        candy_machine_data::Model {
+            id: row_num,
+            uuid,
+            price,
+            symbol,
+            seller_fee_basis_points,
+            max_supply,
+            is_mutable,
+            retain_authority,
+            go_live_date,
+            items_available,
+            candy_machine_id,
+            whitelist_mode: todo!(),
+            whitelist_mint: todo!(),
+            whitelist_presale: todo!(),
+            whitelist_discount_price: todo!(),
+            gatekeeper_network: todo!(),
+            gatekeeper_expire_on_use: todo!(),
+            config_line_settings_prefix_name: todo!(),
+            config_line_settings_name_length: todo!(),
+            config_line_settings_prefix_uri: todo!(),
+            config_line_settings_uri_length: todo!(),
+            config_line_settings_is_sequential: todo!(),
+            end_setting_number: todo!(),
+            end_setting_type: todo!(),
+            hidden_settings_name: todo!(),
+            hidden_settings_uri: todo!(),
+            hidden_settings_hash: todo!(),
+        },
+    )
 }
 
 pub fn create_asset_data(
@@ -236,6 +266,7 @@ pub fn create_asset(
             chain_data_id,
             burnt: false,
             created_at: None,
+            seq: 1,
         },
     )
 }
@@ -261,6 +292,7 @@ pub fn create_asset_creator(
             creator,
             share,
             verified,
+            seq: 1,
         },
     )
 }
@@ -281,6 +313,7 @@ pub fn create_asset_authority(
             authority: update_authority,
             id: row_num,
             scopes: None,
+            seq: 1,
         },
     )
 }
@@ -302,6 +335,7 @@ pub fn create_asset_grouping(
             group_value: bs58::encode(collection).into_string(),
             id: row_num,
             group_key: "collection".to_string(),
+            seq: 1,
         },
     )
 }
