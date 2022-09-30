@@ -15,10 +15,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::program_transformers::{
     bubblegum::handle_bubblegum_instruction, token_metadata::handle_token_metadata_account,
 };
+use crate::program_transformers::token::handle_token_program_account;
 
 mod bubblegum;
 mod common;
 mod token_metadata;
+mod token;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
@@ -84,6 +86,14 @@ impl ProgramTransformer {
                         &self.task_sender,
                     )
                     .await
+                }
+                ProgramParseResult::TokenProgramAccount(parsing_result) => {
+                    handle_token_program_account(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    ).await
                 }
                 _ => Err(IngesterError::NotImplemented),
             }?;

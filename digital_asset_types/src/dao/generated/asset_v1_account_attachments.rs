@@ -16,15 +16,17 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: Vec<u8>,
+    pub asset_id: Option<Vec<u8>>,
     pub attachment_type: V1AccountAttachments,
     pub initialized: bool,
-    pub data: Option<Vec<u8>>,
+    pub data: Option<Json>,
     pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
+    AssetId,
     AttachmentType,
     Initialized,
     Data,
@@ -44,16 +46,19 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {}
+pub enum Relation {
+    Asset,
+}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
+            Self::AssetId => ColumnType::Binary.def().null(),
             Self::AttachmentType => V1AccountAttachments::db_type(),
             Self::Initialized => ColumnType::Boolean.def(),
-            Self::Data => ColumnType::Binary.def().null(),
+            Self::Data => ColumnType::JsonBinary.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
@@ -61,7 +66,18 @@ impl ColumnTrait for Column {
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        panic!("No RelationDef")
+        match self {
+            Self::Asset => Entity::belongs_to(super::asset::Entity)
+                .from(Column::AssetId)
+                .to(super::asset::Column::Id)
+                .into(),
+        }
+    }
+}
+
+impl Related<super::asset::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Asset.def()
     }
 }
 

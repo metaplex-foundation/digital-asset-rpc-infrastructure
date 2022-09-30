@@ -88,7 +88,12 @@ create table tokens
     extension_data   bytea,
     slot_updated     bigint not null
 );
-
+create index t_mint_auth on tokens (mint_authority);
+create index t_freeze_auth on tokens (freeze_authority);
+create index t_close_auth on tokens (close_authority);
+create index t_slot_updated_idx on tokens USING BTREE (slot_updated);
+create index t_supply on tokens USING BTREE (supply);
+create index t_decimals on tokens USING BTREE (decimals);
 
 create table token_accounts
 (
@@ -100,9 +105,13 @@ create table token_accounts
     close_authority  bytea,
     delegate         bytea,
     delegated_amount bigint not null default 0,
-    slot_updated     bigint not null
+    slot_updated     bigint not null,
+    token_program    bytea  not null
 );
-
+create index ta_delegate on token_accounts (delegate);
+create index ta_slot_updated_idx on token_accounts USING BTREE (slot_updated);
+create index ta_amount on token_accounts USING BTREE (amount);
+create index ta_amount_del on token_accounts USING BTREE (delegated_amount);
 
 create table asset_data
 (
@@ -170,7 +179,7 @@ create table asset_v1_account_attachments
     asset_id        bytea references asset (id),
     attachment_type v1_account_attachments not null,
     initialized     bool                   not null default false,
-    data            bytea,
+    data            jsonb,
     slot_updated    bigint                 not null
 );
 
