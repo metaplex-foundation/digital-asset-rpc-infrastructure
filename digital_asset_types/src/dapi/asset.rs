@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
-use crate::dao::full_asset::{FullAsset, FullAssetList};
+use crate::dao::{FullAsset, FullAssetList};
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 
 pub fn to_uri(uri: String) -> Option<Url> {

@@ -1,73 +1,93 @@
-use sea_orm::ActiveValue::Set;
-use plerkle_serialization::Pubkey as FBPubkey;
-use digital_asset_types::json::ChainDataV1;
-use blockbuster::token_metadata::{Metadata, TokenStandard, UseMethod, Uses};
-use digital_asset_types::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping, token_accounts, tokens};
-use sea_orm::{entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, JsonValue, DbErr};
-use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions};
-use crate::IngesterError;
+use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
+use blockbuster::token_metadata::{
+    pda::find_master_edition_account,
+    state::{Metadata, TokenStandard, UseMethod, Uses},
+};
+use digital_asset_types::{
+    dao::{
+        asset, asset_authority, asset_creators, asset_data, asset_grouping,
+        asset_v1_account_attachments,
+        prelude::TokenAccounts,
+        sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+            SpecificationVersions, V1AccountAttachments,
+        },
+        token_accounts, tokens,
+    },
+    json::ChainDataV1,
+};
 use num_traits::FromPrimitive;
-use digital_asset_types::dao::prelude::TokenAccounts;
-use crate::program_transformers::common::task::DownloadMetadata;
+use plerkle_serialization::Pubkey as FBPubkey;
+use sea_orm::{
+    entity::*,
+    query::*,
+    sea_query::OnConflict,
+    ActiveValue::{Set},
+    ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+};
 
-pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn: &'c DatabaseTransaction) -> Result<DownloadMetadata, IngesterError> {
+
+pub async fn save_v1_asset<'c>(
+    id: FBPubkey,
+    slot: u64,
+    metadata: &Metadata,
+    txn: &'c DatabaseTransaction,
+) -> Result<DownloadMetadata, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
+    let meta_mint_pubkey = metadata.mint;
+    let (edition_attachment_address, _) = find_master_edition_account(&meta_mint_pubkey);
     let mint = metadata.mint.to_bytes().to_vec();
     let authority = metadata.update_authority.to_bytes().to_vec();
     let id = id.0;
     let slot_i = slot as i64;
     let uri = data.uri.clone();
-
-    let spec = SpecificationVersions::V1;
+    let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
         Some(TokenStandard::FungibleAsset) => SpecificationAssetClass::FungibleAsset,
         Some(TokenStandard::Fungible) => SpecificationAssetClass::FungibleToken,
-        _ => SpecificationAssetClass::Unknown
+        _ => SpecificationAssetClass::Unknown,
     };
     let ownership_type = match class {
         SpecificationAssetClass::FungibleAsset => OwnerType::Token,
         SpecificationAssetClass::FungibleToken => OwnerType::Token,
-        _ => {
-            OwnerType::Single
-        }
+        _ => OwnerType::Single,
     };
 
-    let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type {
+    let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type
+    {
         OwnerType::Single => {
-            let result = tokens::Entity::find_by_id(mint.clone()).find_also_related(TokenAccounts).one(txn).await?;
+            let result = tokens::Entity::find_by_id(mint.clone())
+                .find_also_related(TokenAccounts)
+                .one(txn)
+                .await?;
             Ok(result)
         }
         _ => {
             let token = tokens::Entity::find_by_id(mint.clone()).one(txn).await?;
-            Ok(token.map(|t| {
-                (t, None)
-            }))
+            Ok(token.map(|t| (t, None)))
         }
-    }.map_err(|e: DbErr| {
-        IngesterError::DatabaseError(e.to_string())
-    })?;
+    }
+    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
             let supply = match token_account {
                 Some(ta) => ta.amount,
-                None => token.supply
+                None => token.supply,
             };
             (Set(supply), Set(Some(mint)))
         }
-        None => (Set(1), NotSet)
+        None => (Set(1), NotSet),
     };
 
     let (owner, delegate) = match token_result {
-        Some((token, token_account)) => {
-            match token_account {
-                Some(account) => (Set(Some(account.owner)), Set(account.delegate)),
-                None => (NotSet, NotSet)
-            }
-        }
-        None => (NotSet, NotSet)
+        Some((_token, token_account)) => match token_account {
+            Some(account) => (Set(Some(account.owner)), Set(account.delegate)),
+            None => (NotSet, NotSet),
+        },
+        None => (NotSet, NotSet),
     };
 
     let chain_data = ChainDataV1 {
@@ -97,9 +117,23 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
         ..Default::default()
-    }
-        .insert(txn)
-        .await?;
+    };
+    let query = asset_data::Entity::insert(asset_data_model)
+        .on_conflict(
+            OnConflict::columns([asset_data::Column::AssetId])
+                .update_columns([
+                    asset_data::Column::ChainDataMutability,
+                    asset_data::Column::ChainData,
+                    asset_data::Column::MetadataUrl,
+                    asset_data::Column::Metadata,
+                    asset_data::Column::MetadataMutability,
+                    asset_data::Column::SlotUpdated,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    let res = txn.execute(query).await?;
+    let asset_data_id = res.last_insert_id();
 
     // Insert into `asset` table.
     let model = asset::ActiveModel {
@@ -121,22 +155,57 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
         royalty_target_type: Set(RoyaltyTargetType::Creators),
         royalty_target: Set(None),
         royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
-        asset_data: Set(Some(asset_data_model.id)),
+        asset_data: Set(Some(asset_data_id as i64)),
         slot_updated: Set(slot_i),
         ..Default::default()
     };
 
-    // Do not attempt to modify any existing values:
-    // `ON CONFLICT ('id') DO NOTHING`.
     let query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
-                .do_nothing()
+                .update_columns([
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::Owner,
+                    asset::Column::OwnerType,
+                    asset::Column::Delegate,
+                    asset::Column::Frozen,
+                    asset::Column::Supply,
+                    asset::Column::SupplyMint,
+                    asset::Column::Compressed,
+                    asset::Column::Compressible,
+                    asset::Column::Seq,
+                    asset::Column::TreeId,
+                    asset::Column::Leaf,
+                    asset::Column::Nonce,
+                    asset::Column::RoyaltyTargetType,
+                    asset::Column::RoyaltyTarget,
+                    asset::Column::RoyaltyAmount,
+                    asset::Column::AssetData,
+                    asset::Column::CreatedAt,
+                    asset::Column::Burnt,
+                    asset::Column::SlotUpdated,
+                ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     txn.execute(query).await?;
 
+    let attachment = asset_v1_account_attachments::ActiveModel {
+        id: Set(edition_attachment_address.to_bytes().to_vec()),
+        slot_updated: Set(slot_i),
+        attachment_type: Set(V1AccountAttachments::MasterEditionV2),
+        ..Default::default()
+    };
+
+    let query = asset_v1_account_attachments::Entity::insert(attachment)
+        .on_conflict(
+            OnConflict::columns([asset_v1_account_attachments::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await?;
     // Insert into `asset_creators` table.
     let creators = data.creators.unwrap_or_default();
     if creators.len() > 0 {
@@ -158,7 +227,13 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([asset_creators::Column::AssetId])
-                    .do_nothing()
+                    .update_columns([
+                        asset_creators::Column::Creator,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::Seq,
+                        asset_creators::Column::SlotUpdated,
+                    ])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
@@ -178,7 +253,11 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
         let query = asset_authority::Entity::insert(model)
             .on_conflict(
                 OnConflict::columns([asset_authority::Column::AssetId])
-                    .do_nothing()
+                    .update_columns([
+                        asset_authority::Column::Authority,
+                        asset_authority::Column::Seq,
+                        asset_authority::Column::SlotUpdated,
+                    ])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
@@ -201,7 +280,12 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
                 let query = asset_grouping::Entity::insert(model)
                     .on_conflict(
                         OnConflict::columns([asset_grouping::Column::AssetId])
-                            .do_nothing()
+                            .update_columns([
+                                asset_grouping::Column::GroupKey,
+                                asset_grouping::Column::GroupValue,
+                                asset_grouping::Column::Seq,
+                                asset_grouping::Column::SlotUpdated,
+                            ])
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
@@ -210,7 +294,7 @@ pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn
         }
     }
     Ok(DownloadMetadata {
-        asset_data_id: asset_data_model.id,
-        uri
+        asset_data_id: asset_data_id as i64,
+        uri,
     })
 }

@@ -1,8 +1,7 @@
 use crate::IngesterError;
 use blockbuster::programs::bubblegum::ChangeLogEvent;
 use digital_asset_types::dao::{backfill_items, cl_items};
-use sea_orm::{DatabaseTransaction, DbBackend, entity::*, query::*, sea_query::OnConflict};
-
+use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
 
 pub mod task;
 

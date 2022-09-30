@@ -1,11 +1,11 @@
 mod v1_asset;
+mod master_edition;
 
-use plerkle_serialization::AccountInfo;
-use crate::{BgTask, IngesterError};
+use crate::{program_transformers::token_metadata::v1_asset::save_v1_asset, BgTask, IngesterError};
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
+use plerkle_serialization::AccountInfo;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
-use crate::program_transformers::token_metadata::v1_asset::save_v1_asset;
 
 pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
@@ -18,7 +18,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     match &parsing_result.data {
         // TokenMetadataAccountData::EditionV1(e) => {}
         // TokenMetadataAccountData::MasterEditionV1(e) => {}
-        TokenMetadataAccountData::MetadataV1(m) => {
+        TokenMetadataAccountData::MetadataV1(_m) => {
             println!("Got one!");
             let task = save_v1_asset(key, account_update.slot(), &Default::default(), &txn).await?;
             task_manager.send(Box::new(task))?;
@@ -32,5 +32,3 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         _ => Err(IngesterError::NotImplemented),
     }
 }
-
-

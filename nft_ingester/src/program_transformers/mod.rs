@@ -17,8 +17,8 @@ use crate::program_transformers::{
 };
 
 mod bubblegum;
-mod token_metadata;
 mod common;
+mod token_metadata;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
@@ -58,7 +58,7 @@ impl ProgramTransformer {
                         &self.storage,
                         &self.task_sender,
                     )
-                        .await
+                    .await
                 }
 
                 _ => Err(IngesterError::NotImplemented),
@@ -77,8 +77,13 @@ impl ProgramTransformer {
             let concrete = result.result_type();
             match concrete {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
-                    handle_token_metadata_account(&acct, parsing_result, &self.storage, &self.task_sender)
-                        .await
+                    handle_token_metadata_account(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
                 }
                 _ => Err(IngesterError::NotImplemented),
             }?;

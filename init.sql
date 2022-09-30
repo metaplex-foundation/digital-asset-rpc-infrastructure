@@ -107,6 +107,7 @@ create table token_accounts
 create table asset_data
 (
     id                    bigserial PRIMARY KEY,
+    asset_id              bytea            not null,
     chain_data_mutability chain_mutability not null default 'mutable',
     chain_data            jsonb            not null,
     metadata_url          varchar(200)     not null,
@@ -115,9 +116,13 @@ create table asset_data
     slot_updated          bigint           not null
 );
 
+create index slot_updated_idx on asset_data USING BTREE (slot_updated);
+create index asset_id_idx on asset_data (asset_id);
+
 create table asset
 (
     id                        bytea PRIMARY KEY,
+    alt_id                    bytea,
 -- Specification version determines alot of how this poly morphic table is handled
 -- Specification is the MAJOR metaplex version, currently only v1
     specification_version     specification_versions    not null,
@@ -162,6 +167,7 @@ create index asset_delegate on asset (delegate);
 create table asset_v1_account_attachments
 (
     id              bytea PRIMARY KEY,
+    asset_id        bytea references asset (id),
     attachment_type v1_account_attachments not null,
     initialized     bool                   not null default false,
     data            bytea,

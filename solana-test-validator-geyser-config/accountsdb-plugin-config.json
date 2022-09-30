@@ -1,7 +1,10 @@
 {
   "libpath": "/plugin/plugin.so",
+  "enable_metrics": true,
+  "metrics_port": 8125,
+  "metrics_uri": "graphite",
   "accounts_selector" : {
-    "accounts" : [
+    "owners" : [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
       "GRoLLMza82AiYN7W9S9KCCtCyyPRAQP2ifBy4v4D5RMD",
       "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",

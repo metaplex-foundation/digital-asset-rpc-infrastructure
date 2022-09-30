@@ -1,4 +1,4 @@
-use blockbuster::token_metadata::{TokenStandard, Uses};
+use blockbuster::token_metadata::state::{TokenStandard, Uses};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

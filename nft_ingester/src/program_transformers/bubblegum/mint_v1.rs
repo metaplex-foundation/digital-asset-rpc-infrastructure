@@ -1,7 +1,4 @@
-use crate::{
-    IngesterError,
-    program_transformers::common::save_changelog_event,
-};
+use crate::{program_transformers::common::save_changelog_event, IngesterError};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -15,13 +12,13 @@ use digital_asset_types::{
 };
 use num_traits::FromPrimitive;
 use sea_orm::{
-    ConnectionTrait, DatabaseTransaction, DbBackend, entity::*, EntityTrait, JsonValue,
-    query::*, sea_query::OnConflict,
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
+    EntityTrait, JsonValue,
 };
 
-use blockbuster::token_metadata::{TokenStandard, UseMethod, Uses};
-use digital_asset_types::dao::sea_orm_active_enums::SpecificationVersions;
 use crate::program_transformers::common::task::DownloadMetadata;
+use blockbuster::token_metadata::state::{TokenStandard, UseMethod, Uses};
+use digital_asset_types::dao::sea_orm_active_enums::SpecificationVersions;
 
 // TODO -> consider moving structs into these functions to avoid clone
 

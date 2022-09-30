@@ -25,7 +25,6 @@ use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
-
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -162,6 +161,7 @@ async fn service_account_stream<T: Messenger>(
             // This call to messenger.recv() blocks with no timeout until
             // a message is received on the stream.
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
+                println!("Received account data");
                 handle_account(&manager, data).await
             }
         }
@@ -181,6 +181,13 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
         safe_metric(|| {
             statsd_count!("ingester.account_update_seen", 1);
         });
+
+        println!(
+            "Received account data {:?}",
+            account_update
+                .owner()
+                .map(|e| bs58::encode(e.0.as_slice()).into_string())
+        );
         manager
             .handle_account_update(account_update)
             .await
