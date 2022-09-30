@@ -1,13 +1,15 @@
 use crate::{
-    dao::sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
+    dao::{
+        candy_guard_group::Model as GuardGroupModel,
+        candy_machine_data::Model,
+        sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
+    },
     rpc::{
-        AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, HiddenSettings,
-        Lamports, LiveDate, MintLimit, NftPayment, SplToken, ThirdPartySigner,
+        AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, GuardSet,
+        HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SplToken, ThirdPartySigner,
         WhitelistMintSettings,
     },
 };
-
-// TODO make get all settings methods and get all guards methods using these
 
 // All of these helpers are essentially transforming the separate Option<> fields
 // into their optionable struct types to be returned from rpc
@@ -230,4 +232,94 @@ pub fn get_bot_tax(lamports: Option<u64>, last_instruction: Option<bool>) -> Opt
     } else {
         None
     }
+}
+
+pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
+    let gatekeeper = get_gatekeeper(
+        group.gatekeeper_network.clone(),
+        group.gatekeeper_expire_on_use,
+    );
+    let lamports = get_lamports(group.lamports_amount, group.lamports_destination.clone());
+    let spl_token = get_spl_token(
+        group.spl_token_amount,
+        group.spl_token_mint.clone(),
+        group.spl_token_destination_ata.clone(),
+    );
+    let third_party_signer = get_third_party_signer(group.third_party_signer_key.clone());
+    let allow_list = get_allow_list(group.allow_list_merkle_root.clone());
+    let nft_payment = get_nft_payment(
+        group.nft_payment_burn,
+        group.nft_payment_required_collection.clone(),
+    );
+    let whitelist_settings = get_whitelist_settings(
+        group.whitelist_mode.clone(),
+        group.whitelist_mint.clone(),
+        group.whitelist_presale,
+        group.whitelist_discount_price,
+    );
+
+    let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
+    let end_settings = get_end_settings(group.end_setting_number, group.end_setting_type.clone());
+    let live_date = get_live_date(group.live_date);
+    let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
+
+    GuardSet {
+        bot_tax,
+        lamports,
+        spl_token,
+        live_date,
+        third_party_signer,
+        whitelist: whitelist_settings,
+        gatekeeper,
+        end_settings,
+        allow_list,
+        mint_limit,
+        nft_payment,
+    }
+}
+pub fn get_candy_machine_data(
+    candy_machine_data: Model,
+) -> (
+    Option<WhitelistMintSettings>,
+    Option<HiddenSettings>,
+    Option<ConfigLineSettings>,
+    Option<EndSettings>,
+    Option<Gatekeeper>,
+) {
+    let data_end_settings = get_end_settings(
+        candy_machine_data.end_setting_number,
+        candy_machine_data.end_setting_type,
+    );
+
+    let data_hidden_settings = get_hidden_settings(
+        candy_machine_data.hidden_settings_name,
+        candy_machine_data.hidden_settings_uri,
+        candy_machine_data.hidden_settings_hash,
+    );
+    let data_gatekeeper = get_gatekeeper(
+        candy_machine_data.gatekeeper_network,
+        candy_machine_data.gatekeeper_expire_on_use,
+    );
+    let data_whitelist_mint_settings = get_whitelist_settings(
+        candy_machine_data.whitelist_mode,
+        candy_machine_data.whitelist_mint,
+        candy_machine_data.whitelist_presale,
+        candy_machine_data.whitelist_discount_price,
+    );
+
+    let data_config_line_settings = get_config_line_settings(
+        candy_machine_data.config_line_settings_is_sequential,
+        candy_machine_data.config_line_settings_name_length,
+        candy_machine_data.config_line_settings_prefix_name,
+        candy_machine_data.config_line_settings_prefix_uri,
+        candy_machine_data.config_line_settings_uri_length,
+    );
+
+    (
+        data_whitelist_mint_settings,
+        data_hidden_settings,
+        data_config_line_settings,
+        data_end_settings,
+        data_gatekeeper,
+    )
 }

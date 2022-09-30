@@ -1035,7 +1035,8 @@
                   "uri": {
                     "title": "URI",
                     "type": "string"
-                  }
+                  },
+                  "hash": { "title": "Hash", "type": "string" }
                 }
               },
               "gatekeeper": {
@@ -1162,6 +1163,16 @@
                                 },
                                 "destination_ata": {
                                   "title": "DestinationAta",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "allow_list": {
+                              "title": "AllowList",
+                              "type": "object",
+                              "properties": {
+                                "merkle_root": {
+                                  "title": "MerkleRoot",
                                   "type": "string"
                                 }
                               }

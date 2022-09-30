@@ -12,6 +12,7 @@ mod get_candy_machine_by_id {
         tests::{create_candy_machine, create_candy_machine_data},
     };
 
+    // TODO finish this test and add for creator and size
     #[async_std::test]
     async fn get_candy_machine_by_id() -> Result<(), DbErr> {
         let id = Keypair::new().pubkey();

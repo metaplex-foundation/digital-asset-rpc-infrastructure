@@ -11,9 +11,10 @@ use sea_orm::{entity::*, query::*, DbErr};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{
-    get_allow_list, get_bot_tax, get_config_line_settings, get_end_settings, get_freeze_info,
-    get_gatekeeper, get_hidden_settings, get_lamports, get_live_date, get_mint_limit,
-    get_nft_payment, get_spl_token, get_third_party_signer, get_whitelist_settings,
+    get_allow_list, get_bot_tax, get_candy_guard_group, get_candy_machine_data,
+    get_config_line_settings, get_end_settings, get_freeze_info, get_gatekeeper,
+    get_hidden_settings, get_lamports, get_live_date, get_mint_limit, get_nft_payment,
+    get_spl_token, get_third_party_signer, get_whitelist_settings,
 };
 
 pub async fn get_candy_machines_by_creator(
@@ -137,54 +138,9 @@ pub async fn get_candy_machines_by_creator(
                         .into_iter()
                         .find(|group| group.label.is_none())
                         .map(|group| {
-                            let gatekeeper = get_gatekeeper(
-                                group.gatekeeper_network,
-                                group.gatekeeper_expire_on_use,
-                            );
-                            let lamports =
-                                get_lamports(group.lamports_amount, group.lamports_destination);
-                            let spl_token = get_spl_token(
-                                group.spl_token_amount,
-                                group.spl_token_mint,
-                                group.spl_token_destination_ata,
-                            );
-                            let third_party_signer =
-                                get_third_party_signer(group.third_party_signer_key);
-                            let allow_list = get_allow_list(group.allow_list_merkle_root);
-                            let nft_payment = get_nft_payment(
-                                group.nft_payment_burn,
-                                group.nft_payment_required_collection,
-                            );
-                            let whitelist_settings = get_whitelist_settings(
-                                group.whitelist_mode,
-                                group.whitelist_mint,
-                                group.whitelist_presale,
-                                group.whitelist_discount_price,
-                            );
-
-                            let end_settings =
-                                get_end_settings(group.end_setting_number, group.end_setting_type);
-
-                            let mint_limit =
-                                get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
-
-                            let live_date = get_live_date(group.live_date);
-                            let bot_tax =
-                                get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
-
-                            GuardSet {
-                                bot_tax,
-                                lamports,
-                                spl_token,
-                                live_date,
-                                third_party_signer,
-                                whitelist: whitelist_settings,
-                                gatekeeper,
-                                end_settings,
-                                allow_list,
-                                mint_limit,
-                                nft_payment,
-                            }
+                            let guard_set = get_candy_guard_group(&group);
+                            
+                            guard_set
                         })
                         .unwrap();
 
@@ -193,57 +149,11 @@ pub async fn get_candy_machines_by_creator(
                         .iter()
                         .filter(|group| group.label.is_some())
                     {
-                        let gatekeeper = get_gatekeeper(
-                            group.gatekeeper_network.clone(),
-                            group.gatekeeper_expire_on_use,
-                        );
-                        let lamports =
-                            get_lamports(group.lamports_amount, group.lamports_destination.clone());
-                        let spl_token = get_spl_token(
-                            group.spl_token_amount,
-                            group.spl_token_mint.clone(),
-                            group.spl_token_destination_ata.clone(),
-                        );
-                        let third_party_signer =
-                            get_third_party_signer(group.third_party_signer_key.clone());
-                        let allow_list = get_allow_list(group.allow_list_merkle_root.clone());
-                        let nft_payment = get_nft_payment(
-                            group.nft_payment_burn,
-                            group.nft_payment_required_collection.clone(),
-                        );
-                        let whitelist_settings = get_whitelist_settings(
-                            group.whitelist_mode.clone(),
-                            group.whitelist_mint.clone(),
-                            group.whitelist_presale,
-                            group.whitelist_discount_price,
-                        );
-
-                        let end_settings = get_end_settings(
-                            group.end_setting_number,
-                            group.end_setting_type.clone(),
-                        );
-
-                        let mint_limit =
-                            get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
-                        let live_date = get_live_date(group.live_date);
-                        let bot_tax =
-                            get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
+                        let guard_set = get_candy_guard_group(group);
 
                         groups.push(RpcCandyGuardGroup {
                             label: group.label.clone().unwrap(),
-                            guards: GuardSet {
-                                bot_tax,
-                                lamports,
-                                spl_token,
-                                live_date,
-                                third_party_signer,
-                                whitelist: whitelist_settings,
-                                gatekeeper,
-                                end_settings,
-                                allow_list,
-                                mint_limit,
-                                nft_payment,
-                            },
+                            guards: guard_set,
                         })
                     }
 
@@ -272,34 +182,13 @@ pub async fn get_candy_machines_by_creator(
                     candy_machine.mint_start,
                 );
 
-                let data_hidden_settings = get_hidden_settings(
-                    candy_machine_data.hidden_settings_name,
-                    candy_machine_data.hidden_settings_uri,
-                    candy_machine_data.hidden_settings_hash,
-                );
-                let data_gatekeeper = get_gatekeeper(
-                    candy_machine_data.gatekeeper_network,
-                    candy_machine_data.gatekeeper_expire_on_use,
-                );
-                let data_whitelist_mint_settings = get_whitelist_settings(
-                    candy_machine_data.whitelist_mode,
-                    candy_machine_data.whitelist_mint,
-                    candy_machine_data.whitelist_presale,
-                    candy_machine_data.whitelist_discount_price,
-                );
-
-                let data_end_settings = get_end_settings(
-                    candy_machine_data.end_setting_number,
-                    candy_machine_data.end_setting_type,
-                );
-
-                let data_config_line_settings = get_config_line_settings(
-                    candy_machine_data.config_line_settings_is_sequential,
-                    candy_machine_data.config_line_settings_name_length,
-                    candy_machine_data.config_line_settings_prefix_name,
-                    candy_machine_data.config_line_settings_prefix_uri,
-                    candy_machine_data.config_line_settings_uri_length,
-                );
+                let (
+                    data_whitelist_mint_settings,
+                    data_hidden_settings,
+                    data_config_line_settings,
+                    data_end_settings,
+                    data_gatekeeper,
+                ) = get_candy_machine_data(candy_machine_data.clone());
 
                 RpcCandyMachine {
                     id: bs58::encode(candy_machine.id).into_string(),
