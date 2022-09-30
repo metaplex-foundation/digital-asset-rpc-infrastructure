@@ -204,7 +204,7 @@ impl<'a> RpcApiBuilder {
                 let (candy_machine_size, sort_by, limit, page, before, after) =
                     rpc_params.parse().unwrap();
                 rpc_context
-                    .get_candy_machines_by_creator(
+                    .get_candy_machines_by_size(
                         candy_machine_size,
                         sort_by,
                         limit,

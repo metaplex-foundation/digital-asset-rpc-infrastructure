@@ -1,23 +1,26 @@
 use crate::dao::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
-use crate::dao::{candy_guard, candy_guard_group, candy_machine, candy_machine_creators};
+use crate::dao::{
+    candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
+};
 use crate::rpc::filter::CandyMachineSorting;
 use crate::rpc::response::CandyMachineList;
 use crate::rpc::{
     CandyGuard as RpcCandyGuard, CandyGuardData, CandyMachine as RpcCandyMachine,
-    CandyMachineData as RpcCandyMachineData, ConfigLineSettings, Creator, EndSettings, GuardSet,
+    CandyMachineData as RpcCandyMachineData, Creator, GuardSet,
 };
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{
-    get_bot_tax, get_end_settings, get_live_date, get_mint_limit, get_third_party_signer,
-    get_whitelist_settings, get_gatekeeper, get_hidden_settings, get_freeze_info,
+    get_allow_list, get_bot_tax, get_config_line_settings, get_end_settings, get_freeze_info,
+    get_gatekeeper, get_hidden_settings, get_lamports, get_live_date, get_mint_limit,
+    get_nft_payment, get_spl_token, get_third_party_signer, get_whitelist_settings,
 };
 
 pub async fn get_candy_machines_by_size(
     db: &DatabaseConnection,
-    creator_expression: Vec<Vec<u8>>,
+    size: u64,
     sort_by: CandyMachineSorting,
     limit: u32,
     page: u32,
@@ -29,19 +32,13 @@ pub async fn get_candy_machines_by_size(
         CandyMachineSorting::LastMint => candy_machine::Column::LastMint,
     };
 
-    let mut conditions = Condition::any();
-    for creator in creator_expression {
-        conditions = conditions.add(candy_machine_creators::Column::Creator.eq(creator.clone()));
-    }
-    // TODO add condition for filtering on size here ^
-
     let candy_machines = if page > 0 {
         let paginator = candy_machine::Entity::find()
             .join(
                 JoinType::LeftJoin,
                 candy_machine::Entity::has_many(candy_machine_creators::Entity).into(),
             )
-            .filter(conditions)
+            .filter(Condition::any().add(candy_machine_data::Column::MaxSupply.eq(size)))
             .find_also_related(CandyMachineData)
             .order_by_asc(sort_column)
             .paginate(db, limit.try_into().unwrap());
@@ -54,7 +51,7 @@ pub async fn get_candy_machines_by_size(
                 JoinType::LeftJoin,
                 candy_machine::Entity::has_many(candy_machine_creators::Entity).into(),
             )
-            .filter(conditions)
+            .filter(Condition::any().add(candy_machine_data::Column::MaxSupply.eq(size)))
             .cursor_by(candy_machine_creators::Column::CandyMachineId)
             .before(before.clone())
             .first(limit.into())
@@ -76,7 +73,7 @@ pub async fn get_candy_machines_by_size(
                 JoinType::LeftJoin,
                 candy_machine::Entity::has_many(candy_machine_creators::Entity).into(),
             )
-            .filter(conditions)
+            .filter(Condition::any().add(candy_machine_data::Column::MaxSupply.eq(size)))
             .cursor_by(candy_machine_creators::Column::CandyMachineId)
             .after(after.clone())
             .first(limit.into())

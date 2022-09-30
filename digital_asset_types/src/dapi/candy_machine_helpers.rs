@@ -29,17 +29,17 @@ pub fn get_end_settings(
 }
 
 pub fn get_spl_token(
-    spl_token_amount: &Option<u64>,
-    spl_token_mint: &Option<Vec<u8>>,
-    spl_token_destination_ata: &Option<Vec<u8>>,
+    spl_token_amount: Option<u64>,
+    spl_token_mint: Option<Vec<u8>>,
+    spl_token_destination_ata: Option<Vec<u8>>,
 ) -> Option<SplToken> {
     if let (Some(spl_token_amount), Some(spl_token_mint), Some(spl_token_destination_ata)) =
         (spl_token_amount, spl_token_mint, spl_token_destination_ata)
     {
         Some(SplToken {
             amount: spl_token_amount,
-            token_mint: bs58::encode(spl_token_mint).to_string(),
-            destination_ata: bs58::encode(spl_token_destination_ata).to_string(),
+            token_mint: bs58::encode(spl_token_mint).into_string(),
+            destination_ata: bs58::encode(spl_token_destination_ata).into_string(),
         })
     } else {
         None
@@ -84,7 +84,6 @@ pub fn get_freeze_info(
     }
 }
 
-// TODO fix all these helper methods
 pub fn get_whitelist_settings(
     whitelist_mode: Option<WhitelistMintMode>,
     whitelist_mint: Option<Vec<u8>>,
@@ -106,8 +105,8 @@ pub fn get_whitelist_settings(
 }
 
 pub fn get_gatekeeper(
-    gatekeeper_network: &Option<Vec<u8>>,
-    gatekeeper_expire_on_use: &Option<bool>,
+    gatekeeper_network: Option<Vec<u8>>,
+    gatekeeper_expire_on_use: Option<bool>,
 ) -> Option<Gatekeeper> {
     if let (Some(gatekeeper_network), Some(expire_on_use)) =
         (gatekeeper_network, gatekeeper_expire_on_use)
@@ -121,39 +120,47 @@ pub fn get_gatekeeper(
     }
 }
 
-pub fn get_hidden_settings(hidden_settings: &Option<HiddenSettings>) -> Option<HiddenSettings> {
-    if hidden_settings.is_some() {
-        // TODO what to do with hash here ? turn into string? or return as [u8]
-        hidden_settings
-    } else {
-        None
-    }
-}
-
-pub fn get_lamports(lamports: &Option<Lamports>) -> Option<Lamports> {
-    if let Some(lamports) = lamports {
-        Some(Lamports {
-            amount: lamports.amount,
-            destination: bs58::encode(lamports.destination).into_string(),
+pub fn get_hidden_settings(
+    name: Option<String>,
+    uri: Option<String>,
+    hash: Option<Vec<u8>>,
+) -> Option<HiddenSettings> {
+    if let (Some(name), Some(uri), Some(hash)) = (name, uri, hash) {
+        Some(HiddenSettings {
+            name,
+            uri,
+            hash: bs58::encode(hash).into_string(),
         })
     } else {
         None
     }
 }
 
-pub fn get_allow_list(allow_list: &Option<AllowList>) -> Option<AllowList> {
-    if allow_list.is_some() {
-        // TODO what to do with merkle root here ? turn into string? or return as [u8]
-        allow_list
+pub fn get_lamports(amount: Option<u64>, destination: Option<String>) -> Option<Lamports> {
+    if let (Some(amount), Some(destination)) = (amount, destination) {
+        Some(Lamports {
+            amount,
+            destination: bs58::encode(destination).into_string(),
+        })
     } else {
         None
     }
 }
 
-pub fn get_third_party_signer(signer: &Option<ThirdPartySigner>) -> Option<ThirdPartySigner> {
-    if let Some(signer) = signer {
+pub fn get_allow_list(merkle_root: Option<Vec<u8>>) -> Option<AllowList> {
+    if let Some(merkle_root) = merkle_root {
+        Some(AllowList {
+            merkle_root: bs58::encode(merkle_root).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_third_party_signer(signer_key: Option<Vec<u8>>) -> Option<ThirdPartySigner> {
+    if let Some(signer) = signer_key {
         Some(ThirdPartySigner {
-            signer_key: bs58::encode(signer.signer_key).to_string(),
+            signer_key: bs58::encode(signer).into_string(),
         })
     } else {
         None
@@ -206,7 +213,7 @@ pub fn get_mint_limit(
     }
 }
 
-pub fn get_live_date(live_date: Option<u64>) -> Option<LiveDate> {
+pub fn get_live_date(live_date: Option<i64>) -> Option<LiveDate> {
     if let Some(date) = live_date {
         Some(LiveDate { date: live_date })
     } else {

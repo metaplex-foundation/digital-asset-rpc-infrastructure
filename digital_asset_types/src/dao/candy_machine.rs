@@ -107,7 +107,7 @@ impl RelationTrait for Relation {
             Self::CandyMachineData => Entity::has_one(super::candy_machine_data::Entity).into(),
             Self::CandyGuard => Entity::belongs_to(super::candy_guard::Entity)
                 .from(Column::CandyGuardPda)
-                .to(super::candy_guard::Column::Base)
+                .to(super::candy_guard::Column::Id)
                 .into(),
         }
     }

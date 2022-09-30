@@ -4,15 +4,16 @@ use crate::rpc::filter::CandyMachineSorting;
 use crate::rpc::response::CandyMachineList;
 use crate::rpc::{
     CandyGuard as RpcCandyGuard, CandyGuardData, CandyMachine as RpcCandyMachine,
-    CandyMachineData as RpcCandyMachineData, ConfigLineSettings, Creator, EndSettings, GuardSet,
+    CandyMachineData as RpcCandyMachineData, Creator, GuardSet,
 };
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{
-    get_bot_tax, get_config_line_settings, get_end_settings, get_freeze_info, get_gatekeeper,
-    get_hidden_settings, get_live_date, get_mint_limit, get_whitelist_settings, get_nft_payment, get_third_party_signer, get_allow_list,
+    get_allow_list, get_bot_tax, get_config_line_settings, get_end_settings, get_freeze_info,
+    get_gatekeeper, get_hidden_settings, get_lamports, get_live_date, get_mint_limit,
+    get_nft_payment, get_spl_token, get_third_party_signer, get_whitelist_settings,
 };
 
 pub async fn get_candy_machines_by_creator(
@@ -237,9 +238,9 @@ pub async fn get_candy_machines_by_creator(
                     let is_groups = if groups.len() > 0 { Some(groups) } else { None };
 
                     Some(RpcCandyGuard {
-                        id: candy_guard.id,
+                        id: bs58::encode(candy_guard.id).into_string(),
                         bump: candy_guard.bump,
-                        authority: candy_guard.authority,
+                        authority: bs58::encode(candy_guard.authority).into_string(),
                         candy_guard_data: CandyGuardData {
                             default: default_set,
                             groups: is_groups,
@@ -259,10 +260,14 @@ pub async fn get_candy_machines_by_creator(
                     candy_machine.mint_start,
                 );
 
-                let data_hidden_settings = get_hidden_settings(candy_machine_data.hidden_settings);
+                let data_hidden_settings = get_hidden_settings(
+                    candy_machine_data.hidden_settings_name,
+                    candy_machine_data.hidden_settings_uri,
+                    candy_machine_data.hidden_settings_hash,
+                );
                 let data_gatekeeper = get_gatekeeper(
-                    &candy_machine_data.gatekeeper_network,
-                    &candy_machine_data.gatekeeper_expire_on_use,
+                    candy_machine_data.gatekeeper_network,
+                    candy_machine_data.gatekeeper_expire_on_use,
                 );
                 let data_whitelist_mint_settings = get_whitelist_settings(
                     candy_machine_data.whitelist_mode,

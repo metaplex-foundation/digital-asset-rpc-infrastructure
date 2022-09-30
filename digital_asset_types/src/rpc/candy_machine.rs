@@ -1,9 +1,6 @@
 #[cfg(feature = "sql_types")]
 use crate::dao::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
-use {
-    serde::{Deserialize, Serialize},
-    std::collections::HashMap,
-};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Creator {
@@ -25,7 +22,7 @@ pub struct ConfigLineSettings {
 pub struct HiddenSettings {
     pub name: String,
     pub uri: String,
-    pub hash: [u8; 32],
+    pub hash: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -146,7 +143,7 @@ pub struct ThirdPartySigner {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AllowList {
-    pub merkle_root: [u8; 32],
+    pub merkle_root: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

@@ -46,9 +46,9 @@ pub fn get_live_date(live_date: Option<LiveDate>) -> Option<i64> {
         None
     }
 }
-pub fn get_allow_list(allow_list: Option<AllowList>) -> Option<[u8; 32]> {
-    if let Some(allow_list) = candy_guard_data.allow_list {
-        Some(allow_list.merkle_root)
+pub fn get_allow_list(allow_list: Option<AllowList>) -> Option<Vec<u8>> {
+    if let Some(allow_list) = allow_list {
+        Some(allow_list.merkle_root.to_vec())
     } else {
         None
     }

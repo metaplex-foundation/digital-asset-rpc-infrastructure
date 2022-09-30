@@ -95,8 +95,7 @@ pub async fn candy_machine<'c>(
         (
             Some(hidden_settings.name),
             Some(hidden_settings.uri),
-            // TODO does this need a to_vec
-            Some(hidden_settings.hash),
+            Some(hidden_settings.hash.to_vec()),
         )
     } else {
         (None, None, None)
@@ -111,7 +110,6 @@ pub async fn candy_machine<'c>(
         (None, None)
     };
 
-    // TODO change the rpc json file
     let (end_setting_type, number) = if let Some(end_settings) = data.end_settings {
         (
             Some(end_settings.end_setting_type),

@@ -41,7 +41,7 @@ pub struct Model {
     pub end_setting_type: Option<EndSettingType>,
     pub hidden_settings_name: Option<String>,
     pub hidden_settings_uri: Option<String>,
-    pub hidden_settings_hash: Option<[u8; 32]>,
+    pub hidden_settings_hash: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -113,15 +113,15 @@ impl ColumnTrait for Column {
             Self::WhitelistDiscountPrice => ColumnType::Integer.def().null(),
             Self::GatekeeperNetwork => ColumnType::Binary.def().null(),
             Self::GatekeeperExpireOnUse => ColumnType::Boolean.def().null(),
-            Self::ConfigLineSettingsPrefixName => ColumnType::String.def().null(),
+            Self::ConfigLineSettingsPrefixName => ColumnType::Text.def().null(),
             Self::ConfigLineSettingsNameLength => ColumnType::Integer.def().null(),
-            Self::ConfigLineSettingsPrefixUri => ColumnType::String.def().null(),
+            Self::ConfigLineSettingsPrefixUri => ColumnType::Text.def().null(),
             Self::ConfigLineSettingsUriLength => ColumnType::Integer.def().null(),
             Self::ConfigLineSettingsIsSequential => ColumnType::Boolean.def().null(),
             Self::EndSettingNumber => ColumnType::Integer.def().null(),
             Self::EndSettingType => EndSettingType::db_type().null(),
-            Self::HiddenSettingsName => ColumnType::String.def().null(),
-            Self::HiddenSettingsUri => ColumnType::String.def().null(),
+            Self::HiddenSettingsName => ColumnType::Text.def().null(),
+            Self::HiddenSettingsUri => ColumnType::Text.def().null(),
             Self::HiddenSettingsHash => ColumnType::Binary.def().null(),
         }
     }

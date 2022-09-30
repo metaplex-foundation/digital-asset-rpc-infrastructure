@@ -26,7 +26,7 @@ pub struct Model {
     pub gatekeeper_expire_on_use: Option<bool>,
     pub end_setting_number: Option<u64>,
     pub end_setting_type: Option<EndSettingType>,
-    pub allow_list_merkle_root: Option<[u8; 32]>,
+    pub allow_list_merkle_root: Option<Vec<u8>>,
     pub lamports_amount: Option<u64>,
     pub lamports_destination: Option<Vec<u8>>,
     pub third_party_signer_key: Option<Vec<u8>>,
@@ -93,7 +93,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
-            Self::Label => ColumnType::String.def().null(),
+            Self::Label => ColumnType::Text.def().null(),
             Self::CandyGuardId => ColumnType::Binary.def(),
             Self::WhitelistMode => WhitelistMintMode::db_type().null(),
             Self::WhitelistMint => ColumnType::Binary.def().null(),
@@ -129,6 +129,12 @@ impl RelationTrait for Relation {
                 .to(super::candy_guard::Column::Id)
                 .into(),
         }
+    }
+}
+
+impl Related<super::candy_guard::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyGuard.def()
     }
 }
 
