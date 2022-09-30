@@ -7,6 +7,7 @@ mod tasks;
 use crate::{
     backfiller::backfiller,
     error::IngesterError,
+    metrics::safe_metric,
     program_transformers::ProgramTransformer,
     tasks::{BgTask, TaskManager},
 };
@@ -24,7 +25,6 @@ use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
-use crate::metrics::safe_metric;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -99,7 +99,15 @@ async fn main() {
             background_task_manager.get_sender(),
             config.messenger_config.clone(),
         )
-            .await,
+        .await,
+    );
+    tasks.push(
+        service_account_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
+        .await,
     );
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
@@ -218,8 +226,9 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                 let (program, _) = &outer_ix;
                 safe_metric(|| {
                     statsd_time!(
-                    "ingester.bus_ingest_time",
-                    (seen_at.timestamp_millis() - tx.seen_at()) as u64);
+                        "ingester.bus_ingest_time",
+                        (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                    );
                 });
                 manager
                     .handle_instruction(&bundle)

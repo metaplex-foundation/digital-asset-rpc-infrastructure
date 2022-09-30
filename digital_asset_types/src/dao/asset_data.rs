@@ -18,22 +18,22 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub chain_data_mutability: ChainMutability,
-    pub schema_version: i32,
     pub chain_data: Json,
     pub metadata_url: String,
     pub metadata_mutability: Mutability,
     pub metadata: Json,
+    pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     ChainDataMutability,
-    SchemaVersion,
     ChainData,
     MetadataUrl,
     MetadataMutability,
     Metadata,
+    SlotUpdated,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -59,11 +59,11 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
             Self::ChainDataMutability => ChainMutability::db_type(),
-            Self::SchemaVersion => ColumnType::Integer.def(),
             Self::ChainData => ColumnType::JsonBinary.def(),
             Self::MetadataUrl => ColumnType::String(Some(200u32)).def(),
             Self::MetadataMutability => Mutability::db_type(),
             Self::Metadata => ColumnType::JsonBinary.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
 }

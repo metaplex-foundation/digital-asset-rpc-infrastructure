@@ -1,56 +1,56 @@
-#apiVersion: apps/v1
-#kind: Deployment
-#metadata:
-#  name: load-generator
-#  labels:
-#    app: load
-#    {{- include "ingest.labels" . | nindent 4 }}
-#spec:
-#  replicas: 5
-#  selector:
-#    matchLabels:
-#      app: load
-#      {{- include "ingest.selectorLabels" . | nindent 6 }}
-#  template:
-#    metadata:
-#      {{- with .Values.podAnnotations }}
-#      annotations:
-#        {{- toYaml . | nindent 8 }}
-#      {{- end }}
-#      labels:
-#        app: load
-#        {{- include "ingest.selectorLabels" . | nindent 8 }}
-#    spec:
-#      restartPolicy: Always
-#
-#      containers:
-#        - name: load-gen
-#          image: {{.Values.loadImage}}
-#          imagePullPolicy: {{ .Values.imagePullPolicy }}
-#          env:
-#            - name: SEED
-#              value: {{.Values.loadSeed}}
-#          readinessProbe:
-#            initialDelaySeconds: 1
-#            failureThreshold: 30
-#            periodSeconds: 60
-#            exec:
-#              command:
-#                - echo
-#                - "true"
-#          livenessProbe:
-#            initialDelaySeconds: 1
-#            failureThreshold: 30
-#            periodSeconds: 60
-#            exec:
-#              command:
-#                - echo
-#                - "true"
-#          resources:
-#            requests:
-#              memory: "128Mi"
-#              cpu: "250m"
-#            limits:
-#              memory: "1024Mi"
-#              cpu: "500m"
-#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  labels:
+    app: load
+    {{- include "ingest.labels" . | nindent 4 }}
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: load
+      {{- include "ingest.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: load
+        {{- include "ingest.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Always
+
+      containers:
+        - name: load-gen
+          image: {{.Values.loadImage}}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: SEED
+              value: {{.Values.loadSeed}}
+          readinessProbe:
+            initialDelaySeconds: 1
+            failureThreshold: 30
+            periodSeconds: 60
+            exec:
+              command:
+                - echo
+                - "true"
+          livenessProbe:
+            initialDelaySeconds: 1
+            failureThreshold: 30
+            periodSeconds: 60
+            exec:
+              command:
+                - echo
+                - "true"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+

@@ -12,9 +12,12 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::program_transformers::bubblegum::handle_bubblegum_instruction;
+use crate::program_transformers::{
+    bubblegum::handle_bubblegum_instruction, token_metadata::handle_token_metadata_account,
+};
 
 mod bubblegum;
+mod token_metadata;
 mod common;
 
 pub struct ProgramTransformer {
@@ -36,7 +39,7 @@ impl ProgramTransformer {
         }
     }
 
-    pub fn match_program(&self, key: FBPubkey) -> Option<&Box<dyn ProgramParser>> {
+    pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
         self.matchers.get(&Pubkey::new(key.0.as_slice()))
     }
 
@@ -44,7 +47,7 @@ impl ProgramTransformer {
         &self,
         ix: &'a InstructionBundle<'a>,
     ) -> Result<(), IngesterError> {
-        if let Some(program) = self.match_program(ix.program) {
+        if let Some(program) = self.match_program(&ix.program) {
             let result = program.handle_instruction(ix)?;
             let concrete = result.result_type();
             match concrete {
@@ -55,8 +58,9 @@ impl ProgramTransformer {
                         &self.storage,
                         &self.task_sender,
                     )
-                    .await
+                        .await
                 }
+
                 _ => Err(IngesterError::NotImplemented),
             }?;
         }
@@ -68,8 +72,16 @@ impl ProgramTransformer {
         acct: AccountInfo<'b>,
     ) -> Result<(), IngesterError> {
         let owner = acct.owner().unwrap();
-        if let Some(program) = self.match_program(FBPubkey::new(owner)) {
-
+        if let Some(program) = self.match_program(owner) {
+            let result = program.handle_account(&acct)?;
+            let concrete = result.result_type();
+            match concrete {
+                ProgramParseResult::TokenMetadata(parsing_result) => {
+                    handle_token_metadata_account(&acct, parsing_result, &self.storage, &self.task_sender)
+                        .await
+                }
+                _ => Err(IngesterError::NotImplemented),
+            }?;
         }
         Ok(())
     }

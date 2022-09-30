@@ -31,6 +31,13 @@ You must clone the https://github.com/metaplex-foundation/blockbuster repo, this
 
 Because this is a multi component system the easiest way to develop or locally test this system is with docker but developing locally without docker is possible.
 
+#### Regenerating DB Types
+Edit the init.sql, then run `docker compose up db`
+Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=postgres://solana:solana@localhost/solana` you can run
+` sea-orm-cli generate entity -o ./digital_asset_types/src/dao --database-url $DATABASE_URL --with-serde both --expanded-format`
+
+If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
+
 #### Developing Locally
  *Prerequisites*
  * A Postgres Server running with the database setup according to ./init.sql
@@ -93,4 +100,4 @@ docker-compose up
 ```
 
 When making changes you will need to ``docker compose up --force-recreate`` again to get the latest changes.
-Also when mucking about with the docker fi=le if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
+Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`

@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
+use sea_orm::{DatabaseConnection, entity::*, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
@@ -13,7 +13,6 @@ mod decompress;
 mod delegate;
 mod mint_v1;
 mod redeem;
-mod task;
 mod transfer;
 
 pub use db::*;

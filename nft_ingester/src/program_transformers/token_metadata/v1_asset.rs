@@ -1,0 +1,216 @@
+use sea_orm::ActiveValue::Set;
+use plerkle_serialization::Pubkey as FBPubkey;
+use digital_asset_types::json::ChainDataV1;
+use blockbuster::token_metadata::{Metadata, TokenStandard, UseMethod, Uses};
+use digital_asset_types::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping, token_accounts, tokens};
+use sea_orm::{entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, JsonValue, DbErr};
+use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions};
+use crate::IngesterError;
+use num_traits::FromPrimitive;
+use digital_asset_types::dao::prelude::TokenAccounts;
+use crate::program_transformers::common::task::DownloadMetadata;
+
+pub async fn save_v1_asset<'c>(id: FBPubkey, slot: u64, metadata: &Metadata, txn: &'c DatabaseTransaction) -> Result<DownloadMetadata, IngesterError> {
+    let metadata = metadata.clone();
+    let data = metadata.data;
+    let mint = metadata.mint.to_bytes().to_vec();
+    let authority = metadata.update_authority.to_bytes().to_vec();
+    let id = id.0;
+    let slot_i = slot as i64;
+    let uri = data.uri.clone();
+
+    let spec = SpecificationVersions::V1;
+    let class = match metadata.token_standard {
+        Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
+        Some(TokenStandard::FungibleAsset) => SpecificationAssetClass::FungibleAsset,
+        Some(TokenStandard::Fungible) => SpecificationAssetClass::FungibleToken,
+        _ => SpecificationAssetClass::Unknown
+    };
+    let ownership_type = match class {
+        SpecificationAssetClass::FungibleAsset => OwnerType::Token,
+        SpecificationAssetClass::FungibleToken => OwnerType::Token,
+        _ => {
+            OwnerType::Single
+        }
+    };
+
+    let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type {
+        OwnerType::Single => {
+            let result = tokens::Entity::find_by_id(mint.clone()).find_also_related(TokenAccounts).one(txn).await?;
+            Ok(result)
+        }
+        _ => {
+            let token = tokens::Entity::find_by_id(mint.clone()).one(txn).await?;
+            Ok(token.map(|t| {
+                (t, None)
+            }))
+        }
+    }.map_err(|e: DbErr| {
+        IngesterError::DatabaseError(e.to_string())
+    })?;
+
+    let (supply, supply_mint) = match token_result.clone() {
+        Some((token, token_account)) => {
+            let supply = match token_account {
+                Some(ta) => ta.amount,
+                None => token.supply
+            };
+            (Set(supply), Set(Some(mint)))
+        }
+        None => (Set(1), NotSet)
+    };
+
+    let (owner, delegate) = match token_result {
+        Some((token, token_account)) => {
+            match token_account {
+                Some(account) => (Set(Some(account.owner)), Set(account.delegate)),
+                None => (NotSet, NotSet)
+            }
+        }
+        None => (NotSet, NotSet)
+    };
+
+    let chain_data = ChainDataV1 {
+        name: data.name,
+        symbol: data.symbol,
+        edition_nonce: metadata.edition_nonce,
+        primary_sale_happened: metadata.primary_sale_happened,
+        token_standard: metadata.token_standard,
+        uses: metadata.uses.map(|u| Uses {
+            use_method: UseMethod::from_u8(u.use_method as u8).unwrap(),
+            remaining: u.remaining,
+            total: u.total,
+        }),
+    };
+    let chain_data_json = serde_json::to_value(chain_data)
+        .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+    let chain_mutability = match metadata.is_mutable {
+        true => ChainMutability::Mutable,
+        false => ChainMutability::Immutable,
+    };
+
+    let asset_data_model = asset_data::ActiveModel {
+        chain_data_mutability: Set(chain_mutability),
+        chain_data: Set(chain_data_json),
+        metadata_url: Set(data.uri),
+        metadata: Set(JsonValue::String("processing".to_string())),
+        metadata_mutability: Set(Mutability::Mutable),
+        slot_updated: Set(slot_i),
+        ..Default::default()
+    }
+        .insert(txn)
+        .await?;
+
+    // Insert into `asset` table.
+    let model = asset::ActiveModel {
+        id: Set(id.to_vec()),
+        owner,
+        owner_type: Set(ownership_type),
+        delegate,
+        frozen: Set(false),
+        supply: supply,
+        supply_mint: supply_mint,
+        specification_version: Set(SpecificationVersions::V1),
+
+        tree_id: Set(None),
+        nonce: Set(0),
+        seq: Set(0),
+        leaf: Set(None),
+        compressed: Set(false),
+
+        royalty_target_type: Set(RoyaltyTargetType::Creators),
+        royalty_target: Set(None),
+        royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
+        asset_data: Set(Some(asset_data_model.id)),
+        slot_updated: Set(slot_i),
+        ..Default::default()
+    };
+
+    // Do not attempt to modify any existing values:
+    // `ON CONFLICT ('id') DO NOTHING`.
+    let query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query).await?;
+
+    // Insert into `asset_creators` table.
+    let creators = data.creators.unwrap_or_default();
+    if creators.len() > 0 {
+        let mut db_creators = Vec::with_capacity(creators.len());
+        for c in creators.into_iter() {
+            db_creators.push(asset_creators::ActiveModel {
+                asset_id: Set(id.to_vec()),
+                creator: Set(c.address.to_bytes().to_vec()),
+                share: Set(c.share as i32),
+                verified: Set(c.verified),
+                seq: Set(0), // do we need this here @micheal-danenberg?
+                slot_updated: Set(slot_i),
+                ..Default::default()
+            });
+        }
+
+        // Do not attempt to modify any existing values:
+        // `ON CONFLICT ('asset_id') DO NOTHING`.
+        let query = asset_creators::Entity::insert_many(db_creators)
+            .on_conflict(
+                OnConflict::columns([asset_creators::Column::AssetId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+
+        // Insert into `asset_authority` table.
+        let model = asset_authority::ActiveModel {
+            asset_id: Set(id.to_vec()),
+            authority: Set(authority),
+            seq: Set(0),
+            slot_updated: Set(slot_i),
+            ..Default::default()
+        };
+
+        // Do not attempt to modify any existing values:
+        // `ON CONFLICT ('asset_id') DO NOTHING`.
+        let query = asset_authority::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([asset_authority::Column::AssetId])
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+
+        // Insert into `asset_grouping` table.
+        if let Some(c) = &metadata.collection {
+            if c.verified {
+                let model = asset_grouping::ActiveModel {
+                    asset_id: Set(id.to_vec()),
+                    group_key: Set("collection".to_string()),
+                    group_value: Set(c.key.to_string()),
+                    seq: Set(0),
+                    slot_updated: Set(slot_i),
+                    ..Default::default()
+                };
+
+                // Do not attempt to modify any existing values:
+                // `ON CONFLICT ('asset_id') DO NOTHING`.
+                let query = asset_grouping::Entity::insert(model)
+                    .on_conflict(
+                        OnConflict::columns([asset_grouping::Column::AssetId])
+                            .do_nothing()
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                txn.execute(query).await?;
+            }
+        }
+    }
+    Ok(DownloadMetadata {
+        asset_data_id: asset_data_model.id,
+        uri
+    })
+}

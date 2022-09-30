@@ -1,13 +1,12 @@
 use crate::{
-    program_transformers::{bubblegum::task::DownloadMetadata, common::save_changelog_event},
     IngesterError,
+    program_transformers::common::save_changelog_event,
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
@@ -16,9 +15,13 @@ use digital_asset_types::{
 };
 use num_traits::FromPrimitive;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
+    ConnectionTrait, DatabaseTransaction, DbBackend, entity::*, EntityTrait, JsonValue,
+    query::*, sea_query::OnConflict,
 };
+
+use blockbuster::token_metadata::{TokenStandard, UseMethod, Uses};
+use digital_asset_types::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::program_transformers::common::task::DownloadMetadata;
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -63,7 +66,6 @@ pub async fn mint_v1<'c>(
 
                 let data = asset_data::ActiveModel {
                     chain_data_mutability: Set(chain_mutability),
-                    schema_version: Set(1),
                     chain_data: Set(chain_data_json),
                     metadata_url: Set(metadata.uri.clone()),
                     metadata: Set(JsonValue::String("processing".to_string())),
@@ -81,22 +83,21 @@ pub async fn mint_v1<'c>(
                 };
                 let model = asset::ActiveModel {
                     id: Set(id.to_bytes().to_vec()),
-                    owner: Set(owner.to_bytes().to_vec()),
+                    owner: Set(Some(owner.to_bytes().to_vec())),
                     owner_type: Set(OwnerType::Single),
                     delegate: Set(delegate),
                     frozen: Set(false),
                     supply: Set(1),
                     supply_mint: Set(None),
                     compressed: Set(true),
-                    compressible: Set(false),
                     tree_id: Set(Some(bundle.keys.get(7).unwrap().0.to_vec())), //will change when we remove requests
-                    specification_version: Set(1),
+                    specification_version: Set(SpecificationVersions::V1),
                     nonce: Set(nonce as i64),
                     leaf: Set(Some(le.leaf_hash.to_vec())),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
-                    chain_data_id: Set(Some(data.id)),
+                    asset_data: Set(Some(data.id)),
                     seq: Set(seq as i64), // gummyroll seq
                     ..Default::default()
                 };

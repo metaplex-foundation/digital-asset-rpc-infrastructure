@@ -3,6 +3,10 @@ kind: Config
 build:
   artifacts:
     - context: .
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+      docker:
+        dockerfile: Load.Dockerfile
+    - context: .
       image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
       docker:
         dockerfile: Api.Dockerfile
@@ -17,6 +21,7 @@ deploy:
         chartPath: helm/ingest
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
+          loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
         setValueTemplates:
           ingest.db_url: "{{.DATABASE_URL}}"
           ingest.redis_url: "{{.REDIS_URL}}"
@@ -38,7 +43,15 @@ deploy:
       upgrade: [ "--timeout","900s" ]
       install: [ "--timeout","900s" ]
 profiles:
-  - name: dev
+  - name: devnet
+    patches:
+      - op: replace
+        path: /deploy/helm/releases/0/valuesFiles/0
+        value: ./helm/values-devnet.yaml
+      - op: replace
+        path: /deploy/helm/releases/1/valuesFiles/1
+        value: ./helm/values-devnet.yaml
+  - name: testnet
     patches:
       - op: replace
         path: /deploy/helm/releases/0/valuesFiles/0

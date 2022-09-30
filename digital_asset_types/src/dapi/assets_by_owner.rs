@@ -1,10 +1,11 @@
-use crate::dao::prelude::AssetData;
-use crate::dao::{asset, asset_authority, asset_creators, asset_grouping};
+use crate::dao::prelude::{Asset, AssetData};
+use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use crate::rpc::{Asset as RpcAsset, Compression, Interface, Ownership, Royalty};
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
+use crate::dapi::asset::get_interface;
 
 use super::asset::{get_content, to_authority, to_creators, to_grouping};
 
@@ -23,7 +24,7 @@ pub async fn get_assets_by_owner(
         AssetSorting::RecentAction => todo!(),
     };
 
-    let assets = if page > 0 {
+    let assets: Vec<(asset::Model, Option<asset_data::Model>)> = if page > 0 {
         let paginator = asset::Entity::find()
             .filter(asset::Column::Owner.eq(owner_address.clone()))
             .find_also_related(AssetData)
@@ -79,10 +80,7 @@ pub async fn get_assets_by_owner(
     let build_asset_list = filter_assets?
         .into_iter()
         .map(|(asset, asset_data)| async move {
-            let interface = match asset.specification_version {
-                1 => Interface::NftOneZero,
-                _ => Interface::Nft,
-            };
+            let interface = get_interface(&asset);
             let content = get_content(&asset, &asset_data).unwrap();
             let authorities = asset_authority::Entity::find()
                 .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
@@ -124,7 +122,7 @@ pub async fn get_assets_by_owner(
                     delegated: asset.delegate.is_some(),
                     delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
                     ownership_model: asset.owner_type.into(),
-                    owner: bs58::encode(asset.owner).into_string(),
+                    owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
                 },
             }
         });

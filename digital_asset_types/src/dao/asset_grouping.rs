@@ -19,6 +19,7 @@ pub struct Model {
     pub group_key: String,
     pub group_value: String,
     pub seq: i64,
+    pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -28,6 +29,7 @@ pub enum Column {
     GroupKey,
     GroupValue,
     Seq,
+    SlotUpdated,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -56,6 +58,7 @@ impl ColumnTrait for Column {
             Self::GroupKey => ColumnType::Text.def(),
             Self::GroupValue => ColumnType::Text.def(),
             Self::Seq => ColumnType::BigInteger.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
 }

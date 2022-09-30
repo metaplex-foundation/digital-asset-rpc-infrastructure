@@ -37,6 +37,8 @@ pub enum IngesterError {
     MessengerError(String),
     #[error("Blockbuster Parsing error {0}")]
     ParsingError(String),
+    #[error("Data Base Error {0}")]
+    DatabaseError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {

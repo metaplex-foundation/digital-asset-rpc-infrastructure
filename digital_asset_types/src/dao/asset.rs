@@ -2,6 +2,8 @@
 
 use super::sea_orm_active_enums::OwnerType;
 use super::sea_orm_active_enums::RoyaltyTargetType;
+use super::sea_orm_active_enums::SpecificationAssetClass;
+use super::sea_orm_active_enums::SpecificationVersions;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -17,31 +19,34 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: Vec<u8>,
-    pub specification_version: i32,
-    pub owner: Vec<u8>,
+    pub specification_version: SpecificationVersions,
+    pub specification_asset_class: SpecificationAssetClass,
+    pub owner: Option<Vec<u8>>,
     pub owner_type: OwnerType,
     pub delegate: Option<Vec<u8>>,
     pub frozen: bool,
     pub supply: i64,
     pub supply_mint: Option<Vec<u8>>,
     pub compressed: bool,
-    pub seq: i64,
     pub compressible: bool,
+    pub seq: i64,
     pub tree_id: Option<Vec<u8>>,
     pub leaf: Option<Vec<u8>>,
     pub nonce: i64,
     pub royalty_target_type: RoyaltyTargetType,
     pub royalty_target: Option<Vec<u8>>,
     pub royalty_amount: i32,
-    pub chain_data_id: Option<i64>,
+    pub asset_data: Option<i64>,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub burnt: bool,
+    pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     SpecificationVersion,
+    SpecificationAssetClass,
     Owner,
     OwnerType,
     Delegate,
@@ -49,17 +54,18 @@ pub enum Column {
     Supply,
     SupplyMint,
     Compressed,
-    Seq,
     Compressible,
+    Seq,
     TreeId,
     Leaf,
     Nonce,
     RoyaltyTargetType,
     RoyaltyTarget,
     RoyaltyAmount,
-    ChainDataId,
+    AssetData,
     CreatedAt,
     Burnt,
+    SlotUpdated,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -87,25 +93,27 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
-            Self::SpecificationVersion => ColumnType::Integer.def(),
-            Self::Owner => ColumnType::Binary.def(),
+            Self::SpecificationVersion => SpecificationVersions::db_type(),
+            Self::SpecificationAssetClass => SpecificationAssetClass::db_type(),
+            Self::Owner => ColumnType::Binary.def().null(),
             Self::OwnerType => OwnerType::db_type(),
             Self::Delegate => ColumnType::Binary.def().null(),
             Self::Frozen => ColumnType::Boolean.def(),
             Self::Supply => ColumnType::BigInteger.def(),
             Self::SupplyMint => ColumnType::Binary.def().null(),
             Self::Compressed => ColumnType::Boolean.def(),
-            Self::Seq => ColumnType::BigInteger.def(),
             Self::Compressible => ColumnType::Boolean.def(),
+            Self::Seq => ColumnType::BigInteger.def(),
             Self::TreeId => ColumnType::Binary.def().null(),
             Self::Leaf => ColumnType::Binary.def().null(),
             Self::Nonce => ColumnType::BigInteger.def(),
             Self::RoyaltyTargetType => RoyaltyTargetType::db_type(),
             Self::RoyaltyTarget => ColumnType::Binary.def().null(),
             Self::RoyaltyAmount => ColumnType::Integer.def(),
-            Self::ChainDataId => ColumnType::BigInteger.def().null(),
+            Self::AssetData => ColumnType::BigInteger.def().null(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::Burnt => ColumnType::Boolean.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
 }
@@ -114,7 +122,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::AssetData => Entity::belongs_to(super::asset_data::Entity)
-                .from(Column::ChainDataId)
+                .from(Column::AssetData)
                 .to(super::asset_data::Column::Id)
                 .into(),
             Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),

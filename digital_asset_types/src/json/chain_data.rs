@@ -1,4 +1,4 @@
-use crate::adapter::*;
+use blockbuster::token_metadata::{TokenStandard, Uses};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
