@@ -10,7 +10,7 @@ mod get_candy_machine_by_id {
             prelude::CandyMachineData,
             sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
         },
-        tests::{create_candy_machine, create_candy_machine_data, MetadataArgs},
+        tests::{create_candy_machine, create_candy_machine_data},
     };
 
     #[cfg(feature = "mock")]

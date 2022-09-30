@@ -32,7 +32,7 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = i64;
+    type ValueType = Vec<u8>;
     fn auto_increment() -> bool {
         false
     }

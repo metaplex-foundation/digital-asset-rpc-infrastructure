@@ -47,8 +47,8 @@ pub fn get_spl_token(
 }
 
 pub fn get_nft_payment(
-    nft_payment_burn: &Option<bool>,
-    nft_payment_required_collection: &Option<Vec<u8>>,
+    nft_payment_burn: Option<bool>,
+    nft_payment_required_collection: Option<Vec<u8>>,
 ) -> Option<NftPayment> {
     if let (Some(nft_payment_burn), Some(nft_payment_required_collection)) =
         (nft_payment_burn, nft_payment_required_collection)
@@ -136,7 +136,7 @@ pub fn get_hidden_settings(
     }
 }
 
-pub fn get_lamports(amount: Option<u64>, destination: Option<String>) -> Option<Lamports> {
+pub fn get_lamports(amount: Option<u64>, destination: Option<Vec<u8>>) -> Option<Lamports> {
     if let (Some(amount), Some(destination)) = (amount, destination) {
         Some(Lamports {
             amount,

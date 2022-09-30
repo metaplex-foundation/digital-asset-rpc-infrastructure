@@ -20,7 +20,7 @@ pub struct Model {
     pub mint_authority: Option<Vec<u8>>,
     pub wallet: Option<Vec<u8>>,
     pub token_mint: Option<Vec<u8>>,
-    pub items_redeemed: i32,
+    pub items_redeemed: u64,
     pub candy_guard_pda: Option<Vec<u8>>,
     pub version: u8,
     pub collection_mint: Option<Vec<u8>>,

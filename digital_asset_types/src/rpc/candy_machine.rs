@@ -3,7 +3,7 @@ use crate::dao::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Creator {
+pub struct CandyMachineCreator {
     pub address: String,
     pub share: i32,
     pub verified: bool,
@@ -38,6 +38,7 @@ impl From<String> for EndSettingModel {
         match &*s {
             "date" => EndSettingModel::Date,
             "amount" => EndSettingModel::Amount,
+            _ => EndSettingModel::Date,
         }
     }
 }
@@ -87,6 +88,7 @@ impl From<String> for WhitelistMintModel {
         match &*s {
             "burn_every_time" => WhitelistMintModel::BurnEveryTime,
             "never_burn" => WhitelistMintModel::NeverBurn,
+            _ => WhitelistMintModel::BurnEveryTime,
         }
     }
 }
@@ -185,7 +187,7 @@ pub struct GuardSet {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Group {
+pub struct CandyGuardGroup {
     pub label: String,
     pub guards: GuardSet,
 }
@@ -194,7 +196,7 @@ pub struct Group {
 pub struct CandyGuardData {
     pub default: GuardSet,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub groups: Option<Vec<Group>>,
+    pub groups: Option<Vec<CandyGuardGroup>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -231,7 +233,7 @@ pub struct CandyMachineData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub whitelist_mint_settings: Option<WhitelistMintSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub creators: Option<Vec<Creator>>,
+    pub creators: Option<Vec<CandyMachineCreator>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

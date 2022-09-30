@@ -3,8 +3,8 @@ use crate::dao::{candy_guard, candy_guard_group, candy_machine, candy_machine_cr
 use crate::rpc::filter::CandyMachineSorting;
 use crate::rpc::response::CandyMachineList;
 use crate::rpc::{
-    CandyGuard as RpcCandyGuard, CandyGuardData, CandyMachine as RpcCandyMachine,
-    CandyMachineData as RpcCandyMachineData, Creator, GuardSet,
+    CandyGuard as RpcCandyGuard, CandyGuardData, CandyGuardGroup as RpcCandyGuardGroup,
+    CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData, GuardSet,
 };
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
@@ -27,7 +27,7 @@ pub async fn get_candy_machines_by_creator(
 ) -> Result<CandyMachineList, DbErr> {
     let sort_column = match sort_by {
         CandyMachineSorting::Created => candy_machine::Column::CreatedAt,
-        CandyMachineSorting::LastMint => candy_machine::Column::LastMint,
+        CandyMachineSorting::LastMinted => candy_machine::Column::LastMinted,
     };
 
     let mut conditions = Condition::any();
@@ -98,7 +98,7 @@ pub async fn get_candy_machines_by_creator(
         .map(
             |(candy_machine, candy_machine_data)| match candy_machine_data {
                 Some(candy_machine_data) => Ok((candy_machine, candy_machine_data)),
-                _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
+                _ => Err(DbErr::RecordNotFound("Candy Machine Not Found".to_string())),
             },
         )
         .collect();
@@ -107,48 +107,53 @@ pub async fn get_candy_machines_by_creator(
         filter_candy_machines?
             .into_iter()
             .map(|(candy_machine, candy_machine_data)| async move {
-                let creators: Vec<candy_machine_creators::Model> =
-                    candy_machine_creators::Entity::find()
-                        .filter(
-                            candy_machine_creators::Column::CandyMachineId
-                                .eq(candy_machine.id.clone()),
-                        )
-                        .all(db)
-                        .await?;
+                let creators = candy_machine_creators::Entity::find()
+                    .filter(
+                        candy_machine_creators::Column::CandyMachineId.eq(candy_machine.id.clone()),
+                    )
+                    .all(db)
+                    .await
+                    .unwrap();
 
                 let candy_guard = if let Some(candy_guard_pda) = candy_machine.candy_guard_pda {
                     let (candy_guard, candy_guard_group): (
                         candy_guard::Model,
                         Vec<candy_guard_group::Model>,
                     ) = CandyGuard::find_by_id(candy_guard_pda)
-                        .find_also_related(CandyGuardGroup)
+                        .find_with_related(CandyGuardGroup)
                         .all(db)
                         .await
                         .and_then(|o| match o {
-                            Some((a, Some(d))) => Ok((a, d)),
+                            o => {
+                                let index = o.get(0).unwrap();
+                                Ok(index.clone())
+                            }
                             _ => Err(DbErr::RecordNotFound("Candy Guard Not Found".to_string())),
-                        })?;
+                        })
+                        .unwrap();
 
                     let default_set = candy_guard_group
+                        .clone()
                         .into_iter()
-                        .find(|&group| group.label.is_none())
-                        .map(|&group| {
+                        .find(|group| group.label.is_none())
+                        .map(|group| {
                             let gatekeeper = get_gatekeeper(
-                                &group.gatekeeper_network,
-                                &group.gatekeeper_expire_on_use,
+                                group.gatekeeper_network,
+                                group.gatekeeper_expire_on_use,
                             );
-                            let lamports = get_lamports(group.lamports);
+                            let lamports =
+                                get_lamports(group.lamports_amount, group.lamports_destination);
                             let spl_token = get_spl_token(
-                                &group.spl_token_amount,
-                                &group.spl_token_mint,
-                                &group.spl_token_destination_ata,
+                                group.spl_token_amount,
+                                group.spl_token_mint,
+                                group.spl_token_destination_ata,
                             );
                             let third_party_signer =
-                                get_third_party_signer(group.third_party_signer);
-                            let allow_list = get_allow_list(group.allow_list);
+                                get_third_party_signer(group.third_party_signer_key);
+                            let allow_list = get_allow_list(group.allow_list_merkle_root);
                             let nft_payment = get_nft_payment(
-                                &group.nft_payment_burn,
-                                &group.nft_payment_required_collection,
+                                group.nft_payment_burn,
+                                group.nft_payment_required_collection,
                             );
                             let whitelist_settings = get_whitelist_settings(
                                 group.whitelist_mode,
@@ -183,36 +188,40 @@ pub async fn get_candy_machines_by_creator(
                         })
                         .unwrap();
 
-                    let groups = Vec::new();
+                    let mut groups = Vec::new();
                     for group in candy_guard_group
                         .iter()
                         .filter(|group| group.label.is_some())
                     {
                         let gatekeeper = get_gatekeeper(
-                            &group.gatekeeper_network,
-                            &group.gatekeeper_expire_on_use,
+                            group.gatekeeper_network.clone(),
+                            group.gatekeeper_expire_on_use,
                         );
-                        let lamports = get_lamports(group.lamports);
+                        let lamports =
+                            get_lamports(group.lamports_amount, group.lamports_destination.clone());
                         let spl_token = get_spl_token(
-                            &group.spl_token_amount,
-                            &group.spl_token_mint,
-                            &group.spl_token_destination_ata,
+                            group.spl_token_amount,
+                            group.spl_token_mint.clone(),
+                            group.spl_token_destination_ata.clone(),
                         );
-                        let third_party_signer = get_third_party_signer(group.third_party_signer);
-                        let allow_list = get_allow_list(group.allow_list);
+                        let third_party_signer =
+                            get_third_party_signer(group.third_party_signer_key.clone());
+                        let allow_list = get_allow_list(group.allow_list_merkle_root.clone());
                         let nft_payment = get_nft_payment(
-                            &group.nft_payment_burn,
-                            &group.nft_payment_required_collection,
+                            group.nft_payment_burn,
+                            group.nft_payment_required_collection.clone(),
                         );
                         let whitelist_settings = get_whitelist_settings(
-                            group.whitelist_mode,
-                            group.whitelist_mint,
+                            group.whitelist_mode.clone(),
+                            group.whitelist_mint.clone(),
                             group.whitelist_presale,
                             group.whitelist_discount_price,
                         );
 
-                        let end_settings =
-                            get_end_settings(group.end_setting_number, group.end_setting_type);
+                        let end_settings = get_end_settings(
+                            group.end_setting_number,
+                            group.end_setting_type.clone(),
+                        );
 
                         let mint_limit =
                             get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
@@ -220,18 +229,21 @@ pub async fn get_candy_machines_by_creator(
                         let bot_tax =
                             get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
 
-                        groups.push(GuardSet {
-                            bot_tax,
-                            lamports,
-                            spl_token,
-                            live_date,
-                            third_party_signer,
-                            whitelist: whitelist_settings,
-                            gatekeeper,
-                            end_settings,
-                            allow_list,
-                            mint_limit,
-                            nft_payment,
+                        groups.push(RpcCandyGuardGroup {
+                            label: group.label.clone().unwrap(),
+                            guards: GuardSet {
+                                bot_tax,
+                                lamports,
+                                spl_token,
+                                live_date,
+                                third_party_signer,
+                                whitelist: whitelist_settings,
+                                gatekeeper,
+                                end_settings,
+                                allow_list,
+                                mint_limit,
+                                nft_payment,
+                            },
                         })
                     }
 
@@ -289,7 +301,7 @@ pub async fn get_candy_machines_by_creator(
                     candy_machine_data.config_line_settings_uri_length,
                 );
 
-                Ok(RpcCandyMachine {
+                RpcCandyMachine {
                     id: bs58::encode(candy_machine.id).into_string(),
                     collection: transform_optional_pubkeys(candy_machine.collection_mint),
                     freeze_info,
@@ -317,7 +329,7 @@ pub async fn get_candy_machines_by_creator(
                     features: candy_machine.features,
                     mint_authority: transform_optional_pubkeys(candy_machine.mint_authority),
                     candy_guard,
-                })
+                }
             });
 
     let built_candy_machines = futures::future::join_all(build_candy_machine_list).await;
