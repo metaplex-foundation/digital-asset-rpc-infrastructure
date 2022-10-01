@@ -105,8 +105,8 @@ docker-compose up
 When making changes you will need to ``docker compose up --build --force-recreate`` again to get the latest changes.
 Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
 
+Sometimes you will want to delete the db do so with `sudo rm -rf db-data`.  
 
- TODO-> make anote about root folders and deleting
 Once everything is working you can see that there is a api being served on
 ```
 http://localhost:9090
@@ -116,6 +116,26 @@ And a Metrics System on
 http://localhost:3000
 ```
 
+Here is an example request to the API
+
+```bash
+curl --request POST \
+  --url http://localhost:9090 \
+  --header 'Content-Type: application/json' \
+  --data '{
+	"jsonrpc": "2.0",
+"method":"get_assets_by_owner",
+	"id": "rpd-op-123",
+	"params": [
+    "CMvMqPNKHikuGi7mrngvQzFeQ4rndDnopx3kc9drne8M",
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ]
+}'
+```
 
 # Deploying to Kubernetes 
 Using skaffold you can deploy to k8s, make sure you authenticate with your docker registry
