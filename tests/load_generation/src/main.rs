@@ -14,6 +14,7 @@ use solana_sdk::system_instruction;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use spl_token::solana_program::program_pack::Pack;
+use tokio::time::{sleep, Duration as td};
 
 #[tokio::main]
 async fn main() {
@@ -24,7 +25,7 @@ async fn main() {
     let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(le_blockchain_url, Duration::from_secs(45), solana_sdk::commitment_config::CommitmentConfig::confirmed()));
     let kp = Arc::new(keypair_from_seed(sow_thy_seed.as_ref()).expect("Thy Keypair is not available, I humbly suggest you look for it."));
     let semaphore = Arc::new(Semaphore::new(carnage));
-    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await.expect("RPC Issue");
+    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     loop {
         let mut tasks = vec![];
         for _ in (0..carnage) {
@@ -34,6 +35,7 @@ async fn main() {
             tasks.push(tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
                 // MINT A MASTER EDITION:
+                sleep(Duration::from_millis(1000)).await;
                 make_a_nft_thing(le_clone, kp).await
             }));
         }
@@ -49,7 +51,7 @@ async fn main() {
                 }
             }
         }
-        check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await.expect("RPC Issue");
+        check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     }
 }
 
