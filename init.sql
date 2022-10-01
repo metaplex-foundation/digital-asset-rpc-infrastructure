@@ -45,18 +45,19 @@ CREATE INDEX backfill_items_tree_slot_idx on backfill_items (tree, slot);
 CREATE INDEX backfill_items_tree_force_chk_idx on backfill_items (tree, force_chk);
 
 CREATE
-or REPLACE FUNCTION notify_new_backfill_item()
+    or REPLACE FUNCTION notify_new_backfill_item()
     RETURNS trigger
-     LANGUAGE 'plpgsql'
-as $BODY$
+    LANGUAGE 'plpgsql'
+as
+$BODY$
 declare
 begin
     if
-(tg_op = 'INSERT') then
+        (tg_op = 'INSERT') then
         perform pg_notify('backfill_item_added', 'hello');
-end if;
+    end if;
 
-return null;
+    return null;
 end
 $BODY$;
 
@@ -64,7 +65,7 @@ CREATE TRIGGER after_insert_item
     AFTER INSERT
     ON backfill_items
     FOR EACH ROW
-    EXECUTE PROCEDURE notify_new_backfill_item();
+EXECUTE PROCEDURE notify_new_backfill_item();
 
 
 -- START NFT METADATA
@@ -115,8 +116,7 @@ create index ta_amount_del on token_accounts USING BTREE (delegated_amount);
 
 create table asset_data
 (
-    id                    bigserial PRIMARY KEY,
-    asset_id              bytea            not null,
+    id                    bytea PRIMARY KEY,
     chain_data_mutability chain_mutability not null default 'mutable',
     chain_data            jsonb            not null,
     metadata_url          varchar(200)     not null,
@@ -126,7 +126,6 @@ create table asset_data
 );
 
 create index slot_updated_idx on asset_data USING BTREE (slot_updated);
-create index asset_id_idx on asset_data (asset_id);
 
 create table asset
 (
@@ -159,7 +158,7 @@ create table asset
     royalty_target            bytea,
     royalty_amount            int                       not null default 0,
     -- data
-    asset_data                bigint references asset_data (id),
+    asset_data                bytea references asset_data (id),
     -- visibility
     created_at                timestamp with time zone           default (now() at time zone 'utc'),
     burnt                     bool                      not null default false,

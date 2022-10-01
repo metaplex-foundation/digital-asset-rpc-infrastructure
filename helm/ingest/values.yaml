@@ -5,10 +5,15 @@ imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-loadSeed: ""
+load:
+  seed:
+  network: "devnet"
+  chaos: 2
+  rpc_url:
 ingest:
   db_url:
   redis_url:
+  rpc_url:
 
 serviceAccount:
   # Specifies whether a service account should be created

@@ -16,8 +16,7 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
-    pub asset_id: Vec<u8>,
+    pub id: Vec<u8>,
     pub chain_data_mutability: ChainMutability,
     pub chain_data: Json,
     pub metadata_url: String,
@@ -29,7 +28,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    AssetId,
     ChainDataMutability,
     ChainData,
     MetadataUrl,
@@ -44,9 +42,9 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = i64;
+    type ValueType = Vec<u8>;
     fn auto_increment() -> bool {
-        true
+        false
     }
 }
 
@@ -59,8 +57,7 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::BigInteger.def(),
-            Self::AssetId => ColumnType::Binary.def(),
+            Self::Id => ColumnType::Binary.def(),
             Self::ChainDataMutability => ChainMutability::db_type(),
             Self::ChainData => ColumnType::JsonBinary.def(),
             Self::MetadataUrl => ColumnType::String(Some(200u32)).def(),

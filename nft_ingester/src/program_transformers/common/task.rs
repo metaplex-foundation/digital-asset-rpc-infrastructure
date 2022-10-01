@@ -5,7 +5,7 @@ use digital_asset_types::dao::asset_data;
 use sea_orm::{DatabaseConnection, *};
 use std::fmt::{Display, Formatter};
 pub struct DownloadMetadata {
-    pub asset_data_id: i64,
+    pub asset_data_id: Vec<u8>,
     pub uri: String,
 }
 
@@ -17,12 +17,12 @@ impl BgTask for DownloadMetadata {
             .json()
             .await?;
         let model = asset_data::ActiveModel {
-            id: Unchanged(self.asset_data_id),
+            id: Unchanged(self.asset_data_id.clone()),
             metadata: Set(body),
             ..Default::default()
         };
         asset_data::Entity::update(model)
-            .filter(asset_data::Column::Id.eq(self.asset_data_id))
+            .filter(asset_data::Column::Id.eq(self.asset_data_id.clone()))
             .exec(db)
             .await
             .map(|_| ())
@@ -39,7 +39,7 @@ impl Display for DownloadMetadata {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "DownloadMetadata from {} for {}",
+            "DownloadMetadata from {} for {:?}",
             self.uri, self.asset_data_id
         )
     }

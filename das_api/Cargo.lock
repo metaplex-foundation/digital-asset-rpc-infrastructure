@@ -2447,9 +2447,9 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plerkle_serialization"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2450765cf55bf3f3c32476a3201da27c5c0d5430228f0076e267e8e0d0077814"
+checksum = "66ea865af25d47f5442d5f961ba46075db344741243e46fd78c396b1f283a923"
 dependencies = [
  "chrono",
  "flatbuffers",

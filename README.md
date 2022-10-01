@@ -80,17 +80,20 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 
 You need to run the following script (which takes a long time) in order to get all those .so files.
 
+#### Authentication with Docker and AWS
+
+```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
+
 ```bash
-chmod
+chmod +x ./dowload-programs.sh
 ./dowload-programs.sh
 ```
 This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
-
+If you get some permissions errors, just sudo delete the programs directory and start again.
 
 We use ``docker-compose`` on some systems its ``docker compose``.
 ```bash
 docker-compose build 
-
 ```
 This builds the docker container for API and the Ingester components and will download the appropriate Redis, Postgres and Solana+plerkle docker images.
 Keep in mind that the version `latest` on the Solana Validator image will match the latest version available on the docs, for other versions please change that version in your docker compose file.
@@ -99,5 +102,27 @@ Keep in mind that the version `latest` on the Solana Validator image will match 
 docker-compose up 
 ```
 
-When making changes you will need to ``docker compose up --force-recreate`` again to get the latest changes.
+When making changes you will need to ``docker compose up --build --force-recreate`` again to get the latest changes.
 Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
+
+
+ TODO-> make anote about root folders and deleting
+Once everything is working you can see that there is a api being served on
+```
+http://localhost:9090
+```
+And a Metrics System on
+```
+http://localhost:3000
+```
+
+
+# Deploying to Kubernetes 
+Using skaffold you can deploy to k8s, make sure you authenticate with your docker registry
+```bash
+skaffold build --file-output skaffold-state.json --cache-artifacts=false
+## Your namepsace may differ.
+skaffold deploy --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
+```
+
+

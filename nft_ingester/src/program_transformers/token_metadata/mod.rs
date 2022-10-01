@@ -23,7 +23,6 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            println!("Got one!");
             let task = save_v1_asset(key, account_update.slot(), &m, &txn).await?;
             task_manager.send(Box::new(task))?;
             Ok(())

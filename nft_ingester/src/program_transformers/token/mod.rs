@@ -7,6 +7,7 @@ use digital_asset_types::dao::{asset, token_accounts, tokens};
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, ActiveValue::{Set}, ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue, DatabaseConnection};
 use solana_sdk::program_option::COption;
 use spl_token::state::AccountState;
+use crate::program_transformers::token;
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
@@ -56,7 +57,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             ]).to_owned())
                 .build(DbBackend::Postgres);
             txn.execute(query).await?;
-            let asset_update:Option<asset::Model> = asset::Entity::find_by_id(mint)
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
                 .filter(asset::Column::OwnerType.eq("single"))
                 .one(&txn).await?;
             if let Some(asset) = asset_update {
@@ -88,15 +89,14 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             };
 
             let query = tokens::Entity::insert(model).on_conflict(OnConflict::columns(
-                [token_accounts::Column::Pubkey],
+                [tokens::Column::Mint],
             ).update_columns([
-                token_accounts::Column::DelegatedAmount,
-                token_accounts::Column::Delegate,
-                token_accounts::Column::Amount,
-                token_accounts::Column::Frozen,
-                token_accounts::Column::Owner,
-                token_accounts::Column::CloseAuthority,
-                token_accounts::Column::SlotUpdated,
+                tokens::Column::Supply,
+                tokens::Column::MintAuthority,
+                tokens::Column::CloseAuthority,
+                tokens::Column::ExtensionData,
+                tokens::Column::SlotUpdated,
+                tokens::Column::Decimals
             ]).to_owned())
                 .build(DbBackend::Postgres);
             txn.execute(query).await?;

@@ -1,7 +1,7 @@
 use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
-    programs::{bubblegum::BubblegumParser, ProgramParseResult},
+    programs::{bubblegum::BubblegumParser, ProgramParseResult, token_metadata::TokenMetadataParser, token_account::TokenAccountParser},
 };
 
 use crate::{error::IngesterError, BgTask};
@@ -32,7 +32,11 @@ impl ProgramTransformer {
     pub fn new(pool: PgPool, task_sender: UnboundedSender<Box<dyn BgTask>>) -> Self {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
         let bgum = BubblegumParser {};
+        let token_metadata = TokenMetadataParser {};
+        let token = TokenAccountParser {};
         matchers.insert(bgum.key(), Box::new(bgum));
+        matchers.insert(token_metadata.key(), Box::new(token_metadata));
+        matchers.insert(token.key(), Box::new(token));
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),

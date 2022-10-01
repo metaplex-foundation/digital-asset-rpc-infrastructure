@@ -10,7 +10,6 @@ services:
       - "8126:8126"
       - "2003:2003"
       - "2004:2004"
-
   grafana:
     image: grafana/grafana
     restart: always
@@ -20,6 +19,9 @@ services:
       - graphite
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   ingester:
     depends_on:
       - redis
@@ -74,7 +76,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: digital-asset-validator-plugin-solana #ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.5
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

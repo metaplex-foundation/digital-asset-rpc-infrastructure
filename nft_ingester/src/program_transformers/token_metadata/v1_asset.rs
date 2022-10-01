@@ -90,7 +90,7 @@ pub async fn save_v1_asset<'c>(
         None => (NotSet, NotSet),
     };
 
-    let chain_data = ChainDataV1 {
+    let mut chain_data = ChainDataV1 {
         name: data.name,
         symbol: data.symbol,
         edition_nonce: metadata.edition_nonce,
@@ -102,8 +102,10 @@ pub async fn save_v1_asset<'c>(
             total: u.total,
         }),
     };
+    chain_data.sanitize();
     let chain_data_json = serde_json::to_value(chain_data)
         .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+    println!("{:?}", chain_data_json);
     let chain_mutability = match metadata.is_mutable {
         true => ChainMutability::Mutable,
         false => ChainMutability::Immutable,
@@ -112,15 +114,16 @@ pub async fn save_v1_asset<'c>(
     let asset_data_model = asset_data::ActiveModel {
         chain_data_mutability: Set(chain_mutability),
         chain_data: Set(chain_data_json),
-        metadata_url: Set(data.uri),
+        metadata_url: Set(data.uri.trim().replace('\0', "")),
         metadata: Set(JsonValue::String("processing".to_string())),
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
+        id: Set(id.to_vec()),
         ..Default::default()
     };
     let query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
-            OnConflict::columns([asset_data::Column::AssetId])
+            OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
                     asset_data::Column::ChainDataMutability,
                     asset_data::Column::ChainData,
@@ -133,7 +136,6 @@ pub async fn save_v1_asset<'c>(
         )
         .build(DbBackend::Postgres);
     let res = txn.execute(query).await?;
-    let asset_data_id = res.last_insert_id();
 
     // Insert into `asset` table.
     let model = asset::ActiveModel {
@@ -142,10 +144,10 @@ pub async fn save_v1_asset<'c>(
         owner_type: Set(ownership_type),
         delegate,
         frozen: Set(false),
-        supply: supply,
-        supply_mint: supply_mint,
+        supply,
+        supply_mint,
         specification_version: Set(SpecificationVersions::V1),
-
+        specification_asset_class: Set(class),
         tree_id: Set(None),
         nonce: Set(0),
         seq: Set(0),
@@ -155,7 +157,7 @@ pub async fn save_v1_asset<'c>(
         royalty_target_type: Set(RoyaltyTargetType::Creators),
         royalty_target: Set(None),
         royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
-        asset_data: Set(Some(asset_data_id as i64)),
+        asset_data: Set(Some(id.to_vec())),
         slot_updated: Set(slot_i),
         ..Default::default()
     };
@@ -294,7 +296,7 @@ pub async fn save_v1_asset<'c>(
         }
     }
     Ok(DownloadMetadata {
-        asset_data_id: asset_data_id as i64,
+        asset_data_id: id.to_vec(),
         uri,
     })
 }

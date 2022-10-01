@@ -25,6 +25,7 @@ use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
+
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -98,7 +99,7 @@ async fn main() {
             background_task_manager.get_sender(),
             config.messenger_config.clone(),
         )
-        .await,
+            .await,
     );
     tasks.push(
         service_account_stream::<RedisMessenger>(
@@ -106,7 +107,7 @@ async fn main() {
             background_task_manager.get_sender(),
             config.messenger_config.clone(),
         )
-        .await,
+            .await,
     );
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
@@ -188,10 +189,28 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
                 .owner()
                 .map(|e| bs58::encode(e.0.as_slice()).into_string())
         );
-        manager
+        let begin_processing = Utc::now();
+        let res = manager
             .handle_account_update(account_update)
-            .await
-            .expect("Processing Failed");
+            .await;
+        let finish_processing = Utc::now();
+        match res {
+            Ok(_) => {
+                safe_metric(|| {
+                    let proc_time = (finish_processing.timestamp_millis() - begin_processing.timestamp_millis()) as u64;
+                    statsd_time!("ingester.account_proc_time", proc_time);
+                });
+                safe_metric(|| {
+                    statsd_count!("ingester.account_update_success", 1);
+                });
+            }
+            Err(err) => {
+                println!("Error handling account update: {:?}", err);
+                safe_metric(|| {
+                    statsd_count!("ingester.account_update_error", 1);
+                });
+            }
+        }
     }
 }
 

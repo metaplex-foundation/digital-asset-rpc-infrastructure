@@ -24,7 +24,7 @@ async fn main() {
     let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(le_blockchain_url, Duration::from_secs(45), solana_sdk::commitment_config::CommitmentConfig::confirmed()));
     let kp = Arc::new(keypair_from_seed(sow_thy_seed.as_ref()).expect("Thy Keypair is not available, I humbly suggest you look for it."));
     let semaphore = Arc::new(Semaphore::new(carnage));
-   check_balance(le_blockchain.clone(), kp.clone(), network!="mainnet").await.expect("RPC Issue");
+    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await.expect("RPC Issue");
     loop {
         let mut tasks = vec![];
         for _ in (0..carnage) {
@@ -40,15 +40,16 @@ async fn main() {
         for task in tasks {
             match task.await.unwrap() {
                 Ok(e) => {
-                    continue
-                },
+                    println!("Successfully minted a NFT");
+                    continue;
+                }
                 Err(e) => {
                     println!("Error: {:?}", e);
                     continue;
                 }
             }
         }
-        check_balance(le_blockchain.clone(), kp.clone(), network!="mainnet").await.expect("RPC Issue");
+        check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await.expect("RPC Issue");
     }
 }
 

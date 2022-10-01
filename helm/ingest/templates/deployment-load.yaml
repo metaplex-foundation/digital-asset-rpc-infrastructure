@@ -4,9 +4,9 @@ metadata:
   name: load-generator
   labels:
     app: load
-    {{- include "ingest.labels" . | nindent 4 }}
+    {{- include "ingest.labels" . | nindent 4 }}-load
 spec:
-  replicas: 5
+  replicas: 2
   selector:
     matchLabels:
       app: load
@@ -29,7 +29,13 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           env:
             - name: SEED
-              value: {{.Values.loadSeed}}
+              value: {{.Values.load.seed}}
+            - name: NETWORK
+              value: {{.Values.load.network}}
+            - name: AMOUNT_OF_CHAOS
+              value: {{.Values.load.chaos | quote}}
+            - name: RPC_URL
+              value: {{.Values.load.rpc_url}}
           readinessProbe:
             initialDelaySeconds: 1
             failureThreshold: 30
@@ -53,4 +59,3 @@ spec:
             limits:
               memory: "1024Mi"
               cpu: "500m"
-
