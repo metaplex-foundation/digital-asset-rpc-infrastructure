@@ -119,10 +119,33 @@ http://localhost:3000
 
 # Deploying to Kubernetes 
 Using skaffold you can deploy to k8s, make sure you authenticate with your docker registry
+
+Make sure you have the env vars you need to satisfy this part of the skaffold.yaml
+```yaml
+...
+    setValueTemplates:
+      ingest.db_url: "{{.DATABASE_URL}}"
+      ingest.rpc_url: "{{.RPC_URL}}"
+      ingest.redis_url: "{{.REDIS_URL}}"
+      metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
+      load.seed: "{{.LOAD_SEED}}"
+      load.rpc_url: "{{.RPC_URL}}"
+      valuesFiles:
+        - ./helm/ingest/values.yaml
+  - name: das-api
+    chartPath: helm/api
+    artifactOverrides:
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
+    setValueTemplates:
+      api.db_url: "{{.DATABASE_URL}}"
+      api.redis_url: "{{.REDIS_URL}}"
+      metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
+...
+```
 ```bash
 skaffold build --file-output skaffold-state.json --cache-artifacts=false
 ## Your namepsace may differ.
-skaffold deploy --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
+skaffold deploy -p devnet --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
 ```
 
 
