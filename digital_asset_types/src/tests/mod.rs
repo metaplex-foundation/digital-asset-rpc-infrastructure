@@ -1,9 +1,8 @@
-
-mod get_candy_machine_by_id;
-mod get_assets_by_owner;
-mod get_assets_by_creator;
 mod get_asset_by_id;
+mod get_assets_by_creator;
 mod get_assets_by_group;
+mod get_assets_by_owner;
+mod get_candy_machine_by_id;
 
 use sea_orm::{JsonValue, Set};
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
@@ -66,14 +65,14 @@ pub fn create_candy_machine(
             items_redeemed: Set(items_redeemed),
             candy_guard_pda: Set(candy_guard_pda),
             version: Set(version),
-            collection_mint: todo!(),
-            allow_thaw: todo!(),
-            frozen_count: todo!(),
-            mint_start: todo!(),
-            freeze_time: todo!(),
-            freeze_fee: todo!(),
-            created_at: todo!(),
-            last_minted: todo!(),
+            collection_mint: Set(collection_mint),
+            allow_thaw: Set(allow_thaw),
+            frozen_count: Set(frozen_count),
+            mint_start: Set(mint_start),
+            freeze_time: Set(freeze_time),
+            freeze_fee: Set(freeze_fee),
+            created_at: Set(created_at),
+            last_minted: Set(last_minted),
         },
         candy_machine::Model {
             id,
@@ -85,14 +84,14 @@ pub fn create_candy_machine(
             items_redeemed,
             candy_guard_pda,
             version,
-            collection_mint: todo!(),
-            allow_thaw: todo!(),
-            frozen_count: todo!(),
-            mint_start: todo!(),
-            freeze_time: todo!(),
-            freeze_fee: todo!(),
-            created_at: todo!(),
-            last_minted: todo!(),
+            collection_mint,
+            allow_thaw,
+            frozen_count,
+            mint_start,
+            freeze_time,
+            freeze_fee,
+            created_at,
+            last_minted,
         },
     )
 }

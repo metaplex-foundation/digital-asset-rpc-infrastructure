@@ -33,6 +33,7 @@ pub async fn handle_candy_guard_account_update<'c>(
             mint_counter::mint_counter(mint_counter, acct, &txn).await?;
             txn.commit().await?;
         }
+        // TODO mint counter :(
         _ => println!("Candy Machine Guard: Account update invalid."),
     }
 

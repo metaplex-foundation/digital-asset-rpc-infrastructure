@@ -42,6 +42,21 @@ pub async fn candy_machine_core<'c>(
         None
     };
 
+    let candy_machine_model: Option<candy_machine::Model> =
+        CandyMachine::find_by_id(acct.key().to_bytes().to_vec())
+            .one(db)
+            .await?;
+
+    let last_minted = if let Some(candy_machine_model) = candy_machine_model {
+        if candy_machine_model.items_redeemed < candy_machine.items_redeemed {
+            Some(Utc::now())
+        } else {
+            Some(candy_machine_model.items_redeemed)
+        }
+    } else {
+        None
+    };
+
     let candy_machine_core = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
         features: Set(Some(candy_machine_core.features)),
@@ -50,6 +65,8 @@ pub async fn candy_machine_core<'c>(
         mint_authority: Set(mint_authority),
         collection_mint: Set(collection_mint),
         version: Set(3),
+        created_at: Set(Utc::now()),
+        last_minted: Set(last_minted),
         ..Default::default()
     };
 
@@ -63,6 +80,7 @@ pub async fn candy_machine_core<'c>(
                     candy_machine::Column::MintAuthority,
                     candy_machine::Column::CollectionMint,
                     candy_machine::Column::Version,
+                    candy_machine::Column::LastMinted,
                 ])
                 .to_owned(),
         )

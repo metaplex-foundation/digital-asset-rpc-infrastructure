@@ -30,7 +30,6 @@ pub async fn candy_machine<'c>(
 ) -> Result<(), IngesterError> {
     let data = candy_machine.data;
 
-    // TODO add last minted column here and candy core and init sql
     let token_mint = if let Some(token_mint) = candy_machine.token_mint {
         Some(token_mint.to_bytes().to_vec())
     } else {
@@ -43,16 +42,20 @@ pub async fn candy_machine<'c>(
         None
     };
 
-    let (candy_machine): (candy_machine::Model) =
+    let candy_machine_model: Option<candy_machine::Model> =
         CandyMachine::find_by_id(acct.key().to_bytes().to_vec())
             .one(db)
-            .await
-            .and_then(|o| match o {
-                Some((a, Some(d))) => Ok((a, d)),
-                _ => Err(DbErr::RecordNotFound("Candy Machine Not Found".to_string())),
-            })?;
+            .await?;
 
-    // TODO figure this out, why no linting?
+    let last_minted = if let Some(candy_machine_model) = candy_machine_model {
+        if candy_machine_model.items_redeemed < candy_machine.items_redeemed {
+            Some(Utc::now())
+        } else {
+            Some(candy_machine_model.items_redeemed)
+        }
+    } else {
+        None
+    };
 
     let candy_machine_state = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
@@ -62,6 +65,7 @@ pub async fn candy_machine<'c>(
         items_redeemed: Set(candy_machine.items_redeemed),
         version: Set(2),
         created_at: Set(Utc::now()),
+        last_minted: Set(last_minted),
         ..Default::default()
     };
 
@@ -73,6 +77,7 @@ pub async fn candy_machine<'c>(
                     candy_machine::Column::Wallet,
                     candy_machine::Column::TokenMint,
                     candy_machine::Column::ItemsRedeemed,
+                    candy_machine::Column::LastMinted,
                 ])
                 .to_owned(),
         )

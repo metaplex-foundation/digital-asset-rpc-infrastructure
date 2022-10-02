@@ -1,7 +1,11 @@
 use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
-    programs::{bubblegum::BubblegumParser, candy_machine::CandyMachineParser, ProgramParseResult},
+    programs::{
+        bubblegum::BubblegumParser, candy_guard::CandyGuardParser,
+        candy_machine::CandyMachineParser,
+        candy_machine_core::CandyMachineParser as CandyMachineCoreParser, ProgramParseResult,
+    },
 };
 
 use crate::{error::IngesterError, BgTask};
@@ -38,8 +42,12 @@ impl ProgramTransformer {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
         let bgum = BubblegumParser {};
         let candy_machine = CandyMachineParser {};
+        let candy_machine_core = CandyMachineCoreParser {};
+        let candy_guard = CandyGuardParser {};
         matchers.insert(bgum.key(), Box::new(bgum));
         matchers.insert(candy_machine.key(), Box::new(candy_machine));
+        matchers.insert(candy_machine_core.key(), Box::new(candy_machine_core));
+        matchers.insert(candy_guard_parser.key(), Box::new(candy_guard));
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),

@@ -46,6 +46,15 @@ pub async fn candy_guard<'c>(
     };
 
     // TODO need to get from DB for value cm and update the candy guard pda value
+    // i think that the candy_guard acc.key should be primary key and update any CMs that now have mint authority as a candy guard
+    let candy_machine: candy_machine::Model = CandyMachine::find_by_id(candy_machine_id)
+        .one(db)
+        .await
+        .and_then(|o| match o {
+            Some((a)) => Ok((a, d)),
+            _ => Err(DbErr::RecordNotFound("Candy Machine Not Found".to_string())),
+        })?;
+
     let query = candy_guard::Entity::insert(candy_guard)
         .on_conflict(
             OnConflict::columns([candy_guard::Column::Id])
