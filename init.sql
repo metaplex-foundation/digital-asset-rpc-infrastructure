@@ -299,7 +299,7 @@ create table candy_guard
     base                 bytea                                   not null,
     bump                 int                                     not null,
     authority            bytea                                   not null,
-)
+);
 
 create table candy_guard_group
 (
@@ -328,7 +328,7 @@ create table candy_guard_group
     gatekeeper_expire_on_use         bool,   
     end_setting_number               int,                                     
     end_setting_type                 end_setting_type,                                                                                     
-)
+);
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
 
 

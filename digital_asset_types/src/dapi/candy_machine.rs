@@ -1,4 +1,4 @@
-use crate::dao::prelude::{CandyGuard, CandyGuardGroup, CandyMachine, CandyMachineData};
+use crate::dao::generated::prelude::{CandyGuard, CandyGuardGroup, CandyMachine, CandyMachineData};
 use crate::dao::{
     candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
 };
@@ -7,8 +7,8 @@ use crate::rpc::{
     CandyMachine as RpcCandyMachine, CandyMachineCreator, CandyMachineData as RpcCandyMachineData,
 };
 
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DatabaseConnection, QueryFilter};
+use sea_orm::{entity::*, DbErr};
 
 use super::candy_machine_helpers::{
     get_candy_guard_group, get_candy_machine_data, get_freeze_info,

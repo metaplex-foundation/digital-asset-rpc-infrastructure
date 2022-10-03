@@ -1,10 +1,10 @@
-use crate::dao::asset;
-use crate::dao::prelude::AssetData;
+use crate::dao::generated::asset;
+use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::OfferSorting;
 use crate::rpc::response::OfferList;
 use crate::rpc::Offer;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, ColumnTrait};
+use sea_orm::{ query::*, DbErr};
 
 pub async fn get_offers_by_owner(
     db: &DatabaseConnection,

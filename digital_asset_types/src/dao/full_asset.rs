@@ -1,4 +1,4 @@
-use crate::dao::{asset, asset_data, asset_grouping, asset_authority, asset_creators};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 
 pub struct FullAsset {
     pub asset: asset::Model,

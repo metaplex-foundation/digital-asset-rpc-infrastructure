@@ -4,7 +4,6 @@ use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-use crate::dao::asset::Model as AssetModel;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {

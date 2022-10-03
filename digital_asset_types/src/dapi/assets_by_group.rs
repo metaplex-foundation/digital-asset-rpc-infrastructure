@@ -1,11 +1,11 @@
-use crate::dao::prelude::AssetData;
-use crate::dao::{asset, asset_authority, asset_creators, asset_grouping};
+use crate::dao::generated::prelude::AssetData;
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_grouping};
 use crate::dapi::asset::{get_content, get_interface, to_authority, to_creators, to_grouping};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Interface, Ownership, Royalty};
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
+use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait};
+use sea_orm::{query::*, DbErr};
 
 pub async fn get_assets_by_group(
     db: &DatabaseConnection,
@@ -144,7 +144,10 @@ pub async fn get_assets_by_group(
                     delegated: asset.delegate.is_some(),
                     delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
                     ownership_model: asset.owner_type.into(),
-                    owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
+                    owner: asset
+                        .owner
+                        .map(|o| bs58::encode(o).into_string())
+                        .unwrap_or("".to_string()),
                 },
             }
         });

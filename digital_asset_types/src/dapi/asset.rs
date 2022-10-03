@@ -1,20 +1,19 @@
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::full_asset;
+use crate::dao::generated::prelude::{Asset, AssetData};
+use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
     Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::DbErr;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
-use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
-use crate::dao::{FullAsset, FullAssetList};
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -161,9 +160,11 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
         .collect()
 }
 
-
 pub fn get_interface(asset: &asset::Model) -> Interface {
-    match (&asset.specification_version, &asset.specification_asset_class) {
+    match (
+        &asset.specification_version,
+        &asset.specification_asset_class,
+    ) {
         (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
         (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
         (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
@@ -172,8 +173,8 @@ pub fn get_interface(asset: &asset::Model) -> Interface {
 }
 
 //TODO -> impl custom erro type
-pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
-    let FullAsset {
+pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
+    let full_asset::FullAsset {
         asset,
         data,
         authorities,
@@ -207,12 +208,17 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
             ownership_model: asset.owner_type.into(),
-            owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
+            owner: asset
+                .owner
+                .map(|o| bs58::encode(o).into_string())
+                .unwrap_or("".to_string()),
         },
     })
 }
 
-pub async fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
+pub async fn asset_list_to_rpc(
+    asset_list: full_asset::FullAssetList,
+) -> Vec<Result<RpcAsset, DbErr>> {
     asset_list.list.into_iter().map(asset_to_rpc).collect()
 }
 
@@ -239,7 +245,7 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .all(db)
         .await?;
-    asset_to_rpc(FullAsset {
+    asset_to_rpc(full_asset::FullAsset {
         asset,
         data,
         authorities,

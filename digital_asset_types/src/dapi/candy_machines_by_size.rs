@@ -1,4 +1,4 @@
-use crate::dao::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
+use crate::dao::generated::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
 use crate::dao::{
     candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
 };
@@ -8,8 +8,8 @@ use crate::rpc::{
     CandyGuard as RpcCandyGuard, CandyGuardData, CandyGuardGroup as RpcCandyGuardGroup,
     CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData,
 };
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait};
+use sea_orm::{query::*, DbErr};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{

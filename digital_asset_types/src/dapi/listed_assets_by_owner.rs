@@ -1,10 +1,10 @@
-use crate::dao::asset;
-use crate::dao::prelude::AssetData;
+use crate::dao::generated::asset;
+use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::ListingSorting;
 use crate::rpc::response::ListingsList;
 use crate::rpc::AssetSale;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, ModelTrait};
+use sea_orm::{query::*, DbErr};
 
 pub async fn get_listed_assets_by_owner(
     db: &DatabaseConnection,
@@ -20,8 +20,7 @@ pub async fn get_listed_assets_by_owner(
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
-                    .add(
-                        asset::Column::Delegate.is_not_null()),
+                    .add(asset::Column::Delegate.is_not_null()),
             )
             .find_also_related(AssetData)
             // .order_by_asc(sort_column)

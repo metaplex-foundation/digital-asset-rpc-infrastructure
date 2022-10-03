@@ -1,6 +1,7 @@
 version: "3.9"
 services:
   graphite:
+    platform: linux/amd64
     image: graphiteapp/graphite-statsd
     container_name: graphite
     restart: always
@@ -11,6 +12,7 @@ services:
       - "2003:2003"
       - "2004:2004"
   grafana:
+    platform: linux/amd64
     image: grafana/grafana
     restart: always
     ports:
@@ -23,6 +25,7 @@ services:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   ingester:
+    platform: linux/amd64
     depends_on:
       - redis
     restart: always
@@ -36,6 +39,7 @@ services:
       context: .
       dockerfile: Ingest.Dockerfile
   load:
+    platform: linux/amd64
     depends_on:
       - ingester
       - solana
@@ -49,6 +53,7 @@ services:
       context: .
       dockerfile: Load.Dockerfile
   api:
+    platform: linux/amd64
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana
@@ -61,6 +66,7 @@ services:
     ports:
       - 9090:9090
   redis:
+    platform: linux/amd64
     image: "redis:6.2.5"
     ports:
       - "6379:6379"
@@ -76,6 +82,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
+    platform: linux/amd64
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
     volumes:
     - ./programs:/so/:ro
