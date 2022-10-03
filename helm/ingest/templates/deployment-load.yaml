@@ -4,13 +4,11 @@ metadata:
   name: load-generator
   labels:
     app: load
-    {{- include "ingest.labels" . | nindent 4 }}-load
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: load
-      {{- include "ingest.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -19,10 +17,8 @@ spec:
       {{- end }}
       labels:
         app: load
-        {{- include "ingest.selectorLabels" . | nindent 8 }}
     spec:
       restartPolicy: Always
-
       containers:
         - name: load-gen
           image: {{.Values.loadImage}}

@@ -118,8 +118,7 @@ pub async fn save_v1_asset<'c>(
         metadata: Set(JsonValue::String("processing".to_string())),
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
-        id: Set(id.to_vec()),
-        ..Default::default()
+        id: Set(id.to_vec())
     };
     let query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
@@ -153,12 +152,13 @@ pub async fn save_v1_asset<'c>(
         seq: Set(0),
         leaf: Set(None),
         compressed: Set(false),
-
+        compressible: Set(false),
         royalty_target_type: Set(RoyaltyTargetType::Creators),
         royalty_target: Set(None),
         royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
         asset_data: Set(Some(id.to_vec())),
         slot_updated: Set(slot_i),
+        burnt: Set(false),
         ..Default::default()
     };
 
@@ -166,27 +166,26 @@ pub async fn save_v1_asset<'c>(
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
-                    asset::Column::SpecificationVersion,
-                    asset::Column::SpecificationAssetClass,
                     asset::Column::Owner,
                     asset::Column::OwnerType,
                     asset::Column::Delegate,
                     asset::Column::Frozen,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::TreeId,
+                    asset::Column::Nonce,
+                    asset::Column::Seq,
+                    asset::Column::Leaf,
                     asset::Column::Compressed,
                     asset::Column::Compressible,
-                    asset::Column::Seq,
-                    asset::Column::TreeId,
-                    asset::Column::Leaf,
-                    asset::Column::Nonce,
                     asset::Column::RoyaltyTargetType,
                     asset::Column::RoyaltyTarget,
                     asset::Column::RoyaltyAmount,
                     asset::Column::AssetData,
-                    asset::Column::CreatedAt,
-                    asset::Column::Burnt,
                     asset::Column::SlotUpdated,
+                    asset::Column::Burnt,
                 ])
                 .to_owned(),
         )
@@ -210,7 +209,7 @@ pub async fn save_v1_asset<'c>(
     txn.execute(query).await?;
     // Insert into `asset_creators` table.
     let creators = data.creators.unwrap_or_default();
-    if creators.len() > 0 {
+    if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
         for c in creators.into_iter() {
             db_creators.push(asset_creators::ActiveModel {

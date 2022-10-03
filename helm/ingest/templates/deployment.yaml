@@ -40,6 +40,10 @@ spec:
             protocol: UDP
         - name: {{ .Chart.Name }}
           env:
+          - name: RUST_BACKTRACE
+            value: "1"
+          - name: RUST_LOG
+            value: "info"
           - name: INGESTER_METRICS_HOST
             valueFrom:
               fieldRef:
