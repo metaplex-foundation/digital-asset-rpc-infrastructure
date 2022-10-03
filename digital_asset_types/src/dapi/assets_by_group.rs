@@ -4,8 +4,8 @@ use crate::dapi::asset::{get_content, get_interface, to_authority, to_creators, 
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait};
 use sea_orm::{query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_assets_by_group(
     db: &DatabaseConnection,

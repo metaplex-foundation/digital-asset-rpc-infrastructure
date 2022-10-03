@@ -1,35 +1,18 @@
-use crate::{
-    program_transformers::{
-        candy_machine::{helpers::process_whitelist_change, state::CandyMachine},
-        common::save_changelog_event,
-    },
-    IngesterError,
-};
+use crate::IngesterError;
 
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-};
-use candy_machine::state::CandyMachine;
-use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_guard, candy_guard_group, sea_orm_active_enums::WhitelistMintMode},
-    rpc::LiveDate,
+use digital_asset_types::dao::generated::{
+    candy_guard, candy_guard_group, candy_machine,
 };
 use mpl_candy_guard::{
-    guards::{AllowList, EndSettings, Gatekeeper, SplToken, ThirdPartySigner, Whitelist},
+    guards::{ EndSettings, SplToken, Whitelist},
     state::{CandyGuard, CandyGuardData},
 };
-use num_traits::FromPrimitive;
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
+
+use plerkle_serialization::AccountInfo;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
+    DbErr, EntityTrait,
 };
-use solana_sdk::lamports;
 
 use super::helpers::*;
 
@@ -51,7 +34,7 @@ pub async fn candy_guard<'c>(
         .one(db)
         .await
         .and_then(|o| match o {
-            Some((a)) => Ok((a, d)),
+            Some(a) => Ok(a),
             _ => Err(DbErr::RecordNotFound("Candy Machine Not Found".to_string())),
         })?;
 

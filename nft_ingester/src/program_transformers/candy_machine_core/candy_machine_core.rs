@@ -1,27 +1,14 @@
-use crate::{
-    program_transformers::{
-        candy_machine::helpers::{process_creators_change, process_hidden_settings_change},
-        common::save_changelog_event,
-    },
-    IngesterError,
-};
-use digital_asset_types::dao::prelude::{
-    CandyGuard, CandyGuardGroup, CandyMachine as CandyMachineEntity, CandyMachineData,
-};
+use crate::IngesterError;
 
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+use chrono::Utc;
+use digital_asset_types::dao::generated::{
+    candy_machine, candy_machine_creators, candy_machine_data,
 };
-use digital_asset_types::dao::{candy_machine, candy_machine_data};
 use mpl_candy_machine_core::CandyMachine;
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
+use plerkle_serialization::AccountInfo;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
+    EntityTrait,
 };
 
 pub async fn candy_machine_core<'c>(
@@ -48,7 +35,7 @@ pub async fn candy_machine_core<'c>(
             .await?;
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
-        if candy_machine_model.items_redeemed < candy_machine.items_redeemed {
+        if candy_machine_model.items_redeemed < candy_machine_core.items_redeemed {
             Some(Utc::now())
         } else {
             Some(candy_machine_model.items_redeemed)
@@ -57,7 +44,7 @@ pub async fn candy_machine_core<'c>(
         None
     };
 
-    let candy_machine_core = candy_machine::ActiveModel {
+    let candy_machine_core_model = candy_machine::ActiveModel {
         id: Set(acct.key().to_bytes().to_vec()),
         features: Set(Some(candy_machine_core.features)),
         authority: Set(candy_machine_core.authority.to_bytes().to_vec()),
@@ -70,7 +57,7 @@ pub async fn candy_machine_core<'c>(
         ..Default::default()
     };
 
-    let query = candy_machine::Entity::insert(candy_machine_core)
+    let query = candy_machine::Entity::insert(candy_machine_core_model)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
                 .update_columns([
@@ -97,7 +84,7 @@ pub async fn candy_machine_core<'c>(
         (None, None, None)
     };
 
-    let (prefix_name, name_length, prefix_uri, uri_length) =
+    let (prefix_name, name_length, prefix_uri, uri_length, is_sequential) =
         if let Some(config_line_settings) = data.config_line_settings {
             (
                 Some(config_line_settings.prefix_name),
@@ -154,10 +141,10 @@ pub async fn candy_machine_core<'c>(
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
     if candy_machine_data.creators.len() > 0 {
-        let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
-        for c in metadata.creators.iter() {
+        let mut creators = Vec::with_capacity(candy_machine_core.data.creators.len());
+        for c in candy_machine_core.data.creators.iter() {
             creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_id: Set(candy_machine_id),
+                candy_machine_id: Set(candy_machine_core.id.to_bytes().to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
                 verified: Set(c.verified),

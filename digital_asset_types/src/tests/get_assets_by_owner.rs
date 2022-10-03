@@ -5,8 +5,8 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use crate::{
     adapter::{Creator, TokenProgramVersion, TokenStandard},
     dao::{
-        asset, asset_authority, asset_creators, asset_data,
-        prelude::AssetData,
+        generated::prelude::AssetData,
+        generated::{asset, asset_authority, asset_creators, asset_data},
         sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
     },
     tests::{

@@ -1,5 +1,5 @@
 use crate::dao::generated::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
-use crate::dao::{
+use crate::dao::generated::{
     candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
 };
 use crate::rpc::filter::CandyMachineSorting;
@@ -8,8 +8,8 @@ use crate::rpc::{
     CandyGuard as RpcCandyGuard, CandyGuardData, CandyGuardGroup as RpcCandyGuardGroup,
     CandyMachine as RpcCandyMachine, CandyMachineData as RpcCandyMachineData,
 };
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait};
 use sea_orm::{query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 use super::candy_machine::{to_creators, transform_optional_pubkeys};
 use super::candy_machine_helpers::{

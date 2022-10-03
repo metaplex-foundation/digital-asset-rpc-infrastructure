@@ -4,7 +4,7 @@ use blockbuster::token_metadata::{
     state::{Metadata, TokenStandard, UseMethod, Uses},
 };
 use digital_asset_types::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
         prelude::TokenAccounts,
@@ -19,13 +19,9 @@ use digital_asset_types::{
 use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
-    entity::*,
-    query::*,
-    sea_query::OnConflict,
-    ActiveValue::{Set},
-    ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
-
 
 pub async fn save_v1_asset<'c>(
     id: FBPubkey,

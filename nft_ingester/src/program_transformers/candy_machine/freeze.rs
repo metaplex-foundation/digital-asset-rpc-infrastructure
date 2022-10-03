@@ -1,30 +1,8 @@
-use crate::{
-    program_transformers::{candy_machine::state::CandyMachine, common::save_changelog_event},
-    IngesterError,
-};
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-};
-use candy_machine::state::CandyMachine;
-use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
-    dao::{
-        candy_machine, candy_machine_data, candy_machine_end_settings, candy_machine_freeze,
-        candy_machine_gatekeeper, candy_machine_whitelist_mint_settings,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
-    },
-    json::ChainDataV1,
-};
-use num_traits::FromPrimitive;
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
-};
+use crate::IngesterError;
+
+use digital_asset_types::dao::generated::candy_machine;
+use plerkle_serialization::AccountInfo;
+use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait};
 
 use super::state::FreezePDA;
 

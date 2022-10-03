@@ -5,7 +5,7 @@ use crate::{
     RPC_URL_KEY,
 };
 use chrono::Utc;
-use digital_asset_types::dao::backfill_items;
+use digital_asset_types::dao::generated::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::{

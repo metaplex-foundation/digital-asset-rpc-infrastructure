@@ -4,18 +4,18 @@ mod get_assets_by_group;
 mod get_assets_by_owner;
 mod get_candy_machine_by_id;
 
-use sea_orm::{JsonValue, Set};
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
-use blockbuster::token_metadata::*;
+use crate::adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses};
+use crate::dao::sea_orm_active_enums::SpecificationAssetClass;
 use crate::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
         candy_machine_data,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
 };
-use crate::dao::sea_orm_active_enums::SpecificationAssetClass;
+use sea_orm::{JsonValue, Set};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
 #[derive(Clone)]
 pub struct MetadataArgs {
@@ -53,6 +53,8 @@ pub fn create_candy_machine(
     items_redeemed: u64,
     candy_guard_pda: Option<Vec<u8>>,
     version: u8,
+    collection_mint: Option<Vec<u8>>,
+    allow_thaw: Option<bool>,
 ) -> (candy_machine::ActiveModel, candy_machine::Model) {
     (
         candy_machine::ActiveModel {
@@ -200,7 +202,7 @@ pub fn create_asset_data(
             metadata_url: Keypair::new().pubkey().to_string(),
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -267,7 +269,7 @@ pub fn create_asset(
             burnt: false,
             created_at: None,
             specification_asset_class: SpecificationAssetClass::Nft,
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -294,7 +296,7 @@ pub fn create_asset_creator(
             share,
             verified,
             seq: 0,
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -316,7 +318,7 @@ pub fn create_asset_authority(
             seq: 0,
             id: row_num,
             scopes: None,
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -339,7 +341,7 @@ pub fn create_asset_grouping(
             seq: 0,
             id: row_num,
             group_key: "collection".to_string(),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }

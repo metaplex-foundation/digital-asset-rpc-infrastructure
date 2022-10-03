@@ -7,8 +7,8 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use crate::{
     adapter::{Creator, TokenProgramVersion, TokenStandard},
     dao::{
-        asset, asset_authority, asset_creators, asset_data,
-        prelude::AssetData,
+        generated::prelude::AssetData,
+        generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping},
         sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
     },
     tests::{
@@ -19,8 +19,6 @@ use crate::{
 
 #[async_std::test]
 async fn get_assets_by_group() -> Result<(), DbErr> {
-    use crate::dao::asset_grouping;
-
     let id_1 = Keypair::new().pubkey();
     let owner_1 = Keypair::new().pubkey();
     let update_authority_1 = Keypair::new().pubkey();

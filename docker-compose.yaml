@@ -25,7 +25,7 @@ services:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   ingester:
-    platform: linux/amd64
+    # platform: linux/amd64
     depends_on:
       - redis
     restart: always
@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: Ingest.Dockerfile
   load:
-    platform: linux/amd64
+    # platform: linux/amd64
     depends_on:
       - ingester
       - solana
@@ -53,7 +53,7 @@ services:
       context: .
       dockerfile: Load.Dockerfile
   api:
-    platform: linux/amd64
+    # platform: linux/amd64
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana

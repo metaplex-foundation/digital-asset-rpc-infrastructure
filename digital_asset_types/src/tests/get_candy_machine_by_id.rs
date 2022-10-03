@@ -6,7 +6,7 @@ mod get_candy_machine_by_id {
     use crate::{
         dao::{
             candy_machine, candy_machine_data,
-            prelude::CandyMachineData,
+            generated::prelude::CandyMachineData,
             sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
         },
         tests::{create_candy_machine, create_candy_machine_data},
@@ -20,6 +20,7 @@ mod get_candy_machine_by_id {
         let authority = Keypair::new().pubkey();
         let creator_1 = Keypair::new().pubkey();
         let uri = Keypair::new().pubkey();
+        let collection_mint = Keypair::new().pubkey();
 
         let candy_machine = create_candy_machine(
             id.to_bytes().to_vec(),
@@ -31,6 +32,8 @@ mod get_candy_machine_by_id {
             0,
             None,
             2,
+            Some(collection_mint.to_bytes().to_vec()),
+            None,
         );
 
         let candy_machine_data = create_candy_machine_data(

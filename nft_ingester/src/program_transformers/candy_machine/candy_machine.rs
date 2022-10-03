@@ -1,26 +1,14 @@
-use crate::{
-    program_transformers::{candy_machine::state::CandyMachine, common::save_changelog_event},
-    IngesterError,
+use crate::{program_transformers::candy_machine::state::CandyMachine, IngesterError};
+
+use chrono::Utc;
+use digital_asset_types::dao::generated::{
+    candy_machine, candy_machine_creators, candy_machine_data,
 };
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-};
-use candy_machine::state::CandyMachine;
-use digital_asset_types::{
-    adapter::{TokenStandard, UseMethod, Uses},
-    dao::{candy_machine, candy_machine_data},
-    rpc::HiddenSettings,
-};
-use mpl_candy_guard::guards::{Gatekeeper, Whitelist};
-use num_traits::FromPrimitive;
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
+
+use plerkle_serialization::AccountInfo;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
+    EntityTrait,
 };
 
 pub async fn candy_machine<'c>(
@@ -181,9 +169,9 @@ pub async fn candy_machine<'c>(
 
     if candy_machine_data.creators.len() > 0 {
         let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
-        for c in metadata.creators.iter() {
+        for c in candy_machine.data.creators.iter() {
             creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_id: Set(candy_machine_id),
+                candy_machine_id: Set(candy_machine.id.to_bytes().to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
                 verified: Set(c.verified),

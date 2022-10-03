@@ -1,8 +1,8 @@
 use crate::{
     dao::{
-        candy_guard_group::Model as GuardGroupModel,
-        candy_machine_data::Model,
-        sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
+        generated::candy_guard_group::Model as GuardGroupModel,
+        generated::candy_machine_data::Model,
+        generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     },
     rpc::{
         AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, GuardSet,

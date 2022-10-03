@@ -1,3 +1,4 @@
+pub mod adapter;
 #[cfg(feature = "sql_types")]
 pub mod dao;
 #[cfg(feature = "sql_types")]

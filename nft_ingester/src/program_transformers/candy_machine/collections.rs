@@ -1,22 +1,9 @@
-use crate::{
-    program_transformers::{candy_machine::state::CandyMachine, common::save_changelog_event},
-    IngesterError,
-};
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-};
-use candy_machine::state::CandyMachine;
+use crate::IngesterError;
+
 use digital_asset_types::dao::candy_machine;
-use num_traits::FromPrimitive;
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait, JsonValue,
-};
+
+use plerkle_serialization::AccountInfo;
+use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait};
 
 use super::state::CollectionPDA;
 

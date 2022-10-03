@@ -1,5 +1,7 @@
 use crate::dao::generated::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
-use crate::dao::{candy_guard, candy_guard_group, candy_machine, candy_machine_creators};
+use crate::dao::generated::{
+    candy_guard, candy_guard_group, candy_machine, candy_machine_creators,
+};
 use crate::rpc::filter::CandyMachineSorting;
 use crate::rpc::response::CandyMachineList;
 use crate::rpc::{

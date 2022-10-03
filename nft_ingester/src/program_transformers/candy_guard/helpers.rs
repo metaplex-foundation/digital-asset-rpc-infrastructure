@@ -1,6 +1,6 @@
 use crate::IngesterError;
 use blockbuster::programs::bubblegum::ChangeLogEvent;
-use digital_asset_types::dao::{backfill_items, cl_items};
+use digital_asset_types::dao::generated::{backfill_items, cl_items};
 use mpl_candy_guard::guards::{
     AllowList, BotTax, GuardSet, Lamports, LiveDate, MintLimit, NftPayment, SplToken,
     ThirdPartySigner,

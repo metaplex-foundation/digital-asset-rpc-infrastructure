@@ -1,22 +1,13 @@
-use blockbuster::{
-    self,
-    instruction::InstructionBundle,
-    programs::candy_machine::{CandyMachineAccountData, InstructionName},
-};
+use blockbuster::{self, programs::candy_machine::CandyMachineAccountData};
 
-use plerkle_serialization::{
-    account_info_generated::account_info::AccountInfo,
-    transaction_info_generated::transaction_info::{self},
-};
-use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
+use plerkle_serialization::AccountInfo;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod candy_machine;
 mod collections;
 mod freeze;
 mod state;
-
-pub use db::*;
 
 use crate::{BgTask, IngesterError};
 
@@ -29,15 +20,15 @@ pub async fn handle_candy_machine_account_update<'a, 'b, 'c>(
     let txn = db.begin().await?;
     match parsing_result {
         CandyMachineAccountData::CandyMachine(candy_machine) => {
-            candy_machine::candy_machine(candy_machine, acct, &txn).await?;
+            candy_machine::candy_machine(candy_machine, account_update, &txn).await?;
             txn.commit().await?;
         }
         CandyMachineAccountData::CollectionPDA(collection_pda) => {
-            collections::collections(collection_pda, acct, &txn).await?;
+            collections::collections(collection_pda, account_update, &txn).await?;
             txn.commit().await?;
         }
         CandyMachineAccountData::FreezePDA(freeze_pda) => {
-            freeze::freeze(freeze_pda, acct, &txn).await?;
+            freeze::freeze(freeze_pda, account_update, &txn).await?;
             txn.commit().await?;
         }
         _ => println!("Candy Machine: Account update invalid."),
