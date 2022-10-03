@@ -19,7 +19,7 @@ COPY nft_ingester/Cargo.toml .
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY nft_ingester .
 # Build application
-RUN cargo build --release
+RUN cargo rustc -- -Awarnings && cargo build --release
 
 FROM rust:1.63-slim-bullseye
 ARG APP=/usr/src/app

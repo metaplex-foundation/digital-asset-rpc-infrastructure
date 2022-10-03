@@ -64,7 +64,7 @@ pub async fn save_master_edition(
     let ser = serde_json::to_value(me_data)
         .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
 
-    let mut model = asset_v1_account_attachments::ActiveModel {
+    let model = asset_v1_account_attachments::ActiveModel {
         id: Set(id_bytes),
         attachment_type: Set(V1AccountAttachments::MasterEditionV1),
         data: Set(Some(ser)),
