@@ -45,28 +45,25 @@ pub async fn candy_guard<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
-    let (mode, presale, whitelist_mint, discount_price) =
-        get_whitelist_settings(candy_guard_data.whitelist);
-    let (gatekeeper_network, expire_on_use) =
-        get_gatekeeper_network(candy_guard_data.gatekeeper_network);
-    let merkle_root = get_allow_list(candy_guard_data.allow_list);
-    let (lamports, last_instruction) = get_bot_tax(candy_guard_data.bot_tax);
-    let live_date = get_live_date(candy_guard_data.live_date);
-    let signer_key = get_third_party_signer(candy_guard_data.third_party_signer);
-    let (mint_limit_id, mint_limit_limit) = get_mint_limit(candy_guard_data.mint_limit);
+    let (expire_on_use, gatekeeper_network) =
+        get_gatekeeper(candy_guard_data.clone().default.gatekeeper);
+    let merkle_root = get_allow_list(candy_guard_data.clone().default.allow_list);
+    let (lamports, last_instruction) = get_bot_tax(candy_guard_data.clone().default.bot_tax);
+    let signer_key = get_third_party_signer(candy_guard_data.clone().default.third_party_signer);
+    let (mint_limit_id, mint_limit_limit) =
+        get_mint_limit(candy_guard_data.clone().default.mint_limit);
     let (nft_payment_destination, nft_payment_required_collection) =
-        get_nft_payment(candy_guard_data.nft_payment);
+        get_nft_payment(candy_guard_data.clone().default.nft_payment);
 
     // TODO remove removed items from guard in init sql and entity files
     let candy_guard_default_set = candy_guard_group::ActiveModel {
         label: Set(None),
         candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
-        whitelist_mode: Set(mode),
-        whitelist_mint: Set(whitelist_mint),
-        whitelist_presale: Set(presale),
-        whitelist_discount_price: Set(discount_price),
         gatekeeper_network: Set(gatekeeper_network),
         gatekeeper_expire_on_use: Set(expire_on_use),
         allow_list_merkle_root: Set(merkle_root),
@@ -77,7 +74,6 @@ pub async fn candy_guard<'c>(
         nft_payment_required_collection: Set(nft_payment_required_collection),
         bot_tax_lamports: Set(lamports),
         bot_tax_last_instruction: Set(last_instruction),
-        live_date: Set(live_date),
         ..Default::default()
     };
 
@@ -87,14 +83,8 @@ pub async fn candy_guard<'c>(
                 .update_columns([
                     candy_guard_group::Column::CandyGuardId,
                     candy_guard_group::Column::Label,
-                    candy_guard_group::Column::WhitelistMode,
-                    candy_guard_group::Column::WhitelistMint,
-                    candy_guard_group::Column::WhitelistPresale,
-                    candy_guard_group::Column::WhitelistDiscountPrice,
                     candy_guard_group::Column::GatekeeperNetwork,
                     candy_guard_group::Column::GatekeeperExpireOnUse,
-                    candy_guard_group::Column::EndSettingNumber,
-                    candy_guard_group::Column::EndSettingType,
                     candy_guard_group::Column::AllowListMerkleRoot,
                     candy_guard_group::Column::ThirdPartySignerKey,
                     candy_guard_group::Column::MintLimitId,
@@ -103,32 +93,27 @@ pub async fn candy_guard<'c>(
                     candy_guard_group::Column::NftPaymentRequiredCollection,
                     candy_guard_group::Column::BotTaxLamports,
                     candy_guard_group::Column::BotTaxLastInstruction,
-                    candy_guard_group::Column::LiveDate,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
-    if let Some(groups) = candy_guard_data.groups {
+    if let Some(groups) = candy_guard_data.clone().groups {
         if groups.len() > 0 {
             for g in groups.iter() {
-                let (gatekeeper_network, expire_on_use) =
-                    get_gatekeeper_network(candy_guard_data.gatekeeper_network);
-                let merkle_root = get_allow_list(candy_guard_data.allow_list);
-                let (lamports, last_instruction) = get_bot_tax(candy_guard_data.bot_tax);
-                // let live_date = get_live_date(candy_guard_data.live_date);
-                let signer_key = get_third_party_signer(candy_guard_data.third_party_signer);
-                let (mint_limit_id, mint_limit_limit) = get_mint_limit(candy_guard_data.mint_limit);
+                let (expire_on_use, gatekeeper_network) =
+                    get_gatekeeper(g.clone().guards.gatekeeper);
+                let merkle_root = get_allow_list(g.clone().guards.allow_list);
+                let (lamports, last_instruction) = get_bot_tax(g.clone().guards.bot_tax);
+                let signer_key = get_third_party_signer(g.clone().guards.third_party_signer);
+                let (mint_limit_id, mint_limit_limit) = get_mint_limit(g.clone().guards.mint_limit);
                 let (nft_payment_destination, nft_payment_required_collection) =
-                    get_nft_payment(candy_guard_data.nft_payment);
+                    get_nft_payment(g.clone().guards.nft_payment);
 
-                let candy_guard_default_set = candy_guard_group::ActiveModel {
-                    label: Set(Some(g.label)),
+                let candy_guard_group = candy_guard_group::ActiveModel {
+                    label: Set(Some(g.clone().label)),
+                    // TODO change candy guard id below
                     candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
-                    whitelist_mode: Set(mode),
-                    whitelist_mint: Set(whitelist_mint),
-                    whitelist_presale: Set(presale),
-                    whitelist_discount_price: Set(discount_price),
                     gatekeeper_network: Set(gatekeeper_network),
                     gatekeeper_expire_on_use: Set(expire_on_use),
                     allow_list_merkle_root: Set(merkle_root),
@@ -139,7 +124,6 @@ pub async fn candy_guard<'c>(
                     nft_payment_required_collection: Set(nft_payment_required_collection),
                     bot_tax_lamports: Set(lamports),
                     bot_tax_last_instruction: Set(last_instruction),
-                    live_date: Set(live_date),
                     ..Default::default()
                 };
 
@@ -149,14 +133,8 @@ pub async fn candy_guard<'c>(
                             .update_columns([
                                 candy_guard_group::Column::CandyGuardId,
                                 candy_guard_group::Column::Label,
-                                candy_guard_group::Column::WhitelistMode,
-                                candy_guard_group::Column::WhitelistMint,
-                                candy_guard_group::Column::WhitelistPresale,
-                                candy_guard_group::Column::WhitelistDiscountPrice,
                                 candy_guard_group::Column::GatekeeperNetwork,
                                 candy_guard_group::Column::GatekeeperExpireOnUse,
-                                candy_guard_group::Column::EndSettingNumber,
-                                candy_guard_group::Column::EndSettingType,
                                 candy_guard_group::Column::AllowListMerkleRoot,
                                 candy_guard_group::Column::ThirdPartySignerKey,
                                 candy_guard_group::Column::MintLimitId,
@@ -165,12 +143,15 @@ pub async fn candy_guard<'c>(
                                 candy_guard_group::Column::NftPaymentRequiredCollection,
                                 candy_guard_group::Column::BotTaxLamports,
                                 candy_guard_group::Column::BotTaxLastInstruction,
-                                candy_guard_group::Column::LiveDate,
                             ])
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
+                txn.execute(query)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
             }
         };
     }

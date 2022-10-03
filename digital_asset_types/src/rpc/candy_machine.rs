@@ -164,15 +164,9 @@ pub struct GuardSet {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bot_tax: Option<BotTax>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub live_date: Option<LiveDate>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub third_party_signer: Option<ThirdPartySigner>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub whitelist: Option<WhitelistMintSettings>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub gatekeeper: Option<Gatekeeper>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_settings: Option<EndSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_list: Option<AllowList>,
     #[serde(skip_serializing_if = "Option::is_none")]

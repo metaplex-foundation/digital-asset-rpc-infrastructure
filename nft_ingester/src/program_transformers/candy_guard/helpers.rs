@@ -49,31 +49,6 @@ pub fn get_mint_limit(mint_limit: Option<MintLimit>) -> (Option<u8>, Option<u16>
     }
 }
 
-// pub fn get_spl_token(
-//     spl_token: Option<SplToken>,
-// ) -> (Option<u64>, Option<Vec<u8>>, Option<Vec<u8>>) {
-//     if let Some(spl_token) = spl_token {
-//         (
-//             Some(spl_token.amount),
-//             Some(spl_token.token_mint.to_bytes().to_vec()),
-//             Some(spl_token.destination_ata.to_bytes().to_vec()),
-//         )
-//     } else {
-//         (None, None, None)
-//     }
-// }
-
-// pub fn get_lamports(lamports: Option<Lamports>) -> (Option<u64>, Option<Vec<u8, Global>>) {
-//     if let Some(lamports) = lamports {
-//         (
-//             Some(lamports.amount),
-//             Some(lamports.destination.to_bytes().to_vec()),
-//         )
-//     } else {
-//         (None, None)
-//     }
-// }
-
 pub fn get_gatekeeper(gatekeeper: Option<Gatekeeper>) -> (Option<bool>, Option<Vec<u8>>) {
     if let Some(gatekeeper) = gatekeeper {
         (

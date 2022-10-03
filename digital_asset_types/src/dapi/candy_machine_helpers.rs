@@ -246,25 +246,15 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.nft_payment_destination.clone(),
         group.nft_payment_required_collection.clone(),
     );
-    let whitelist_settings = get_whitelist_settings(
-        group.whitelist_mode.clone(),
-        group.whitelist_mint.clone(),
-        group.whitelist_presale,
-        group.whitelist_discount_price,
-    );
 
     let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
-    let end_settings = get_end_settings(group.end_setting_number, group.end_setting_type.clone());
-    let live_date = get_live_date(group.live_date);
+
     let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
 
     GuardSet {
         bot_tax,
-        live_date,
         third_party_signer,
-        whitelist: whitelist_settings,
         gatekeeper,
-        end_settings,
         allow_list,
         mint_limit,
         nft_payment,
