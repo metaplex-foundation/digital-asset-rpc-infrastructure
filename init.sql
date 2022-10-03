@@ -296,6 +296,7 @@ create index candy_machine_verified_creator on candy_machine_creators (candy_mac
 create table candy_guard
 (   
     id                   bytea                                   PRIMARY KEY,
+    base                 bytea                                   not null,
     bump                 int                                     not null,
     authority            bytea                                   not null,
 )

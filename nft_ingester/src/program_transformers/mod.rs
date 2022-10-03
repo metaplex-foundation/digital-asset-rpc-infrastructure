@@ -4,11 +4,8 @@ use blockbuster::{
     programs::{
         bubblegum::BubblegumParser, candy_guard::CandyGuardParser,
         candy_machine::CandyMachineParser,
-        candy_machine_core::CandyMachineParser as CandyMachineCoreParser, ProgramParseResult,
-    },
-    programs::{
-        bubblegum::BubblegumParser, token_account::TokenAccountParser,
-        token_metadata::TokenMetadataParser, ProgramParseResult,
+        candy_machine_core::CandyMachineParser as CandyMachineCoreParser,
+        token_account::TokenAccountParser, token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
 
@@ -20,13 +17,11 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::program_transformers::bubblegum::handle_bubblegum_instruction;
-use crate::program_transformers::candy_guard::handle_candy_guard_account_update;
-use crate::program_transformers::candy_machine::handle_candy_machine_account_update;
-use crate::program_transformers::candy_machine_core::handle_candy_machine_core_account_update;
-use crate::program_transformers::token::handle_token_program_account;
 use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction, token_metadata::handle_token_metadata_account,
+    bubblegum::handle_bubblegum_instruction, candy_guard::handle_candy_guard_account_update,
+    candy_machine::handle_candy_machine_account_update,
+    candy_machine_core::handle_candy_machine_core_account_update,
+    token::handle_token_program_account, token_metadata::handle_token_metadata_account,
 };
 
 mod bubblegum;
@@ -104,8 +99,8 @@ impl ProgramTransformer {
             match concrete {
                 ProgramParseResult::CandyMachine(parsing_result) => {
                     handle_candy_machine_account_update(
-                        parsing_result,
                         &acct,
+                        parsing_result,
                         &self.storage,
                         &self.task_sender,
                     )
@@ -113,8 +108,8 @@ impl ProgramTransformer {
                 }
                 ProgramParseResult::CandyMachineCore(parsing_result) => {
                     handle_candy_machine_core_account_update(
-                        parsing_result,
                         &acct,
+                        parsing_result,
                         &self.storage,
                         &self.task_sender,
                     )
@@ -122,8 +117,8 @@ impl ProgramTransformer {
                 }
                 ProgramParseResult::CandyGuard(parsing_result) => {
                     handle_candy_guard_account_update(
-                        parsing_result,
                         &acct,
+                        parsing_result,
                         &self.storage,
                         &self.task_sender,
                     )

@@ -190,7 +190,7 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
                 .map(|e| bs58::encode(e.0.as_slice()).into_string())
         );
         let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
+        let res = manager.handle_account_update(&account_update).await;
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {

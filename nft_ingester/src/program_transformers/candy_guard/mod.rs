@@ -17,10 +17,10 @@ use crate::{BgTask, IngesterError};
 mod candy_guard;
 mod helpers;
 
-pub async fn handle_candy_guard_account_update<'c>(
-    parsing_result: &'c CandyGuardAccountData,
-    acct: &'c AccountInfo<'c>,
-    db: &DatabaseConnection,
+pub async fn handle_candy_guard_account_update<'a, 'b, 'c>(
+    account_update: &'a AccountInfo<'a>,
+    parsing_result: &'b CandyGuardAccountData,
+    db: &'c DatabaseConnection,
     task_manager: &UnboundedSender<Box<dyn BgTask>>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
