@@ -179,8 +179,9 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             }
             Ok(account_update) => account_update,
         };
+        let str_program_id = bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
         safe_metric(|| {
-            statsd_count!("ingester.account_update_seen", 1);
+            statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
         });
 
         println!(
@@ -201,13 +202,13 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
                     statsd_time!("ingester.account_proc_time", proc_time);
                 });
                 safe_metric(|| {
-                    statsd_count!("ingester.account_update_success", 1);
+                    statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
                 });
             }
             Err(err) => {
                 println!("Error handling account update: {:?}", err);
                 safe_metric(|| {
-                    statsd_count!("ingester.account_update_error", 1);
+                    statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
                 });
             }
         }
