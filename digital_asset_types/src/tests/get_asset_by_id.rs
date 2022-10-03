@@ -6,8 +6,8 @@ use crate::{
     adapter::{Creator, TokenProgramVersion, TokenStandard},
     dao::{
         generated::prelude::AssetData,
+        generated::sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
         generated::{asset, asset_authority, asset_creators, asset_data},
-        sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
     },
     tests::{
         create_asset, create_asset_authority, create_asset_creator, create_asset_data, MetadataArgs,

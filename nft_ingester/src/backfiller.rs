@@ -14,7 +14,7 @@ use plerkle_serialization::{
 };
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
-    SqlxPostgresConnector, TryGetableMany,
+    SqlxPostgresConnector,
 };
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcBlockConfig};
 use solana_sdk::{

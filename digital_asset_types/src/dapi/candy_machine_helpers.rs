@@ -49,14 +49,14 @@ pub fn get_spl_token(
 }
 
 pub fn get_nft_payment(
-    nft_payment_burn: Option<bool>,
+    nft_payment_destination: Option<Vec<u8>>,
     nft_payment_required_collection: Option<Vec<u8>>,
 ) -> Option<NftPayment> {
-    if let (Some(nft_payment_burn), Some(nft_payment_required_collection)) =
-        (nft_payment_burn, nft_payment_required_collection)
+    if let (Some(nft_payment_destination), Some(nft_payment_required_collection)) =
+        (nft_payment_destination, nft_payment_required_collection)
     {
         Some(NftPayment {
-            burn: nft_payment_burn,
+            destination: bs58::encode(nft_payment_destination).into_string(),
             required_collection: bs58::encode(nft_payment_required_collection).into_string(),
         })
     } else {
@@ -239,16 +239,11 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.gatekeeper_network.clone(),
         group.gatekeeper_expire_on_use,
     );
-    let lamports = get_lamports(group.lamports_amount, group.lamports_destination.clone());
-    let spl_token = get_spl_token(
-        group.spl_token_amount,
-        group.spl_token_mint.clone(),
-        group.spl_token_destination_ata.clone(),
-    );
+
     let third_party_signer = get_third_party_signer(group.third_party_signer_key.clone());
     let allow_list = get_allow_list(group.allow_list_merkle_root.clone());
     let nft_payment = get_nft_payment(
-        group.nft_payment_burn,
+        group.nft_payment_destination.clone(),
         group.nft_payment_required_collection.clone(),
     );
     let whitelist_settings = get_whitelist_settings(
@@ -265,8 +260,6 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
 
     GuardSet {
         bot_tax,
-        lamports,
-        spl_token,
         live_date,
         third_party_signer,
         whitelist: whitelist_settings,

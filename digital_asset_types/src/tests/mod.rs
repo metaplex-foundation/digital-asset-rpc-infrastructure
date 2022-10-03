@@ -5,12 +5,13 @@ mod get_assets_by_owner;
 mod get_candy_machine_by_id;
 
 use crate::adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses};
-use crate::dao::sea_orm_active_enums::SpecificationAssetClass;
 use crate::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
         candy_machine_data,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
+        sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+        },
     },
     json::ChainDataV1,
 };

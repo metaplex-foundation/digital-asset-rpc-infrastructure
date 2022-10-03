@@ -2,57 +2,44 @@ use crate::IngesterError;
 
 use chrono::Utc;
 use digital_asset_types::dao::generated::{
-    candy_machine, candy_machine_creators, candy_machine_data,
+    candy_machine, candy_machine_creators, candy_machine_data, prelude::CandyMachine,
 };
-use mpl_candy_machine_core::CandyMachine;
-use plerkle_serialization::AccountInfo;
+use mpl_candy_machine_core::CandyMachine as CandyMachineCore;
+use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait,
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait,
 };
 
-pub async fn candy_machine_core<'c>(
-    candy_machine_core: &CandyMachine,
-    acct: &AccountInfo<'c>,
-    txn: &'c DatabaseTransaction,
+pub async fn candy_machine_core(
+    candy_machine_core: &CandyMachineCore,
+    id: FBPubkey,
+    txn: &DatabaseTransaction,
+    db: &DatabaseConnection,
 ) -> Result<(), IngesterError> {
-    let data = candy_machine_core.data;
-    let collection_mint = if let Some(collection_mint) = candy_machine_core.collection_mint {
-        Some(collection_mint.to_bytes().to_vec())
-    } else {
-        None
-    };
-
-    let mint_authority = if let Some(mint_authority) = candy_machine_core.mint_authority {
-        Some(mint_authority.to_bytes().to_vec())
-    } else {
-        None
-    };
-
+    let data = candy_machine_core.clone().data;
     let candy_machine_model: Option<candy_machine::Model> =
-        CandyMachine::find_by_id(acct.key().to_bytes().to_vec())
-            .one(db)
-            .await?;
+        CandyMachine::find_by_id(id.0.to_vec()).one(db).await?;
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
         if candy_machine_model.items_redeemed < candy_machine_core.items_redeemed {
             Some(Utc::now())
         } else {
-            Some(candy_machine_model.items_redeemed)
+            candy_machine_model.last_minted
         }
     } else {
         None
     };
 
     let candy_machine_core_model = candy_machine::ActiveModel {
-        id: Set(acct.key().to_bytes().to_vec()),
+        id: Set(id.0.to_vec()),
         features: Set(Some(candy_machine_core.features)),
         authority: Set(candy_machine_core.authority.to_bytes().to_vec()),
         items_redeemed: Set(candy_machine_core.items_redeemed),
-        mint_authority: Set(mint_authority),
-        collection_mint: Set(collection_mint),
+        mint_authority: Set(Some(candy_machine_core.mint_authority.to_bytes().to_vec())),
+        collection_mint: Set(Some(candy_machine_core.collection_mint.to_bytes().to_vec())),
         version: Set(3),
-        created_at: Set(Utc::now()),
+        created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()
     };
@@ -72,7 +59,11 @@ pub async fn candy_machine_core<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (name, uri, hash) = if let Some(hidden_settings) = data.hidden_settings {
         (
@@ -98,12 +89,12 @@ pub async fn candy_machine_core<'c>(
         };
 
     let candy_machine_data = candy_machine_data::ActiveModel {
-        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
+        candy_machine_id: Set(id.0.to_vec()),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
         max_supply: Set(data.max_supply),
         is_mutable: Set(data.is_mutable),
-        go_live_date: Set(data.go_live_date),
+        go_live_date: Set(None),
         items_available: Set(data.items_available),
         config_line_settings_prefix_name: Set(prefix_name),
         config_line_settings_name_length: Set(name_length),
@@ -138,15 +129,19 @@ pub async fn candy_machine_core<'c>(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    if candy_machine_data.creators.len() > 0 {
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+
+    if candy_machine_core.data.creators.len() > 0 {
         let mut creators = Vec::with_capacity(candy_machine_core.data.creators.len());
         for c in candy_machine_core.data.creators.iter() {
             creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_id: Set(candy_machine_core.id.to_bytes().to_vec()),
+                candy_machine_id: Set(id.0.to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
+                share: Set(c.percentage_share as i32),
                 verified: Set(c.verified),
                 ..Default::default()
             });
@@ -163,7 +158,11 @@ pub async fn candy_machine_core<'c>(
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
+        txn.execute(query)
+            .await
+            .map(|_| ())
+            .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
     }
 
     Ok(())

@@ -1,22 +1,27 @@
-use crate::{program_transformers::candy_machine::state::CandyMachine, IngesterError};
+use crate::IngesterError;
 
 use chrono::Utc;
 use digital_asset_types::dao::generated::{
     candy_machine, candy_machine_creators, candy_machine_data,
+    prelude::CandyMachine,
+    sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
 };
 
-use plerkle_serialization::AccountInfo;
+use blockbuster::programs::candy_machine::state::CandyMachine as CandyMachineState;
+use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
-    EntityTrait,
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, DbBackend, EntityTrait,
 };
 
 pub async fn candy_machine<'c>(
-    candy_machine: &CandyMachine,
-    acct: &AccountInfo<'c>,
-    txn: &'c DatabaseTransaction,
+    candy_machine: &CandyMachineState,
+    id: FBPubkey,
+    txn: &DatabaseTransaction,
+    db: &DatabaseConnection,
 ) -> Result<(), IngesterError> {
     let data = candy_machine.data;
+    let id_bytes = id.0.to_vec();
 
     let token_mint = if let Some(token_mint) = candy_machine.token_mint {
         Some(token_mint.to_bytes().to_vec())
@@ -24,35 +29,27 @@ pub async fn candy_machine<'c>(
         None
     };
 
-    let wallet = if let Some(wallet) = candy_machine.wallet {
-        Some(wallet.to_bytes().to_vec())
-    } else {
-        None
-    };
-
     let candy_machine_model: Option<candy_machine::Model> =
-        CandyMachine::find_by_id(acct.key().to_bytes().to_vec())
-            .one(db)
-            .await?;
+        CandyMachine::find_by_id(id_bytes).one(db).await?;
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
         if candy_machine_model.items_redeemed < candy_machine.items_redeemed {
             Some(Utc::now())
         } else {
-            Some(candy_machine_model.items_redeemed)
+            candy_machine_model.last_minted
         }
     } else {
         None
     };
 
     let candy_machine_state = candy_machine::ActiveModel {
-        id: Set(acct.key().to_bytes().to_vec()),
+        id: Set(id_bytes),
         authority: Set(candy_machine.authority.to_bytes().to_vec()),
-        wallet: Set(wallet),
+        wallet: Set(Some(candy_machine.wallet.to_bytes().to_vec())),
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed),
         version: Set(2),
-        created_at: Set(Utc::now()),
+        created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()
     };
@@ -113,7 +110,7 @@ pub async fn candy_machine<'c>(
     };
 
     let candy_machine_data = candy_machine_data::ActiveModel {
-        candy_machine_id: Set(acct.key().to_bytes().to_vec()),
+        candy_machine_id: Set(id_bytes),
         uuid: Set(Some(data.uuid)),
         price: Set(Some(data.price)),
         symbol: Set(data.symbol),
@@ -167,11 +164,11 @@ pub async fn candy_machine<'c>(
         .build(DbBackend::Postgres);
     txn.execute(query).await.map(|_| ()).map_err(Into::into);
 
-    if candy_machine_data.creators.len() > 0 {
+    if candy_machine.data.creators.len() > 0 {
         let mut creators = Vec::with_capacity(candy_machine.data.creators.len());
         for c in candy_machine.data.creators.iter() {
             creators.push(candy_machine_creators::ActiveModel {
-                candy_machine_id: Set(candy_machine.id.to_bytes().to_vec()),
+                candy_machine_id: Set(id_bytes),
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
                 verified: Set(c.verified),

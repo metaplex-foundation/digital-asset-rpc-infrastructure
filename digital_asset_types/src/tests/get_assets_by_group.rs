@@ -9,7 +9,7 @@ use crate::{
     dao::{
         generated::prelude::AssetData,
         generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping},
-        sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
+        generated::sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
     },
     tests::{
         create_asset, create_asset_authority, create_asset_creator, create_asset_data,

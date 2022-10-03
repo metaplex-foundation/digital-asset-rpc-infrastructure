@@ -16,7 +16,6 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, Figment};
-use futures_util::TryFutureExt;
 use plerkle_messenger::{
     Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
 };

@@ -27,19 +27,14 @@ pub struct Model {
     pub end_setting_number: Option<u64>,
     pub end_setting_type: Option<EndSettingType>,
     pub allow_list_merkle_root: Option<Vec<u8>>,
-    pub lamports_amount: Option<u64>,
-    pub lamports_destination: Option<Vec<u8>>,
     pub third_party_signer_key: Option<Vec<u8>>,
     pub mint_limit_id: Option<u8>,
     pub mint_limit_limit: Option<u16>,
-    pub nft_payment_burn: Option<bool>,
+    pub nft_payment_destination: Option<Vec<u8>>,
     pub nft_payment_required_collection: Option<Vec<u8>>,
     pub bot_tax_lamports: Option<u64>,
     pub bot_tax_last_instruction: Option<bool>,
     pub live_date: Option<i64>,
-    pub spl_token_amount: Option<u64>,
-    pub spl_token_mint: Option<Vec<u8>>,
-    pub spl_token_destination_ata: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -56,19 +51,14 @@ pub enum Column {
     EndSettingNumber,
     EndSettingType,
     AllowListMerkleRoot,
-    LamportsAmount,
-    LamportsDestination,
     ThirdPartySignerKey,
     MintLimitId,
     MintLimitLimit,
-    NftPaymentBurn,
+    NftPaymentDestination,
     NftPaymentRequiredCollection,
     BotTaxLamports,
     BotTaxLastInstruction,
     LiveDate,
-    SplTokenAmount,
-    SplTokenMint,
-    SplTokenDestinationAta,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -104,19 +94,14 @@ impl ColumnTrait for Column {
             Self::EndSettingNumber => ColumnType::Integer.def().null(),
             Self::EndSettingType => EndSettingType::db_type().null(),
             Self::AllowListMerkleRoot => ColumnType::Binary.def().null(),
-            Self::LamportsAmount => ColumnType::Integer.def().null(),
-            Self::LamportsDestination => ColumnType::Binary.def().null(),
             Self::ThirdPartySignerKey => ColumnType::Binary.def().null(),
             Self::MintLimitId => ColumnType::Integer.def().null(),
             Self::MintLimitLimit => ColumnType::Integer.def().null(),
-            Self::NftPaymentBurn => ColumnType::Boolean.def().null(),
+            Self::NftPaymentDestination => ColumnType::Binary.def().null(),
             Self::NftPaymentRequiredCollection => ColumnType::Binary.def().null(),
             Self::BotTaxLamports => ColumnType::Integer.def().null(),
             Self::BotTaxLastInstruction => ColumnType::Boolean.def().null(),
             Self::LiveDate => ColumnType::Integer.def().null(),
-            Self::SplTokenAmount => ColumnType::Integer.def().null(),
-            Self::SplTokenMint => ColumnType::Binary.def().null(),
-            Self::SplTokenDestinationAta => ColumnType::Binary.def().null(),
         }
     }
 }

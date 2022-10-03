@@ -155,7 +155,7 @@ pub struct MintLimit {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct NftPayment {
-    pub burn: bool,
+    pub destination: String,
     pub required_collection: String,
 }
 
@@ -163,10 +163,6 @@ pub struct NftPayment {
 pub struct GuardSet {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bot_tax: Option<BotTax>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lamports: Option<Lamports>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub spl_token: Option<SplToken>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub live_date: Option<LiveDate>,
     #[serde(skip_serializing_if = "Option::is_none")]

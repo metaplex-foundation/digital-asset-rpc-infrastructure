@@ -2,15 +2,14 @@ use crate::IngesterError;
 
 use digital_asset_types::dao::candy_machine;
 
-use plerkle_serialization::AccountInfo;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait};
+use blockbuster::programs::candy_machine::state::CollectionPDA;
+use plerkle_serialization::Pubkey as FBPubkey;
+use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, DbErr};
 
-use super::state::CollectionPDA;
-
-pub async fn collections<'c>(
+pub async fn collections(
     collections: &CollectionPDA,
-    acct: &AccountInfo<'c>,
-    txn: &'c DatabaseTransaction,
+    id: FBPubkey,
+    txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let model = candy_machine::ActiveModel {
         id: Unchanged(collections.candy_machine.to_bytes().to_vec()),
@@ -22,7 +21,10 @@ pub async fn collections<'c>(
         .filter(candy_machine::Column::Id.eq(collections.candy_machine.to_bytes().to_vec()))
         .build(DbBackend::Postgres);
 
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     Ok(())
 }

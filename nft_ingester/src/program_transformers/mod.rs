@@ -52,7 +52,7 @@ impl ProgramTransformer {
         matchers.insert(token.key(), Box::new(token));
         matchers.insert(candy_machine.key(), Box::new(candy_machine));
         matchers.insert(candy_machine_core.key(), Box::new(candy_machine_core));
-        matchers.insert(candy_guard_parser.key(), Box::new(candy_guard));
+        matchers.insert(candy_guard.key(), Box::new(candy_guard));
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
@@ -93,57 +93,59 @@ impl ProgramTransformer {
         &self,
         acct: &'b AccountInfo<'b>,
     ) -> Result<(), IngesterError> {
-        if let Some(program) = self.match_program(acct.owner()) {
-            let result = program.handle_account(acct)?;
-            let concrete = result.result_type();
-            match concrete {
-                ProgramParseResult::CandyMachine(parsing_result) => {
-                    handle_candy_machine_account_update(
-                        &acct,
-                        parsing_result,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-                ProgramParseResult::CandyMachineCore(parsing_result) => {
-                    handle_candy_machine_core_account_update(
-                        &acct,
-                        parsing_result,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-                ProgramParseResult::CandyGuard(parsing_result) => {
-                    handle_candy_guard_account_update(
-                        &acct,
-                        parsing_result,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-                ProgramParseResult::TokenMetadata(parsing_result) => {
-                    handle_token_metadata_account(
-                        &acct,
-                        parsing_result,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-                ProgramParseResult::TokenProgramAccount(parsing_result) => {
-                    handle_token_program_account(
-                        &acct,
-                        parsing_result,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-                _ => Err(IngesterError::NotImplemented),
-            }?;
+        if let Some(owner) = acct.owner() {
+            if let Some(program) = self.match_program(owner) {
+                let result = program.handle_account(acct)?;
+                let concrete = result.result_type();
+                match concrete {
+                    ProgramParseResult::CandyMachine(parsing_result) => {
+                        handle_candy_machine_account_update(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
+                    ProgramParseResult::CandyMachineCore(parsing_result) => {
+                        handle_candy_machine_core_account_update(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
+                    ProgramParseResult::CandyGuard(parsing_result) => {
+                        handle_candy_guard_account_update(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
+                    ProgramParseResult::TokenMetadata(parsing_result) => {
+                        handle_token_metadata_account(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
+                    ProgramParseResult::TokenProgramAccount(parsing_result) => {
+                        handle_token_program_account(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
+                    _ => Err(IngesterError::NotImplemented),
+                }?;
+            }
         }
         Ok(())
     }

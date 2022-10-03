@@ -15,6 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: Vec<u8>,
+    pub base: Vec<u8>,
     pub bump: u8,
     pub authority: Vec<u8>,
 }
@@ -22,6 +23,7 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
+    Base,
     Bump,
     Authority,
 }
@@ -49,6 +51,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
+            Self::Base => ColumnType::Binary.def(),
             Self::Bump => ColumnType::Integer.def(),
             Self::Authority => ColumnType::Binary.def(),
         }

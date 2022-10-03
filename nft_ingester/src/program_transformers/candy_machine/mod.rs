@@ -18,17 +18,18 @@ pub async fn handle_candy_machine_account_update<'a, 'b, 'c>(
     task_manager: &UnboundedSender<Box<dyn BgTask>>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
+    let key = account_update.pubkey().unwrap().clone();
     match parsing_result {
         CandyMachineAccountData::CandyMachine(candy_machine) => {
-            candy_machine::candy_machine(candy_machine, account_update, &txn).await?;
+            candy_machine::candy_machine(candy_machine, key, &txn, &db).await?;
             txn.commit().await?;
         }
         CandyMachineAccountData::CollectionPDA(collection_pda) => {
-            collections::collections(collection_pda, account_update, &txn).await?;
+            collections::collections(collection_pda, key, &txn).await?;
             txn.commit().await?;
         }
         CandyMachineAccountData::FreezePDA(freeze_pda) => {
-            freeze::freeze(freeze_pda, account_update, &txn).await?;
+            freeze::freeze(freeze_pda, key, &txn).await?;
             txn.commit().await?;
         }
         _ => println!("Candy Machine: Account update invalid."),

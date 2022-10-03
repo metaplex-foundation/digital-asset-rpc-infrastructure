@@ -1,18 +1,19 @@
 use crate::IngesterError;
 
 use digital_asset_types::dao::generated::candy_machine;
-use plerkle_serialization::AccountInfo;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait};
+use plerkle_serialization::Pubkey as FBPubkey;
+use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, DbErr};
 
-use super::state::FreezePDA;
+use blockbuster::programs::candy_machine::state::FreezePDA;
 
-pub async fn freeze<'c>(
+pub async fn freeze(
     freeze: &FreezePDA,
-    acct: &AccountInfo<'c>,
-    txn: &'c DatabaseTransaction,
+    id: FBPubkey,
+    txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
+    let id_bytes = id.0.to_vec();
     let candy_machine_freeze = candy_machine::ActiveModel {
-        id: Unchanged(freeze.candy_machine.to_bytes().to_vec()),
+        id: Unchanged(id_bytes),
         allow_thaw: Set(Some(freeze.allow_thaw)),
         frozen_count: Set(Some(freeze.frozen_count)),
         mint_start: Set(freeze.mint_start),
@@ -24,7 +25,11 @@ pub async fn freeze<'c>(
     let query = candy_machine::Entity::update(candy_machine_freeze)
         .filter(candy_machine::Column::Id.eq(freeze.candy_machine.to_bytes().to_vec()))
         .build(DbBackend::Postgres);
-    txn.execute(query).await.map(|_| ()).map_err(Into::into);
+
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     Ok(())
 }
