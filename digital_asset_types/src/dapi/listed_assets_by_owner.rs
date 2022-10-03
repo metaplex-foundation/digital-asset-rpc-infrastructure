@@ -20,7 +20,8 @@ pub async fn get_listed_assets_by_owner(
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
-                    .add(asset::Column::Delegate.is_not_null()),
+                    .add(
+                        asset::Column::Delegate.is_not_null()),
             )
             .find_also_related(AssetData)
             // .order_by_asc(sort_column)

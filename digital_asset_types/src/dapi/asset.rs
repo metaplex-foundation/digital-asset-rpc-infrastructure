@@ -12,6 +12,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
+use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
+use crate::dao::{FullAsset, FullAssetList};
+use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -120,8 +123,9 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
 }
 
 pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
-    match data.schema_version {
-        1 => v1_content_from_json(&data.metadata),
+    match asset.specification_version {
+        SpecificationVersions::V1 => v1_content_from_json(&data.metadata),
+        SpecificationVersions::V0 => v1_content_from_json(&data.metadata),
         _ => Err(DbErr::Custom("Version Not Implemented".to_string())),
     }
 }
@@ -157,41 +161,30 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
         .collect()
 }
 
-pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<RpcAsset, DbErr> {
-    let asset_data: (asset::Model, asset_data::Model) = Asset::find_by_id(asset_id)
-        .find_also_related(AssetData)
-        .one(db)
-        .await
-        .and_then(|o| match o {
-            Some((a, Some(d))) => Ok((a, d)),
-            _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
-        })?;
 
-    let (asset, data) = asset_data;
-
-    let interface = match asset.specification_version {
-        1 => Interface::NftOneZero,
+pub fn get_interface(asset: &asset::Model) -> Interface {
+    match (&asset.specification_version, &asset.specification_asset_class) {
+        (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
+        (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
+        (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
         _ => Interface::Nft,
-    };
+    }
+}
 
-    let content = get_content(&asset, &data)?;
-    let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
-        .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
-        .all(db)
-        .await?;
-
-    let creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
-        .all(db)
-        .await?;
-    let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
-        .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
-        .all(db)
-        .await?;
+//TODO -> impl custom erro type
+pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
+    let FullAsset {
+        asset,
+        data,
+        authorities,
+        creators,
+        groups,
+    } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
-    let rpc_groups = to_grouping(grouping);
-
+    let rpc_groups = to_grouping(groups);
+    let interface = get_interface(&asset);
+    let content = get_content(&asset, &data)?;
     Ok(RpcAsset {
         interface,
         id: bs58::encode(asset.id).into_string(),
@@ -214,8 +207,44 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
             ownership_model: asset.owner_type.into(),
-            owner: bs58::encode(asset.owner).into_string(),
+            owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
         },
+    })
+}
+
+pub async fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
+    asset_list.list.into_iter().map(asset_to_rpc).collect()
+}
+
+pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<RpcAsset, DbErr> {
+    let asset_data: (asset::Model, asset_data::Model) = Asset::find_by_id(asset_id)
+        .find_also_related(AssetData)
+        .one(db)
+        .await
+        .and_then(|o| match o {
+            Some((a, Some(d))) => Ok((a, d)),
+            _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
+        })?;
+
+    let (asset, data) = asset_data;
+    let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
+        .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
+        .all(db)
+        .await?;
+    let creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
+        .all(db)
+        .await?;
+    let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
+        .all(db)
+        .await?;
+    asset_to_rpc(FullAsset {
+        asset,
+        data,
+        authorities,
+        creators,
+        groups: grouping,
     })
 }
 

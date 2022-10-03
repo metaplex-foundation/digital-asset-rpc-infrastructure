@@ -38,6 +38,11 @@ pushd solana_program_library/associated-token-account/program
   mv ./here/spl_associated_token_account.so $CWD/programs/ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL.so
 popd
 
+pushd solana_program_library/token/program
+  cargo build-bpf --bpf-out-dir ./here
+  mv ./here/spl_token.so $CWD/programs/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA.so
+popd
+
 pushd solana_program_library/token/program-2022
   cargo build-bpf --bpf-out-dir ./here
   mv ./here/spl_token_2022.so $CWD/programs/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb.so

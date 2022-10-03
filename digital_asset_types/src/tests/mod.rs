@@ -6,9 +6,8 @@ mod get_candy_machine_by_id;
 
 use sea_orm::{JsonValue, Set};
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
-
+use blockbuster::token_metadata::*;
 use crate::{
-    adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses},
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
         candy_machine_data,
@@ -16,6 +15,7 @@ use crate::{
     },
     json::ChainDataV1,
 };
+use crate::dao::sea_orm_active_enums::SpecificationAssetClass;
 
 #[derive(Clone)]
 pub struct MetadataArgs {
@@ -188,7 +188,6 @@ pub fn create_asset_data(
         asset_data::Model {
             id: row_num,
             chain_data_mutability: ChainMutability::Mutable,
-            schema_version: 1,
             chain_data: serde_json::to_value(ChainDataV1 {
                 name: String::from("Test #`row_num`"),
                 symbol: String::from("BUBBLE"),
@@ -201,6 +200,7 @@ pub fn create_asset_data(
             metadata_url: Keypair::new().pubkey().to_string(),
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
+            slot_updated: 0
         },
     )
 }
@@ -255,6 +255,7 @@ pub fn create_asset(
             supply_mint,
             compressed,
             compressible,
+            seq: 0,
             tree_id,
             specification_version,
             nonce,
@@ -262,10 +263,11 @@ pub fn create_asset(
             royalty_target_type,
             royalty_target,
             royalty_amount,
-            chain_data_id,
+            asset_data: chain_data_id,
             burnt: false,
             created_at: None,
-            seq: 1,
+            specification_asset_class: SpecificationAssetClass::Nft,
+            slot_updated: 0
         },
     )
 }
@@ -291,7 +293,8 @@ pub fn create_asset_creator(
             creator,
             share,
             verified,
-            seq: 1,
+            seq: 0,
+            slot_updated: 0
         },
     )
 }
@@ -310,9 +313,10 @@ pub fn create_asset_authority(
         asset_authority::Model {
             asset_id,
             authority: update_authority,
+            seq: 0,
             id: row_num,
             scopes: None,
-            seq: 1,
+            slot_updated: 0
         },
     )
 }
@@ -332,9 +336,10 @@ pub fn create_asset_grouping(
         asset_grouping::Model {
             asset_id,
             group_value: bs58::encode(collection).into_string(),
+            seq: 0,
             id: row_num,
             group_key: "collection".to_string(),
-            seq: 1,
+            slot_updated: 0
         },
     )
 }

@@ -1,0 +1,18 @@
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    external-dns.alpha.kubernetes.io/hostname: rpc-devnet.aws.metaplex.com
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:869291162248:certificate/0cc46ab0-42e8-43fe-83a2-a07af82ee213
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: subnet-03e3242986af11185,subnet-0ebc1ba38bca55833,subnet-04341b5bdc4abaf4a
+  hosts:
+    - host: rpc-devnet.aws.metaplex.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+

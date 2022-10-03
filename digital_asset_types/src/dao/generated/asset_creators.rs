@@ -20,6 +20,7 @@ pub struct Model {
     pub share: i32,
     pub verified: bool,
     pub seq: i64,
+    pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -30,6 +31,7 @@ pub enum Column {
     Share,
     Verified,
     Seq,
+    SlotUpdated,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -59,6 +61,7 @@ impl ColumnTrait for Column {
             Self::Share => ColumnType::Integer.def(),
             Self::Verified => ColumnType::Boolean.def(),
             Self::Seq => ColumnType::BigInteger.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
 }

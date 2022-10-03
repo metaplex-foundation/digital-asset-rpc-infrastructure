@@ -1,28 +1,67 @@
 version: "3.9"
 services:
+  graphite:
+    image: graphiteapp/graphite-statsd
+    container_name: graphite
+    restart: always
+    ports:
+      - "8080:80"
+      - "8125:8125/udp"
+      - "8126:8126"
+      - "2003:2003"
+      - "2004:2004"
+  grafana:
+    image: grafana/grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    links:
+      - graphite
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   ingester:
     depends_on:
       - redis
     restart: always
     environment:
+      INGESTER_METRICS_PORT: 8125
+      INGESTER_METRICS_HOST: graphite
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
-      INGESTER_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
-      INGESTER_RPC_CONFIG: '{url="http://candyland-solana-1:8899", commitment="finalized"}'
+      INGESTER_MESSENGER_CONFIG: '{connection_config={redis_connection_str="redis://redis"}, messenger_type="Redis"}'
+      INGESTER_RPC_CONFIG: '{url="http://digital-asset-rpc-solana-1:8899", commitment="finalized"}'
     build:
       context: .
       dockerfile: Ingest.Dockerfile
+  load:
+    depends_on:
+      - ingester
+      - solana
+    restart: always
+    environment:
+      KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
+      NETWORK: "local"
+      AMOUNT_OF_CHAOS: 1
+      RPC_URL: "http://digital-asset-rpc-solana-1:8899"
+    build:
+      context: .
+      dockerfile: Load.Dockerfile
   api:
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana
       APP_SERVER_PORT: 9090
+      APP_METRICS_PORT: 8125
+      APP_METRICS_HOST: graphite
     build:
       context: .
       dockerfile: Api.Dockerfile
     ports:
       - 9090:9090
   redis:
-    image: "redis:alpine"
+    image: "redis:6.2.5"
     ports:
       - "6379:6379"
   db:
@@ -37,15 +76,20 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:0.0.6
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw
+    - ./solana-test-validator-geyser-config:/plugin-config:rw
     environment:
-      RUST_LOG: warn
-      PLUGIN_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}'
+      RUST_LOG: info
+      PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
+      PLUGIN_MESSENGER_CONFIG.connection_config: '{redis_connection_str="redis://redis"}'
     ports:
       - "8900:8900"
       - "8001:8001"
       - "8899:8899"
       - "9900:9900"
+volumes:
+  grafana_data: {}
+  graphite_data: {}

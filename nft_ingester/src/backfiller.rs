@@ -8,8 +8,9 @@ use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
-use plerkle_serialization::transaction_info_generated::transaction_info::{
-    self, TransactionInfo, TransactionInfoArgs,
+use plerkle_serialization::{
+    CompiledInstruction, CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs,
+    Pubkey as FBPubkey, TransactionInfo, TransactionInfoArgs,
 };
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
@@ -21,8 +22,8 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use solana_transaction_status::{
-    EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
-    UiTransactionStatusMeta,
+    option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
+    UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::str::FromStr;
@@ -612,7 +613,7 @@ fn serialize_transaction<'a>(
         for key in account_keys.iter() {
             let key = Pubkey::from_str(key)
                 .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-            account_keys_fb_vec.push(transaction_info::Pubkey::new(&key.to_bytes()));
+            account_keys_fb_vec.push(FBPubkey(key.to_bytes()));
         }
         Some(builder.create_vector(&account_keys_fb_vec))
     } else {
@@ -620,7 +621,7 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize log messages.
-    let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
+    let log_messages = if let OptionSerializer::Some(log_messages) = meta.log_messages.as_ref() {
         let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
         for message in log_messages {
             log_messages_fb_vec.push(builder.create_string(&message));
@@ -631,7 +632,8 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize inner instructions.
-    let inner_instructions = if let Some(inner_instructions_vec) = meta.inner_instructions.as_ref()
+    let inner_instructions = if let OptionSerializer::Some(inner_instructions_vec) =
+        meta.inner_instructions.as_ref()
     {
         let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
         for inner_instructions in inner_instructions_vec.iter() {
@@ -645,9 +647,9 @@ fn serialize_transaction<'a>(
                         .into_vec()
                         .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
                     let data = Some(builder.create_vector(&data));
-                    instructions_fb_vec.push(transaction_info::CompiledInstruction::create(
+                    instructions_fb_vec.push(CompiledInstruction::create(
                         &mut builder,
-                        &transaction_info::CompiledInstructionArgs {
+                        &CompiledInstructionArgs {
                             program_id_index,
                             accounts,
                             data,
@@ -657,9 +659,9 @@ fn serialize_transaction<'a>(
             }
 
             let instructions = Some(builder.create_vector(&instructions_fb_vec));
-            overall_fb_vec.push(transaction_info::InnerInstructions::create(
+            overall_fb_vec.push(InnerInstructions::create(
                 &mut builder,
-                &transaction_info::InnerInstructionsArgs {
+                &InnerInstructionsArgs {
                     index,
                     instructions,
                 },
@@ -682,9 +684,9 @@ fn serialize_transaction<'a>(
                 .into_vec()
                 .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
             let data = Some(builder.create_vector(&data));
-            instructions_fb_vec.push(transaction_info::CompiledInstruction::create(
+            instructions_fb_vec.push(CompiledInstruction::create(
                 &mut builder,
-                &transaction_info::CompiledInstructionArgs {
+                &CompiledInstructionArgs {
                     program_id_index,
                     accounts,
                     data,

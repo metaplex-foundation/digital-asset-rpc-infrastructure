@@ -1,6 +1,8 @@
 ### This repo was originally built inside https://github.com/jarry-xiao/candyland as a join effort between Solana X Metaplex
 This repo is in transition, and we are factoring out components from CandyLand here.
 
+## IMPORTANT: See Prerequisites below
+
 ## Digital Asset RPC API Infrastructure
 This repo houses the API Ingester and Database Types components of the Metaplex Digital Asset RPC API. Together these 
 components are responsible for the aggregation of Solana Validator Data into an extremely fast and well typed api. This 
@@ -24,10 +26,20 @@ This repo houses Helm Charts, Docker files and Terraform files to assist in the 
 
 ### Developing
 
+#### Prerequisites:
+You must clone the https://github.com/metaplex-foundation/blockbuster repo, this is un publishable for now due to active development in like 1000 branches and serious mathematics avoiding dependency hell.
+
 Because this is a multi component system the easiest way to develop or locally test this system is with docker but developing locally without docker is possible.
 
+#### Regenerating DB Types
+Edit the init.sql, then run `docker compose up db`
+Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=postgres://solana:solana@localhost/solana` you can run
+` sea-orm-cli generate entity -o ./digital_asset_types/src/dao --database-url $DATABASE_URL --with-serde both --expanded-format`
+
+If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
+
 #### Developing Locally
- *Prerequisites* 
+ *Prerequisites*
  * A Postgres Server running with the database setup according to ./init.sql
  * A Redis instance that has streams enabled or a version that supports streams
  * A local solana validator with the Plerkle plugin running.
@@ -48,7 +60,7 @@ cargo run -p das_api
 For the Ingester you need the following environment variables:
 ```bash
 INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}' # your database host
-INGESTER_MESSENGER_CONFIG: '{redis_connection_str="redis://redis"}' #your redis
+INGESTER_MESSENGER_CONFIG: '{messenger_type="Redis", connection_config={ redis_connection_str="redis://redis" } }' #your redis
 INGESTER_RPC_CONFIG: '{url="http://validator:8899", commitment="finalized"}' # your solana validator or same network rpc, if local you must use your solana instance running localy
 ```
 
@@ -68,17 +80,20 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 
 You need to run the following script (which takes a long time) in order to get all those .so files.
 
+#### Authentication with Docker and AWS
+
+```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
+
 ```bash
-chmod
+chmod +x ./dowload-programs.sh
 ./dowload-programs.sh
 ```
 This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
-
+If you get some permissions errors, just sudo delete the programs directory and start again.
 
 We use ``docker-compose`` on some systems its ``docker compose``.
 ```bash
 docker-compose build 
-
 ```
 This builds the docker container for API and the Ingester components and will download the appropriate Redis, Postgres and Solana+plerkle docker images.
 Keep in mind that the version `latest` on the Solana Validator image will match the latest version available on the docs, for other versions please change that version in your docker compose file.
@@ -87,4 +102,27 @@ Keep in mind that the version `latest` on the Solana Validator image will match 
 docker-compose up 
 ```
 
-When making changes you will need to ``docker compose up --force-recreate`` again to get the latest changes.
+When making changes you will need to ``docker compose up --build --force-recreate`` again to get the latest changes.
+Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
+
+
+ TODO-> make anote about root folders and deleting
+Once everything is working you can see that there is a api being served on
+```
+http://localhost:9090
+```
+And a Metrics System on
+```
+http://localhost:3000
+```
+
+
+# Deploying to Kubernetes 
+Using skaffold you can deploy to k8s, make sure you authenticate with your docker registry
+```bash
+skaffold build --file-output skaffold-state.json --cache-artifacts=false
+## Your namepsace may differ.
+skaffold deploy --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
+```
+
+

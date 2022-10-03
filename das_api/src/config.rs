@@ -7,8 +7,8 @@ use {
 #[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,
-    pub metrics_port: u16,
-    pub metrics_host: String,
+    pub metrics_port: Option<u16>,
+    pub metrics_host: Option<String>,
     pub server_port: u16,
 }
 
