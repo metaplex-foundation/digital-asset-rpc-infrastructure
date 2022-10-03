@@ -2204,7 +2204,7 @@ dependencies = [
 [[package]]
 name = "mpl-bubblegum"
 version = "0.1.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=updat-tm-in-bgum#4b81de337a7838d0c19ff4d8eb375435ea1faae3"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library#6dcbb2fec19ab843c1995e6cf203eb6a146ff40e"
 dependencies = [
  "anchor-lang",
  "bytemuck",
