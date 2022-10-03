@@ -27,11 +27,11 @@ use sea_orm::{
 };
 
 
-pub async fn save_v1_asset<'c>(
+pub async fn save_v1_asset(
     id: FBPubkey,
     slot: u64,
     metadata: &Metadata,
-    txn: &'c DatabaseTransaction,
+    txn: &DatabaseTransaction,
 ) -> Result<DownloadMetadata, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
@@ -105,7 +105,6 @@ pub async fn save_v1_asset<'c>(
     chain_data.sanitize();
     let chain_data_json = serde_json::to_value(chain_data)
         .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
-    println!("{:?}", chain_data_json);
     let chain_mutability = match metadata.is_mutable {
         true => ChainMutability::Mutable,
         false => ChainMutability::Immutable,
