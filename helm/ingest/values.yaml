@@ -8,7 +8,7 @@ fullnameOverride: ""
 load:
   seed:
   network: "devnet"
-  chaos: 2
+  chaos: 1
   rpc_url:
 ingest:
   db_url:

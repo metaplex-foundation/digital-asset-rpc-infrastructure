@@ -20,15 +20,18 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         // TokenMetadataAccountData::EditionV1(e) => {}
         TokenMetadataAccountData::MasterEditionV1(m) => {
             save_v1_master_edition(key, account_update.slot(), &m, &txn).await?;
+            txn.commit().await?;
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
             let task = save_v1_asset(key, account_update.slot(), &m, &txn).await?;
+            txn.commit().await?;
             task_manager.send(Box::new(task))?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {
             save_v2_master_edition(key, account_update.slot(), m, &txn).await?;
+            txn.commit().await?;
             Ok(())
         }
         // TokenMetadataAccountData::EditionMarker(_) => {}
@@ -36,6 +39,5 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         // TokenMetadataAccountData::CollectionAuthorityRecord(_) => {}
         _ => Err(IngesterError::NotImplemented),
     }?;
-    txn.commit().await?;
     Ok(())
 }

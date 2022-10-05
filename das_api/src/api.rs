@@ -96,7 +96,7 @@ impl<'a> RpcApiBuilder {
         contract: Box<dyn ApiContract>,
     ) -> Result<RpcModule<Box<dyn ApiContract>>, DasApiError> {
         let mut module = RpcModule::new(contract);
-        module.register_async_method("healthz", |_rpc_params, rpc_context| async move {
+        module.register_async_method("healthz", |rpc_params, rpc_context| async move {
             println!("Checking Health");
             rpc_context.check_health().await.map_err(Into::into)
         })?;

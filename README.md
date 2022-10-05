@@ -105,8 +105,8 @@ docker-compose up
 When making changes you will need to ``docker compose up --build --force-recreate`` again to get the latest changes.
 Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
 
+Sometimes you will want to delete the db do so with `sudo rm -rf db-data`.  
 
- TODO-> make anote about root folders and deleting
 Once everything is working you can see that there is a api being served on
 ```
 http://localhost:9090
@@ -116,13 +116,56 @@ And a Metrics System on
 http://localhost:3000
 ```
 
+Here is an example request to the API
+
+```bash
+curl --request POST \
+  --url http://localhost:9090 \
+  --header 'Content-Type: application/json' \
+  --data '{
+	"jsonrpc": "2.0",
+"method":"get_assets_by_owner",
+	"id": "rpd-op-123",
+	"params": [
+    "CMvMqPNKHikuGi7mrngvQzFeQ4rndDnopx3kc9drne8M",
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ]
+}'
+```
 
 # Deploying to Kubernetes 
 Using skaffold you can deploy to k8s, make sure you authenticate with your docker registry
+
+Make sure you have the env vars you need to satisfy this part of the skaffold.yaml
+```yaml
+...
+    setValueTemplates:
+      ingest.db_url: "{{.DATABASE_URL}}"
+      ingest.rpc_url: "{{.RPC_URL}}"
+      ingest.redis_url: "{{.REDIS_URL}}"
+      metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
+      load.seed: "{{.LOAD_SEED}}"
+      load.rpc_url: "{{.RPC_URL}}"
+      valuesFiles:
+        - ./helm/ingest/values.yaml
+  - name: das-api
+    chartPath: helm/api
+    artifactOverrides:
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
+    setValueTemplates:
+      api.db_url: "{{.DATABASE_URL}}"
+      api.redis_url: "{{.REDIS_URL}}"
+      metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
+...
+```
 ```bash
 skaffold build --file-output skaffold-state.json --cache-artifacts=false
 ## Your namepsace may differ.
-skaffold deploy --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
+skaffold deploy -p devnet --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
 ```
 
 

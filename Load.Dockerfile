@@ -1,20 +1,20 @@
 FROM rust:1.63-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
-COPY tests/load_generation /rust/load_generation/
+COPY load_generation /rust/load_generation/
 WORKDIR /rust/load_generation
 RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS builder
 RUN apt-get update -y && \
     apt-get install -y build-essential make git
-COPY tests/load_generation /rust/load_generation
+COPY load_generation /rust/load_generation
 RUN mkdir -p /rust/load_generation
 WORKDIR /rust/load_generation
 COPY --from=planner /rust/load_generation/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
-COPY tests/load_generation/Cargo.toml .
+COPY load_generation/Cargo.toml .
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY tests/load_generation .
+COPY load_generation .
 # Build application
 RUN cargo build --release
 FROM rust:1.63-slim-bullseye

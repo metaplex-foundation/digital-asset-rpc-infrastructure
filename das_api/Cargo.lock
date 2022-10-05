@@ -485,7 +485,7 @@ dependencies = [
  "mpl-bubblegum",
  "mpl-candy-guard",
  "mpl-candy-machine-core 0.0.2 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api)",
- "mpl-token-metadata 1.4.1 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=add-from-traits)",
+ "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
  "spl-account-compression",
@@ -932,6 +932,7 @@ dependencies = [
  "figment",
  "hyper",
  "jsonrpsee",
+ "jsonrpsee-core",
  "metrics",
  "sea-orm",
  "serde",
@@ -1704,9 +1705,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11e017217fcd18da0a25296d3693153dd19c8a6aadab330b3595285d075385d1"
+checksum = "8bd0d559d5e679b1ab2f869b486a11182923863b1b3ee8b421763cdd707b783a"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-server",
@@ -1718,9 +1719,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-core"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16efcd4477de857d4a2195a45769b2fe9ebb54f3ef5a4221d3b014a4fe33ec0b"
+checksum = "f3dc3e9cf2ba50b7b1d7d76a667619f82846caa39e8e8daa8a4962d74acaddca"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -1729,6 +1730,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "globset",
+ "http",
  "hyper",
  "jsonrpsee-types",
  "lazy_static",
@@ -1746,9 +1748,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-http-server"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd69efeb3ce2cba767f126872f4eeb4624038a29098e75d77608b2b4345ad03"
+checksum = "03802f0373a38c2420c70b5144742d800b509e2937edc4afb116434f07120117"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -1759,13 +1761,14 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
 name = "jsonrpsee-proc-macros"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "874cf3f6a027cebf36cae767feca9aa2e8a8f799880e49eb5540819fcbd8eada"
+checksum = "bd67957d4280217247588ac86614ead007b301ca2fa9f19c19f880a536f029e3"
 dependencies = [
  "proc-macro-crate 1.2.1",
  "proc-macro2",
@@ -1775,9 +1778,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-types"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bcf76cd316f5d3ad48138085af1f45e2c58c98e02f0779783dbb034d43f7c86"
+checksum = "e290bba767401b646812f608c099b922d8142603c9e73a50fb192d3ac86f4a0d"
 dependencies = [
  "anyhow",
  "beef",
@@ -1789,12 +1792,13 @@ dependencies = [
 
 [[package]]
 name = "jsonrpsee-ws-server"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd2e4d266774a671f8def3794255b28eddd09b18d76e0b913fa439f34588c0a"
+checksum = "d488ba74fb369e5ab68926feb75a483458b88e768d44319f37e4ecad283c7325"
 dependencies = [
  "futures-channel",
  "futures-util",
+ "http",
  "jsonrpsee-core",
  "jsonrpsee-types",
  "serde_json",
@@ -1803,6 +1807,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -2057,7 +2062,7 @@ source = "git+https://github.com/metaplex-foundation/metaplex-program-library#6d
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "mpl-token-metadata 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mpl-token-metadata 1.4.1",
  "solana-program",
  "spl-account-compression",
  "spl-associated-token-account",
@@ -2073,7 +2078,7 @@ dependencies = [
  "arrayref",
  "mpl-candy-guard-derive",
  "mpl-candy-machine-core 0.0.2 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core)",
- "mpl-token-metadata 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mpl-token-metadata 1.4.1",
  "solana-gateway",
  "solana-program",
  "spl-associated-token-account",
@@ -2096,7 +2101,7 @@ source = "git+https://github.com/metaplex-foundation/metaplex-program-library?br
 dependencies = [
  "anchor-lang",
  "arrayref",
- "mpl-token-metadata 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mpl-token-metadata 1.4.1",
  "solana-program",
  "spl-associated-token-account",
  "spl-token",
@@ -2109,7 +2114,7 @@ source = "git+https://github.com/metaplex-foundation/metaplex-program-library?br
 dependencies = [
  "anchor-lang",
  "arrayref",
- "mpl-token-metadata 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mpl-token-metadata 1.4.1",
  "solana-program",
  "spl-associated-token-account",
  "spl-token",
@@ -2135,8 +2140,8 @@ dependencies = [
 
 [[package]]
 name = "mpl-token-metadata"
-version = "1.4.1"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=add-from-traits#0bac00b9a0e662168de141de35f896ba6be68f41"
+version = "1.4.3"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library#58933588e5f214af24d3aae7eaf14fd17d9531bd"
 dependencies = [
  "arrayref",
  "borsh",
@@ -2424,6 +2429,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
 dependencies = [
  "siphasher",
+]
+
+[[package]]
+name = "pin-project"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad29a609b6bcd67fee905812e544992d216af9d755757c05ed2d0e15a74c6ecc"
+dependencies = [
+ "pin-project-internal",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "069bdb1e05adc7a8990dce9cc75370895fbe4e3d58b9b73bf1aee56359344a55"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4278,6 +4303,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aeea4303076558a00714b823f9ad67d58a3bbda1df83d8827d21193156e22f7"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "tracing-futures"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
+dependencies = [
+ "pin-project",
+ "tracing",
 ]
 
 [[package]]
