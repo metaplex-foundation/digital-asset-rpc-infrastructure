@@ -12,21 +12,18 @@ pub use anchor_client::{
 };
 use anchor_lang::*;
 use mpl_candy_machine::{CandyMachineData, Creator};
+use solana_client::rpc_client::RpcClient;
 use std::sync::Arc;
 
 use crate::candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID};
 use crate::helpers::{add_all_config_lines, initialize_candy_machine};
 
-pub async fn make_a_candy_machine(
-    program: Arc<Program>,
-    payer: Arc<Keypair>,
-) -> Result<Pubkey> {
+pub async fn make_a_candy_machine(program: Arc<RpcClient>, payer: Arc<Keypair>) -> Result<Pubkey> {
     let (candy_machine, authority, minter) =
         init_candy_machine_info(payer.clone(), program.clone()).await?;
 
     program
         .clone()
-        .rpc()
         .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 10)
         .unwrap();
 
@@ -68,14 +65,13 @@ pub async fn make_a_candy_machine(
 // TODO for future, once candy machine deps are updated, make this match token account load generator i.e. with solana nonblocking client
 pub async fn init_candy_machine_info(
     payer: Arc<Keypair>,
-    solana_client: Arc<Program>,
+    solana_client: Arc<RpcClient>,
 ) -> Result<(Keypair, Keypair, Keypair)> {
     let candy_machine = Keypair::new();
     let authority = Keypair::new();
     let minter = Keypair::new();
 
     solana_client
-        .rpc()
         .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL * 10)
         .unwrap();
 

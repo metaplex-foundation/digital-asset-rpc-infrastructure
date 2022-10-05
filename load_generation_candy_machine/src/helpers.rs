@@ -30,7 +30,7 @@ pub async fn initialize_candy_machine(
     wallet: &Pubkey,
     candy_data: CandyMachineData,
     // token_info: TokenInfo,
-    solana_client: Arc<Program>,
+    solana_client: Arc<RpcClient>,
 ) -> Result<()> {
     let items_available = candy_data.items_available;
     let candy_account_size = if candy_data.hidden_settings.is_some() {
@@ -44,7 +44,6 @@ pub async fn initialize_candy_machine(
     };
 
     let lamports = solana_client
-        .rpc()
         .get_minimum_balance_for_rent_exemption(candy_account_size)
         .unwrap();
 
@@ -78,7 +77,7 @@ pub async fn initialize_candy_machine(
         accounts,
     };
 
-    let latest_blockhash = solana_client.rpc().get_latest_blockhash().unwrap();
+    let latest_blockhash = solana_client.get_latest_blockhash().unwrap();
     let tx = Transaction::new_signed_with_payer(
         &[create_ix, init_ix],
         Some(&payer.pubkey()),
@@ -86,10 +85,7 @@ pub async fn initialize_candy_machine(
         latest_blockhash,
     );
 
-    solana_client
-        .rpc()
-        .send_and_confirm_transaction(&tx)
-        .unwrap();
+    solana_client.send_and_confirm_transaction(&tx).unwrap();
 
     Ok(())
 }
@@ -97,9 +93,9 @@ pub async fn initialize_candy_machine(
 pub async fn add_all_config_lines(
     candy_machine: &Pubkey,
     authority: &Keypair,
-    solana_client: Arc<Program>,
+    solana_client: Arc<RpcClient>,
 ) -> Result<()> {
-    let candy_machine_account = solana_client.rpc().get_account(candy_machine).unwrap();
+    let candy_machine_account = solana_client.get_account(candy_machine).unwrap();
 
     let candy_machine_data: CandyMachine =
         CandyMachine::try_deserialize(&mut candy_machine_account.data.as_ref()).unwrap();
@@ -149,7 +145,7 @@ pub async fn add_config_lines(
     authority: &Keypair,
     index: u32,
     config_lines: Vec<ConfigLine>,
-    solana_client: Arc<Program>,
+    solana_client: Arc<RpcClient>,
 ) -> Result<()> {
     let accounts = mpl_candy_machine::accounts::AddConfigLines {
         candy_machine: *candy_machine,
@@ -173,13 +169,10 @@ pub async fn add_config_lines(
         &[add_config_line_ix],
         Some(&authority.pubkey()),
         &[authority],
-        solana_client.rpc().get_latest_blockhash().unwrap(),
+        solana_client.get_latest_blockhash().unwrap(),
     );
 
-    solana_client
-        .rpc()
-        .send_and_confirm_transaction(&tx)
-        .unwrap();
+    solana_client.send_and_confirm_transaction(&tx).unwrap();
 
     Ok(())
 }
