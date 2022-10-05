@@ -1,22 +1,17 @@
-mod candy_machine;
-
-use solana_client::client_error::ClientError;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_request::RpcError;
-use solana_client::rpc_request::RpcError::RpcRequestError;
-use solana_program::native_token::LAMPORTS_PER_SOL;
-use solana_program::pubkey::Pubkey;
-use solana_sdk::signature::keypair_from_seed;
-use solana_sdk::signature::Signer;
-use solana_sdk::signer::keypair::Keypair;
-use solana_sdk::system_instruction;
-use solana_sdk::transaction::Transaction;
+use solana_client::{
+    client_error::ClientError, nonblocking::rpc_client::RpcClient,
+    rpc_request::RpcError::RpcRequestError,
+};
+use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use solana_sdk::{
+    signature::{keypair_from_seed, Signer},
+    signer::keypair::Keypair,
+    system_instruction,
+    transaction::Transaction,
+};
 use spl_token::solana_program::program_pack::Pack;
-use std::env;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Semaphore;
-use tokio::time::{sleep, Duration as td};
+use std::{env, sync::Arc, time::Duration};
+use tokio::{sync::Semaphore, time::sleep};
 
 #[tokio::main]
 async fn main() {
@@ -65,8 +60,6 @@ async fn main() {
         }
         check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     }
-
-    candy_machine_things(le_clone, kp).await;
 }
 
 pub async fn check_balance(

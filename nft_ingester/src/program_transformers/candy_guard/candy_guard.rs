@@ -98,6 +98,11 @@ pub async fn candy_guard<'c>(
         )
         .build(DbBackend::Postgres);
 
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+
     if let Some(groups) = candy_guard_data.clone().groups {
         if groups.len() > 0 {
             for g in groups.iter() {

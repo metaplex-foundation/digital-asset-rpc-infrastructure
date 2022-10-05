@@ -10,8 +10,9 @@ solana-sdk = "1.14.3"
 tokio = { version = "1.21.2", features = ["full"] }
 solana-client = "1.14.3"
 mpl-token-metadata = { version = "1.4.1", features = ["no-entrypoint"] }
-spl-token = "3.5.0"
+spl-token = "3.2.0"
 solana-program = "1.14.3"
-spl-associated-token-account = "1.1.1"
+spl-associated-token-account = "1.0.5"
 rand = "0.8.5"
 fake = "2.5.0"
+borsh = "0.9.3"
