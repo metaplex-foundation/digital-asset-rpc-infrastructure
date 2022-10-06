@@ -2058,7 +2058,7 @@ dependencies = [
 [[package]]
 name = "mpl-bubblegum"
 version = "0.1.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#61e9ac14e48d242446aa4bbe96195649e6e97afa"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#dedcd5e5f5b2d00d2ec3c1794155904bb2d109ff"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -2097,7 +2097,7 @@ dependencies = [
 [[package]]
 name = "mpl-candy-machine-core"
 version = "0.0.3"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#61e9ac14e48d242446aa4bbe96195649e6e97afa"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#dedcd5e5f5b2d00d2ec3c1794155904bb2d109ff"
 dependencies = [
  "anchor-lang",
  "arrayref",
@@ -2128,7 +2128,7 @@ dependencies = [
 [[package]]
 name = "mpl-token-metadata"
 version = "1.4.3"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#61e9ac14e48d242446aa4bbe96195649e6e97afa"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#dedcd5e5f5b2d00d2ec3c1794155904bb2d109ff"
 dependencies = [
  "arrayref",
  "borsh",
@@ -3184,9 +3184,9 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "1.6.3"
+version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb766570a2825fa972bceff0d195727876a9cdf2460ab2e52d455dc2de47fd9"
+checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
 
 [[package]]
 name = "siphasher"
@@ -4264,9 +4264,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11c75893af559bc8e10716548bdef5cb2b983f8e637db9d0e15126b61b484ee2"
+checksum = "4017f8f45139870ca7e672686113917c71c7a6e02d4924eda67186083c03081a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4275,9 +4275,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.29"
+version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aeea4303076558a00714b823f9ad67d58a3bbda1df83d8827d21193156e22f7"
+checksum = "24eb03ba0eab1fd845050058ce5e616558e8f8d8fca633e6b163fe25c797213a"
 dependencies = [
  "once_cell",
 ]
