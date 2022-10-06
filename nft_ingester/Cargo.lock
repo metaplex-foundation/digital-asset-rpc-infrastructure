@@ -538,7 +538,7 @@ dependencies = [
  "lazy_static",
  "mpl-bubblegum",
  "mpl-candy-guard",
- "mpl-candy-machine-core 0.0.3",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
@@ -1127,7 +1127,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-sdk",
- "spl-concurrent-merkle-tree 0.1.0 (git+https://github.com/solana-labs/solana-program-library)",
+ "spl-concurrent-merkle-tree",
  "thiserror",
  "url",
 ]
@@ -2218,12 +2218,12 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#cb9f1e6448b5a682e7918138cf4f6e7b707bbe95"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#5f9a2f8128c97e2c2f9db48a57663600f3e36ba7"
 dependencies = [
  "anchor-lang",
  "arrayref",
  "mpl-candy-guard-derive",
- "mpl-candy-machine-core 0.0.2",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.1",
  "solana-gateway",
  "solana-program",
@@ -2234,23 +2234,10 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard-derive"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#cb9f1e6448b5a682e7918138cf4f6e7b707bbe95"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#5f9a2f8128c97e2c2f9db48a57663600f3e36ba7"
 dependencies = [
  "quote 1.0.21",
  "syn 1.0.101",
-]
-
-[[package]]
-name = "mpl-candy-machine-core"
-version = "0.0.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#08f1500d6691053129fdfa4095a2f48375aa94d8"
-dependencies = [
- "anchor-lang",
- "arrayref",
- "mpl-token-metadata 1.4.1",
- "solana-program",
- "spl-associated-token-account",
- "spl-token",
 ]
 
 [[package]]
@@ -2354,7 +2341,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "mpl-candy-guard",
- "mpl-candy-machine-core 0.0.3",
+ "mpl-candy-machine-core",
  "num-integer",
  "num-traits",
  "plerkle_messenger",
@@ -4587,7 +4574,7 @@ checksum = "a9fe548ab94493a49ecd68496439998a74784a9c4ec43fe9ec7364e2e53c9001"
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "spl-concurrent-merkle-tree 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spl-concurrent-merkle-tree",
  "spl-noop",
 ]
 
@@ -4612,16 +4599,6 @@ name = "spl-concurrent-merkle-tree"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df4d5f6daaf91a5e2618a2ecc3ea74b2c6cab92cf4595c77d444802874df153a"
-dependencies = [
- "bytemuck",
- "solana-program",
- "thiserror",
-]
-
-[[package]]
-name = "spl-concurrent-merkle-tree"
-version = "0.1.0"
-source = "git+https://github.com/solana-labs/solana-program-library#065e62922a22731d1164e2b0d1f9ba9c7540606d"
 dependencies = [
  "bytemuck",
  "solana-program",

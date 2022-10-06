@@ -4,6 +4,7 @@ FROM chef AS planner
 COPY load_generation /rust/load_generation/
 WORKDIR /rust/load_generation
 RUN cargo chef prepare --recipe-path recipe.json
+
 FROM chef AS builder
 RUN apt-get update -y && \
     apt-get install -y build-essential make git
@@ -17,6 +18,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY load_generation .
 # Build application
 RUN cargo build --release
+
 FROM rust:1.63-slim-bullseye
 ARG APP=/usr/src/app
 RUN apt update \

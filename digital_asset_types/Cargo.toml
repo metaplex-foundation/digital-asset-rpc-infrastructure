@@ -11,7 +11,7 @@ sql_types = ["sea-orm"]
 mock = []
 
 [dependencies]
-spl-concurrent-merkle-tree = { git = "https://github.com/solana-labs/solana-program-library" }
+spl-concurrent-merkle-tree = "0.1.0" 
 sea-orm = { optional = true, version = "0.9.2", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.26.3", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }

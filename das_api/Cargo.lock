@@ -484,7 +484,7 @@ dependencies = [
  "lazy_static",
  "mpl-bubblegum",
  "mpl-candy-guard",
- "mpl-candy-machine-core 0.0.3 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api)",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
@@ -2072,12 +2072,12 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#87365456437afb3dfd55f89d90fb8468118745fa"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#5f9a2f8128c97e2c2f9db48a57663600f3e36ba7"
 dependencies = [
  "anchor-lang",
  "arrayref",
  "mpl-candy-guard-derive",
- "mpl-candy-machine-core 0.0.3 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core)",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.1",
  "solana-gateway",
  "solana-program",
@@ -2088,23 +2088,10 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard-derive"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#87365456437afb3dfd55f89d90fb8468118745fa"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#5f9a2f8128c97e2c2f9db48a57663600f3e36ba7"
 dependencies = [
  "quote",
  "syn",
-]
-
-[[package]]
-name = "mpl-candy-machine-core"
-version = "0.0.3"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#45bcdf5a278daba7bea248fafe3b80ff434684d0"
-dependencies = [
- "anchor-lang",
- "arrayref",
- "mpl-token-metadata 1.4.1",
- "solana-program",
- "spl-associated-token-account",
- "spl-token",
 ]
 
 [[package]]
