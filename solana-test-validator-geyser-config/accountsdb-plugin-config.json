@@ -3,24 +3,26 @@
   "enable_metrics": true,
   "metrics_port": 8125,
   "metrics_uri": "graphite",
-  "accounts_selector" : {
-    "owners" : [
+  "accounts_selector": {
+    "owners": [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
       "GRoLLMza82AiYN7W9S9KCCtCyyPRAQP2ifBy4v4D5RMD",
       "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"
+      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
+      "cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ"
     ]
   },
-  "transaction_selector" : {
-    "mentions" : [
+  "transaction_selector": {
+    "mentions": [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
       "GRoLLMza82AiYN7W9S9KCCtCyyPRAQP2ifBy4v4D5RMD",
       "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"
+      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
+      "cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ"
     ]
   }
 }
