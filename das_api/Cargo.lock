@@ -484,7 +484,7 @@ dependencies = [
  "lazy_static",
  "mpl-bubblegum",
  "mpl-candy-guard",
- "mpl-candy-machine-core 0.0.2",
+ "mpl-candy-machine-core 0.0.3 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api)",
  "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
@@ -998,7 +998,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-sdk",
- "spl-concurrent-merkle-tree 0.1.1 (git+https://github.com/solana-labs/solana-program-library)",
+ "spl-concurrent-merkle-tree",
  "thiserror",
  "url",
 ]
@@ -2058,7 +2058,7 @@ dependencies = [
 [[package]]
 name = "mpl-bubblegum"
 version = "0.1.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library#58933588e5f214af24d3aae7eaf14fd17d9531bd"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#61e9ac14e48d242446aa4bbe96195649e6e97afa"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -2072,12 +2072,12 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#87365456437afb3dfd55f89d90fb8468118745fa"
+source = "git+https://github.com/metaplex-foundation/candy-guard#b813c0649ccf8c86e93fb2f9430bbaa8de32f591"
 dependencies = [
  "anchor-lang",
  "arrayref",
  "mpl-candy-guard-derive",
- "mpl-candy-machine-core 0.0.3",
+ "mpl-candy-machine-core 0.0.3 (git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core)",
  "mpl-token-metadata 1.4.1",
  "solana-gateway",
  "solana-program",
@@ -2088,7 +2088,7 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard-derive"
 version = "0.0.1"
-source = "git+https://github.com/metaplex-foundation/candy-guard#87365456437afb3dfd55f89d90fb8468118745fa"
+source = "git+https://github.com/metaplex-foundation/candy-guard#b813c0649ccf8c86e93fb2f9430bbaa8de32f591"
 dependencies = [
  "quote",
  "syn",
@@ -2096,8 +2096,8 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-machine-core"
-version = "0.0.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#b93306cc7207bd0039c35e59acbca8b529533b2b"
+version = "0.0.3"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#45bcdf5a278daba7bea248fafe3b80ff434684d0"
 dependencies = [
  "anchor-lang",
  "arrayref",
@@ -2110,7 +2110,7 @@ dependencies = [
 [[package]]
 name = "mpl-candy-machine-core"
 version = "0.0.3"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=febo/candy-machine-core#4c851fc357977ec5534a34f487f92db7ec6adfb3"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#61e9ac14e48d242446aa4bbe96195649e6e97afa"
 dependencies = [
  "anchor-lang",
  "arrayref",
@@ -3774,13 +3774,13 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spl-account-compression"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f2f9d21544ed336477ae376f1d2c2ebdf26c70e6cff03de3a3251b8549b5cae"
+checksum = "893a9fb88714d977a261073fdd86c54cf3289fc15c977b4192116e5805788117"
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "spl-concurrent-merkle-tree 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spl-concurrent-merkle-tree",
  "spl-noop",
 ]
 
@@ -3812,16 +3812,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spl-concurrent-merkle-tree"
-version = "0.1.1"
-source = "git+https://github.com/solana-labs/solana-program-library#c84f65c5ff1ffd92db764c6986b1fd801f531c84"
-dependencies = [
- "bytemuck",
- "solana-program",
- "thiserror",
-]
-
-[[package]]
 name = "spl-memo"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3832,9 +3822,9 @@ dependencies = [
 
 [[package]]
 name = "spl-noop"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "635165db4ea3ddd7791433ddb5991dd9fecb7f4246d82d3686f097ef6cdf01ab"
+checksum = "76d9424a96e1cab78bf65bac7b6c8d97662af07d3bc263b065d527de9c85f296"
 dependencies = [
  "solana-program",
 ]
