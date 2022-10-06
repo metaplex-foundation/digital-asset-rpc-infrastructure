@@ -6,7 +6,7 @@ WORKDIR /rust/load_generation_candy_machine
 RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS builder
 RUN apt-get update -y && \
-    apt-get install -y build-essential make git
+    apt-get install -y build-essential make git libudev-dev
 COPY load_generation_candy_machine /rust/load_generation_candy_machine
 RUN mkdir -p /rust/load_generation_candy_machine
 WORKDIR /rust/load_generation_candy_machine
