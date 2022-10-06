@@ -3761,9 +3761,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spl-account-compression"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f2f9d21544ed336477ae376f1d2c2ebdf26c70e6cff03de3a3251b8549b5cae"
+checksum = "893a9fb88714d977a261073fdd86c54cf3289fc15c977b4192116e5805788117"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -3809,9 +3809,9 @@ dependencies = [
 
 [[package]]
 name = "spl-noop"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "635165db4ea3ddd7791433ddb5991dd9fecb7f4246d82d3686f097ef6cdf01ab"
+checksum = "76d9424a96e1cab78bf65bac7b6c8d97662af07d3bc263b065d527de9c85f296"
 dependencies = [
  "solana-program",
 ]
