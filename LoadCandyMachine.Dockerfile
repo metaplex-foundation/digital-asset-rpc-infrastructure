@@ -7,7 +7,8 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 RUN apt-get update -y && \
-    apt-get install -y build-essential make git libudev-dev
+    apt-get install -y build-essential make git libudev-dev && \
+    cargo install cargo-watch
 COPY load_generation_candy_machine /rust/load_generation_candy_machine
 RUN mkdir -p /rust/load_generation_candy_machine
 WORKDIR /rust/load_generation_candy_machine
@@ -33,4 +34,5 @@ COPY --from=builder /rust/load_generation_candy_machine/target/release/load_gene
 RUN chown -R $APP_USER:$APP_USER ${APP}
 USER $APP_USER
 WORKDIR ${APP}
-CMD /usr/src/app/load_generation_candy_machine
+CMD /usr/src/app/load_generation_candy_machine 
+# CMD ["cargo", "watch", "-x", "run", "/usr/src/app/load_generation_candy_machine"]

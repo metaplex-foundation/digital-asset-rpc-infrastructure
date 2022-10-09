@@ -2459,8 +2459,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "plerkle_serialization"
 version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66ea865af25d47f5442d5f961ba46075db344741243e46fd78c396b1f283a923"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin?branch=stranzhay/read-api#2fcf7206b908d04b5315c25bb4eb697ec33be7c5"
 dependencies = [
  "chrono",
  "flatbuffers",

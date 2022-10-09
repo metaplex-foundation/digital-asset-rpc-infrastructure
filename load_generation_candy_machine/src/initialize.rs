@@ -1,31 +1,27 @@
-pub use anchor_client::{
-    solana_sdk::{
-        account::Account,
-        commitment_config::{CommitmentConfig, CommitmentLevel},
-        native_token::LAMPORTS_PER_SOL,
-        pubkey::Pubkey,
-        signature::{Keypair, Signature, Signer},
-        system_instruction, system_program, sysvar,
-        transaction::Transaction,
-    },
-    Client, ClientError, Program,
-};
-use anchor_lang::*;
-use mpl_candy_machine::{CandyMachineData, Creator};
-use solana_client::rpc_client::RpcClient;
+use anchor_lang::AccountDeserialize;
+use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
+use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
+use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use solana_sdk::{signature::Keypair, signer::Signer};
 use std::sync::Arc;
 
-use crate::candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID};
-use crate::helpers::{add_all_config_lines, initialize_candy_machine};
+use crate::{
+    add_config_lines,
+    candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
+    initialize_candy_machine,
+};
 
-pub async fn make_a_candy_machine(program: Arc<RpcClient>, payer: Arc<Keypair>) -> Result<Pubkey> {
+pub async fn make_a_candy_machine(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+) -> Result<Pubkey, ClientError> {
     let (candy_machine, authority, minter) =
-        init_candy_machine_info(payer.clone(), program.clone()).await?;
+        init_candy_machine_info(payer.clone(), solana_client.clone()).await?;
 
-    program
+    solana_client
         .clone()
-        .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 10)
-        .unwrap();
+        .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 100)
+        .await?;
 
     let candy_data = CandyMachineData {
         uuid: DEFAULT_UUID.to_string(),
@@ -48,32 +44,96 @@ pub async fn make_a_candy_machine(program: Arc<RpcClient>, payer: Arc<Keypair>) 
         gatekeeper: None,
     };
 
+    solana_client
+        .clone()
+        .request_airdrop(&candy_machine.pubkey(), LAMPORTS_PER_SOL * 100)
+        .await?;
+
     initialize_candy_machine(
         &candy_machine,
         &payer,
         &authority.pubkey(),
         candy_data,
-        program.clone(),
+        solana_client.clone(),
     )
     .await?;
-    add_all_config_lines(&candy_machine.pubkey(), &authority, program.clone()).await?;
+
+    // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
     Ok(candy_machine.pubkey())
+}
+
+pub fn make_config_lines(start_index: u32, total: u8) -> Vec<ConfigLine> {
+    let mut config_lines = Vec::with_capacity(total as usize);
+    for i in 0..total {
+        config_lines.push(ConfigLine {
+            name: format!("Item #{}", i as u32 + start_index),
+            uri: format!("Item #{} URI", i as u32 + start_index),
+        })
+    }
+    config_lines
+}
+
+pub async fn add_all_config_lines(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    solana_client
+        .clone()
+        .request_airdrop(&authority.pubkey(), LAMPORTS_PER_SOL * 100)
+        .await?;
+
+    let candy_machine_account = solana_client.get_account(candy_machine).await?;
+
+    println!("candy {:?}", candy_machine_account);
+
+    let candy_machine_data =
+        CandyMachine::try_deserialize(&mut candy_machine_account.data.as_ref()).unwrap();
+
+    let total_items = candy_machine_data.data.items_available;
+    for i in 0..total_items / 10 {
+        let index = (i * 10) as u32;
+        let config_lines = make_config_lines(index, 10);
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
+    }
+    let remainder = total_items & 10;
+    if remainder > 0 {
+        let index = (total_items as u32 / 10).saturating_sub(1);
+        let config_lines = make_config_lines(index, remainder as u8);
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
+    }
+
+    Ok(())
 }
 
 // TODO for future, once candy machine deps are updated, make this match token account load generator i.e. with solana nonblocking client
 pub async fn init_candy_machine_info(
     payer: Arc<Keypair>,
     solana_client: Arc<RpcClient>,
-) -> Result<(Keypair, Keypair, Keypair)> {
+) -> Result<(Keypair, Keypair, Keypair), ClientError> {
     let candy_machine = Keypair::new();
     let authority = Keypair::new();
     let minter = Keypair::new();
 
     solana_client
         .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL * 10)
-        .unwrap();
+        .await?;
 
     // let sized = if let Some(sized) = &collection {
     //     *sized

@@ -246,13 +246,13 @@ create table candy_machine
     freeze_time              int,                                     
     freeze_fee               int,                       
     created_at               timestamp with time zone     default (now() at time zone 'utc'),      
-    last_minted              timestamp with time zone     default (now() at time zone 'utc'),          
+    last_minted              timestamp with time zone     default (now() at time zone 'utc')         
 );
 
 create table candy_machine_data
 (
     id                                   bigserial        PRIMARY KEY,
-    uuid                                 varchar(MAX),
+    uuid                                 varchar(6),
     price                                int,
     symbol                               varchar(5)       not null,
     seller_fee_basis_points              int              not null,
@@ -298,7 +298,7 @@ create table candy_guard
     id                   bytea                                   PRIMARY KEY,
     base                 bytea                                   not null,
     bump                 int                                     not null,
-    authority            bytea                                   not null,
+    authority            bytea                                   not null
 );
 
 create table candy_guard_group
@@ -320,7 +320,7 @@ create table candy_guard_group
     mint_limit_id                    int,    
     mint_limit_limit                 int,     
     gatekeeper_network               bytea,                                    
-    gatekeeper_expire_on_use         bool,                                                                                  
+    gatekeeper_expire_on_use         bool                                                                                  
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
 

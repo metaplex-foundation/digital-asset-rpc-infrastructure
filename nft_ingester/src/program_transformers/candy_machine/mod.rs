@@ -17,6 +17,7 @@ pub async fn handle_candy_machine_account_update<'a, 'b, 'c>(
     db: &'c DatabaseConnection,
     task_manager: &UnboundedSender<Box<dyn BgTask>>,
 ) -> Result<(), IngesterError> {
+    println!("here in cm account update");
     let txn = db.begin().await?;
     let key = account_update.pubkey().unwrap().clone();
     match parsing_result {

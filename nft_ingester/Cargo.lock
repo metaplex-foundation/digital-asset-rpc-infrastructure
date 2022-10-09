@@ -2814,8 +2814,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "plerkle_messenger"
 version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a34b49b357ddd109eb3b0b0269d77605ac7a6b34855eb7e3b5cc855a80b3645c"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin?branch=stranzhay/read-api#2fcf7206b908d04b5315c25bb4eb697ec33be7c5"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -2830,8 +2829,7 @@ dependencies = [
 [[package]]
 name = "plerkle_serialization"
 version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66ea865af25d47f5442d5f961ba46075db344741243e46fd78c396b1f283a923"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin?branch=stranzhay/read-api#2fcf7206b908d04b5315c25bb4eb697ec33be7c5"
 dependencies = [
  "chrono",
  "flatbuffers",
