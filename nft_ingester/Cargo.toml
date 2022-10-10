@@ -28,7 +28,7 @@ digital_asset_types = { path = "../digital_asset_types", features = ["json_types
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { path = "../../blockbuster/blockbuster", version = "0.2.0" }
+blockbuster = { path = "../../blockbuster/blockbuster", version = "0.1.0" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
