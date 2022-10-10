@@ -89,10 +89,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    # image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
-    build:
-      context: ../digital-asset-validator-plugin
-      dockerfile: Solana.Dockerfile
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.7
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw
