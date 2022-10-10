@@ -2,19 +2,19 @@ mod candy_machine_constants;
 mod helpers;
 mod initialize;
 
+use anchor_client::solana_sdk::{
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_instruction, system_program, sysvar,
+};
 use anchor_lang::{InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
 use initialize::make_a_candy_machine;
-use mpl_candy_machine::{CandyMachineData, ConfigLine};
+use mpl_candy_machine::CandyMachineData;
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
-use solana_program::{
-    instruction::Instruction, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey, sysvar,
-};
-use solana_program::{system_instruction, system_program};
-use solana_sdk::signature::{keypair_from_seed, Keypair};
-use solana_sdk::signer::Signer;
-use solana_sdk::transaction::Transaction;
+use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
+use solana_sdk::{signature::keypair_from_seed, transaction::Transaction};
 use std::{env, sync::Arc, time::Duration};
 use tokio::{sync::Semaphore, time::sleep};
 
@@ -28,7 +28,7 @@ async fn main() {
     let network = env::var("NETWORK").unwrap_or_else(|_| "local".to_string());
     let carnage = env::var("AMOUNT_OF_CHAOS").map(|chaos_str| chaos_str.parse::<usize>().expect("How can you mess that up? Okay okay, your AMOUNT OF CHAOS variable is super messed up.")).unwrap_or_else(|_| 64);
     let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(
-        le_blockchain_url,
+        le_blockchain_url.clone(),
         Duration::from_secs(45),
         solana_sdk::commitment_config::CommitmentConfig::confirmed(),
     ));
@@ -37,8 +37,8 @@ async fn main() {
             .expect("Thy Keypair is not available, I humbly suggest you look for it."),
     );
     let semaphore = Arc::new(Semaphore::new(carnage));
-    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
 
+    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     loop {
         let mut tasks = vec![];
         for _ in 0..carnage {
@@ -53,7 +53,6 @@ async fn main() {
                 sleep(Duration::from_millis(1000)).await;
                 let res = make_a_candy_machine(le_clone, kp).await;
                 // TODO put the ids in a vec and then call update on them
-
                 res
             }));
         }
@@ -99,42 +98,42 @@ pub async fn check_balance(
     Ok(())
 }
 
-pub async fn add_config_lines(
-    candy_machine: &Pubkey,
-    authority: &Keypair,
-    index: u32,
-    config_lines: Vec<ConfigLine>,
-    solana_client: Arc<RpcClient>,
-) -> Result<(), ClientError> {
-    let accounts = mpl_candy_machine::accounts::AddConfigLines {
-        candy_machine: *candy_machine,
-        authority: authority.pubkey(),
-    }
-    .to_account_metas(None);
+// pub async fn add_config_lines(
+//     candy_machine: &Pubkey,
+//     authority: &Keypair,
+//     index: u32,
+//     config_lines: Vec<ConfigLine>,
+//     solana_client: Arc<RpcClient>,
+// ) -> Result<(), ClientError> {
+//     let accounts = mpl_candy_machine::accounts::AddConfigLines {
+//         candy_machine: *candy_machine,
+//         authority: authority.pubkey(),
+//     }
+//     .to_account_metas(None);
 
-    let data = mpl_candy_machine::instruction::AddConfigLines {
-        index,
-        config_lines,
-    }
-    .data();
+//     let data = mpl_candy_machine::instruction::AddConfigLines {
+//         index,
+//         config_lines,
+//     }
+//     .data();
 
-    let add_config_line_ix = Instruction {
-        program_id: mpl_candy_machine::id(),
-        data,
-        accounts,
-    };
+//     let add_config_line_ix = Instruction {
+//         program_id: mpl_candy_machine::id(),
+//         data,
+//         accounts,
+//     };
 
-    let tx = Transaction::new_signed_with_payer(
-        &[add_config_line_ix],
-        Some(&authority.pubkey()),
-        &[authority],
-        solana_client.get_latest_blockhash().await?,
-    );
+//     let tx = Transaction::new_signed_with_payer(
+//         &[add_config_line_ix],
+//         Some(&authority.pubkey()),
+//         &[authority],
+//         solana_client.get_latest_blockhash().await?,
+//     );
 
-    solana_client.send_and_confirm_transaction(&tx).await?;
+//     solana_client.send_and_confirm_transaction(&tx).await?;
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub async fn initialize_candy_machine(
     candy_account: &Keypair,

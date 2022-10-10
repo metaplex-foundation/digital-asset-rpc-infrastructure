@@ -1,3 +1,4 @@
+use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
@@ -6,7 +7,7 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use std::sync::Arc;
 
 use crate::{
-    add_config_lines,
+    // add_config_lines,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
     initialize_candy_machine,
 };
@@ -96,27 +97,27 @@ pub async fn add_all_config_lines(
     for i in 0..total_items / 10 {
         let index = (i * 10) as u32;
         let config_lines = make_config_lines(index, 10);
-        add_config_lines(
-            candy_machine,
-            authority,
-            index,
-            config_lines,
-            solana_client.clone(),
-        )
-        .await?;
+        // add_config_lines(
+        //     candy_machine,
+        //     authority,
+        //     index,
+        //     config_lines,
+        //     solana_client.clone(),
+        // )
+        // .await?;
     }
     let remainder = total_items & 10;
     if remainder > 0 {
         let index = (total_items as u32 / 10).saturating_sub(1);
         let config_lines = make_config_lines(index, remainder as u8);
-        add_config_lines(
-            candy_machine,
-            authority,
-            index,
-            config_lines,
-            solana_client.clone(),
-        )
-        .await?;
+        // add_config_lines(
+        //     candy_machine,
+        //     authority,
+        //     index,
+        //     config_lines,
+        //     solana_client.clone(),
+        // )
+        // .await?;
     }
 
     Ok(())
