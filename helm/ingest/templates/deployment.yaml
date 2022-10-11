@@ -40,17 +40,27 @@ spec:
             protocol: UDP
         - name: {{ .Chart.Name }}
           env:
+          - name: RUST_BACKTRACE
+            value: "1"
+          - name: RUST_LOG
+            value: "info"
           - name: INGESTER_METRICS_HOST
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
           - name: INGESTER_METRICS_PORT
             value: "8125"
-          - name: INGESTER_DATABASE_URL
+          - name: INGESTER_DATABASE_CONFIG
             valueFrom:
               secretKeyRef:
                 name: {{ include "ingest.secret" . }}
-                key: INGESTER_DATABASE_URL
+                key: INGESTER_DATABASE_CONFIG
+                optional: false
+          - name: INGESTER_RPC_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "ingest.secret" . }}
+                key: INGESTER_RPC_CONFIG
                 optional: false
           - name: INGESTER_MESSENGER_CONFIG
             valueFrom:

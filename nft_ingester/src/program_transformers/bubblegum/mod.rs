@@ -13,7 +13,6 @@ mod decompress;
 mod delegate;
 mod mint_v1;
 mod redeem;
-mod task;
 mod transfer;
 
 pub use db::*;

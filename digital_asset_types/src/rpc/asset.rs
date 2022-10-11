@@ -5,6 +5,7 @@ use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
+use crate::dao::asset::Model as AssetModel;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
@@ -17,9 +18,13 @@ pub struct AssetProof {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub enum Interface {
-    #[serde(rename = "NFT1.0")]
-    NftOneZero,
-    #[serde(rename = "NFT")]
+    #[serde(rename = "V1_NFT")]
+    V1NFT,
+    #[serde(rename = "V1_PRINT")]
+    V1PRINT,
+    #[serde(rename = "LEGACY_NFT")]
+    LEGACY_NFT,
+    #[serde(rename = "V2_NFT")]
     Nft,
     #[serde(rename = "FungibleAsset")]
     FungibleAsset,

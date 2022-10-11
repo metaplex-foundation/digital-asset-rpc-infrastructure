@@ -34,7 +34,7 @@ pub async fn delegate<'c>(
                     id: Unchanged(id_bytes.clone()),
                     leaf: Set(Some(le.leaf_hash.to_vec())),
                     delegate: Set(delegate),
-                    owner: Set(owner_bytes),
+                    owner: Set(Some(owner_bytes)),
                     seq: Set(seq as i64), // gummyroll seq
                     ..Default::default()
                 };

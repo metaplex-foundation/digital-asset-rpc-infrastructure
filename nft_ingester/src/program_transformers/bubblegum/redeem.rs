@@ -34,7 +34,7 @@ pub async fn redeem<'c>(
                     id: Unchanged(id_bytes.clone()),
                     leaf: Set(Some(vec![0; 32])),
                     delegate: Set(delegate),
-                    owner: Set(owner_bytes),
+                    owner: Set(Some(owner_bytes)),
                     seq: Set(seq as i64),
                     ..Default::default()
                 };

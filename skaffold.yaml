@@ -3,6 +3,10 @@ kind: Config
 build:
   artifacts:
     - context: .
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+      docker:
+        dockerfile: Load.Dockerfile
+    - context: .
       image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
       docker:
         dockerfile: Api.Dockerfile
@@ -17,11 +21,14 @@ deploy:
         chartPath: helm/ingest
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
+          loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
         setValueTemplates:
           ingest.db_url: "{{.DATABASE_URL}}"
+          ingest.rpc_url: "{{.RPC_URL}}"
           ingest.redis_url: "{{.REDIS_URL}}"
           metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
-          loadSeed: "{{.LOAD_SEED}}"
+          load.seed: "{{.LOAD_SEED}}"
+          load.rpc_url: "{{.RPC_URL}}"
         valuesFiles:
           - ./helm/ingest/values.yaml
       - name: das-api
@@ -38,11 +45,11 @@ deploy:
       upgrade: [ "--timeout","900s" ]
       install: [ "--timeout","900s" ]
 profiles:
-  - name: dev
+  - name: devnet
     patches:
-      - op: replace
-        path: /deploy/helm/releases/0/valuesFiles/0
-        value: ./helm/values-testnet.yaml
-      - op: replace
-        path: /deploy/helm/releases/1/valuesFiles/1
-        value: ./helm/values-testnet.yaml
+      - op: add
+        path: "/deploy/helm/releases/0/valuesFiles/1"
+        value: "./helm/ingester-values-devnet.yaml"
+      - op: add
+        path: "/deploy/helm/releases/1/valuesFiles/1"
+        value: "./helm/api-values-devnet.yaml"

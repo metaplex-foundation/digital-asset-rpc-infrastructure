@@ -8,7 +8,7 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "asset_grouping"
+        "asset_authority"
     }
 }
 
@@ -16,18 +16,20 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: i64,
     pub asset_id: Vec<u8>,
-    pub group_key: String,
-    pub group_value: String,
+    pub scopes: Option<String>,
+    pub authority: Vec<u8>,
     pub seq: i64,
+    pub slot_updated: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
     AssetId,
-    GroupKey,
-    GroupValue,
+    Scopes,
+    Authority,
     Seq,
+    SlotUpdated,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -53,9 +55,10 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::BigInteger.def(),
             Self::AssetId => ColumnType::Binary.def(),
-            Self::GroupKey => ColumnType::Text.def(),
-            Self::GroupValue => ColumnType::Text.def(),
+            Self::Scopes => ColumnType::Custom("array".to_owned()).def().null(),
+            Self::Authority => ColumnType::Binary.def(),
             Self::Seq => ColumnType::BigInteger.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def(),
         }
     }
 }

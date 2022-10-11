@@ -7,6 +7,7 @@ mod tasks;
 use crate::{
     backfiller::backfiller,
     error::IngesterError,
+    metrics::safe_metric,
     program_transformers::ProgramTransformer,
     tasks::{BgTask, TaskManager},
 };
@@ -24,7 +25,6 @@ use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
-use crate::metrics::safe_metric;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -101,6 +101,14 @@ async fn main() {
         )
             .await,
     );
+    tasks.push(
+        service_account_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
+            .await,
+    );
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
     });
@@ -154,6 +162,7 @@ async fn service_account_stream<T: Messenger>(
             // This call to messenger.recv() blocks with no timeout until
             // a message is received on the stream.
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
+                println!("Received account data");
                 handle_account(&manager, data).await
             }
         }
@@ -170,13 +179,39 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             }
             Ok(account_update) => account_update,
         };
+        let str_program_id = bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
         safe_metric(|| {
-            statsd_count!("ingester.account_update_seen", 1);
+            statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
         });
-        manager
+
+        println!(
+            "Received account data {:?}",
+            account_update
+                .owner()
+                .map(|e| bs58::encode(e.0.as_slice()).into_string())
+        );
+        let begin_processing = Utc::now();
+        let res = manager
             .handle_account_update(account_update)
-            .await
-            .expect("Processing Failed");
+            .await;
+        let finish_processing = Utc::now();
+        match res {
+            Ok(_) => {
+                safe_metric(|| {
+                    let proc_time = (finish_processing.timestamp_millis() - begin_processing.timestamp_millis()) as u64;
+                    statsd_time!("ingester.account_proc_time", proc_time);
+                });
+                safe_metric(|| {
+                    statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                });
+            }
+            Err(err) => {
+                println!("Error handling account update: {:?}", err);
+                safe_metric(|| {
+                    statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
+                });
+            }
+        }
     }
 }
 
@@ -218,8 +253,9 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                 let (program, _) = &outer_ix;
                 safe_metric(|| {
                     statsd_time!(
-                    "ingester.bus_ingest_time",
-                    (seen_at.timestamp_millis() - tx.seen_at()) as u64);
+                        "ingester.bus_ingest_time",
+                        (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                    );
                 });
                 manager
                     .handle_instruction(&bundle)
