@@ -25,7 +25,7 @@ pub struct Model {
     pub mint_limit_limit: Option<u16>,
     pub nft_payment_destination: Option<Vec<u8>>,
     pub nft_payment_required_collection: Option<Vec<u8>>,
-    pub bot_tax_lamports: Option<u64>,
+    pub bot_tax_lamports: Option<i64>,
     pub bot_tax_last_instruction: Option<bool>,
 }
 

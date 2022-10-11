@@ -15,7 +15,7 @@ use crate::{
 // into their optionable struct types to be returned from rpc
 
 pub fn get_end_settings(
-    end_setting_number: Option<u64>,
+    end_setting_number: Option<i64>,
     end_setting_type: Option<EndSettingType>,
 ) -> Option<EndSettings> {
     if let (Some(end_setting_number), Some(end_setting_type)) =
@@ -31,7 +31,7 @@ pub fn get_end_settings(
 }
 
 pub fn get_spl_token(
-    spl_token_amount: Option<u64>,
+    spl_token_amount: Option<i64>,
     spl_token_mint: Option<Vec<u8>>,
     spl_token_destination_ata: Option<Vec<u8>>,
 ) -> Option<SplToken> {
@@ -66,9 +66,9 @@ pub fn get_nft_payment(
 
 pub fn get_freeze_info(
     allow_thaw: Option<bool>,
-    frozen_count: Option<u64>,
+    frozen_count: Option<i64>,
     freeze_time: Option<i64>,
-    freeze_fee: Option<u64>,
+    freeze_fee: Option<i64>,
     mint_start: Option<i64>,
 ) -> Option<FreezeInfo> {
     if let (Some(allow_thaw), Some(frozen_count), Some(freeze_time), Some(freeze_fee)) =
@@ -90,7 +90,7 @@ pub fn get_whitelist_settings(
     whitelist_mode: Option<WhitelistMintMode>,
     whitelist_mint: Option<Vec<u8>>,
     whitelist_presale: Option<bool>,
-    whitelist_discount_price: Option<u64>,
+    whitelist_discount_price: Option<i64>,
 ) -> Option<WhitelistMintSettings> {
     if let (Some(whitelist_mode), Some(whitelist_mint), Some(whitelist_presale)) =
         (whitelist_mode, whitelist_mint, whitelist_presale)
@@ -138,7 +138,7 @@ pub fn get_hidden_settings(
     }
 }
 
-pub fn get_lamports(amount: Option<u64>, destination: Option<Vec<u8>>) -> Option<Lamports> {
+pub fn get_lamports(amount: Option<i64>, destination: Option<Vec<u8>>) -> Option<Lamports> {
     if let (Some(amount), Some(destination)) = (amount, destination) {
         Some(Lamports {
             amount,
@@ -223,7 +223,7 @@ pub fn get_live_date(live_date: Option<i64>) -> Option<LiveDate> {
     }
 }
 
-pub fn get_bot_tax(lamports: Option<u64>, last_instruction: Option<bool>) -> Option<BotTax> {
+pub fn get_bot_tax(lamports: Option<i64>, last_instruction: Option<bool>) -> Option<BotTax> {
     if let (Some(lamports), Some(last_instruction)) = (lamports, last_instruction) {
         Some(BotTax {
             lamports,

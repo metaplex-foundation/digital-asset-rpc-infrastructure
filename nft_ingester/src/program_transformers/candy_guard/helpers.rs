@@ -60,9 +60,9 @@ pub fn get_gatekeeper(gatekeeper: Option<Gatekeeper>) -> (Option<bool>, Option<V
     }
 }
 
-pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<u64>, Option<bool>) {
+pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<i64>, Option<bool>) {
     if let Some(bot_tax) = bot_tax {
-        (Some(bot_tax.lamports), Some(bot_tax.last_instruction))
+        (Some(bot_tax.lamports.try_into().unwrap()), Some(bot_tax.last_instruction))
     } else {
         (None, None)
     }
@@ -70,7 +70,7 @@ pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<u64>, Option<bool>) {
 
 // pub fn get_end_settings(
 //     end_settings: Option<EndSettings>,
-// ) -> (Option<EndSettingType>, Option<u64>) {
+// ) -> (Option<EndSettingType>, Option<i64>) {
 //     if let Some(end_settings) = end_settings {
 //         (
 //             Some(end_settings.end_setting_type),

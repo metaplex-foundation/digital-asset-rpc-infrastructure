@@ -22,7 +22,7 @@ pub async fn candy_machine_core(
         CandyMachine::find_by_id(id.0.to_vec()).one(db).await?;
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
-        if candy_machine_model.items_redeemed < candy_machine_core.items_redeemed {
+        if candy_machine_model.items_redeemed < candy_machine_core.items_redeemed as i64 {
             Some(Utc::now())
         } else {
             candy_machine_model.last_minted
@@ -33,9 +33,9 @@ pub async fn candy_machine_core(
 
     let candy_machine_core_model = candy_machine::ActiveModel {
         id: Set(id.0.to_vec()),
-        features: Set(Some(candy_machine_core.features)),
+        features: Set(Some(candy_machine_core.features as i64)),
         authority: Set(candy_machine_core.authority.to_bytes().to_vec()),
-        items_redeemed: Set(candy_machine_core.items_redeemed),
+        items_redeemed: Set(candy_machine_core.items_redeemed as i64),
         mint_authority: Set(Some(candy_machine_core.mint_authority.to_bytes().to_vec())),
         collection_mint: Set(Some(candy_machine_core.collection_mint.to_bytes().to_vec())),
         version: Set(3),
@@ -92,10 +92,10 @@ pub async fn candy_machine_core(
         candy_machine_id: Set(id.0.to_vec()),
         symbol: Set(data.symbol),
         seller_fee_basis_points: Set(data.seller_fee_basis_points),
-        max_supply: Set(data.max_supply),
+        max_supply: Set(data.max_supply as i64),
         is_mutable: Set(data.is_mutable),
         go_live_date: Set(None),
-        items_available: Set(data.items_available),
+        items_available: Set(data.items_available as i64),
         config_line_settings_prefix_name: Set(prefix_name),
         config_line_settings_name_length: Set(name_length),
         config_line_settings_prefix_uri: Set(prefix_uri),

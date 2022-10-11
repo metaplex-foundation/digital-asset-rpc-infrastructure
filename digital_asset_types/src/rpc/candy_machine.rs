@@ -56,17 +56,17 @@ impl From<EndSettingType> for EndSettingModel {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct EndSettings {
     pub end_setting_type: EndSettingType,
-    pub number: u64,
+    pub number: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FreezeInfo {
     pub allow_thaw: bool,
-    pub frozen_count: u64,
+    pub frozen_count: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_start: Option<i64>,
     pub freeze_time: i64,
-    pub freeze_fee: u64,
+    pub freeze_fee: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -109,24 +109,24 @@ pub struct WhitelistMintSettings {
     pub mint: String,
     pub presale: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub discount_price: Option<u64>,
+    pub discount_price: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct BotTax {
-    pub lamports: u64,
+    pub lamports: i64,
     pub last_instruction: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Lamports {
-    pub amount: u64,
+    pub amount: i64,
     pub destination: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SplToken {
-    pub amount: u64,
+    pub amount: i64,
     pub token_mint: String,
     pub destination_ata: String,
 }
@@ -201,16 +201,16 @@ pub struct CandyMachineData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uuid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub price: Option<u64>,
+    pub price: Option<i64>,
     pub symbol: String,
     pub seller_fee_basis_points: u16,
-    pub max_supply: u64,
+    pub max_supply: i64,
     pub is_mutable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retain_authority: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub go_live_date: Option<i64>,
-    pub items_available: u64,
+    pub items_available: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_line_settings: Option<ConfigLineSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -234,7 +234,7 @@ pub struct CandyMachine {
     pub freeze_info: Option<FreezeInfo>,
     pub data: CandyMachineData,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub features: Option<u64>,
+    pub features: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_authority: Option<String>,
     pub authority: String,
@@ -242,7 +242,7 @@ pub struct CandyMachine {
     pub wallet: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_mint: Option<String>,
-    pub items_redeemed: u64,
+    pub items_redeemed: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub candy_guard: Option<CandyGuard>,
 }
