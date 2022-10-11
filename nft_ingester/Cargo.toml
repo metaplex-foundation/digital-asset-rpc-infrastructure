@@ -37,6 +37,7 @@ cadence = "0.29.0"
 cadence-macros = "0.29.0"
 solana-sdk = "~1.10.38"
 solana-client = "~1.10.38"
+spl-account-compression = { version = "0.1.2", git = "https://github.com/danenbm/solana-program-library", rev = "1e2579f", features = ["no-entrypoint"] }
 spl-token = { version = "~3.5.0", features = ["no-entrypoint"] }
 solana-transaction-status = "1.10.38"
 borsh = "0.9.3"
