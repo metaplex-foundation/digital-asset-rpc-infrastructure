@@ -193,7 +193,7 @@ pub async fn initialize_candy_machine(
         solana_client.get_latest_blockhash().await?,
     );
 
-    solana_client.send_transaction(&tx).await?;
+    solana_client.send_and_confirm_transaction(&tx).await?;
 
     Ok(())
 }

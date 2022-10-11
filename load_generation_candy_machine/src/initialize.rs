@@ -45,11 +45,6 @@ pub async fn make_a_candy_machine(
         gatekeeper: None,
     };
 
-    solana_client
-        .clone()
-        .request_airdrop(&candy_machine.pubkey(), LAMPORTS_PER_SOL * 100)
-        .await?;
-
     initialize_candy_machine(
         &candy_machine,
         &payer,

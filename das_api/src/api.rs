@@ -174,7 +174,7 @@ impl<'a> RpcApiBuilder {
                 let candy_machine_id = rpc_params.one::<String>()?;
                 println!("Candy Machine Id {}", candy_machine_id);
                 rpc_context
-                    .get_asset(candy_machine_id)
+                    .get_candy_machine(candy_machine_id)
                     .await
                     .map_err(Into::into)
             },

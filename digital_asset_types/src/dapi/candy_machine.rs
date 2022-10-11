@@ -37,6 +37,7 @@ pub async fn get_candy_machine(
     db: &DatabaseConnection,
     candy_machine_id: Vec<u8>,
 ) -> Result<RpcCandyMachine, DbErr> {
+    println!("candy machine id vec {:?}", candy_machine_id);
     let (candy_machine, candy_machine_data): (candy_machine::Model, candy_machine_data::Model) =
         CandyMachine::find_by_id(candy_machine_id)
             .find_also_related(CandyMachineData)

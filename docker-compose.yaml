@@ -61,18 +61,18 @@ services:
     build:
       context: .
       dockerfile: LoadCandyMachine.Dockerfile
-  # api:
-  #   restart: always
-  #   environment:
-  #     APP_DATABASE_URL: postgres://solana:solana@db/solana
-  #     APP_SERVER_PORT: 9090
-  #     APP_METRICS_PORT: 8125
-  #     APP_METRICS_HOST: graphite
-  #   build:
-  #     context: .
-  #     dockerfile: Api.Dockerfile
-  #   ports:
-  #     - 9090:9090
+  api:
+    restart: always
+    environment:
+      APP_DATABASE_URL: postgres://solana:solana@db/solana
+      APP_SERVER_PORT: 9090
+      APP_METRICS_PORT: 8125
+      APP_METRICS_HOST: graphite
+    build:
+      context: .
+      dockerfile: Api.Dockerfile
+    ports:
+      - 9090:9090
   redis:
     image: "redis:6.2.5"
     ports:
