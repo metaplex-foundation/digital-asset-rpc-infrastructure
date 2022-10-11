@@ -18,14 +18,15 @@ use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction, candy_guard::handle_candy_guard_account_update,
+    bubblegum::handle_bubblegum_instruction, 
+    // candy_guard::handle_candy_guard_account_update,
     candy_machine::handle_candy_machine_account_update,
     candy_machine_core::handle_candy_machine_core_account_update,
     token::handle_token_program_account, token_metadata::handle_token_metadata_account,
 };
 
 mod bubblegum;
-mod candy_guard;
+// mod candy_guard;
 mod candy_machine;
 mod candy_machine_core;
 mod common;
@@ -117,15 +118,15 @@ impl ProgramTransformer {
                         )
                         .await
                     }
-                    ProgramParseResult::CandyGuard(parsing_result) => {
-                        handle_candy_guard_account_update(
-                            &acct,
-                            parsing_result,
-                            &self.storage,
-                            &self.task_sender,
-                        )
-                        .await
-                    }
+                    // ProgramParseResult::CandyGuard(parsing_result) => {
+                    //     handle_candy_guard_account_update(
+                    //         &acct,
+                    //         parsing_result,
+                    //         &self.storage,
+                    //         &self.task_sender,
+                    //     )
+                    //     .await
+                    // }
                     ProgramParseResult::TokenMetadata(parsing_result) => {
                         handle_token_metadata_account(
                             &acct,

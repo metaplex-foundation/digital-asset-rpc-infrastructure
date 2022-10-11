@@ -1,8 +1,8 @@
 use crate::{
     dao::{
-        generated::candy_guard_group::Model as GuardGroupModel,
-        generated::candy_machine_data::Model,
-        generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
+        candy_guard_group::Model as GuardGroupModel,
+        candy_machine_data::Model,
+        sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     },
     rpc::{
         AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, GuardSet,
@@ -171,10 +171,10 @@ pub fn get_third_party_signer(signer_key: Option<Vec<u8>>) -> Option<ThirdPartyS
 
 pub fn get_config_line_settings(
     is_sequential: Option<bool>,
-    name_length: Option<u32>,
+    name_length: Option<i32>,
     prefix_name: Option<String>,
     prefix_uri: Option<String>,
-    uri_length: Option<u32>,
+    uri_length: Option<i32>,
 ) -> Option<ConfigLineSettings> {
     if let (
         Some(is_sequential),
@@ -247,16 +247,17 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.nft_payment_required_collection.clone(),
     );
 
-    let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
+    // TODO fix later
+    // let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
 
-    let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
+    // let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
 
     GuardSet {
-        bot_tax,
+        bot_tax: None,
         third_party_signer,
         gatekeeper,
         allow_list,
-        mint_limit,
+        mint_limit: None,
         nft_payment,
     }
 }

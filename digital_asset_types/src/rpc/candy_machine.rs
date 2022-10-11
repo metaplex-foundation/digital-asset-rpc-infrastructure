@@ -1,5 +1,5 @@
 #[cfg(feature = "sql_types")]
-use crate::dao::generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
+use crate::dao::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -12,9 +12,9 @@ pub struct CandyMachineCreator {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ConfigLineSettings {
     pub prefix_name: String,
-    pub name_length: u32,
+    pub name_length: i32,
     pub prefix_uri: String,
-    pub uri_length: u32,
+    pub uri_length: i32,
     pub is_sequential: bool,
 }
 
@@ -203,7 +203,7 @@ pub struct CandyMachineData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub price: Option<i64>,
     pub symbol: String,
-    pub seller_fee_basis_points: u16,
+    pub seller_fee_basis_points: i16,
     pub max_supply: i64,
     pub is_mutable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

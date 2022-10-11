@@ -1,6 +1,6 @@
 use crate::IngesterError;
 
-use digital_asset_types::dao::generated::{
+use digital_asset_types::dao::{
     candy_guard, candy_guard_group, candy_machine, prelude::CandyMachine,
 };
 use mpl_candy_guard::state::{CandyGuard, CandyGuardData};

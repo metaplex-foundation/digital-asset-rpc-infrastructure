@@ -6,7 +6,7 @@ mod get_candy_machine_by_id {
     use crate::{
         dao::{
             candy_machine, candy_machine_data,
-            generated::prelude::CandyMachineData,
+            prelude::CandyMachineData,
             sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
         },
         tests::{create_candy_machine, create_candy_machine_data},

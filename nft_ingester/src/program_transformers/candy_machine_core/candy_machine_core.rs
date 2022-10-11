@@ -1,7 +1,7 @@
 use crate::IngesterError;
 
 use chrono::Utc;
-use digital_asset_types::dao::generated::{
+use digital_asset_types::dao::{
     candy_machine, candy_machine_creators, candy_machine_data, prelude::CandyMachine,
 };
 use mpl_candy_machine_core::CandyMachine as CandyMachineCore;
@@ -38,7 +38,6 @@ pub async fn candy_machine_core(
         items_redeemed: Set(candy_machine_core.items_redeemed as i64),
         mint_authority: Set(Some(candy_machine_core.mint_authority.to_bytes().to_vec())),
         collection_mint: Set(Some(candy_machine_core.collection_mint.to_bytes().to_vec())),
-        version: Set(3),
         created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()
@@ -53,7 +52,6 @@ pub async fn candy_machine_core(
                     candy_machine::Column::ItemsRedeemed,
                     candy_machine::Column::MintAuthority,
                     candy_machine::Column::CollectionMint,
-                    candy_machine::Column::Version,
                     candy_machine::Column::LastMinted,
                 ])
                 .to_owned(),
@@ -79,9 +77,9 @@ pub async fn candy_machine_core(
         if let Some(config_line_settings) = data.config_line_settings {
             (
                 Some(config_line_settings.prefix_name),
-                Some(config_line_settings.name_length),
+                Some(config_line_settings.name_length as i32),
                 Some(config_line_settings.prefix_uri),
-                Some(config_line_settings.uri_length),
+                Some(config_line_settings.uri_length as i32),
                 Some(config_line_settings.is_sequential),
             )
         } else {
@@ -91,7 +89,7 @@ pub async fn candy_machine_core(
     let candy_machine_data = candy_machine_data::ActiveModel {
         candy_machine_id: Set(id.0.to_vec()),
         symbol: Set(data.symbol),
-        seller_fee_basis_points: Set(data.seller_fee_basis_points),
+        seller_fee_basis_points: Set(data.seller_fee_basis_points as i16),
         max_supply: Set(data.max_supply as i64),
         is_mutable: Set(data.is_mutable),
         go_live_date: Set(None),

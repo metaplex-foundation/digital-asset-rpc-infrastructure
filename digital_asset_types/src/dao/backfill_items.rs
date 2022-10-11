@@ -8,24 +8,28 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_guard"
+        "backfill_items"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: Vec<u8>,
-    pub base: Vec<u8>,
-    pub bump: i32,
-    pub authority: Vec<u8>,
+    pub id: i64,
+    pub tree: Vec<u8>,
+    pub seq: i64,
+    pub slot: i64,
+    pub force_chk: Option<bool>,
+    pub backfilled: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    Base,
-    Bump,
-    Authority,
+    Tree,
+    Seq,
+    Slot,
+    ForceChk,
+    Backfilled,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -34,40 +38,32 @@ pub enum PrimaryKey {
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = i64;
     fn auto_increment() -> bool {
-        false
+        true
     }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    CandyGuardGroup,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::Binary.def(),
-            Self::Base => ColumnType::Binary.def(),
-            Self::Bump => ColumnType::Integer.def(),
-            Self::Authority => ColumnType::Binary.def(),
+            Self::Id => ColumnType::BigInteger.def(),
+            Self::Tree => ColumnType::Binary.def(),
+            Self::Seq => ColumnType::BigInteger.def(),
+            Self::Slot => ColumnType::BigInteger.def(),
+            Self::ForceChk => ColumnType::Boolean.def().null(),
+            Self::Backfilled => ColumnType::Boolean.def().null(),
         }
     }
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::CandyGuardGroup => Entity::has_many(super::candy_guard_group::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::candy_guard_group::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyGuardGroup.def()
+        panic!("No RelationDef")
     }
 }
 

@@ -8,66 +8,53 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "candy_guard"
+        "raw_txn"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: Vec<u8>,
-    pub base: Vec<u8>,
-    pub bump: i32,
-    pub authority: Vec<u8>,
+    pub signature: String,
+    pub slot: i64,
+    pub processed: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
-    Id,
-    Base,
-    Bump,
-    Authority,
+    Signature,
+    Slot,
+    Processed,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
 pub enum PrimaryKey {
-    Id,
+    Signature,
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = Vec<u8>;
+    type ValueType = String;
     fn auto_increment() -> bool {
         false
     }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    CandyGuardGroup,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::Binary.def(),
-            Self::Base => ColumnType::Binary.def(),
-            Self::Bump => ColumnType::Integer.def(),
-            Self::Authority => ColumnType::Binary.def(),
+            Self::Signature => ColumnType::String(Some(64u32)).def(),
+            Self::Slot => ColumnType::BigInteger.def(),
+            Self::Processed => ColumnType::Boolean.def(),
         }
     }
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::CandyGuardGroup => Entity::has_many(super::candy_guard_group::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::candy_guard_group::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::CandyGuardGroup.def()
+        panic!("No RelationDef")
     }
 }
 

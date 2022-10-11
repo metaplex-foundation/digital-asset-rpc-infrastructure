@@ -6,7 +6,7 @@ mod get_candy_machine_by_id;
 
 use crate::adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses};
 use crate::{
-    dao::generated::{
+    dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
         candy_machine_data,
         sea_orm_active_enums::{

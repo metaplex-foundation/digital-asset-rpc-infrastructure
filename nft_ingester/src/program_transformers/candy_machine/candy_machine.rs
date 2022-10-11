@@ -1,7 +1,7 @@
 use crate::IngesterError;
 
 use chrono::Utc;
-use digital_asset_types::dao::generated::{
+use digital_asset_types::dao::{
     candy_machine, candy_machine_creators, candy_machine_data,
     prelude::CandyMachine,
     sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
@@ -47,7 +47,6 @@ pub async fn candy_machine<'c>(
         wallet: Set(Some(candy_machine.wallet.to_bytes().to_vec())),
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed as i64),
-        version: Set(2),
         created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()
@@ -133,7 +132,7 @@ pub async fn candy_machine<'c>(
         uuid: Set(Some(data.uuid)),
         price: Set(Some(data.price as i64)),
         symbol: Set(data.symbol),
-        seller_fee_basis_points: Set(data.seller_fee_basis_points),
+        seller_fee_basis_points: Set(data.seller_fee_basis_points as i16),
         max_supply: Set(data.max_supply as i64),
         is_mutable: Set(data.is_mutable),
         retain_authority: Set(Some(data.retain_authority)),
