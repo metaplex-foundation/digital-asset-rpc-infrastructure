@@ -1,6 +1,9 @@
 use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
+use mpl_candy_machine_core::{
+    CandyMachineData as CandyMachineDataV3, Creator as CandyMachineCreatorV3,
+};
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
 use solana_sdk::{signature::Keypair, signer::Signer};
@@ -9,7 +12,7 @@ use std::sync::Arc;
 use crate::{
     // add_config_lines,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
-    initialize_candy_machine,
+    initialize_candy_machine, initialize_candy_machine_v3,
 };
 
 pub async fn make_a_candy_machine(
@@ -46,6 +49,48 @@ pub async fn make_a_candy_machine(
     };
 
     initialize_candy_machine(
+        &candy_machine,
+        &payer,
+        &authority.pubkey(),
+        candy_data,
+        solana_client.clone(),
+    )
+    .await?;
+
+    // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
+    //  candy_manager.set_collection(context).await.unwrap();
+
+    Ok(candy_machine.pubkey())
+}
+
+pub async fn make_a_candy_machine_v3(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+) -> Result<Pubkey, ClientError> {
+    let (candy_machine, authority, minter) =
+        init_candy_machine_info(payer.clone(), solana_client.clone()).await?;
+
+    solana_client
+        .clone()
+        .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 100)
+        .await?;
+
+    let candy_data = CandyMachineDataV3 {
+        items_available: 3,
+        symbol: DEFAULT_SYMBOL.to_string(),
+        seller_fee_basis_points: 500,
+        max_supply: 0,
+        is_mutable: true,
+        creators: vec![CandyMachineCreatorV3 {
+            address: authority.pubkey(),
+            verified: true,
+            percentage_share: 100,
+        }],
+        config_line_settings: None,
+        hidden_settings: None,
+    };
+
+    initialize_candy_machine_v3(
         &candy_machine,
         &payer,
         &authority.pubkey(),
@@ -118,6 +163,7 @@ pub async fn add_all_config_lines(
     Ok(())
 }
 
+// TODO make one of these just for cmv3
 // TODO for future, once candy machine deps are updated, make this match token account load generator i.e. with solana nonblocking client
 pub async fn init_candy_machine_info(
     payer: Arc<Keypair>,

@@ -11,7 +11,7 @@ RUN apt-get update -y && \
 COPY digital_asset_types /rust/digital_asset_types
 RUN mkdir -p /rust/das_api
 WORKDIR /
-RUN git clone https://github.com/metaplex-foundation/blockbuster --branch fix-read-api-build
+RUN git clone https://github.com/metaplex-foundation/blockbuster --branch fix-read-api-build-1
 WORKDIR /rust/das_api
 COPY --from=planner /rust/das_api/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
