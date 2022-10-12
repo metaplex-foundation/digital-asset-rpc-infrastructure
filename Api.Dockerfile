@@ -19,7 +19,7 @@ COPY das_api/Cargo.toml .
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY das_api .
 # Build application
-RUN cargo build --release
+RUN RUSTFLAGS=-Awarnings cargo build --release
 
 FROM rust:1.63-slim-bullseye
 ARG APP=/usr/src/app

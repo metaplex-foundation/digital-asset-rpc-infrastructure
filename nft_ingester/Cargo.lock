@@ -542,8 +542,8 @@ dependencies = [
  "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
- "spl-account-compression",
- "spl-noop",
+ "spl-account-compression 0.1.2 (git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event)",
+ "spl-noop 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "spl-token",
  "thiserror",
 ]
@@ -1127,7 +1127,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-sdk",
- "spl-concurrent-merkle-tree",
+ "spl-concurrent-merkle-tree 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "url",
 ]
@@ -2204,13 +2204,13 @@ dependencies = [
 [[package]]
 name = "mpl-bubblegum"
 version = "0.1.2"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#dedcd5e5f5b2d00d2ec3c1794155904bb2d109ff"
+source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=danenbm/update_bubblegum_events#e4679a8efec4c5bdd155bf400aab1060456e6182"
 dependencies = [
  "anchor-lang",
  "bytemuck",
  "mpl-token-metadata 1.4.1",
  "solana-program",
- "spl-account-compression",
+ "spl-account-compression 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "spl-associated-token-account",
  "spl-token",
 ]
@@ -4572,8 +4572,19 @@ checksum = "893a9fb88714d977a261073fdd86c54cf3289fc15c977b4192116e5805788117"
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "spl-concurrent-merkle-tree",
- "spl-noop",
+ "spl-concurrent-merkle-tree 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "spl-noop 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "spl-account-compression"
+version = "0.1.2"
+source = "git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event#f3de3e5c07ba6aaacf521dc0f3b1ff0647cd83cc"
+dependencies = [
+ "anchor-lang",
+ "bytemuck",
+ "spl-concurrent-merkle-tree 0.1.1 (git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event)",
+ "spl-noop 0.1.2 (git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event)",
 ]
 
 [[package]]
@@ -4604,6 +4615,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spl-concurrent-merkle-tree"
+version = "0.1.1"
+source = "git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event#f3de3e5c07ba6aaacf521dc0f3b1ff0647cd83cc"
+dependencies = [
+ "bytemuck",
+ "solana-program",
+ "thiserror",
+]
+
+[[package]]
 name = "spl-memo"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4617,6 +4638,14 @@ name = "spl-noop"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76d9424a96e1cab78bf65bac7b6c8d97662af07d3bc263b065d527de9c85f296"
+dependencies = [
+ "solana-program",
+]
+
+[[package]]
+name = "spl-noop"
+version = "0.1.2"
+source = "git+https://github.com/danenbm/solana-program-library?branch=danenbm/changelog_event#f3de3e5c07ba6aaacf521dc0f3b1ff0647cd83cc"
 dependencies = [
  "solana-program",
 ]

@@ -39,43 +39,96 @@ async fn main() {
     let semaphore = Arc::new(Semaphore::new(carnage));
 
     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
+    // loop {
+    //     let mut tasks = vec![];
+    //     for _ in 0..carnage {
+    //         let kp = kp.clone();
+    //         let le_clone = le_blockchain.clone();
+    //         let semaphore = semaphore.clone();
+
+    //         // Start tasks
+    //         tasks.push(tokio::spawn(async move {
+    //             let _permit = semaphore.acquire().await.unwrap();
+
+    //             sleep(Duration::from_millis(1000)).await;
+    //             let res = make_a_candy_machine(le_clone, kp).await;
+    //             // TODO put the ids in a vec and then call update on them
+    //             res
+    //         }));
+    //     }
+
+    //     for task in tasks {
+    //         match task.await.unwrap() {
+    //             Ok(e) => {
+    //                 println!("Candy machine created with an id of: {:?}", e);
+    //                 let candy_machine_account =
+    //                     le_blockchain.clone().get_account(&e).await.unwrap();
+
+    //                 println!("candy {:?}", candy_machine_account);
+    //                 continue;
+    //             }
+    //             Err(e) => {
+    //                 println!("Error: {:?}", e);
+    //                 continue;
+    //             }
+    //         }
+    //     }
+
+    //     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
+    // }
     loop {
-        let mut tasks = vec![];
-        for _ in 0..carnage {
-            let kp = kp.clone();
-            let le_clone = le_blockchain.clone();
-            let semaphore = semaphore.clone();
-
-            // Start tasks
-            tasks.push(tokio::spawn(async move {
-                let _permit = semaphore.acquire().await.unwrap();
-
-                sleep(Duration::from_millis(1000)).await;
-                let res = make_a_candy_machine(le_clone, kp).await;
-                // TODO put the ids in a vec and then call update on them
-                res
-            }));
-        }
-
-        for task in tasks {
-            match task.await.unwrap() {
-                Ok(e) => {
-                    println!("Candy machine created with an id of: {:?}", e);
-                    let candy_machine_account =
-                        le_blockchain.clone().get_account(&e).await.unwrap();
-
-                    println!("candy {:?}", candy_machine_account);
-                    continue;
-                }
-                Err(e) => {
-                    println!("Error: {:?}", e);
-                    continue;
-                }
-            }
-        }
+        make_candy_machines(
+            le_blockchain.clone(),
+            kp.clone(),
+            carnage,
+            semaphore.clone(),
+        )
+        .await;
 
         check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     }
+}
+
+pub async fn make_candy_machines(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    carnage: usize,
+    semaphore: Arc<Semaphore>,
+) -> Result<(), ClientError> {
+    let mut tasks = vec![];
+    for _ in 0..carnage {
+        let kp = payer.clone();
+        let le_clone = solana_client.clone();
+        let semaphore = semaphore.clone();
+
+        // Start tasks
+        tasks.push(tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.unwrap();
+
+            sleep(Duration::from_millis(3000)).await;
+            let res = make_a_candy_machine(le_clone, kp).await;
+            // TODO put the ids in a vec and then call update on them
+            res
+        }));
+    }
+
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(e) => {
+                println!("Candy machine created with an id of: {:?}", e);
+                let candy_machine_account = solana_client.clone().get_account(&e).await.unwrap();
+
+                println!("candy {:?}", candy_machine_account);
+                continue;
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+                continue;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn check_balance(
