@@ -22,7 +22,7 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use solana_transaction_status::{
-    option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
+    EncodedConfirmedBlock, UiInstruction::Compiled,
     UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
@@ -621,7 +621,7 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize log messages.
-    let log_messages = if let OptionSerializer::Some(log_messages) = meta.log_messages.as_ref() {
+    let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
         let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
         for message in log_messages {
             log_messages_fb_vec.push(builder.create_string(&message));
@@ -632,8 +632,8 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize inner instructions.
-    let inner_instructions = if let OptionSerializer::Some(inner_instructions_vec) =
-        meta.inner_instructions.as_ref()
+    let inner_instructions = if let Some(inner_instructions_vec) =
+    meta.inner_instructions.as_ref()
     {
         let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
         for inner_instructions in inner_instructions_vec.iter() {

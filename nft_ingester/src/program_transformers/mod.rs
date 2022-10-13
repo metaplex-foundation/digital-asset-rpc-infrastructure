@@ -1,7 +1,12 @@
 use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
-    programs::{bubblegum::BubblegumParser, ProgramParseResult, token_metadata::TokenMetadataParser, token_account::TokenAccountParser},
+    programs::{
+        bubblegum::BubblegumParser,
+               ProgramParseResult,
+               token_metadata::TokenMetadataParser,
+               token_account::TokenAccountParser}
+    ,
 };
 
 use crate::{error::IngesterError, BgTask};
@@ -13,7 +18,8 @@ use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction, token_metadata::handle_token_metadata_account,
+    bubblegum::handle_bubblegum_instruction,
+    token_metadata::handle_token_metadata_account,
 };
 use crate::program_transformers::token::handle_token_program_account;
 
