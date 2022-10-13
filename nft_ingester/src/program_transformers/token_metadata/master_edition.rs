@@ -1,9 +1,9 @@
 use crate::IngesterError;
 use blockbuster::token_metadata::state::{Key, MasterEditionV1, MasterEditionV2};
-use digital_asset_types::dao::sea_orm_active_enums::{
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
     SpecificationAssetClass, V1AccountAttachments,
 };
-use digital_asset_types::dao::{asset, asset_v1_account_attachments};
+use digital_asset_types::dao::generated::{asset, asset_v1_account_attachments};
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,

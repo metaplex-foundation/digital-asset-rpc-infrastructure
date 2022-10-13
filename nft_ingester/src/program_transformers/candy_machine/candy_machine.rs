@@ -3,8 +3,8 @@ use crate::IngesterError;
 use chrono::Utc;
 use digital_asset_types::dao::{
     candy_machine, candy_machine_creators, candy_machine_data,
+    generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     prelude::CandyMachine,
-    sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
 };
 
 use blockbuster::programs::candy_machine::state::CandyMachine as CandyMachineState;

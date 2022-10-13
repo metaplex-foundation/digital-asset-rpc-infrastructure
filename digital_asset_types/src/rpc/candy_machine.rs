@@ -1,5 +1,5 @@
 #[cfg(feature = "sql_types")]
-use crate::dao::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
+use crate::dao::generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
