@@ -484,7 +484,7 @@ dependencies = [
  "lazy_static",
  "mpl-bubblegum",
  "mpl-candy-guard",
- "mpl-candy-machine-core 0.1.0",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.3",
  "plerkle_serialization",
  "solana-sdk",
@@ -2072,12 +2072,12 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard"
 version = "0.1.0"
-source = "git+https://github.com/metaplex-foundation/candy-guard?branch=update-spl#31af9801dc0b0a28c177c49f1a6b1b384bea3da2"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#2487fe3cfb36f6074fa836d53acfd46fe8d7384d"
 dependencies = [
  "anchor-lang",
  "arrayref",
  "mpl-candy-guard-derive",
- "mpl-candy-machine-core 0.1.1",
+ "mpl-candy-machine-core",
  "mpl-token-metadata 1.4.1",
  "solana-gateway",
  "solana-program",
@@ -2088,8 +2088,7 @@ dependencies = [
 [[package]]
 name = "mpl-candy-guard-derive"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2ca93b6548fdbcdab8d19bf083ffed29109e9120e16aa951837c45519a32d80"
+source = "git+https://github.com/metaplex-foundation/candy-guard?branch=stranzhay/read-api#2487fe3cfb36f6074fa836d53acfd46fe8d7384d"
 dependencies = [
  "quote",
  "syn",
@@ -2099,20 +2098,6 @@ dependencies = [
 name = "mpl-candy-machine-core"
 version = "0.1.0"
 source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#1cdda598cfaccbeb5dfcfb5e7c09579bdede42e6"
-dependencies = [
- "anchor-lang",
- "arrayref",
- "mpl-token-metadata 1.4.1",
- "solana-program",
- "spl-associated-token-account",
- "spl-token",
-]
-
-[[package]]
-name = "mpl-candy-machine-core"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e215118d3d79a8c1fa6fbf70c2da9322c00282111caee11b8df3803da474ff63"
 dependencies = [
  "anchor-lang",
  "arrayref",

@@ -29,12 +29,10 @@ pub async fn create_mint(
     authority: &Pubkey,
     freeze_authority: Option<&Pubkey>,
     decimals: u8,
-    mint: Option<Keypair>,
+    mint: Arc<Keypair>,
     solana_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
-) -> Result<Keypair, ClientError> {
-    let mint = mint.unwrap_or_else(Keypair::new);
-
+) -> Result<(), ClientError> {
     let tx = Transaction::new_signed_with_payer(
         &[
             system_instruction::create_account(
@@ -56,13 +54,13 @@ pub async fn create_mint(
             .unwrap(),
         ],
         Some(&payer.pubkey()),
-        &[&payer, &mint],
+        &[payer.as_ref(), mint.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
 
     solana_client.send_and_confirm_transaction(&tx).await?;
 
-    Ok(mint)
+    Ok(())
 }
 
 pub async fn create_v3(
@@ -78,25 +76,25 @@ pub async fn create_v3(
     sized: bool,
     solana_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
-    mint: Keypair,
+    mint: Arc<Keypair>,
     metadata_account: Pubkey,
 ) -> Result<(), ClientError> {
     create_mint(
         &payer.pubkey(),
         freeze_authority,
         0,
-        Some(mint),
-        solana_client,
-        payer,
+        mint.clone(),
+        solana_client.clone(),
+        payer.clone(),
     )
     .await?;
 
     mint_to_wallets(
-        &mint.pubkey(),
-        &payer,
+        &mint.clone().pubkey(),
+        &payer.clone(),
         vec![(payer.pubkey(), 1)],
-        payer,
-        solana_client,
+        payer.clone(),
+        solana_client.clone(),
     )
     .await?;
 
@@ -126,8 +124,8 @@ pub async fn create_v3(
             collection_details,
         )],
         Some(&payer.pubkey()),
-        &[&payer],
-        solana_client.get_latest_blockhash().await?,
+        &[payer.as_ref()],
+        solana_client.as_ref().get_latest_blockhash().await?,
     );
 
     solana_client.send_and_confirm_transaction(&tx).await?;
@@ -150,7 +148,7 @@ pub async fn create_associated_token_account(
             ),
         ],
         Some(&payer.pubkey()),
-        &[&payer],
+        &[payer.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
 
@@ -230,76 +228,6 @@ pub async fn mint_tokens(
     Ok(())
 }
 
-// pub async fn init_collections(
-//     set: bool,
-//     candy_machine: &Pubkey,
-//     authority: Keypair,
-//     sized: bool,
-//     solana_client: Arc<RpcClient>,
-// ) -> Self {
-//     println!("Init Collection Info");
-//     let mint = Keypair::new();
-//     let mint_pubkey = mint.pubkey();
-//     let program_id = mpl_token_metadata::id();
-
-//     let metadata_seeds = &[PREFIX.as_bytes(), program_id.as_ref(), mint_pubkey.as_ref()];
-//     let (pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
-
-//     let collection_details = if sized {
-//         Some(CollectionDetails::V1 { size: 0 })
-//     } else {
-//         None
-//     };
-
-//     let tx = Transaction::new_signed_with_payer(
-//         &[instruction::create_metadata_accounts_v3(
-//             mpl_token_metadata::id(),
-//             self.pubkey,
-//             self.mint.pubkey(),
-//             self.authority.pubkey(),
-//             self.authority.pubkey(),
-//             self.authority.pubkey(),
-//             "Collection Name".to_string(),
-//             "COLLECTION".to_string(),
-//             "URI".to_string(),
-//             None,
-//             0,
-//             true,
-//             true,
-//             None,
-//             None,
-//             collection_details,
-//         )],
-//         Some(&self.authority.pubkey()),
-//         &[&self.authority],
-//         solana_client.get_latest_blockhash()?,
-//     );
-//     let master_edition_info = MasterEditionManager::new(&metadata_info);
-//     master_edition_info
-//         .create_v3(context, Some(0))
-//         .await
-//         .unwrap();
-
-//     let collection_pda = find_collection_pda(candy_machine).0;
-//     let collection_authority_record =
-//         find_collection_authority_account(&metadata_info.mint.pubkey(), &collection_pda).0;
-
-//     CollectionInfo {
-//         set,
-//         pda: collection_pda,
-//         mint: clone_keypair(&metadata_info.mint),
-//         metadata: metadata_info.pubkey,
-//         master_edition: master_edition_info.edition_pubkey,
-//         token_account: metadata_info.get_ata(),
-//         authority_record: collection_authority_record,
-//         sized,
-//     }
-// }
-
-// pub async fn get_metadata(&self, context: &mut ProgramTestContext) -> Metadata {
-//     MetadataManager::get_data_from_account(context, &self.metadata).await
-// }
-
 pub async fn create_v3_master_edition(
     max_supply: Option<u64>,
     solana_client: Arc<RpcClient>,
@@ -320,7 +248,7 @@ pub async fn create_v3_master_edition(
             max_supply,
         )],
         Some(&payer.pubkey()),
-        &[&payer],
+        &[payer.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
 

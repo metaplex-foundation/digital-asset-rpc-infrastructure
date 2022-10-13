@@ -12,7 +12,8 @@ use std::sync::Arc;
 use crate::{
     // add_config_lines,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
-    initialize_candy_machine, initialize_candy_machine_v3,
+    initialize_candy_machine,
+    initialize_candy_machine_v3,
 };
 
 pub async fn make_a_candy_machine(
@@ -92,7 +93,7 @@ pub async fn make_a_candy_machine_v3(
 
     initialize_candy_machine_v3(
         &candy_machine,
-        &payer,
+        payer.clone(),
         &authority.pubkey(),
         candy_data,
         solana_client.clone(),

@@ -2,14 +2,9 @@ mod candy_machine_constants;
 mod helpers;
 mod initialize;
 
-use anchor_client::solana_sdk::{
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-    system_instruction, system_program, sysvar,
-};
 use anchor_lang::{InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
-use helpers::{create_v3, find_authority_pda, find_collection_pda};
+use helpers::{create_v3, create_v3_master_edition, find_authority_pda, find_collection_pda};
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
 use mpl_candy_machine::CandyMachineData;
 use mpl_candy_machine_core::CandyMachineData as CandyMachineDataV3;
@@ -20,7 +15,13 @@ use mpl_token_metadata::{
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
-use solana_sdk::{signature::keypair_from_seed, transaction::Transaction};
+use solana_sdk::{
+    pubkey::Pubkey,
+    signature::{keypair_from_seed, Keypair},
+    signer::Signer,
+    system_instruction, system_program, sysvar,
+    transaction::Transaction,
+};
 use std::{env, sync::Arc, time::Duration};
 use tokio::{sync::Semaphore, time::sleep};
 
@@ -318,7 +319,7 @@ pub async fn initialize_candy_machine_v3(
     let items_available = candy_data.items_available;
     let candy_account_size = candy_data.get_space_for_candy().unwrap();
 
-    let mint = Keypair::new();
+    let mint = Arc::new(Keypair::new());
     let mint_pubkey = mint.pubkey();
     let program_id = mpl_token_metadata::id();
 
@@ -336,8 +337,8 @@ pub async fn initialize_candy_machine_v3(
         None,
         None,
         true,
-        solana_client,
-        payer,
+        solana_client.clone(),
+        payer.clone(),
         mint,
         metadata_account,
     )
@@ -352,16 +353,27 @@ pub async fn initialize_candy_machine_v3(
     let edition_pubkey =
         Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
 
-    let authority_pda = find_authority_pda(&candy_account.pubkey());
+    let authority_pda = find_authority_pda(&candy_account.clone().pubkey());
 
-    let collection_pda = find_collection_pda(&candy_account.pubkey()).0;
+    create_v3_master_edition(
+        Some(0),
+        solana_client.clone(),
+        payer.clone(),
+        edition_pubkey,
+        mint_pubkey,
+        metadata_account,
+    )
+    .await?;
+
+    let collection_pda = find_collection_pda(&candy_account.clone().pubkey()).0;
     let collection_authority_record =
         find_collection_authority_account(&mint_pubkey, &collection_pda).0;
 
     let create_ix = system_instruction::create_account(
-        &payer.pubkey(),
+        &payer.as_ref().pubkey(),
         &candy_account.pubkey(),
         solana_client
+            .as_ref()
             .get_minimum_balance_for_rent_exemption(candy_account_size)
             .await?,
         candy_account_size as u64,
@@ -398,7 +410,7 @@ pub async fn initialize_candy_machine_v3(
     let tx = Transaction::new_signed_with_payer(
         &[create_ix, init_ix],
         Some(&payer.pubkey()),
-        &[payer, candy_account],
+        &[payer.as_ref(), candy_account],
         solana_client.get_latest_blockhash().await?,
     );
 

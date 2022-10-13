@@ -43,6 +43,8 @@ pub async fn candy_machine_core(
         ..Default::default()
     };
 
+    // TODO add version back and in db schema as well
+
     let query = candy_machine::Entity::insert(candy_machine_core_model)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])
