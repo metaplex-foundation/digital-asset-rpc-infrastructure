@@ -21,12 +21,12 @@ curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarba
 tar -zxf -C /solana_program_library solana-program-library.tar.gz
 pushd solana_program_library/account-compression/programs/account-compression
   cargo build-bpf --bpf-out-dir ./here
-  mv ./here/spl_account_compression.so $CWD/programs/GRoLLzvxpxxu2PGNJMMeZPyMxjAUH9pKqxGXV9DGiceU.so
+  mv ./here/spl_account_compression.so $CWD/programs/cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK.so
 popd
 
-pushd solana_program_library/account-compression/programs/wrapper
+pushd solana_program_library/account-compression/programs/noop
   cargo build-bpf --bpf-out-dir ./here
-  mv ./here/spl_noop.so $CWD/programs/WRAPYChf58WFCnyjXKJHtrPgzKXgHp6MD9aVDqJBbGh.so
+  mv ./here/spl_noop.so $CWD/programs/noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV.so
 popd
 
 pushd solana_program_library
