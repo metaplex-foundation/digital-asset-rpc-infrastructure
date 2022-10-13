@@ -11,7 +11,7 @@ sql_types = ["sea-orm"]
 mock = []
 
 [dependencies]
-spl-concurrent-merkle-tree = "0.1.1" 
+spl-concurrent-merkle-tree = { version="0.1.1" }
 sea-orm = { optional = true, version = "0.9.2", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.26.3", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
@@ -23,7 +23,7 @@ solana-sdk = { version = ">=1.10.29" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { path = "../../blockbuster/blockbuster" }
+blockbuster = { version = "0.3.1" }
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.2.2"

@@ -3,8 +3,8 @@ use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::OfferSorting;
 use crate::rpc::response::OfferList;
 use crate::rpc::Offer;
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, ColumnTrait};
-use sea_orm::{ query::*, DbErr};
+use sea_orm::{query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_offers_by_owner(
     db: &DatabaseConnection,

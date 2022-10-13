@@ -11,7 +11,7 @@ RUN apt-get update -y && \
 COPY digital_asset_types /rust/digital_asset_types
 RUN mkdir -p /rust/nft_ingester
 WORKDIR /
-RUN git clone https://github.com/metaplex-foundation/blockbuster --branch fix-read-api-build-1
+RUN git clone https://github.com/metaplex-foundation/blockbuster
 WORKDIR /rust/nft_ingester
 COPY --from=planner /rust/nft_ingester/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!

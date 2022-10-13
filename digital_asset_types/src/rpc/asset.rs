@@ -1,5 +1,5 @@
 #[cfg(feature = "sql_types")]
-use crate::dao::generated::sea_orm_active_enums::{OwnerType, RoyaltyTargetType};
+use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType};
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
