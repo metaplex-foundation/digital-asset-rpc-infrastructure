@@ -13,16 +13,44 @@ use solana_sdk::{
 use spl_token::state::Mint;
 use std::sync::Arc;
 
-pub fn find_authority_pda(candy_machine_key: &Pubkey) -> (Pubkey, u8) {
-    let authority_seeds = [AUTHORITY_SEED.as_bytes(), candy_machine_key.as_ref()];
-    Pubkey::find_program_address(&authority_seeds, &mpl_candy_machine_core::id())
+pub fn find_candy_machine_creator_pda(
+    candy_machine_id: &Pubkey,
+    program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    let creator_seeds = &["candy_machine".as_bytes(), candy_machine_id.as_ref()];
+
+    Pubkey::find_program_address(creator_seeds, &program_id)
 }
 
-pub fn find_collection_pda(candy_machine_key: &Pubkey) -> (Pubkey, u8) {
+pub fn find_metadata_account(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &["collection".as_bytes(), candy_machine_key.as_ref()],
-        &mpl_candy_machine_core::id(),
+        &["metadata".as_bytes(), program_id.as_ref(), mint.as_ref()],
+        &program_id,
     )
+}
+
+pub fn find_metadata_pda(mint: &Pubkey, program_id: &Pubkey) -> Pubkey {
+    let (pda, _bump) = find_metadata_account(mint, program_id);
+
+    pda
+}
+
+pub fn find_master_edition_account(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            "metadata".as_bytes(),
+            program_id.as_ref(),
+            mint.as_ref(),
+            "edition".as_bytes(),
+        ],
+        program_id,
+    )
+}
+
+pub fn find_master_edition_pda(mint: &Pubkey, program_id: &Pubkey) -> Pubkey {
+    let (pda, _bump) = find_master_edition_account(mint, program_id);
+
+    pda
 }
 
 pub async fn create_mint(

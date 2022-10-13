@@ -4,14 +4,14 @@ mod initialize;
 
 use anchor_lang::{InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
-use helpers::{create_v3, create_v3_master_edition, find_authority_pda, find_collection_pda};
+use helpers::{
+    create_v3, create_v3_master_edition, find_candy_machine_creator_pda, find_master_edition_pda,
+    find_metadata_pda,
+};
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
 use mpl_candy_machine::CandyMachineData;
 use mpl_candy_machine_core::CandyMachineData as CandyMachineDataV3;
-use mpl_token_metadata::{
-    pda::find_collection_authority_account,
-    state::{EDITION, PREFIX},
-};
+use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
@@ -316,7 +316,6 @@ pub async fn initialize_candy_machine_v3(
     // token_info: TokenInfo,
     solana_client: Arc<RpcClient>,
 ) -> Result<(), ClientError> {
-    let items_available = candy_data.items_available;
     let candy_account_size = candy_data.get_space_for_candy().unwrap();
 
     let mint = Arc::new(Keypair::new());
@@ -344,30 +343,26 @@ pub async fn initialize_candy_machine_v3(
     )
     .await?;
 
-    let master_edition_seeds = &[
-        PREFIX.as_bytes(),
-        program_id.as_ref(),
-        mint_pubkey.as_ref(),
-        EDITION.as_bytes(),
-    ];
-    let edition_pubkey =
-        Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
-
-    let authority_pda = find_authority_pda(&candy_account.clone().pubkey());
+    let master_edition_pda = find_master_edition_pda(&mint_pubkey, &mpl_token_metadata::id());
+    let authority_pda = find_candy_machine_creator_pda(
+        &candy_account.clone().pubkey(),
+        &mpl_candy_machine_core::id(),
+    );
 
     create_v3_master_edition(
         Some(0),
         solana_client.clone(),
         payer.clone(),
-        edition_pubkey,
+        master_edition_pda,
         mint_pubkey,
         metadata_account,
     )
     .await?;
 
-    let collection_pda = find_collection_pda(&candy_account.clone().pubkey()).0;
     let collection_authority_record =
-        find_collection_authority_account(&mint_pubkey, &collection_pda).0;
+        find_collection_authority_account(&mint_pubkey, &authority_pda.0).0;
+
+    let metadata_pda = find_metadata_pda(&mint_pubkey, &mpl_token_metadata::id());
 
     let create_ix = system_instruction::create_account(
         &payer.as_ref().pubkey(),
@@ -385,9 +380,9 @@ pub async fn initialize_candy_machine_v3(
         authority_pda: authority_pda.0,
         authority: payer.pubkey(),
         payer: payer.pubkey(),
-        collection_metadata: metadata_account,
+        collection_metadata: metadata_pda,
         collection_mint: mint_pubkey,
-        collection_master_edition: edition_pubkey,
+        collection_master_edition: master_edition_pda,
         collection_update_authority: payer.pubkey(),
         collection_authority_record,
         token_metadata_program: mpl_token_metadata::id(),
