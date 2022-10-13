@@ -38,6 +38,7 @@ pub async fn candy_machine_core(
         items_redeemed: Set(candy_machine_core.items_redeemed as i64),
         mint_authority: Set(Some(candy_machine_core.mint_authority.to_bytes().to_vec())),
         collection_mint: Set(Some(candy_machine_core.collection_mint.to_bytes().to_vec())),
+        version: Set(3),
         created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()

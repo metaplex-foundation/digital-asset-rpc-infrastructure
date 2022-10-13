@@ -243,7 +243,8 @@ create table candy_machine
     frozen_count             bigint,                                      
     mint_start               bigint,
     freeze_time              bigint,                                     
-    freeze_fee               bigint,                       
+    freeze_fee               bigint,              
+    version                  smallint             not null,         
     created_at               timestamp with time zone     default (now() at time zone 'utc'),      
     last_minted              timestamp with time zone         
 );
