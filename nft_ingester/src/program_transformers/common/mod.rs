@@ -1,16 +1,16 @@
 use crate::IngesterError;
-use blockbuster::programs::bubblegum::ChangeLogEvent;
 use digital_asset_types::dao::{backfill_items, cl_items};
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
+use blockbuster::programs::bubblegum::ChangeLogEventV1;
 
 pub mod task;
 
 pub async fn save_changelog_event(
-    change_log_event: &ChangeLogEvent,
+    change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn: &DatabaseTransaction,
 ) -> Result<u64, IngesterError> {
-    insert_change_log(&change_log_event, slot, txn, false).await?;
+    insert_change_log(change_log_event, slot, txn, false).await?;
     Ok(change_log_event.seq)
 }
 
@@ -19,7 +19,7 @@ fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
 }
 
 pub async fn insert_change_log(
-    change_log_event: &ChangeLogEvent,
+    change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn: &DatabaseTransaction,
     filling: bool,

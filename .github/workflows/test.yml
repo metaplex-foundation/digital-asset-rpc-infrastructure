@@ -29,9 +29,9 @@ jobs:
 #        run: |
 #          cd digital_asset_types
 #          cargo install sea-orm-cli
-#          sea-orm-cli generate entity -o src/dao2 --database-url postgres://solana:solana@localhost/solana --with-serde both --expanded-format
+#          sea-orm-cli generate entity -o src/dao/generated --database-url postgres://solana:solana@localhost/solana --with-serde both --expanded-format
   build-api:
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
       - name: Build
@@ -40,7 +40,7 @@ jobs:
           cargo build
         shell: bash
   build-ingest:
-    runs-on: ubuntu-latest
+    runs-on: buildjet-8vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
       - name: Build
