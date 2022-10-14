@@ -243,7 +243,8 @@ create table candy_machine
     frozen_count             bigint,                                      
     mint_start               bigint,
     freeze_time              bigint,                                     
-    freeze_fee               bigint,                       
+    freeze_fee               bigint,    
+    version                  smallint            not null,                   
     created_at               timestamp with time zone     default (now() at time zone 'utc'),      
     last_minted              timestamp with time zone         
 );
@@ -267,7 +268,7 @@ create table candy_machine_data
     whitelist_discount_price             bigint,
     config_line_settings_prefix_name     varchar(10),                             
     config_line_settings_name_length     int,                                     
-    config_line_settings_prefix_uri      varchar(10),                            
+    config_line_settings_prefix_uri      varchar(20),                            
     config_line_settings_uri_length      int,                                    
     config_line_settings_is_sequential   bool,
     gatekeeper_network                   bytea,                                    
@@ -322,26 +323,3 @@ create table candy_guard_group
     gatekeeper_expire_on_use         bool                                                                                  
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
