@@ -32,6 +32,7 @@ services:
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://digital-asset-rpc-solana-1:8899", commitment="finalized"}'
+      RUST_BACKTRACE: 1
     build:
       context: .
       dockerfile: Ingest.Dockerfile

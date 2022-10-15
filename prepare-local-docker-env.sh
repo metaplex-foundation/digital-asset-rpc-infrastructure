@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 CWD=$(pwd)
-
 mkdir programs
 mkdir metaplex_program_library || true
 curl -LkSs https://api.github.com/repos/metaplex-foundation/metaplex-program-library/tarball | tar -xz --strip-components=1 -C ./metaplex_program_library
@@ -50,3 +49,4 @@ popd
 
 rm -rf solana_program_library
 rm -rf metaplex_program_library
+

@@ -24,7 +24,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            let task = save_v1_asset(key, account_update.slot(), &m, &txn).await?;
+            let task = save_v1_asset(m.mint.as_ref().into(), account_update.slot(), &m, &txn).await?;
             txn.commit().await?;
             task_manager.send(Box::new(task))?;
             Ok(())

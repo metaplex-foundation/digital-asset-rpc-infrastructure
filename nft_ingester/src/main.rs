@@ -162,7 +162,6 @@ async fn service_account_stream<T: Messenger>(
             // This call to messenger.recv() blocks with no timeout until
             // a message is received on the stream.
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                println!("Received account data");
                 handle_account(&manager, data).await
             }
         }
@@ -183,13 +182,6 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
         safe_metric(|| {
             statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
         });
-
-        println!(
-            "Received account data {:?}",
-            account_update
-                .owner()
-                .map(|e| bs58::encode(e.0.as_slice()).into_string())
-        );
         let begin_processing = Utc::now();
         let res = manager
             .handle_account_update(account_update)
@@ -226,12 +218,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
 
         // Get root of transaction info flatbuffers object.
         if let Ok(tx) = root_as_transaction_info(tx_data) {
-            //TODO -> load this from config in the transformer
-            let bgum = blockbuster::programs::bubblegum::program_id();
-            let mut programs: HashSet<&[u8]> = HashSet::new();
-            programs.insert(bgum.as_ref());
-
-            let instructions = order_instructions(programs, &tx);
+            let instructions = manager.break_transaction(&tx);
             let keys = tx.account_keys();
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
@@ -251,21 +238,35 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     slot: tx.slot(),
                 };
                 let (program, _) = &outer_ix;
+                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
                 safe_metric(|| {
                     statsd_time!(
                         "ingester.bus_ingest_time",
                         (seen_at.timestamp_millis() - tx.seen_at()) as u64
                     );
                 });
-                manager
+                let begin_processing = Utc::now();
+                let res = manager
                     .handle_instruction(&bundle)
-                    .await
-                    .expect("Processing Failed");
-                let finished_at = Utc::now();
-                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-                safe_metric(|| {
-                    statsd_time!("ingester.ix_process_time", (finished_at.timestamp_millis() - tx.seen_at()) as u64, "program_id" => &str_program_id);
-                });
+                    .await;
+                let finish_processing = Utc::now();
+                match res {
+                    Ok(_) => {
+                        safe_metric(|| {
+                            let proc_time = (finish_processing.timestamp_millis() - begin_processing.timestamp_millis()) as u64;
+                            statsd_time!("ingester.tx_proc_time", proc_time);
+                        });
+                        safe_metric(|| {
+                            statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                        });
+                    }
+                    Err(err) => {
+                        println!("Error handling transaction: {:?}", err);
+                        safe_metric(|| {
+                            statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
+                        });
+                    }
+                }
             }
             // TODO -> DLQ message if it failed.
         }

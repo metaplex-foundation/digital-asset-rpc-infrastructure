@@ -10,17 +10,19 @@ use blockbuster::{
 };
 
 use crate::{error::IngesterError, BgTask};
-use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey};
+use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
+use blockbuster::instruction::IxPair;
 
 use crate::program_transformers::{
     bubblegum::handle_bubblegum_instruction,
     token_metadata::handle_token_metadata_account,
 };
+use crate::order_instructions;
 use crate::program_transformers::token::handle_token_program_account;
 
 mod bubblegum;
@@ -32,6 +34,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<Box<dyn BgTask>>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
+    key_set: HashSet<Pubkey>
 }
 
 impl ProgramTransformer {
@@ -43,12 +46,25 @@ impl ProgramTransformer {
         matchers.insert(bgum.key(), Box::new(bgum));
         matchers.insert(token_metadata.key(), Box::new(token_metadata));
         matchers.insert(token.key(), Box::new(token));
+        let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
+            acc.insert(*k);
+            acc
+        });
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             task_sender,
             matchers,
+            key_set: hs
         }
+    }
+
+    pub fn break_transaction<'i>(
+        &self,
+        tx: &'i TransactionInfo<'i>,
+    ) -> VecDeque<(IxPair<'i>, Option<Vec<IxPair<'i>>>)> {
+        let ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
+        order_instructions(ref_set, tx)
     }
 
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
@@ -62,6 +78,7 @@ impl ProgramTransformer {
         if let Some(program) = self.match_program(&ix.program) {
             let result = program.handle_instruction(ix)?;
             let concrete = result.result_type();
+
             match concrete {
                 ProgramParseResult::Bubblegum(parsing_result) => {
                     handle_bubblegum_instruction(
