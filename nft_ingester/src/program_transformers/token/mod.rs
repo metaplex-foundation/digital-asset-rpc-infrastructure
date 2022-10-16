@@ -1,13 +1,16 @@
-use blockbuster::programs::token_account::TokenProgramAccount;
+use crate::program_transformers::token;
 use crate::{BgTask, IngesterError};
+use blockbuster::programs::token_account::TokenProgramAccount;
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
-use plerkle_serialization::AccountInfo;
-use tokio::sync::mpsc::UnboundedSender;
 use digital_asset_types::dao::{asset, token_accounts, tokens};
-use sea_orm::{entity::*, query::*, sea_query::OnConflict, ActiveValue::{Set}, ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue, DatabaseConnection};
+use plerkle_serialization::AccountInfo;
+use sea_orm::{
+    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
+    DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+};
 use solana_sdk::program_option::COption;
 use spl_token::state::AccountState;
-use crate::program_transformers::token;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
@@ -44,22 +47,26 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 close_authority: Set(None),
             };
 
-            let query = token_accounts::Entity::insert(model).on_conflict(OnConflict::columns(
-                [token_accounts::Column::Pubkey],
-            ).update_columns([
-                token_accounts::Column::DelegatedAmount,
-                token_accounts::Column::Delegate,
-                token_accounts::Column::Amount,
-                token_accounts::Column::Frozen,
-                token_accounts::Column::Owner,
-                token_accounts::Column::CloseAuthority,
-                token_accounts::Column::SlotUpdated,
-            ]).to_owned())
+            let query = token_accounts::Entity::insert(model)
+                .on_conflict(
+                    OnConflict::columns([token_accounts::Column::Pubkey])
+                        .update_columns([
+                            token_accounts::Column::DelegatedAmount,
+                            token_accounts::Column::Delegate,
+                            token_accounts::Column::Amount,
+                            token_accounts::Column::Frozen,
+                            token_accounts::Column::Owner,
+                            token_accounts::Column::CloseAuthority,
+                            token_accounts::Column::SlotUpdated,
+                        ])
+                        .to_owned(),
+                )
                 .build(DbBackend::Postgres);
             txn.execute(query).await?;
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
                 .filter(asset::Column::OwnerType.eq("single"))
-                .one(&txn).await?;
+                .one(&txn)
+                .await?;
             if let Some(asset) = asset_update {
                 let mut active: asset::ActiveModel = asset.into();
                 active.owner = Set(Some(owner));
@@ -88,16 +95,19 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 freeze_authority: Set(freeze_auth),
             };
 
-            let query = tokens::Entity::insert(model).on_conflict(OnConflict::columns(
-                [tokens::Column::Mint],
-            ).update_columns([
-                tokens::Column::Supply,
-                tokens::Column::MintAuthority,
-                tokens::Column::CloseAuthority,
-                tokens::Column::ExtensionData,
-                tokens::Column::SlotUpdated,
-                tokens::Column::Decimals
-            ]).to_owned())
+            let query = tokens::Entity::insert(model)
+                .on_conflict(
+                    OnConflict::columns([tokens::Column::Mint])
+                        .update_columns([
+                            tokens::Column::Supply,
+                            tokens::Column::MintAuthority,
+                            tokens::Column::CloseAuthority,
+                            tokens::Column::ExtensionData,
+                            tokens::Column::SlotUpdated,
+                            tokens::Column::Decimals,
+                        ])
+                        .to_owned(),
+                )
                 .build(DbBackend::Postgres);
             txn.execute(query).await?;
             Ok(())

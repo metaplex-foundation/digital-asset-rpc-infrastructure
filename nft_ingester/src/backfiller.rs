@@ -22,8 +22,8 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use solana_transaction_status::{
-    EncodedConfirmedBlock, UiInstruction::Compiled,
-    UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
+    EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
+    UiTransactionStatusMeta,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::str::FromStr;
@@ -632,8 +632,7 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize inner instructions.
-    let inner_instructions = if let Some(inner_instructions_vec) =
-    meta.inner_instructions.as_ref()
+    let inner_instructions = if let Some(inner_instructions_vec) = meta.inner_instructions.as_ref()
     {
         let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
         for inner_instructions in inner_instructions_vec.iter() {
