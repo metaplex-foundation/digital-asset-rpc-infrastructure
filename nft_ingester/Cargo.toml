@@ -19,7 +19,7 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "0.4.3", features = ['redis'] }
+plerkle_messenger = { version = "0.4.8", features = ['redis'] }
 plerkle_serialization = { version = "0.4.8" }
 flatbuffers = "2.1.2"
 lazy_static = "1.4.0"
@@ -40,3 +40,7 @@ solana-transaction-status = "~1.10.3"
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false
+
+[patch.crates-io]
+plerkle_messenger = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin", branch = "alex/rediscg"}
+

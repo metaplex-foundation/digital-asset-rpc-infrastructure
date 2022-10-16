@@ -2817,9 +2817,8 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plerkle_messenger"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a34b49b357ddd109eb3b0b0269d77605ac7a6b34855eb7e3b5cc855a80b3645c"
+version = "0.4.8"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin?branch=alex/rediscg#e614fe7ee4855eb97f50c9818632d5bea652eb50"
 dependencies = [
  "async-mutex",
  "async-trait",
