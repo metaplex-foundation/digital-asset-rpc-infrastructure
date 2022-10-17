@@ -2,7 +2,7 @@ use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
-    CandyMachineData as CandyMachineDataV3, Creator as CandyMachineCreatorV3, ConfigLineSettings,
+    CandyMachineData as CandyMachineDataV3, ConfigLineSettings, Creator as CandyMachineCreatorV3,
 };
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
@@ -58,6 +58,7 @@ pub async fn make_a_candy_machine(
     )
     .await?;
 
+    // TODO add config lines will be finished in next pr
     // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
