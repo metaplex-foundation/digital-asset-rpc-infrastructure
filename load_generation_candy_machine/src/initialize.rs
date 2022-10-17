@@ -1,4 +1,3 @@
-use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
@@ -13,7 +12,7 @@ use crate::{
     // add_config_lines,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
     initialize_candy_machine,
-    initialize_candy_machine_v3,
+    initialize_candy_machine_v3, add_config_lines,
 };
 
 pub async fn make_a_candy_machine(
