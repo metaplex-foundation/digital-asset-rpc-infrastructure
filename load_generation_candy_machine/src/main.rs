@@ -9,7 +9,7 @@ use helpers::{
     find_metadata_pda,
 };
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
-use mpl_candy_machine::CandyMachineData;
+use mpl_candy_machine::{CandyMachineData, ConfigLine};
 use mpl_candy_machine_core::CandyMachineData as CandyMachineDataV3;
 use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
 use solana_client::rpc_request::RpcError::RpcRequestError;
@@ -208,42 +208,42 @@ pub async fn check_balance(
     Ok(())
 }
 
-// pub async fn add_config_lines(
-//     candy_machine: &Pubkey,
-//     authority: &Keypair,
-//     index: u32,
-//     config_lines: Vec<ConfigLine>,
-//     solana_client: Arc<RpcClient>,
-// ) -> Result<(), ClientError> {
-//     let accounts = mpl_candy_machine::accounts::AddConfigLines {
-//         candy_machine: *candy_machine,
-//         authority: authority.pubkey(),
-//     }
-//     .to_account_metas(None);
+pub async fn add_config_lines(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    index: u32,
+    config_lines: Vec<ConfigLine>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_machine::accounts::AddConfigLines {
+        candy_machine: *candy_machine,
+        authority: authority.pubkey(),
+    }
+    .to_account_metas(None);
 
-//     let data = mpl_candy_machine::instruction::AddConfigLines {
-//         index,
-//         config_lines,
-//     }
-//     .data();
+    let data = mpl_candy_machine::instruction::AddConfigLines {
+        index,
+        config_lines,
+    }
+    .data();
 
-//     let add_config_line_ix = Instruction {
-//         program_id: mpl_candy_machine::id(),
-//         data,
-//         accounts,
-//     };
+    let add_config_line_ix = Instruction {
+        program_id: mpl_candy_machine::id(),
+        data,
+        accounts,
+    };
 
-//     let tx = Transaction::new_signed_with_payer(
-//         &[add_config_line_ix],
-//         Some(&authority.pubkey()),
-//         &[authority],
-//         solana_client.get_latest_blockhash().await?,
-//     );
+    let tx = Transaction::new_signed_with_payer(
+        &[add_config_line_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        solana_client.get_latest_blockhash().await?,
+    );
 
-//     solana_client.send_and_confirm_transaction(&tx).await?;
+    solana_client.send_and_confirm_transaction(&tx).await?;
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 pub async fn initialize_candy_machine(
     candy_account: &Keypair,

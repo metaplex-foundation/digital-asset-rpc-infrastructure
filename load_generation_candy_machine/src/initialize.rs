@@ -59,7 +59,7 @@ pub async fn make_a_candy_machine(
     .await?;
 
     // TODO add config lines will be finished in next pr
-    // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
+    add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
     Ok(candy_machine.pubkey())
@@ -136,8 +136,6 @@ pub async fn add_all_config_lines(
 
     let candy_machine_account = solana_client.get_account(candy_machine).await?;
 
-    println!("candy {:?}", candy_machine_account);
-
     let candy_machine_data =
         CandyMachine::try_deserialize(&mut candy_machine_account.data.as_ref()).unwrap();
 
@@ -145,27 +143,27 @@ pub async fn add_all_config_lines(
     for i in 0..total_items / 10 {
         let index = (i * 10) as u32;
         let config_lines = make_config_lines(index, 10);
-        // add_config_lines(
-        //     candy_machine,
-        //     authority,
-        //     index,
-        //     config_lines,
-        //     solana_client.clone(),
-        // )
-        // .await?;
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
     }
     let remainder = total_items & 10;
     if remainder > 0 {
         let index = (total_items as u32 / 10).saturating_sub(1);
         let config_lines = make_config_lines(index, remainder as u8);
-        // add_config_lines(
-        //     candy_machine,
-        //     authority,
-        //     index,
-        //     config_lines,
-        //     solana_client.clone(),
-        // )
-        // .await?;
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
     }
 
     Ok(())
