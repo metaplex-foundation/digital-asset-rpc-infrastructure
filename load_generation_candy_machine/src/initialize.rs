@@ -2,7 +2,7 @@ use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
-    CandyMachineData as CandyMachineDataV3, Creator as CandyMachineCreatorV3,
+    CandyMachineData as CandyMachineDataV3, Creator as CandyMachineCreatorV3, ConfigLineSettings,
 };
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
@@ -87,7 +87,13 @@ pub async fn make_a_candy_machine_v3(
             verified: true,
             percentage_share: 100,
         }],
-        config_line_settings: None,
+        config_line_settings: Some(ConfigLineSettings {
+            prefix_name: "TEST".to_string(),
+            name_length: 10,
+            prefix_uri: "https://arweave.net/".to_string(),
+            uri_length: 50,
+            is_sequential: false,
+        }),
         hidden_settings: None,
     };
 

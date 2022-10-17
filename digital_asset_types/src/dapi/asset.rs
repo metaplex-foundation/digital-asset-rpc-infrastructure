@@ -3,7 +3,7 @@ use crate::dao::generated::prelude::{Asset, AssetData};
 use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Asset as RpcAsset, MetadataItem, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
     Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;

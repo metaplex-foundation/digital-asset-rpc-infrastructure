@@ -268,7 +268,7 @@ create table candy_machine_data
     whitelist_discount_price             bigint,
     config_line_settings_prefix_name     varchar(10),                             
     config_line_settings_name_length     int,                                     
-    config_line_settings_prefix_uri      varchar(10),                            
+    config_line_settings_prefix_uri      varchar(20),                            
     config_line_settings_uri_length      int,                                    
     config_line_settings_is_sequential   bool,
     gatekeeper_network                   bytea,                                    

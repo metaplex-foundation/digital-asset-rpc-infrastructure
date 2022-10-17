@@ -3,11 +3,13 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
-use digital_asset_types::dao::asset_v1_account_attachments;
 use digital_asset_types::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
+        asset_v1_account_attachments,
+        sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, V1AccountAttachments,
+        },
     },
     json::ChainDataV1,
 };
