@@ -10,19 +10,22 @@ use blockbuster::{
 };
 
 use crate::{error::IngesterError, BgTask};
-use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey};
+use blockbuster::instruction::IxPair;
+use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::order_instructions;
 use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction, 
+    bubblegum::handle_bubblegum_instruction,
     // candy_guard::handle_candy_guard_account_update,
     candy_machine::handle_candy_machine_account_update,
     candy_machine_core::handle_candy_machine_core_account_update,
-    token::handle_token_program_account, token_metadata::handle_token_metadata_account,
+    token::handle_token_program_account,
+    token_metadata::handle_token_metadata_account,
 };
 
 mod bubblegum;
@@ -37,6 +40,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<Box<dyn BgTask>>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
+    key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
@@ -54,12 +58,25 @@ impl ProgramTransformer {
         matchers.insert(candy_machine.key(), Box::new(candy_machine));
         matchers.insert(candy_machine_core.key(), Box::new(candy_machine_core));
         matchers.insert(candy_guard.key(), Box::new(candy_guard));
+        let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
+            acc.insert(*k);
+            acc
+        });
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             task_sender,
             matchers,
+            key_set: hs,
         }
+    }
+
+    pub fn break_transaction<'i>(
+        &self,
+        tx: &'i TransactionInfo<'i>,
+    ) -> VecDeque<(IxPair<'i>, Option<Vec<IxPair<'i>>>)> {
+        let ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
+        order_instructions(ref_set, tx)
     }
 
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
@@ -73,6 +90,7 @@ impl ProgramTransformer {
         if let Some(program) = self.match_program(&ix.program) {
             let result = program.handle_instruction(ix)?;
             let concrete = result.result_type();
+
             match concrete {
                 ProgramParseResult::Bubblegum(parsing_result) => {
                     handle_bubblegum_instruction(

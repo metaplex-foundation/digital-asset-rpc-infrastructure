@@ -85,8 +85,8 @@ You need to run the following script (which takes a long time) in order to get a
 ```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
 
 ```bash
-chmod +x ./dowload-programs.sh
-./dowload-programs.sh
+chmod +x ./prepare-local-docker-env.sh
+./prepare-local-docker-env.sh
 ```
 This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
 If you get some permissions errors, just sudo delete the programs directory and start again.

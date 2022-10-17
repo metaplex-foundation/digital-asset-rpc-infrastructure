@@ -28,6 +28,7 @@ pub struct Model {
     pub mint_start: Option<i64>,
     pub freeze_time: Option<i64>,
     pub freeze_fee: Option<i64>,
+    pub version: i16,
     pub created_at: Option<DateTimeUtc>,
     pub last_minted: Option<DateTimeUtc>,
 }
@@ -48,6 +49,7 @@ pub enum Column {
     MintStart,
     FreezeTime,
     FreezeFee,
+    Version,
     CreatedAt,
     LastMinted,
 }
@@ -88,11 +90,14 @@ impl ColumnTrait for Column {
             Self::MintStart => ColumnType::BigInteger.def().null(),
             Self::FreezeTime => ColumnType::BigInteger.def().null(),
             Self::FreezeFee => ColumnType::BigInteger.def().null(),
+            Self::Version => ColumnType::SmallInteger.def(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::LastMinted => ColumnType::TimestampWithTimeZone.def().null(),
         }
     }
 }
+
+// TODO bring sql generated files to parity with this one that works correctly
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {

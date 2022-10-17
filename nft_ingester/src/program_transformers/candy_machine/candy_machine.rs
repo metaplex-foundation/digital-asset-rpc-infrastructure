@@ -47,6 +47,7 @@ pub async fn candy_machine<'c>(
         wallet: Set(Some(candy_machine.wallet.to_bytes().to_vec())),
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed as i64),
+        version: Set(2),
         created_at: Set(Some(Utc::now())),
         last_minted: Set(last_minted),
         ..Default::default()

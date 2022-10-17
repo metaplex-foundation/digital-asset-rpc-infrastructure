@@ -58,6 +58,7 @@ pub async fn make_a_candy_machine(
     )
     .await?;
 
+    // TODO add config lines will be finished in next pr
     // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 

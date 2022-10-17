@@ -73,7 +73,30 @@ pub struct File {
 }
 
 pub type Files = Vec<File>;
-pub type MetadataItem = HashMap<String, serde_json::Value>;
+
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
+pub struct MetadataItem(HashMap<String, serde_json::Value>);
+
+impl MetadataItem {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn inner(&self) -> &HashMap<String, serde_json::Value> {
+        &self.0
+    }
+
+    pub fn single(key: String, value: serde_json::Value) -> Self {
+        let mut map = HashMap::new();
+        map.insert(key, value);
+        Self(map)
+    }
+
+    pub fn set_item(&mut self, key: String, value: serde_json::Value) -> &mut Self {
+        self.0.insert(key, value);
+        self
+    }
+}
 // TODO sub schema support
 pub type Links = HashMap<String, serde_json::Value>;
 
