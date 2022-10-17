@@ -3,6 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
+use digital_asset_types::dao::asset_v1_account_attachments;
 use digital_asset_types::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
@@ -17,6 +18,7 @@ use sea_orm::{
 };
 
 use crate::program_transformers::common::task::DownloadMetadata;
+use blockbuster::token_metadata::pda::find_master_edition_account;
 use blockbuster::token_metadata::state::{TokenStandard, UseMethod, Uses};
 use digital_asset_types::dao::generated::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions,
@@ -44,6 +46,8 @@ pub async fn mint_v1<'c>(
                 nonce,
                 ..
             } => {
+                let (edition_attachment_address, _) = find_master_edition_account(&id);
+                let slot_i = bundle.slot as i64;
                 let mut chain_data = ChainDataV1 {
                     name: metadata.name.clone(),
                     symbol: metadata.symbol.clone(),
@@ -71,6 +75,7 @@ pub async fn mint_v1<'c>(
                     metadata_url: Set(metadata.uri.trim().replace('\0', "")),
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
+                    slot_updated: Set(slot_i),
                     ..Default::default()
                 }
                 .insert(txn)
@@ -91,7 +96,7 @@ pub async fn mint_v1<'c>(
                     supply: Set(1),
                     supply_mint: Set(None),
                     compressed: Set(true),
-                    tree_id: Set(Some(bundle.keys.get(7).unwrap().0.to_vec())), //will change when we remove requests
+                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())), //will change when we remove requests
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
                     nonce: Set(nonce as i64),
@@ -101,6 +106,7 @@ pub async fn mint_v1<'c>(
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(data.id)),
                     seq: Set(seq as i64), // gummyroll seq
+                    slot_updated: Set(slot_i),
                     ..Default::default()
                 };
 
@@ -109,6 +115,22 @@ pub async fn mint_v1<'c>(
                 let query = asset::Entity::insert(model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
+                            .do_nothing()
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                txn.execute(query).await?;
+
+                let attachment = asset_v1_account_attachments::ActiveModel {
+                    id: Set(edition_attachment_address.to_bytes().to_vec()),
+                    slot_updated: Set(slot_i),
+                    attachment_type: Set(V1AccountAttachments::MasterEditionV2),
+                    ..Default::default()
+                };
+
+                let query = asset_v1_account_attachments::Entity::insert(attachment)
+                    .on_conflict(
+                        OnConflict::columns([asset_v1_account_attachments::Column::Id])
                             .do_nothing()
                             .to_owned(),
                     )
@@ -125,6 +147,7 @@ pub async fn mint_v1<'c>(
                             share: Set(c.share as i32),
                             verified: Set(c.verified),
                             seq: Set(seq as i64), // gummyroll seq
+                            slot_updated: Set(slot_i),
                             ..Default::default()
                         });
                     }
@@ -144,7 +167,8 @@ pub async fn mint_v1<'c>(
                     let model = asset_authority::ActiveModel {
                         asset_id: Set(id.to_bytes().to_vec()),
                         authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
-                        seq: Set(seq as i64),                                   // gummyroll seq
+                        seq: Set(seq as i64),
+                        slot_updated: Set(slot_i),
                         ..Default::default()
                     };
 
@@ -167,6 +191,7 @@ pub async fn mint_v1<'c>(
                                 group_key: Set("collection".to_string()),
                                 group_value: Set(c.key.to_string()),
                                 seq: Set(seq as i64), // gummyroll seq
+                                slot_updated: Set(slot_i),
                                 ..Default::default()
                             };
 

@@ -66,6 +66,23 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
     let mut selector_fn = jsonpath_lib::selector(metadata);
     let selector = &mut selector_fn;
     println!("{}", metadata.to_string());
+    let mut meta: Vec<MetadataItem> = Vec::new();
+    let image = safe_select(selector, "$.image");
+    let name = safe_select(selector, "$.name")
+        .map(|x| MetadataItem::single("name".to_string(), x.clone()));
+    if let Some(name) = name {
+        meta.push(name);
+    }
+    let desc = safe_select(selector, "$.description")
+        .map(|x| MetadataItem::single("description".to_string(), x.clone()));
+    if let Some(desc) = desc {
+        meta.push(desc);
+    }
+    let symbol = safe_select(selector, "$.symbol")
+        .map(|x| MetadataItem::single("symbol".to_string(), x.clone()));
+    if let Some(symbol) = symbol {
+        meta.push(symbol);
+    }
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
     let external_url = safe_select(selector, "$.external_url").map(|val| {
@@ -113,10 +130,12 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
+
+
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         files: Some(files),
-        metadata: None,
+        metadata: Some(meta),
         links: external_url,
     })
 }
