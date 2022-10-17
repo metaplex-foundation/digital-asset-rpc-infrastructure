@@ -113,7 +113,6 @@ impl ProgramTransformer {
         acct: &'b AccountInfo<'b>,
     ) -> Result<(), IngesterError> {
         if let Some(owner) = acct.owner() {
-            println!("here in handle account update");
             if let Some(program) = self.match_program(owner) {
                 let result = program.handle_account(acct)?;
                 let concrete = result.result_type();
