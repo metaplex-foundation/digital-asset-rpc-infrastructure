@@ -4,7 +4,7 @@ pub const FREEZE_FEE: u64 = 0; //100000; // 0.0001 SOL
 pub const DEFAULT_UUID: &str = "ABCDEF";
 pub const DEFAULT_PRICE: u64 = LAMPORTS_PER_SOL;
 pub const ITEMS_AVAILABLE: u64 = 11;
-// TODO figure out encoding on this for DB
+// TODO figure out encoding on this for DB P-627
 pub const DEFAULT_SYMBOL: &str = "SYMBOL0000";
 
 pub const MAX_CREATOR_LEN: usize = 32 + 1 + 1;

@@ -58,7 +58,7 @@ pub async fn make_a_candy_machine(
     )
     .await?;
 
-    // TODO add config lines will be finished in next pr
+    // TODO add config lines will be finished in next pr P-674
     // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
@@ -145,6 +145,7 @@ pub async fn add_all_config_lines(
     for i in 0..total_items / 10 {
         let index = (i * 10) as u32;
         let config_lines = make_config_lines(index, 10);
+        // TODO add config lines will be finished in next pr P-674
         // add_config_lines(
         //     candy_machine,
         //     authority,
@@ -158,6 +159,7 @@ pub async fn add_all_config_lines(
     if remainder > 0 {
         let index = (total_items as u32 / 10).saturating_sub(1);
         let config_lines = make_config_lines(index, remainder as u8);
+        // TODO add config lines will be finished in next pr P-674
         // add_config_lines(
         //     candy_machine,
         //     authority,
@@ -171,8 +173,7 @@ pub async fn add_all_config_lines(
     Ok(())
 }
 
-// TODO make one of these just for cmv3
-// TODO for future, once candy machine deps are updated, make this match token account load generator i.e. with solana nonblocking client
+// TODO make one of these just for cmv3 P-654
 pub async fn init_candy_machine_info(
     payer: Arc<Keypair>,
     solana_client: Arc<RpcClient>,
@@ -185,6 +186,7 @@ pub async fn init_candy_machine_info(
         .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL * 10)
         .await?;
 
+    //TODO all below code P-626
     // let sized = if let Some(sized) = &collection {
     //     *sized
     // } else {
