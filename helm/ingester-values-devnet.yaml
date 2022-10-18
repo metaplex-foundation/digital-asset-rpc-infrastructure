@@ -1,4 +1,4 @@
 generateLoad: false
 load:
   network: "devnet"
-
+replicaCount: 3
