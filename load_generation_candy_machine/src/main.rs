@@ -1,6 +1,7 @@
 mod candy_machine_constants;
 mod helpers;
 mod initialize;
+mod mint;
 
 use anchor_lang::{InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};

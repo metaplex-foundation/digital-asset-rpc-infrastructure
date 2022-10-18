@@ -10,6 +10,7 @@ use solana_sdk::{
     program_pack::Pack, signature::Keypair, signer::Signer, system_instruction,
     transaction::Transaction,
 };
+use spl_associated_token_account::get_associated_token_address;
 use spl_token::state::Mint;
 use std::sync::Arc;
 
@@ -283,4 +284,55 @@ pub async fn create_v3_master_edition(
     solana_client.send_and_confirm_transaction(&tx).await?;
 
     Ok(())
+}
+
+pub async fn prepare_nft(
+    minter: Keypair,
+    solana_client: Arc<RpcClient>,
+) -> Result<(Pubkey, Pubkey, Arc<Keypair>, Pubkey), ClientError> {
+    let mint = Arc::new(Keypair::new());
+    let mint_pubkey = mint.pubkey();
+    let program_id = mpl_token_metadata::id();
+    let minter = Arc::new(minter);
+
+    let metadata_seeds = &[
+        "metadata".as_bytes(),
+        program_id.as_ref(),
+        mint_pubkey.as_ref(),
+    ];
+    let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
+    create_mint(
+        &minter.clone().pubkey(),
+        Some(&minter.clone().pubkey()),
+        0,
+        mint.clone(),
+        solana_client.clone(),
+        minter.clone(),
+    )
+    .await
+    .unwrap();
+    mint_to_wallets(
+        &mint.clone().pubkey(),
+        &minter.clone(),
+        vec![(minter.pubkey(), 1)],
+        minter.clone(),
+        solana_client.clone(),
+    )
+    .await
+    .unwrap();
+
+    let program_id = mpl_token_metadata::id();
+    // TODO put all the metadata/master edition stuff in related method
+
+    let master_edition_seeds = &[
+        "metadata".as_bytes(),
+        program_id.as_ref(),
+        mint_pubkey.as_ref(),
+        "edition".as_bytes(),
+    ];
+    let edition_pubkey =
+        Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
+
+    let token_account = get_associated_token_address(&minter.clone().pubkey(), &mint.pubkey());
+    Ok((edition_pubkey, metadata_pubkey, mint, token_account))
 }

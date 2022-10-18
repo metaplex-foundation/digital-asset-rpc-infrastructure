@@ -9,10 +9,13 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use std::sync::Arc;
 
 use crate::{
+    add_config_lines,
     // add_config_lines,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
+    helpers::{find_candy_machine_creator_pda, prepare_nft},
     initialize_candy_machine,
-    initialize_candy_machine_v3, add_config_lines,
+    initialize_candy_machine_v3,
+    mint::mint_nft,
 };
 
 pub async fn make_a_candy_machine(
@@ -61,6 +64,29 @@ pub async fn make_a_candy_machine(
     add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
+    let (edition_pubkey, metadata_pubkey, mint, token_account) =
+        prepare_nft(minter, solana_client.clone()).await?;
+    let (candy_creator_pda, creator_bump) =
+        find_candy_machine_creator_pda(&candy_machine.pubkey(), &mpl_candy_machine::id());
+
+    mint_nft(
+        &candy_machine.pubkey(),
+        &candy_creator_pda,
+        creator_bump,
+        &authority.pubkey(),
+        &authority.pubkey(),
+        payer,
+        edition_pubkey,
+        metadata_pubkey,
+        mint,
+        token_account,
+        solana_client.clone(),
+        // token_info,
+        // whitelist_info,
+        // collection_info,
+        // gateway_info,
+        // freeze_info,
+    );
     Ok(candy_machine.pubkey())
 }
 
@@ -180,6 +206,10 @@ pub async fn init_candy_machine_info(
 
     solana_client
         .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL * 10)
+        .await?;
+
+    solana_client
+        .request_airdrop(&minter.pubkey(), LAMPORTS_PER_SOL * 10)
         .await?;
 
     // let sized = if let Some(sized) = &collection {
