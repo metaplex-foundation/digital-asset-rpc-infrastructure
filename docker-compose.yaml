@@ -77,7 +77,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.1
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

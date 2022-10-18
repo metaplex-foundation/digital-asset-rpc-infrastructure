@@ -255,7 +255,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                         (seen_at.timestamp_millis() - tx.seen_at()) as u64
                     );
                 });
-                let begin_processing = Utc::now();
+
                 let res = manager.handle_instruction(&bundle).await;
                 let finish_processing = Utc::now();
                 match res {
@@ -278,8 +278,6 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     }
                 }
             }
-            // TODO -> DLQ message if it failed.
         }
     }
 }
-// Associates logs with the given program ID
