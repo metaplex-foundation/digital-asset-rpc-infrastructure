@@ -6,7 +6,8 @@ use mpl_candy_machine_core::{
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
 use solana_sdk::{signature::Keypair, signer::Signer};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::time::sleep;
 
 use crate::{
     add_config_lines,
@@ -25,6 +26,7 @@ pub async fn make_a_candy_machine(
     let (candy_machine, authority, minter) =
         init_candy_machine_info(payer.clone(), solana_client.clone()).await?;
 
+    let minter = Arc::new(minter);
     solana_client
         .clone()
         .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 100)
@@ -61,11 +63,14 @@ pub async fn make_a_candy_machine(
     .await?;
 
     // TODO add config lines will be finished in next pr
-    add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
+    add_all_config_lines(&candy_machine.pubkey(), &payer, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
 
+    // added this to allow time to grab id and see that items avail has changed
+    sleep(Duration::from_millis(130000)).await;
+
     let (edition_pubkey, metadata_pubkey, mint, token_account) =
-        prepare_nft(minter, solana_client.clone()).await?;
+        prepare_nft(minter.clone(), solana_client.clone()).await?;
     let (candy_creator_pda, creator_bump) =
         find_candy_machine_creator_pda(&candy_machine.pubkey(), &mpl_candy_machine::id());
 
@@ -73,9 +78,9 @@ pub async fn make_a_candy_machine(
         &candy_machine.pubkey(),
         &candy_creator_pda,
         creator_bump,
-        &authority.pubkey(),
-        &authority.pubkey(),
-        payer,
+        &payer.pubkey(),
+        &payer.pubkey(),
+        minter,
         edition_pubkey,
         metadata_pubkey,
         mint,
@@ -86,7 +91,9 @@ pub async fn make_a_candy_machine(
         // collection_info,
         // gateway_info,
         // freeze_info,
-    );
+    )
+    .await?;
+
     Ok(candy_machine.pubkey())
 }
 
@@ -210,6 +217,10 @@ pub async fn init_candy_machine_info(
 
     solana_client
         .request_airdrop(&minter.pubkey(), LAMPORTS_PER_SOL * 10)
+        .await?;
+
+    solana_client
+        .request_airdrop(&authority.pubkey(), LAMPORTS_PER_SOL * 10)
         .await?;
 
     // let sized = if let Some(sized) = &collection {

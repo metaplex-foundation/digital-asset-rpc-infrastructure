@@ -287,13 +287,12 @@ pub async fn create_v3_master_edition(
 }
 
 pub async fn prepare_nft(
-    minter: Keypair,
+    minter: Arc<Keypair>,
     solana_client: Arc<RpcClient>,
 ) -> Result<(Pubkey, Pubkey, Arc<Keypair>, Pubkey), ClientError> {
     let mint = Arc::new(Keypair::new());
     let mint_pubkey = mint.pubkey();
     let program_id = mpl_token_metadata::id();
-    let minter = Arc::new(minter);
 
     let metadata_seeds = &[
         "metadata".as_bytes(),
