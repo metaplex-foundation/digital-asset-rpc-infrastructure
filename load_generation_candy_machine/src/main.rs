@@ -250,6 +250,7 @@ pub async fn initialize_candy_machine(
     payer: &Arc<Keypair>,
     wallet: &Pubkey,
     candy_data: CandyMachineData,
+    // TODO addressing in P-626
     // token_info: TokenInfo,
     solana_client: Arc<RpcClient>,
 ) -> Result<(), ClientError> {

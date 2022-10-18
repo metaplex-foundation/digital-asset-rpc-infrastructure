@@ -8,20 +8,20 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.14.1", features = ["full"] }
 solana-client = "1.10.13"
-mpl-candy-machine = {  git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "stranzhay/read-api", features = ["no-entrypoint"] }
+mpl-candy-machine = { version = "4.5.0", features = ["no-entrypoint"] }
 mpl-token-metadata = { version = "1.4.1", features = ["no-entrypoint"] }
 spl-associated-token-account = { version = "1.0.5", features = [
   "no-entrypoint",
 ] }
 anchor-client = "0.25.0"
-spl-token = "3.2.0"
+spl-token = "3.3.0"
 solana-program = "1.10.13"
 rand = "0.8.5"
 fake = "2.5.0"
 anchor-lang = "0.25.0"
 anchor-spl = "0.25.0"
 solana-sdk = "1.10.13"
-mpl-candy-machine-core = {  git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "stranzhay/read-api", features = ["no-entrypoint"] }
+mpl-candy-machine-core = {  version = "0.1.1", features = ["no-entrypoint"] }
 
 
 

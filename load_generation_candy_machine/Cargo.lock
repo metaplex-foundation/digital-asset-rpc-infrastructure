@@ -1912,8 +1912,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-machine"
-version = "4.4.1"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#44cb42e3948106a10fef84b18d3e98e368cb5283"
+version = "4.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bcc73f3642e6c13608f0895486bc77bf1db4be946852e4fe0670ea19325ee21"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -1927,8 +1928,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-machine-core"
-version = "0.1.0"
-source = "git+https://github.com/metaplex-foundation/metaplex-program-library?branch=stranzhay/read-api#44cb42e3948106a10fef84b18d3e98e368cb5283"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a383ff50af8896fa5a6d34e634758053b8ac1e8ba8be98f41839b712f29635c8"
 dependencies = [
  "anchor-lang",
  "arrayref",
@@ -1940,9 +1942,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-token-metadata"
-version = "1.4.3"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e719d7e0b5a9d97c7fd4d6f52ebfc32f1e3942e068173e47355f8c275656488a"
+checksum = "f36ab16f4c83f2f18e136f53157a8c9ab3783d84eaefdec7962bf19c0e4d5548"
 dependencies = [
  "arrayref",
  "borsh",
