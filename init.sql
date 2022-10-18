@@ -293,6 +293,7 @@ create unique index candy_machine_creators_candy_machine_id on candy_machine_cre
 create index candy_machine_creator on candy_machine_creators (candy_machine_id, creator);
 create index candy_machine_verified_creator on candy_machine_creators (candy_machine_id, verified);
 
+-- TODO finalizing candy guard schema in P-683
 create table candy_guard
 (   
     id                   bytea                                   PRIMARY KEY,
@@ -323,26 +324,3 @@ create table candy_guard_group
     gatekeeper_expire_on_use         bool                                                                                  
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

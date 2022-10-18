@@ -238,6 +238,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "anchor-spl"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d65904c3106851f6d1bb87d504044764819d69c51d2b4346d59d399d8afa7d18"
+dependencies = [
+ "anchor-lang",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+]
+
+[[package]]
 name = "anchor-syn"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2330,6 +2342,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mpl-candy-machine"
+version = "4.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bcc73f3642e6c13608f0895486bc77bf1db4be946852e4fe0670ea19325ee21"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "arrayref",
+ "mpl-token-metadata",
+ "solana-gateway",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+]
+
+[[package]]
 name = "mpl-candy-machine-core"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2414,6 +2442,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "mpl-candy-guard",
+ "mpl-candy-machine",
  "mpl-candy-machine-core",
  "num-integer",
  "num-traits",

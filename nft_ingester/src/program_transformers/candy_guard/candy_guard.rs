@@ -22,13 +22,14 @@ pub async fn candy_guard<'c>(
 ) -> Result<(), IngesterError> {
     let id_bytes = id.0.to_vec();
     let candy_guard_model = candy_guard::ActiveModel {
+        // TODO add correct id ticket P-629
         id: Set(candy_guard.base.to_bytes().to_vec()),
         base: Set(candy_guard.base.to_bytes().to_vec()),
         bump: Set(candy_guard.bump),
         authority: Set(candy_guard.authority.to_bytes().to_vec()),
     };
 
-    // TODO need to get from DB for value cm and update the candy guard pda value
+    // TODO need to get from DB for value cm and update the candy guard pda value ticket P-629
     // i think that the candy_guard acc.key should be primary key and update any CMs that now have mint authority as a candy guard
     let candy_machine: candy_machine::Model = CandyMachine::find_by_id(id_bytes)
         .one(db)
@@ -41,6 +42,7 @@ pub async fn candy_guard<'c>(
     let query = candy_guard::Entity::insert(candy_guard_model)
         .on_conflict(
             OnConflict::columns([candy_guard::Column::Id])
+                // TODO add base to update ticket P-629
                 .update_columns([candy_guard::Column::Bump, candy_guard::Column::Authority])
                 .to_owned(),
         )
@@ -60,7 +62,7 @@ pub async fn candy_guard<'c>(
     let (nft_payment_destination, nft_payment_required_collection) =
         get_nft_payment(candy_guard_data.clone().default.nft_payment);
 
-    // TODO remove removed items from guard in init sql and entity files
+    // TODO remove removed items from guard in init sql and entity files ticket P-629
     let candy_guard_default_set = candy_guard_group::ActiveModel {
         label: Set(None),
         candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
@@ -117,7 +119,7 @@ pub async fn candy_guard<'c>(
 
                 let candy_guard_group = candy_guard_group::ActiveModel {
                     label: Set(Some(g.clone().label)),
-                    // TODO change candy guard id below
+                    // TODO change candy guard id below tickt P-629
                     candy_guard_id: Set(candy_guard.base.to_bytes().to_vec()),
                     gatekeeper_network: Set(gatekeeper_network),
                     gatekeeper_expire_on_use: Set(expire_on_use),

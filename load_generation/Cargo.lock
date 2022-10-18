@@ -1500,7 +1500,6 @@ checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 name = "load_generation"
 version = "0.1.0"
 dependencies = [
- "borsh",
  "fake",
  "mpl-token-metadata",
  "rand 0.8.5",

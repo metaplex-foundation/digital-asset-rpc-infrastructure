@@ -7,6 +7,7 @@ pub enum EndSettingType {
     Amount,
 }
 
+// TODO review this list and make sure lines up with latest candy guard code P-682
 pub fn get_nft_payment(nft_payment: Option<NftPayment>) -> (Option<Vec<u8>>, Option<Vec<u8>>) {
     if let Some(nft_payment) = nft_payment {
         (
@@ -62,7 +63,10 @@ pub fn get_gatekeeper(gatekeeper: Option<Gatekeeper>) -> (Option<bool>, Option<V
 
 pub fn get_bot_tax(bot_tax: Option<BotTax>) -> (Option<i64>, Option<bool>) {
     if let Some(bot_tax) = bot_tax {
-        (Some(bot_tax.lamports.try_into().unwrap()), Some(bot_tax.last_instruction))
+        (
+            Some(bot_tax.lamports.try_into().unwrap()),
+            Some(bot_tax.last_instruction),
+        )
     } else {
         (None, None)
     }

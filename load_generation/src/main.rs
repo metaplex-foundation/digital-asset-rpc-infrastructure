@@ -41,7 +41,7 @@ async fn main() {
             let semaphore = semaphore.clone();
             tasks.push(tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
-                                                                  // MINT A MASTER EDITION:
+                // MINT A MASTER EDITION:
                 sleep(Duration::from_millis(1000)).await;
                 make_a_nft_thing(le_clone, kp).await
             }));

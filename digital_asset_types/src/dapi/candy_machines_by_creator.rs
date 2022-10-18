@@ -160,7 +160,7 @@ pub async fn get_candy_machines_by_creator(
                     Some(RpcCandyGuard {
                         id: bs58::encode(candy_guard.id).into_string(),
                         bump: candy_guard.bump as u8,
-                        // TODO fix this ^ type
+                        // TODO fix this ^ type P-682
                         // bump: candy_guard.bump  showing as i32,
                         authority: bs58::encode(candy_guard.authority).into_string(),
                         candy_guard_data: CandyGuardData {

@@ -7,7 +7,6 @@ use tokio::sync::mpsc::UnboundedSender;
 mod candy_machine;
 mod collections;
 mod freeze;
-mod state;
 
 use crate::{BgTask, IngesterError};
 

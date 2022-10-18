@@ -20,7 +20,7 @@ pub async fn candy_machine<'c>(
     txn: &DatabaseTransaction,
     db: &DatabaseConnection,
 ) -> Result<(), IngesterError> {
-    let data = candy_machine.clone().data;
+    let data = &candy_machine.data;
 
     let token_mint = if let Some(token_mint) = candy_machine.token_mint {
         Some(token_mint.to_bytes().to_vec())
@@ -73,7 +73,7 @@ pub async fn candy_machine<'c>(
         .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (mode, presale, whitelist_mint, discount_price) =
-        if let Some(whitelist) = data.whitelist_mint_settings {
+        if let Some(whitelist) = &data.whitelist_mint_settings {
             let mode = match whitelist.mode {
                 blockbuster::programs::candy_machine::state::WhitelistMintMode::BurnEveryTime => {
                     WhitelistMintMode::BurnEveryTime
@@ -94,17 +94,17 @@ pub async fn candy_machine<'c>(
             (None, None, None, None)
         };
 
-    let (name, uri, hash) = if let Some(hidden_settings) = data.hidden_settings {
+    let (name, uri, hash) = if let Some(hidden_settings) = &data.hidden_settings {
         (
-            Some(hidden_settings.name),
-            Some(hidden_settings.uri),
+            Some(hidden_settings.clone().name),
+            Some(hidden_settings.clone().uri),
             Some(hidden_settings.hash.to_vec()),
         )
     } else {
         (None, None, None)
     };
 
-    let (expire_on_use, gatekeeper_network) = if let Some(gatekeeper) = data.gatekeeper {
+    let (expire_on_use, gatekeeper_network) = if let Some(gatekeeper) = &data.gatekeeper {
         (
             Some(gatekeeper.expire_on_use),
             Some(gatekeeper.gatekeeper_network.to_bytes().to_vec()),
@@ -113,7 +113,7 @@ pub async fn candy_machine<'c>(
         (None, None)
     };
 
-    let (end_setting_type, number) = if let Some(end_settings) = data.end_settings {
+    let (end_setting_type, number) = if let Some(end_settings) = &data.end_settings {
         let end_settings_type = match end_settings.end_setting_type {
             blockbuster::programs::candy_machine::state::EndSettingType::Date => {
                 EndSettingType::Date
@@ -130,9 +130,9 @@ pub async fn candy_machine<'c>(
 
     let candy_machine_data = candy_machine_data::ActiveModel {
         candy_machine_id: Set(id.0.to_vec()),
-        uuid: Set(Some(data.uuid)),
+        uuid: Set(Some(data.uuid.clone())),
         price: Set(Some(data.price as i64)),
-        symbol: Set(data.symbol),
+        symbol: Set(data.symbol.clone()),
         seller_fee_basis_points: Set(data.seller_fee_basis_points as i16),
         max_supply: Set(data.max_supply as i64),
         is_mutable: Set(data.is_mutable),

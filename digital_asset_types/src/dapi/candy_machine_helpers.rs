@@ -247,7 +247,7 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.nft_payment_required_collection.clone(),
     );
 
-    // TODO fix later
+    // TODO fix later P-682
     // let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
 
     // let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
