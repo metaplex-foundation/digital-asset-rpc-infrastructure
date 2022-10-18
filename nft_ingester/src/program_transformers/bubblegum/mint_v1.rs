@@ -6,11 +6,11 @@ use blockbuster::{
 use digital_asset_types::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
+        asset_v1_account_attachments,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
 };
-use digital_asset_types::dao::asset_v1_account_attachments;
 use num_traits::FromPrimitive;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
@@ -18,9 +18,13 @@ use sea_orm::{
 };
 
 use crate::program_transformers::common::task::DownloadMetadata;
-use blockbuster::token_metadata::state::{TokenStandard, UseMethod, Uses};
-use digital_asset_types::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions, V1AccountAttachments};
-use blockbuster::token_metadata::pda::find_master_edition_account;
+use blockbuster::token_metadata::{
+    pda::find_master_edition_account,
+    state::{TokenStandard, UseMethod, Uses},
+};
+use digital_asset_types::dao::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
+};
 
 // TODO -> consider moving structs into these functions to avoid clone
 

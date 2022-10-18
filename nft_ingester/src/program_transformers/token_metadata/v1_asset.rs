@@ -19,13 +19,9 @@ use digital_asset_types::{
 use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
-    entity::*,
-    query::*,
-    sea_query::OnConflict,
-    ActiveValue::{Set},
-    ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
-
 
 pub async fn save_v1_asset(
     id: FBPubkey,
@@ -117,7 +113,7 @@ pub async fn save_v1_asset(
         metadata: Set(JsonValue::String("processing".to_string())),
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
-        id: Set(id.to_vec())
+        id: Set(id.to_vec()),
     };
     let query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(

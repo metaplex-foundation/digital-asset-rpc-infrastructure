@@ -2,39 +2,38 @@ use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
     programs::{
-        bubblegum::BubblegumParser,
-               ProgramParseResult,
-               token_metadata::TokenMetadataParser,
-               token_account::TokenAccountParser}
-    ,
+        bubblegum::BubblegumParser, token_account::TokenAccountParser,
+        token_metadata::TokenMetadataParser, ProgramParseResult,
+    },
 };
 
 use crate::{error::IngesterError, BgTask};
+use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
-use blockbuster::instruction::IxPair;
 
-use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction,
-    token_metadata::handle_token_metadata_account,
+use crate::{
+    order_instructions,
+    program_transformers::{
+        bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
+        token_metadata::handle_token_metadata_account,
+    },
 };
-use crate::order_instructions;
-use crate::program_transformers::token::handle_token_program_account;
 
 mod bubblegum;
 mod common;
-mod token_metadata;
 mod token;
+mod token_metadata;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<Box<dyn BgTask>>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>
+    key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
@@ -55,7 +54,7 @@ impl ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             task_sender,
             matchers,
-            key_set: hs
+            key_set: hs,
         }
     }
 
@@ -120,7 +119,8 @@ impl ProgramTransformer {
                         parsing_result,
                         &self.storage,
                         &self.task_sender,
-                    ).await
+                    )
+                    .await
                 }
                 _ => Err(IngesterError::NotImplemented),
             }?;
