@@ -46,43 +46,7 @@ async fn main() {
     let semaphore = Arc::new(Semaphore::new(carnage));
 
     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    // loop {
-    //     let mut tasks = vec![];
-    //     for _ in 0..carnage {
-    //         let kp = kp.clone();
-    //         let le_clone = le_blockchain.clone();
-    //         let semaphore = semaphore.clone();
 
-    //         // Start tasks
-    //         tasks.push(tokio::spawn(async move {
-    //             let _permit = semaphore.acquire().await.unwrap();
-
-    //             sleep(Duration::from_millis(1000)).await;
-    //             let res = make_a_candy_machine(le_clone, kp).await;
-    //             // TODO put the ids in a vec and then call update on them
-    //             res
-    //         }));
-    //     }
-
-    //     for task in tasks {
-    //         match task.await.unwrap() {
-    //             Ok(e) => {
-    //                 println!("Candy machine created with an id of: {:?}", e);
-    //                 let candy_machine_account =
-    //                     le_blockchain.clone().get_account(&e).await.unwrap();
-
-    //                 println!("candy {:?}", candy_machine_account);
-    //                 continue;
-    //             }
-    //             Err(e) => {
-    //                 println!("Error: {:?}", e);
-    //                 continue;
-    //             }
-    //         }
-    //     }
-
-    //     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    // }
     loop {
         make_candy_machines(
             le_blockchain.clone(),
@@ -354,7 +318,7 @@ pub async fn initialize_candy_machine_v3(
     let edition_pubkey =
         Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
 
-    let authority_pda = find_authority_pda(&candy_account.clone().pubkey());
+    let authority_pda = find_authority_pda(&candy_account.pubkey());
 
     create_v3_master_edition(
         Some(0),
@@ -366,7 +330,7 @@ pub async fn initialize_candy_machine_v3(
     )
     .await?;
 
-    let collection_pda = find_collection_pda(&candy_account.clone().pubkey()).0;
+    let collection_pda = find_collection_pda(&candy_account.pubkey()).0;
     let collection_authority_record =
         find_collection_authority_account(&mint_pubkey, &collection_pda).0;
 

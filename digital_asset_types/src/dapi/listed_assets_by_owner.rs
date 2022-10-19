@@ -23,13 +23,11 @@ pub async fn get_listed_assets_by_owner(
                     .add(asset::Column::Delegate.is_not_null()),
             )
             .find_also_related(AssetData)
-            // .order_by_asc(sort_column)
             .paginate(db, limit.try_into().unwrap());
 
         paginator.fetch_page((page - 1).try_into().unwrap()).await?
     } else if !before.is_empty() {
         let rows = asset::Entity::find()
-            // .order_by_asc(sort_column)
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
@@ -51,7 +49,6 @@ pub async fn get_listed_assets_by_owner(
         assets
     } else {
         let rows = asset::Entity::find()
-            // .order_by_asc(sort_column)
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
