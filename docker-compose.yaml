@@ -22,8 +22,17 @@ services:
     volumes:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+  migrator:
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://solana:solana@db/solana
+    build:
+      context: .
+      dockerfile: Migrator.Dockerfile
   ingester:
     depends_on:
+      - migrator
       - redis
     restart: always
     environment:
@@ -38,6 +47,7 @@ services:
       dockerfile: Ingest.Dockerfile
   load:
     depends_on:
+      - migrator
       - ingester
       - solana
     restart: always
@@ -45,11 +55,13 @@ services:
       KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
       NETWORK: "local"
       AMOUNT_OF_CHAOS: 1
-      RPC_URL: "http://digital-asset-rpc-solana-1:8899"
+      RPC_URL: "http://${COMPOSE_PROJECT_NAME}-solana-1:8899/"
     build:
       context: .
       dockerfile: Load.Dockerfile
   api:
+    depends_on:
+      - migrator
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana
@@ -74,10 +86,10 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+#      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro    /// UNCOMMENT IF YOU DONT WANT TO USE MIGRATIONS
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.1
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.2
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

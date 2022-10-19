@@ -51,9 +51,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    TokenAccounts,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -74,15 +72,7 @@ impl ColumnTrait for Column {
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::TokenAccounts => Entity::has_many(super::token_accounts::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::token_accounts::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TokenAccounts.def()
+        panic!("No RelationDef")
     }
 }
 

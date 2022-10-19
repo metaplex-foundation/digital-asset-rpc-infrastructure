@@ -14,6 +14,10 @@ build:
       image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
       docker:
         dockerfile: Ingest.Dockerfile
+    - context: .
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
+      docker:
+        dockerfile: Migrator.Dockerfile
 deploy:
   helm:
     releases:
@@ -22,6 +26,7 @@ deploy:
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
           loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+          migratorImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
         setValueTemplates:
           ingest.db_url: "{{.DATABASE_URL}}"
           ingest.rpc_url: "{{.RPC_URL}}"

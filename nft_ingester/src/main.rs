@@ -18,12 +18,13 @@ use chrono::Utc;
 use figment::{providers::Env, Figment};
 use futures_util::TryFutureExt;
 use plerkle_messenger::{
-    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
+    redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
+    TRANSACTION_STREAM,
 };
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::{collections::HashSet, net::UdpSocket};
+use std::{net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.
@@ -31,7 +32,9 @@ pub type DatabaseConfig = figment::value::Dict;
 
 pub const DATABASE_URL_KEY: &str = "url";
 pub const DATABASE_LISTENER_CHANNEL_KEY: &str = "listener_channel";
+
 pub type RpcConfig = figment::value::Dict;
+
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 pub const DEFAULT_WORKER_COUNT: usize = 3;
@@ -49,7 +52,7 @@ pub struct IngesterConfig {
 
 fn setup_metrics(config: &IngesterConfig) {
     let uri = config.metrics_host.clone();
-    let port = config.metrics_port.clone();
+    let port = config.metrics_port;
     if uri.is_some() || port.is_some() {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket.set_nonblocking(true).unwrap();
@@ -93,7 +96,10 @@ async fn main() {
     // Service streams as separate concurrent processes.
     println!("Setting up tasks");
     setup_metrics(&config);
-    for i in [0..config.transaction_stream_workers.unwrap_or(DEFAULT_WORKER_COUNT)] {
+    {
+        let _i = 0..config
+        .transaction_stream_workers
+        .unwrap_or(DEFAULT_WORKER_COUNT);
         tasks.push(
             service_transaction_stream::<RedisMessenger>(
                 pool.clone(),
@@ -103,7 +109,10 @@ async fn main() {
             .await,
         );
     }
-    for i in [0..config.transaction_stream_workers.unwrap_or(DEFAULT_WORKER_COUNT)] {
+    {
+        let _i = 0..config
+        .transaction_stream_workers
+        .unwrap_or(DEFAULT_WORKER_COUNT);
         tasks.push(
             service_account_stream::<RedisMessenger>(
                 pool.clone(),
@@ -116,6 +125,7 @@ async fn main() {
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
     });
+
     tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
     // Wait for ctrl-c.
     match tokio::signal::ctrl_c().await {
@@ -125,6 +135,7 @@ async fn main() {
             // We also shut down in case of error.
         }
     }
+
     // Kill all tasks.
     for task in tasks {
         task.abort();
@@ -140,12 +151,20 @@ async fn service_transaction_stream<T: Messenger>(
         let manager = ProgramTransformer::new(pool, tasks);
         let mut messenger = T::new(messenger_config).await.unwrap();
         println!("Setting up transaction listener");
+
+        let mut ids = Vec::new();
+
         loop {
-            // This call to messenger.recv() blocks with no timeout until
-            // a message is received on the stream.
+            ids.clear();
+
             if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                //TODO -> do not ACK until this is Ok(())
-                handle_transaction(&manager, data).await
+                handle_transaction(&manager, data, &mut ids).await
+            }
+
+            if !ids.is_empty() {
+                if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
+                    println!("Error ACK-ing messages {:?}", e);
+                }
             }
         }
     })
@@ -160,18 +179,34 @@ async fn service_account_stream<T: Messenger>(
         let manager = ProgramTransformer::new(pool, tasks);
         let mut messenger = T::new(messenger_config).await.unwrap();
         println!("Setting up account listener");
+
+        let mut ids = Vec::new();
+
         loop {
-            // This call to messenger.recv() blocks with no timeout until
-            // a message is received on the stream.
+            ids.clear();
+
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                handle_account(&manager, data).await
+                handle_account(&manager, data, &mut ids).await
+            }
+
+            if !ids.is_empty() {
+                if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                    println!("Error ACK-ing messages {:?}", e);
+                }
             }
         }
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (_message_id, data) in data {
+async fn handle_account(
+    manager: &ProgramTransformer,
+    data: Vec<RecvData<'_>>,
+    ids: &mut Vec<String>,
+) {
+    for item in data {
+        ids.push(item.id);
+
+        let data = item.data;
         // Get root of account info flatbuffers object.
         let account_update = match root_as_account_info(data) {
             Err(err) => {
@@ -217,8 +252,15 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     }
 }
 
-async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (_message_id, tx_data) in data.iter() {
+async fn handle_transaction(
+    manager: &ProgramTransformer,
+    data: Vec<RecvData<'_>>,
+    ids: &mut Vec<String>,
+) {
+    for item in data {
+        ids.push(item.id);
+
+        let tx_data = item.data;
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
@@ -255,7 +297,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                         (seen_at.timestamp_millis() - tx.seen_at()) as u64
                     );
                 });
-
+                let begin_processing = Utc::now();
                 let res = manager.handle_instruction(&bundle).await;
                 let finish_processing = Utc::now();
                 match res {

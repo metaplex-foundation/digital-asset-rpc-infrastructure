@@ -1,6 +1,7 @@
 replicaCount: 1
 image: ""
 loadImage: ""
+migratorImage: ""
 imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""

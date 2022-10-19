@@ -1,13 +1,12 @@
-use crate::{program_transformers::token, BgTask, IngesterError};
+use crate::{BgTask, IngesterError};
 use blockbuster::programs::{
     token_account::TokenProgramAccount,
-    token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
 };
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    DatabaseConnection, DbBackend, EntityTrait,
 };
 use solana_sdk::program_option::COption;
 use spl_token::state::AccountState;
@@ -17,10 +16,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenProgramAccount,
     db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    _task_manager: &UnboundedSender<Box<dyn BgTask>>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
-    let key = account_update.pubkey().unwrap().clone();
+    let key = *account_update.pubkey().unwrap();
     let key_bytes = key.0.to_vec();
     let spl_token_program = account_update.owner().unwrap().0.to_vec();
     match &parsing_result {

@@ -82,7 +82,7 @@ impl ProgramTransformer {
                 ProgramParseResult::Bubblegum(parsing_result) => {
                     handle_bubblegum_instruction(
                         parsing_result,
-                        &ix,
+                        ix,
                         &self.storage,
                         &self.task_sender,
                     )

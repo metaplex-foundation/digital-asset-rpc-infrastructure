@@ -38,7 +38,7 @@ pub async fn mint_v1<'c>(
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let metadata = args;
         return match le.schema {
             LeafSchema::V1 {
@@ -140,7 +140,7 @@ pub async fn mint_v1<'c>(
                 txn.execute(query).await?;
 
                 // Insert into `asset_creators` table.
-                if metadata.creators.len() > 0 {
+                if !metadata.creators.is_empty() {
                     let mut creators = Vec::with_capacity(metadata.creators.len());
                     for c in metadata.creators.iter() {
                         creators.push(asset_creators::ActiveModel {

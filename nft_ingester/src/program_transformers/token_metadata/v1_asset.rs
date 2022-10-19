@@ -129,7 +129,7 @@ pub async fn save_v1_asset(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    let res = txn.execute(query).await?;
+    let _res = txn.execute(query).await?;
 
     // Insert into `asset` table.
     let model = asset::ActiveModel {
