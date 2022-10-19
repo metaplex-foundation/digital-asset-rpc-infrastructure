@@ -1,3 +1,4 @@
-
+generateLoad: false
 load:
   network: "devnet"
+

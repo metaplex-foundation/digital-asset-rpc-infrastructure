@@ -177,13 +177,20 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             }
             Ok(account_update) => account_update,
         };
+        let seen_at = Utc::now();
         let str_program_id =
             bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
         safe_metric(|| {
             statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
         });
+        safe_metric(|| {
+            statsd_time!(
+                "ingester.account_bus_ingest_time",
+                (seen_at.timestamp_millis() - account_update.seen_at()) as u64
+            );
+        });
         let begin_processing = Utc::now();
-        let res = manager.handle_account_update(&account_update).await;
+        let res = manager.handle_account_update(account_update).await;
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {
@@ -246,14 +253,14 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     );
                 });
                 let begin_processing = Utc::now();
-                let res = manager
-                    .handle_instruction(&bundle)
-                    .await;
+                let res = manager.handle_instruction(&bundle).await;
                 let finish_processing = Utc::now();
                 match res {
                     Ok(_) => {
                         safe_metric(|| {
-                            let proc_time = (finish_processing.timestamp_millis() - begin_processing.timestamp_millis()) as u64;
+                            let proc_time = (finish_processing.timestamp_millis()
+                                - begin_processing.timestamp_millis())
+                                as u64;
                             statsd_time!("ingester.tx_proc_time", proc_time);
                         });
                         safe_metric(|| {

@@ -5,6 +5,7 @@ imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+generateLoad: true
 load:
   seed:
   network: "devnet"
