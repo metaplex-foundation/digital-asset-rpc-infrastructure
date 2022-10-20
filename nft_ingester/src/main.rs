@@ -191,7 +191,7 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             );
         });
         let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
+        let res = manager.handle_raw_account_update(data).await;
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {

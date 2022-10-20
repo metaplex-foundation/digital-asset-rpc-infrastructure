@@ -24,6 +24,13 @@ use crate::{
     },
 };
 
+use digital_asset_types::dao::raw_account_update;
+use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
+use sea_orm::{
+    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+};
+
 mod bubblegum;
 mod common;
 mod token;
@@ -92,6 +99,47 @@ impl ProgramTransformer {
                 _ => Err(IngesterError::NotImplemented),
             }?;
         }
+        Ok(())
+    }
+
+    pub async fn handle_raw_account_update(&self, data: &[u8]) -> Result<(), IngesterError> {
+        // Get root of account info flatbuffers object.
+        let account_update = root_as_account_info(data)
+            .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+
+        let pubkey = account_update.pubkey().ok_or_else(|| {
+            IngesterError::DeserializationError(
+                "Flatbuffers AccountInfo pubkey deserialization error".to_string(),
+            )
+        })?;
+
+        // Setup `ActiveModel`.
+        let model = raw_account_update::ActiveModel {
+            pubkey: Set(pubkey.0.to_vec()),
+            write_version: Set(account_update.write_version() as i64),
+            slot: Set(account_update.slot() as i64),
+            // TODO doesn't seem to be any benefit for messenger to output
+            // a slice if I just convert it to Vec anyways.
+            raw_data: Set(data.to_vec()),
+            ..Default::default()
+        };
+
+        // Put data into raw table.  The `ON CONFLICT` clause will dedupe the incoming stream.
+        let query = raw_account_update::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([
+                    raw_account_update::Column::Pubkey,
+                    raw_account_update::Column::WriteVersion,
+                    raw_account_update::Column::Slot,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+
+        let txn = self.storage.begin().await?;
+        txn.execute(query).await?;
+
         Ok(())
     }
 
