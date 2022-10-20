@@ -224,3 +224,36 @@ create table asset_creators
 create unique index asset_creators_asset_id on asset_creators (asset_id);
 create index asset_creator on asset_creators (asset_id, creator);
 create index asset_verified_creator on asset_creators (asset_id, verified);
+
+create table raw_transaction_update
+(
+    id           bigserial PRIMARY KEY,
+    signature    bytea                       not null,
+    slot         bigint                      not null,
+    raw_data     bytea                       not null,
+    CONSTRAINT unique_raw_transaction_update UNIQUE (signature, slot)
+);
+
+create table raw_account_update
+(
+    id              bigserial PRIMARY KEY,
+    pubkey          bytea                    not null,
+    write_version   bigint                   not null,
+    slot            bigint                   not null,
+    raw_data        bytea                    not null,
+    CONSTRAINT unique_raw_account_update UNIQUE (pubkey, write_version, slot)
+);
+
+create table raw_block_update
+(
+    id           bigserial PRIMARY KEY,
+    blockhash    text                        not null,
+    slot         bigint                      not null,
+    raw_data     bytea                       not null,
+    CONSTRAINT unique_raw_block_update UNIQUE (blockhash, slot)
+);
+
+create table last_processed_slot
+(
+    slot         bigint PRIMARY KEY          not null
+);
