@@ -99,6 +99,7 @@ impl MetadataItem {
         self
     }
 }
+
 // TODO sub schema support
 pub type Links = HashMap<String, serde_json::Value>;
 
@@ -147,7 +148,11 @@ pub struct Authority {
 pub struct Compression {
     pub eligible: bool,
     pub compressed: bool,
+    pub data_hash: String,
+    pub creator_hash: String,
+    pub asset_hash: String,
 }
+
 
 pub type GroupKey = String;
 pub type GroupValue = String;

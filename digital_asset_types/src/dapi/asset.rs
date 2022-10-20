@@ -129,7 +129,6 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
 
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         files: Some(files),
@@ -209,6 +208,9 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
+            asset_hash: asset.leaf.map(|s| bs58::encode(s).into_string()).unwrap_or_default(),
+            data_hash: asset.data_hash.unwrap_or_default(),
+            creator_hash: asset.creator_hash.unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
         royalty: Some(Royalty {

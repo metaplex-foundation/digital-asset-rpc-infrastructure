@@ -11,9 +11,9 @@ use crate::{
     program_transformers::ProgramTransformer,
     tasks::{BgTask, TaskManager},
 };
-use blockbuster::instruction::{order_instructions, InstructionBundle};
+use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
-use cadence_macros::{set_global_default, statsd_count, statsd_time};
+use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, Figment};
 use futures_util::TryFutureExt;
@@ -21,7 +21,7 @@ use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
 };
-use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
+use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, net::UdpSocket};
@@ -29,6 +29,8 @@ use figment::value::{Dict, Tag, Value};
 use tokio::sync::mpsc::UnboundedSender;
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use solana_sdk::pubkey::Pubkey;
+
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -39,7 +41,8 @@ pub type RpcConfig = figment::value::Dict;
 
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
-pub const DEFAULT_WORKER_COUNT: usize = 3;
+pub const DEFAULT_WORKER_COUNT: usize = 1;
+
 // Struct used for Figment configuration items.
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
@@ -115,7 +118,7 @@ async fn main() {
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-            .await,
+                .await,
         );
     }
     for _i in 0..config
@@ -170,7 +173,6 @@ async fn service_transaction_stream<T: Messenger>(
             }
 
             if !ids.is_empty() {
-                println!("ACK-ing {} messages", ids.len());
                 if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
                     println!("Error ACK-ing messages {:?}", e);
                 }
@@ -195,12 +197,10 @@ async fn service_account_stream<T: Messenger>(
             ids.clear();
 
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                println!("Received account data");
                 handle_account(&manager, data, &mut ids).await
             }
 
             if !ids.is_empty() {
-                println!("ACK-ing {} messages", ids.len());
                 if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                     println!("Error ACK-ing messages {:?}", e);
                 }
@@ -214,6 +214,7 @@ async fn handle_account(
     data: Vec<RecvData<'_>>,
     ids: &mut Vec<String>,
 ) {
+    statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     for item in data {
         ids.push(item.id);
 
@@ -263,11 +264,40 @@ async fn handle_account(
     }
 }
 
+async fn process_instruction<'i>(manager: &ProgramTransformer, slot: u64, keys: &[FBPubkey], outer_ix: IxPair<'i>, inner_ix: Option<Vec<IxPair<'i>>>) -> Result<(), IngesterError> {
+    let (program, instruction) = outer_ix;
+    let ix_accounts = instruction.accounts().unwrap_or(&[]);
+    let ix_account_len = ix_accounts.len();
+    let max = ix_accounts.iter().max().map(|r|*r).unwrap_or(0) as usize;
+    if keys.len() < max {
+        return Err(IngesterError::DeserializationError("Missing Accounts in Serialized Ixn/Txn".to_string()));
+    }
+    let ix_accounts = ix_accounts.iter().fold(
+        Vec::with_capacity(ix_account_len), |mut acc, a| {
+            if let Some(key) = keys.get(*a as usize) {
+                acc.push(key.clone());
+            }
+            //else case here is handled on 272
+            acc
+        },
+    );
+    let bundle = InstructionBundle {
+        txn_id: "",
+        program,
+        instruction,
+        inner_ix,
+        keys: ix_accounts.as_slice(),
+        slot: slot,
+    };
+    manager.handle_instruction(&bundle).await
+}
+
 async fn handle_transaction(
     manager: &ProgramTransformer,
     data: Vec<RecvData<'_>>,
     ids: &mut Vec<String>,
 ) {
+    statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
     for item in data {
         ids.push(item.id);
 
@@ -282,7 +312,7 @@ async fn handle_transaction(
         // Get root of transaction info flatbuffers object.
         if let Ok(tx) = root_as_transaction_info(tx_data) {
             let instructions = manager.break_transaction(&tx);
-            let keys = tx.account_keys();
+            let keys = tx.account_keys().unwrap_or(&[]);
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
                 safe_metric(|| {
@@ -290,26 +320,17 @@ async fn handle_transaction(
                 });
             }
             let seen_at = Utc::now();
-            for (outer_ix, inner_ix) in instructions {
-                let (program, instruction) = outer_ix;
-                let bundle = InstructionBundle {
-                    txn_id: "",
-                    program,
-                    instruction,
-                    inner_ix,
-                    keys: keys.unwrap(),
-                    slot: tx.slot(),
-                };
-                let (program, _) = &outer_ix;
-                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-                safe_metric(|| {
-                    statsd_time!(
+            safe_metric(|| {
+                statsd_time!(
                         "ingester.bus_ingest_time",
                         (seen_at.timestamp_millis() - tx.seen_at()) as u64
                     );
-                });
+            });
+            for (outer_ix, inner_ix) in instructions {
+                let (program, _) = &outer_ix;
+                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
                 let begin_processing = Utc::now();
-                let res = manager.handle_instruction(&bundle).await;
+                let res = process_instruction(manager, tx.slot(),keys, outer_ix, inner_ix).await;
                 let finish_processing = Utc::now();
                 match res {
                     Ok(_) => {

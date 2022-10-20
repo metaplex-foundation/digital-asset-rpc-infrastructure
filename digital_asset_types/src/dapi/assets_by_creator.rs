@@ -129,6 +129,9 @@ pub async fn get_assets_by_creator(
                 compression: Some(Compression {
                     eligible: asset.compressible,
                     compressed: asset.compressed,
+                    asset_hash: asset.leaf.map(|s| bs58::encode(s).into_string()).unwrap_or_default(),
+                    data_hash: asset.data_hash.unwrap_or_default(),
+                    creator_hash: asset.creator_hash.unwrap_or_default(),
                 }),
                 grouping: Some(rpc_groups),
                 royalty: Some(Royalty {

@@ -7,10 +7,10 @@ use sea_orm_migration::sea_orm::ConnectionTrait;
 
 
 #[derive(DeriveMigrationName)]
-pub struct Init;
+pub struct Migration;
 
 #[async_trait::async_trait]
-impl MigrationTrait for Init {
+impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let init_file_path = env::var("INIT_FILE_PATH").expect("INIT_FILE_PATH must be set");
         let mut file = File::open(init_file_path).map_err(|e| DbErr::Custom(e.to_string()))?;

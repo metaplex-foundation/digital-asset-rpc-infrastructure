@@ -22,6 +22,11 @@ use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{TokenStandard, UseMethod, Uses},
 };
+use mpl_bubblegum::{
+    hash_creators,
+    hash_metadata,
+};
+use bs58;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
@@ -80,8 +85,8 @@ pub async fn mint_v1<'c>(
                     slot_updated: Set(slot_i),
                     ..Default::default()
                 }
-                .insert(txn)
-                .await?;
+                    .insert(txn)
+                    .await?;
 
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
@@ -89,6 +94,9 @@ pub async fn mint_v1<'c>(
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
+                println!("bundle keys  {:?}", bundle.keys);
+                let data_hash = hash_metadata(args).map(|e| bs58::encode(e).into_string()).unwrap_or("".to_string()).trim();
+                let creator_hash = hash_creators(&*args.creators).map(|e| bs58::encode(e).into_string()).unwrap_or("".to_string()).trim();
                 let model = asset::ActiveModel {
                     id: Set(id.to_bytes().to_vec()),
                     owner: Set(Some(owner.to_bytes().to_vec())),
@@ -98,7 +106,7 @@ pub async fn mint_v1<'c>(
                     supply: Set(1),
                     supply_mint: Set(None),
                     compressed: Set(true),
-                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())), //will change when we remove requests
+                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
                     nonce: Set(nonce as i64),
@@ -109,6 +117,8 @@ pub async fn mint_v1<'c>(
                     asset_data: Set(Some(data.id)),
                     seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(slot_i),
+                    data_hash: Set(Some(data_hash)),
+                    creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 

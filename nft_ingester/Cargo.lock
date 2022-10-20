@@ -2339,6 +2339,7 @@ dependencies = [
  "futures-util",
  "hex",
  "lazy_static",
+ "mpl-bubblegum",
  "num-integer",
  "num-traits",
  "plerkle_messenger",
