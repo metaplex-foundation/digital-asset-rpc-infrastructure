@@ -217,6 +217,62 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
 
 async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     for (_message_id, tx_data) in data.iter() {
+        // Get root of transaction info flatbuffers object.
+        let tx = match root_as_transaction_info(tx_data) {
+            Err(err) => {
+                println!("Flatbuffers TransactionInfo deserialization error: {err}");
+                continue;
+            }
+            Ok(tx) => tx,
+        };
+
+        // Post metrics.
+        if let Some(si) = tx.slot_index() {
+            let slt_idx = format!("{}-{}", tx.slot(), si);
+            safe_metric(|| {
+                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+            });
+        }
+        let seen_at = Utc::now();
+        safe_metric(|| {
+            statsd_time!(
+                "ingester.bus_ingest_time",
+                (seen_at.timestamp_millis() - tx.seen_at()) as u64
+            );
+        });
+
+        // Process raw transaction data.
+        let begin_processing = Utc::now();
+        let res = manager.handle_raw_transaction(tx_data).await;
+        let finish_processing = Utc::now();
+
+        // TODO get tx signature from tx.signature()
+        let signature = "";
+        match res {
+            Ok(_) => {
+                safe_metric(|| {
+                    let proc_time = (finish_processing.timestamp_millis()
+                        - begin_processing.timestamp_millis())
+                        as u64;
+                    statsd_time!("ingester.tx_proc_time", proc_time);
+                });
+                safe_metric(|| {
+                    statsd_count!("ingester.tx_ingest_success", 1, "tx signature" => &signature);
+                });
+            }
+            Err(err) => {
+                println!("Error handling transaction: {:?}", err);
+                safe_metric(|| {
+                    statsd_count!("ingester.tx_ingest_error", 1, "tx signature" => &signature);
+                });
+            }
+        }
+        // TODO -> DLQ message if it failed.
+    }
+}
+
+async fn handle_transaction_orig(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
+    for (_message_id, tx_data) in data.iter() {
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that

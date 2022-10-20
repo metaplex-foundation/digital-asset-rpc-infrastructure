@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-use digital_asset_types::dao::raw_account_update;
+use digital_asset_types::dao::{raw_account_update, raw_transaction_update};
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
@@ -75,6 +75,47 @@ impl ProgramTransformer {
 
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
         self.matchers.get(&Pubkey::new(key.0.as_slice()))
+    }
+
+    pub async fn handle_raw_transaction(&self, data: &[u8]) -> Result<(), IngesterError> {
+        // Get root of account info flatbuffers object.
+        let transaction_info = root_as_transaction_info(data)
+            .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+
+        // TODO get signature from tx.
+        let signature = [0u8];
+        // let signature = account_update.signature().ok_or_else(|| {
+        //     IngesterError::DeserializationError(
+        //         "Flatbuffers TransactionInfo signature deserialization error".to_string(),
+        //     )
+        // })?;
+
+        // Setup `ActiveModel`.
+        let model = raw_transaction_update::ActiveModel {
+            signature: Set(signature.to_vec()),
+            slot: Set(transaction_info.slot() as i64),
+            // TODO doesn't seem to be any benefit for messenger to output
+            // a slice if I just convert it to Vec anyways.
+            raw_data: Set(data.to_vec()),
+            ..Default::default()
+        };
+
+        // Put data into raw table.  The `ON CONFLICT` clause will dedupe the incoming stream.
+        let query = raw_transaction_update::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([
+                    raw_transaction_update::Column::Signature,
+                    raw_transaction_update::Column::Slot,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+
+        let txn = self.storage.begin().await?;
+        txn.execute(query).await?;
+
+        Ok(())
     }
 
     pub async fn handle_instruction<'a>(
