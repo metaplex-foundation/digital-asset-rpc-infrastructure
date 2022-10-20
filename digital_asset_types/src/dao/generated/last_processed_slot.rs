@@ -8,31 +8,27 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "raw_txn"
+        "last_processed_slot"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub signature: String,
     pub slot: i64,
-    pub processed: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
-    Signature,
     Slot,
-    Processed,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
 pub enum PrimaryKey {
-    Signature,
+    Slot,
 }
 
 impl PrimaryKeyTrait for PrimaryKey {
-    type ValueType = String;
+    type ValueType = i64;
     fn auto_increment() -> bool {
         false
     }
@@ -45,9 +41,7 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Signature => ColumnType::String(Some(64u32)).def(),
             Self::Slot => ColumnType::BigInteger.def(),
-            Self::Processed => ColumnType::Boolean.def(),
         }
     }
 }
