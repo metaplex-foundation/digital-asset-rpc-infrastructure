@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub pubkey: Vec<u8>,
-    pub mint: Option<Vec<u8>>,
+    pub mint: Vec<u8>,
     pub amount: i64,
     pub owner: Vec<u8>,
     pub frozen: bool,
@@ -60,7 +60,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Pubkey => ColumnType::Binary.def(),
-            Self::Mint => ColumnType::Binary.def().null(),
+            Self::Mint => ColumnType::Binary.def(),
             Self::Amount => ColumnType::BigInteger.def(),
             Self::Owner => ColumnType::Binary.def(),
             Self::Frozen => ColumnType::Boolean.def(),

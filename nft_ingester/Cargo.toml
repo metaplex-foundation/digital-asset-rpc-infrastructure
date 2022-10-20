@@ -19,8 +19,8 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "0.5.1", features = ['redis'] }
-plerkle_serialization = { version = "0.5.1" }
+plerkle_messenger = { version = "0.5.2", features = ['redis'] }
+plerkle_serialization = { version = "0.5.2" }
 flatbuffers = "2.1.2"
 lazy_static = "1.4.0"
 regex = "1.5.5"
@@ -36,6 +36,7 @@ solana-sdk = "~1.10"
 solana-client = "~1.10.3"
 spl-token = { version = "~3.3.1", features = ["no-entrypoint"] }
 solana-transaction-status = "~1.10.3"
+rand = "0.8.5"
 
 [dependencies.num-integer]
 version = "0.1.44"

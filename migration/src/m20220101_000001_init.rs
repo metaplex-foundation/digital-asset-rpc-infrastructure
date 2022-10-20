@@ -27,7 +27,7 @@ impl MigrationTrait for Init {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let sql = r#"
             DROP TABLE IF EXISTS `asset`;
-            DROP TABLE IF EXISTS `asset_data`;
+            DROP TABLE IF EXISTS `asset_data`;cd
             DROP TABLE IF EXISTS `asset_authority`;
             DROP TABLE IF EXISTS `asset_v1_account_attachments`;
             DROP TABLE IF EXISTS `asset_grouping`;

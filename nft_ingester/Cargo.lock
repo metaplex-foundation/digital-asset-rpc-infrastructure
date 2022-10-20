@@ -2343,6 +2343,7 @@ dependencies = [
  "num-traits",
  "plerkle_messenger",
  "plerkle_serialization",
+ "rand 0.8.5",
  "redis 0.21.6",
  "regex",
  "reqwest",
@@ -2819,9 +2820,9 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plerkle_messenger"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f062397ed6555cd762f036db92368d0f1b3a8ebb314b68765395a79943ba4427"
+checksum = "84772847b68adf956cc03eaab92c4ed8c46c4bf8a3f95acc33c7882f55716903"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -2835,9 +2836,9 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2050f4827b59a28eb923ee3eabea363bb0c41549d1ccadfd956e3d25f3bdfe6c"
+checksum = "ac053579842c6d916c54d4afb446d92d3ee5a5f67ccda7372b5eacc9594201e0"
 dependencies = [
  "chrono",
  "flatbuffers",

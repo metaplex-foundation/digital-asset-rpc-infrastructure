@@ -24,9 +24,11 @@ use plerkle_messenger::{
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::{net::UdpSocket};
+use std::{env, net::UdpSocket};
+use figment::value::{Dict, Tag, Value};
 use tokio::sync::mpsc::UnboundedSender;
-
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -64,18 +66,26 @@ fn setup_metrics(config: &IngesterConfig) {
     }
 }
 
+fn rand_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
+}
+
 #[tokio::main]
 async fn main() {
     // Read config.
     println!("Starting DASgester");
-    let config: IngesterConfig = Figment::new()
+    let mut config: IngesterConfig = Figment::new()
         .join(Env::prefixed("INGESTER_"))
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),
         })
         .unwrap();
-    // Get database config.
+    config.messenger_config.connection_config.insert("consumer_id".to_string(), Value::from(rand_string()));
     let url = config
         .database_config
         .get(&*DATABASE_URL_KEY)
@@ -96,10 +106,9 @@ async fn main() {
     // Service streams as separate concurrent processes.
     println!("Setting up tasks");
     setup_metrics(&config);
-    {
-        let _i = 0..config
+    for _i in 0..config
         .transaction_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT);
+        .unwrap_or(DEFAULT_WORKER_COUNT) {
         tasks.push(
             service_transaction_stream::<RedisMessenger>(
                 pool.clone(),
@@ -109,17 +118,16 @@ async fn main() {
             .await,
         );
     }
-    {
-        let _i = 0..config
-        .transaction_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT);
+    for _i in 0..config
+        .account_stream_workers
+        .unwrap_or(DEFAULT_WORKER_COUNT) {
         tasks.push(
             service_account_stream::<RedisMessenger>(
                 pool.clone(),
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-            .await,
+                .await,
         );
     }
     safe_metric(|| {
@@ -145,7 +153,7 @@ async fn main() {
 async fn service_transaction_stream<T: Messenger>(
     pool: Pool<Postgres>,
     tasks: UnboundedSender<Box<dyn BgTask>>,
-    messenger_config: MessengerConfig,
+    mut messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let manager = ProgramTransformer::new(pool, tasks);
@@ -162,6 +170,7 @@ async fn service_transaction_stream<T: Messenger>(
             }
 
             if !ids.is_empty() {
+                println!("ACK-ing {} messages", ids.len());
                 if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
                     println!("Error ACK-ing messages {:?}", e);
                 }
@@ -186,10 +195,12 @@ async fn service_account_stream<T: Messenger>(
             ids.clear();
 
             if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
+                println!("Received account data");
                 handle_account(&manager, data, &mut ids).await
             }
 
             if !ids.is_empty() {
+                println!("ACK-ing {} messages", ids.len());
                 if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                     println!("Error ACK-ing messages {:?}", e);
                 }

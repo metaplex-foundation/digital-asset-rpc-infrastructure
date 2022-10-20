@@ -134,7 +134,7 @@ create index t_decimals on tokens USING BTREE (decimals);
 create table token_accounts
 (
     pubkey           bytea PRIMARY KEY,
-    mint             bytea,
+    mint             bytea not null ,
     amount           bigint not null default 0,
     owner            bytea  not null,
     frozen           bool   not null default false,
@@ -144,6 +144,8 @@ create table token_accounts
     slot_updated     bigint not null,
     token_program    bytea  not null
 );
+-- @@@@@@
+create index ta_mint on token_accounts (mint);
 -- @@@@@@
 create index ta_delegate on token_accounts (delegate);
 -- @@@@@@
