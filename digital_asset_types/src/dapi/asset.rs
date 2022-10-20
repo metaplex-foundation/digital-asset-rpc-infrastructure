@@ -1,6 +1,6 @@
 use crate::dao::prelude::{Asset, AssetData};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links, MetadataItem, Ownership, Royalty, Scope};
+use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links, MetadataItem, Ownership, Royalty, Scope, Uses};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
@@ -12,6 +12,7 @@ use url::Url;
 use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
 use crate::dao::{FullAsset, FullAssetList};
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::rpc::filter::AssetSorting;
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -59,25 +60,52 @@ pub fn safe_select<'a>(
         .and_then(|v| v.pop())
 }
 
-fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> {
+fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr> {
     // todo -> move this to the bg worker for pre processing
+    let metadata = &asset_data.metadata;
     let mut selector_fn = jsonpath_lib::selector(metadata);
+    let mut chain_data_selector_fn = jsonpath_lib::selector(&asset_data.chain_data);
     let selector = &mut selector_fn;
+    let chain_data_selector = &mut chain_data_selector_fn;
     println!("{}", metadata.to_string());
     let mut meta: Vec<MetadataItem> = Vec::new();
+    /*
+     pub name: String,
+    /// The symbol for the asset
+    pub symbol: String,
+    /// URI pointing to JSON representing the asset
+    pub uri: String,
+    /// Royalty basis points that goes to creators in secondary sales (0-10000)
+    pub seller_fee_basis_points: u16,
+    // Immutable, once flipped, all sales of this metadata are considered secondary.
+    pub primary_sale_happened: bool,
+    // Whether or not the data struct is mutable, default is not
+    pub is_mutable: bool,
+    /// nonce for easy calculation of editions, if present
+    pub edition_nonce: Option<u8>,
+    /// Since we cannot easily change Metadata, we add the new DataV2 fields here at the end.
+    pub token_standard: Option<TokenStandard>,
+    /// Collection
+    pub collection: Option<Collection>,
+    /// Uses
+    pub uses: Option<Uses>,
+    pub token_program_version: TokenProgramVersion,
+    pub creators: Vec<Creator>,
+     */
+    let mut description_meta = MetadataItem::new("description");
     let image = safe_select(selector, "$.image");
-    let name = safe_select(selector, "$.name")
-        .map(|x| MetadataItem::single("name".to_string(), x.clone()));
+    let name = safe_select(chain_data_selector, "$.name");
     if let Some(name) = name {
-        meta.push(name);
+        description_meta.set_item("name", name.clone());
     }
-    let desc = safe_select(selector, "$.description")
-        .map(|x| MetadataItem::single("description".to_string(), x.clone()));
+    let desc = safe_select(selector, "$.description");
     if let Some(desc) = desc {
-        meta.push(desc);
+        description_meta.set_item("description", desc.clone());
     }
-    let symbol = safe_select(selector, "$.symbol")
-        .map(|x| MetadataItem::single("symbol".to_string(), x.clone()));
+    meta.push(description_meta);
+    let description_meta = MetadataItem::new("description");
+    let symbol = safe_select(chain_data_selector, "$.symbol")
+        .map(|x| MetadataItem::single("symbol", "symbol", x.clone()));
     if let Some(symbol) = symbol {
         meta.push(symbol);
     }
@@ -139,8 +167,8 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
 
 pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
-        SpecificationVersions::V1 => v1_content_from_json(&data.metadata),
-        SpecificationVersions::V0 => v1_content_from_json(&data.metadata),
+        SpecificationVersions::V1 => v1_content_from_json(data),
+        SpecificationVersions::V0 => v1_content_from_json(data),
         _ => Err(DbErr::Custom("Version Not Implemented".to_string())),
     }
 }
@@ -209,8 +237,8 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             eligible: asset.compressible,
             compressed: asset.compressed,
             asset_hash: asset.leaf.map(|s| bs58::encode(s).into_string()).unwrap_or_default(),
-            data_hash: asset.data_hash.unwrap_or_default(),
-            creator_hash: asset.creator_hash.unwrap_or_default(),
+            data_hash: asset.data_hash.map(|e| e.trim().to_string()).unwrap_or_default(),
+            creator_hash: asset.creator_hash.map(|e| e.trim().to_string()).unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
         royalty: Some(Royalty {
@@ -227,10 +255,19 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             ownership_model: asset.owner_type.into(),
             owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
         },
+        uses: data.chain_data.get("uses").map(|u| {
+            Uses {
+                use_method: u.get("use_method").and_then(|s| {
+                    s.as_str()
+                }).unwrap_or("Single").to_string().into(),
+                total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+                remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+            }
+        }),
     })
 }
 
-pub async fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
+pub fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
     asset_list.list.into_iter().map(asset_to_rpc).collect()
 }
 
@@ -264,6 +301,70 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         creators,
         groups: grouping,
     })
+}
+
+pub async fn get_asset_list_data(
+    db: &DatabaseConnection,
+    assets: Vec<(asset::Model, Option<asset_data::Model>)>,
+) -> Result<Vec<RpcAsset>, DbErr> {
+    let assets_map = assets.into_iter().fold(HashMap::new(), |mut x, asset| {
+        if let Some(ad) = asset.1 {
+            let fa = FullAsset {
+                asset: asset.0,
+                data: ad,
+                authorities: vec![],
+                creators: vec![],
+                groups: vec![],
+            };
+
+            x.insert(asset.0.id.clone(), fa);
+        }
+        x
+    });
+
+
+    let authorities = asset_authority::Entity::find()
+        .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_authority::Column::AssetId)
+        .all(db)
+        .await?;
+    for a in authorities.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+            asset.authorities.push(a);
+        }
+    }
+
+    let creators = asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_authority::Column::AssetId)
+        .all(db)
+        .await?;
+    for c in creators.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+            asset.creators.push(c);
+        }
+    }
+
+    let grouping = asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_authority::Column::AssetId)
+        .all(db)
+        .await?;
+    for g in grouping.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+            asset.groups.push(g);
+        }
+    }
+    let len = assets_map.len();
+    let built_assets = asset_list_to_rpc(FullAssetList {
+        list: assets_map.into_iter().map(|(_, v)| v).collect()
+    }).into_iter().fold(Vec::with_capacity(len), | acc, i | {
+        if let Ok(a) = i {
+            acc.push(a);
+        }
+        a
+    });
+    Ok(built_assets)
 }
 
 #[cfg(test)]

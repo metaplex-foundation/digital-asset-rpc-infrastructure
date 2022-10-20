@@ -514,18 +514,13 @@ impl<T: Messenger> Backfiller<T> {
                 println!("Serializing transaction");
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                let builder = serialize_transaction(
-                    builder,
-                    meta,
-                    ui_raw_message,
-                    slot.try_into().unwrap(),
-                )?;
+                let builder =
+                    serialize_transaction(builder, meta, ui_raw_message, slot.try_into().unwrap())?;
 
                 // Debug.
                 println!("Putting data into Redis");
                 // Put data into Redis.
-                self
-                    .messenger
+                self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }

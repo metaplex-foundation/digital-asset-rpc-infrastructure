@@ -22,14 +22,11 @@ use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{TokenStandard, UseMethod, Uses},
 };
-use mpl_bubblegum::{
-    hash_creators,
-    hash_metadata,
-};
 use bs58;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
+use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -85,8 +82,8 @@ pub async fn mint_v1<'c>(
                     slot_updated: Set(slot_i),
                     ..Default::default()
                 }
-                    .insert(txn)
-                    .await?;
+                .insert(txn)
+                .await?;
 
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
@@ -95,8 +92,16 @@ pub async fn mint_v1<'c>(
                     Some(delegate.to_bytes().to_vec())
                 };
                 println!("bundle keys  {:?}", bundle.keys);
-                let data_hash = hash_metadata(args).map(|e| bs58::encode(e).into_string()).unwrap_or("".to_string()).trim();
-                let creator_hash = hash_creators(&*args.creators).map(|e| bs58::encode(e).into_string()).unwrap_or("".to_string()).trim();
+                let data_hash = hash_metadata(args)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
+                let creator_hash = hash_creators(&*args.creators)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
                 let model = asset::ActiveModel {
                     id: Set(id.to_bytes().to_vec()),
                     owner: Set(Some(owner.to_bytes().to_vec())),

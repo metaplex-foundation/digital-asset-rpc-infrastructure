@@ -1,7 +1,5 @@
 use crate::{BgTask, IngesterError};
-use blockbuster::programs::{
-    token_account::TokenProgramAccount,
-};
+use blockbuster::programs::token_account::TokenProgramAccount;
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{

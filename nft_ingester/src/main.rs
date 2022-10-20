@@ -15,21 +15,23 @@ use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use figment::{providers::Env, Figment};
+use figment::{
+    providers::Env,
+    value::{Dict, Tag, Value},
+    Figment,
+};
 use futures_util::TryFutureExt;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
 };
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
+use solana_sdk::pubkey::Pubkey;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, net::UdpSocket};
-use figment::value::{Dict, Tag, Value};
 use tokio::sync::mpsc::UnboundedSender;
-use rand::{thread_rng, Rng};
-use rand::distributions::Alphanumeric;
-use solana_sdk::pubkey::Pubkey;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -88,7 +90,10 @@ async fn main() {
             msg: format!("{}", config_error),
         })
         .unwrap();
-    config.messenger_config.connection_config.insert("consumer_id".to_string(), Value::from(rand_string()));
+    config
+        .messenger_config
+        .connection_config
+        .insert("consumer_id".to_string(), Value::from(rand_string()));
     let url = config
         .database_config
         .get(&*DATABASE_URL_KEY)
@@ -111,26 +116,28 @@ async fn main() {
     setup_metrics(&config);
     for _i in 0..config
         .transaction_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT) {
+        .unwrap_or(DEFAULT_WORKER_COUNT)
+    {
         tasks.push(
             service_transaction_stream::<RedisMessenger>(
                 pool.clone(),
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
     }
     for _i in 0..config
         .account_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT) {
+        .unwrap_or(DEFAULT_WORKER_COUNT)
+    {
         tasks.push(
             service_account_stream::<RedisMessenger>(
                 pool.clone(),
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
     }
     safe_metric(|| {
@@ -264,23 +271,31 @@ async fn handle_account(
     }
 }
 
-async fn process_instruction<'i>(manager: &ProgramTransformer, slot: u64, keys: &[FBPubkey], outer_ix: IxPair<'i>, inner_ix: Option<Vec<IxPair<'i>>>) -> Result<(), IngesterError> {
+async fn process_instruction<'i>(
+    manager: &ProgramTransformer,
+    slot: u64,
+    keys: &[FBPubkey],
+    outer_ix: IxPair<'i>,
+    inner_ix: Option<Vec<IxPair<'i>>>,
+) -> Result<(), IngesterError> {
     let (program, instruction) = outer_ix;
     let ix_accounts = instruction.accounts().unwrap_or(&[]);
     let ix_account_len = ix_accounts.len();
-    let max = ix_accounts.iter().max().map(|r|*r).unwrap_or(0) as usize;
+    let max = ix_accounts.iter().max().map(|r| *r).unwrap_or(0) as usize;
     if keys.len() < max {
-        return Err(IngesterError::DeserializationError("Missing Accounts in Serialized Ixn/Txn".to_string()));
+        return Err(IngesterError::DeserializationError(
+            "Missing Accounts in Serialized Ixn/Txn".to_string(),
+        ));
     }
-    let ix_accounts = ix_accounts.iter().fold(
-        Vec::with_capacity(ix_account_len), |mut acc, a| {
+    let ix_accounts = ix_accounts
+        .iter()
+        .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
             if let Some(key) = keys.get(*a as usize) {
                 acc.push(key.clone());
             }
             //else case here is handled on 272
             acc
-        },
-    );
+        });
     let bundle = InstructionBundle {
         txn_id: "",
         program,
@@ -322,15 +337,15 @@ async fn handle_transaction(
             let seen_at = Utc::now();
             safe_metric(|| {
                 statsd_time!(
-                        "ingester.bus_ingest_time",
-                        (seen_at.timestamp_millis() - tx.seen_at()) as u64
-                    );
+                    "ingester.bus_ingest_time",
+                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                );
             });
             for (outer_ix, inner_ix) in instructions {
                 let (program, _) = &outer_ix;
                 let str_program_id = bs58::encode(program.0.as_slice()).into_string();
                 let begin_processing = Utc::now();
-                let res = process_instruction(manager, tx.slot(),keys, outer_ix, inner_ix).await;
+                let res = process_instruction(manager, tx.slot(), keys, outer_ix, inner_ix).await;
                 let finish_processing = Utc::now();
                 match res {
                     Ok(_) => {

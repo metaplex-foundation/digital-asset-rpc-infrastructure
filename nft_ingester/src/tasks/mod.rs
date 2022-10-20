@@ -1,9 +1,9 @@
 use crate::error::IngesterError;
 use async_trait::async_trait;
+use cadence_macros::statsd_count;
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use sqlx::{Pool, Postgres};
 use std::fmt::Display;
-use cadence_macros::statsd_count;
 use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::{self, UnboundedSender},
@@ -43,11 +43,11 @@ impl TaskManager {
                     Ok(_) => {
                         statsd_count!("ingester.bgtask.complete", 1, "type" => data.name());
                         println!("{} completed", data)
-                    },
+                    }
                     Err(e) => {
                         statsd_count!("ingester.bgtask.error", 1, "type" => data.name());
                         println!("{} errored with {:?}", data, e)
-                    },
+                    }
                 }
             }
         });

@@ -70,10 +70,12 @@ pub async fn save_v1_asset(
                 .column_as(token_accounts::Column::Amount, "token_account_amount")
                 .column_as(token_accounts::Column::Owner, "owner")
                 .column_as(token_accounts::Column::Delegate, "delegate")
-                .join(JoinType::InnerJoin, tokens::Entity::belongs_to(token_accounts::Entity)
-                    .from(tokens::Column::Mint)
-                    .to(token_accounts::Column::Mint)
-                    .into(),
+                .join(
+                    JoinType::InnerJoin,
+                    tokens::Entity::belongs_to(token_accounts::Entity)
+                        .from(tokens::Column::Mint)
+                        .to(token_accounts::Column::Mint)
+                        .into(),
                 )
                 .into_model::<OwnershipTokenModel>()
                 .one(txn)
@@ -90,7 +92,7 @@ pub async fn save_v1_asset(
                     freeze_authority: None,
                     close_authority: None,
                     extension_data: None,
-                    slot_updated: 0
+                    slot_updated: 0,
                 };
                 let token_account = token_accounts::Model {
                     pubkey: vec![],
@@ -103,7 +105,7 @@ pub async fn save_v1_asset(
                     close_authority: None,
                     delegated_amount: 0,
                     slot_updated: 0,
-                    token_program: vec![]
+                    token_program: vec![],
                 };
                 (token, Some(token_account))
             }))
@@ -113,7 +115,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
