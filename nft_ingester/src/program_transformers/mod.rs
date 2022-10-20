@@ -1,5 +1,5 @@
 use blockbuster::{
-    instruction::InstructionBundle,
+    instruction::{InstructionBundle, IxPair},
     program_handler::ProgramParser,
     programs::{
         bubblegum::BubblegumParser, token_account::TokenAccountParser,
@@ -7,29 +7,28 @@ use blockbuster::{
     },
 };
 
-use crate::{error::IngesterError, BgTask};
-use blockbuster::instruction::IxPair;
-use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
-use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
-use solana_sdk::pubkey::Pubkey;
-use sqlx::PgPool;
-use std::collections::{HashMap, HashSet, VecDeque};
-use tokio::sync::mpsc::UnboundedSender;
-
 use crate::{
+    error::IngesterError,
     order_instructions,
     program_transformers::{
         bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
         token_metadata::handle_token_metadata_account,
     },
+    BgTask,
 };
-
-use digital_asset_types::dao::{raw_account_update, raw_transaction_update};
-use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
+use digital_asset_types::dao::{last_processed_slot, raw_account_update, raw_transaction_update};
+use plerkle_serialization::{
+    root_as_account_info, root_as_slot_status_info, root_as_transaction_info, AccountInfo,
+    Pubkey as FBPubkey, Status, TransactionInfo,
+};
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DatabaseConnection,
+    DbBackend, EntityTrait, SqlxPostgresConnector,
 };
+use solana_sdk::pubkey::Pubkey;
+use sqlx::PgPool;
+use std::collections::{HashMap, HashSet, VecDeque};
+use tokio::sync::mpsc::UnboundedSender;
 
 mod bubblegum;
 mod common;
@@ -214,6 +213,36 @@ impl ProgramTransformer {
                 _ => Err(IngesterError::NotImplemented),
             }?;
         }
+        Ok(())
+    }
+
+    pub async fn handle_slot_status_update(&self, data: &[u8]) -> Result<(), IngesterError> {
+        // Get root of slot status info info flatbuffers object.
+        let slot_status_update = root_as_slot_status_info(data)
+            .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+
+        // TODO get from config.
+        const DESIRED_STATUS: Status = Status::Rooted;
+
+        if slot_status_update.status() == DESIRED_STATUS {
+            // Setup `ActiveModel`.
+            let model = last_processed_slot::ActiveModel {
+                slot: Set(slot_status_update.slot() as i64),
+            };
+
+            // Put data into raw table.  The `ON CONFLICT` clause will dedupe the incoming stream.
+            let query = last_processed_slot::Entity::insert(model)
+                .on_conflict(
+                    OnConflict::columns([raw_account_update::Column::Slot])
+                        .do_nothing()
+                        .to_owned(),
+                )
+                .build(DbBackend::Postgres);
+
+            let txn = self.storage.begin().await?;
+            txn.execute(query).await?;
+        }
+
         Ok(())
     }
 }

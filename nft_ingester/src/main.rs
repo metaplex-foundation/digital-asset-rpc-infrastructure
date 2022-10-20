@@ -18,9 +18,11 @@ use chrono::Utc;
 use figment::{providers::Env, Figment};
 use futures_util::TryFutureExt;
 use plerkle_messenger::{
-    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
+    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, SLOT_STREAM, TRANSACTION_STREAM,
 };
-use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
+use plerkle_serialization::{
+    root_as_account_info, root_as_slot_status_info, root_as_transaction_info,
+};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{collections::HashSet, net::UdpSocket};
@@ -109,6 +111,14 @@ async fn main() {
         )
         .await,
     );
+    tasks.push(
+        service_slot_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
+        .await,
+    );
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
     });
@@ -168,6 +178,25 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
+async fn service_slot_stream<T: Messenger>(
+    pool: Pool<Postgres>,
+    tasks: UnboundedSender<Box<dyn BgTask>>,
+    messenger_config: MessengerConfig,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let manager = ProgramTransformer::new(pool, tasks);
+        let mut messenger = T::new(messenger_config).await.unwrap();
+        println!("Setting up slot listener");
+        loop {
+            // This call to messenger.recv() blocks with no timeout until
+            // a message is received on the stream.
+            if let Ok(data) = messenger.recv(SLOT_STREAM).await {
+                handle_slot(&manager, data).await
+            }
+        }
+    })
+}
+
 async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     for (_message_id, data) in data {
         // Get root of account info flatbuffers object.
@@ -209,6 +238,56 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
                 println!("Error handling account update: {:?}", err);
                 safe_metric(|| {
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
+                });
+            }
+        }
+    }
+}
+
+async fn handle_slot(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
+    for (_message_id, data) in data {
+        // Get root of slot status info info flatbuffers object.
+        let slot_status_update = match root_as_slot_status_info(data) {
+            Err(err) => {
+                println!("Flatbuffers SlotStatusInfo deserialization error: {err}");
+                continue;
+            }
+            Ok(slot_status_update) => slot_status_update,
+        };
+
+        // Post metrics.
+        let slot = slot_status_update.slot().to_string();
+        safe_metric(|| {
+            statsd_count!("ingester.slot_status_update_seen", 1, "slot" => &slot);
+        });
+        let seen_at = Utc::now();
+        safe_metric(|| {
+            statsd_time!(
+                "ingester.slot_status_update_bus_ingest_time",
+                (seen_at.timestamp_millis() - slot_status_update.seen_at()) as u64
+            );
+        });
+
+        // Process slot status update data.
+        let begin_processing = Utc::now();
+        let res = manager.handle_slot_status_update(data).await;
+        let finish_processing = Utc::now();
+        match res {
+            Ok(_) => {
+                safe_metric(|| {
+                    let proc_time = (finish_processing.timestamp_millis()
+                        - begin_processing.timestamp_millis())
+                        as u64;
+                    statsd_time!("ingester.slot_status_update_proc_time", proc_time);
+                });
+                safe_metric(|| {
+                    statsd_count!("ingester.slot_status_update_success", 1, "owner" => &slot);
+                });
+            }
+            Err(err) => {
+                println!("Error handling slot_status_update: {:?}", err);
+                safe_metric(|| {
+                    statsd_count!("ingester.slot_status_update_error", 1, "owner" => &slot);
                 });
             }
         }
