@@ -29,7 +29,7 @@ services:
     environment:
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
-      INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
+      INGESTER_DATABASE_CONFIG: '{backfill_listener="backfill_item_added", slot_listener="slot_processed", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://digital-asset-rpc-solana-1:8899", commitment="finalized"}'
       RUST_BACKTRACE: 1

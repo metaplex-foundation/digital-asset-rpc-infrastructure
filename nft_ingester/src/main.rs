@@ -32,7 +32,8 @@ use tokio::sync::mpsc::UnboundedSender;
 pub type DatabaseConfig = figment::value::Dict;
 
 pub const DATABASE_URL_KEY: &str = "url";
-pub const DATABASE_LISTENER_CHANNEL_KEY: &str = "listener_channel";
+pub const DB_BACKFILLER_LISTENER_CHANNEL_KEY: &str = "backfill_listener";
+pub const DB_SLOT_LISTENER_CHANNEL_KEY: &str = "slot_listener";
 
 pub type RpcConfig = figment::value::Dict;
 

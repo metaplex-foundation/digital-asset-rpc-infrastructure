@@ -1,7 +1,7 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 use crate::{
-    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
+    error::IngesterError, IngesterConfig, DB_BACKFILLER_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
     RPC_URL_KEY,
 };
 use chrono::Utc;
@@ -122,12 +122,12 @@ impl<T: Messenger> Backfiller<T> {
         // Get database listener channel.
         let channel = config
             .database_config
-            .get(&*DATABASE_LISTENER_CHANNEL_KEY)
+            .get(DB_BACKFILLER_LISTENER_CHANNEL_KEY)
             .and_then(|u| u.clone().into_string())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!(
                     "Database listener channel missing: {}",
-                    DATABASE_LISTENER_CHANNEL_KEY
+                    DB_BACKFILLER_LISTENER_CHANNEL_KEY
                 ),
             })
             .unwrap();

@@ -257,3 +257,26 @@ create table last_processed_slot
 (
     slot         bigint PRIMARY KEY          not null
 );
+
+CREATE
+    or REPLACE FUNCTION notify_slot_processed()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+as
+$BODY$
+declare
+begin
+    if
+        (tg_op = 'INSERT') then
+        perform pg_notify('slot_processed', 'hello');
+    end if;
+
+    return null;
+end
+$BODY$;
+
+CREATE TRIGGER after_insert_item
+    AFTER INSERT
+    ON last_processed_slot
+    FOR EACH ROW
+EXECUTE PROCEDURE notify_slot_processed();

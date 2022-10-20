@@ -34,7 +34,7 @@ Because this is a multi component system the easiest way to develop or locally t
 #### Regenerating DB Types
 Edit the init.sql, then run `docker compose up db`
 Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=postgres://solana:solana@localhost/solana` you can run
-` sea-orm-cli generate entity -o ./digital_asset_types/src/dao --database-url $DATABASE_URL --with-serde both --expanded-format`
+` sea-orm-cli generate entity -o ./digital_asset_types/src/dao/generated/ --database-url $DATABASE_URL --with-serde both --expanded-format`
 
 If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
 
@@ -59,7 +59,7 @@ cargo run -p das_api
 
 For the Ingester you need the following environment variables:
 ```bash
-INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}' # your database host
+INGESTER_DATABASE_CONFIG: '{backfill_listener="backfill_item_added", slot_listener="slot_processed", url="postgres://solana:solana@db/solana"}' # your database host
 INGESTER_MESSENGER_CONFIG: '{messenger_type="Redis", connection_config={ redis_connection_str="redis://redis" } }' #your redis
 INGESTER_RPC_CONFIG: '{url="http://validator:8899", commitment="finalized"}' # your solana validator or same network rpc, if local you must use your solana instance running localy
 ```
