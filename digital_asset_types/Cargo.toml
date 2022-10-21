@@ -32,3 +32,8 @@ futures = "0.3.21"
 [dev-dependencies]
 async-std = { version = "^1", features = ["attributes", "tokio1"] }
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["precommit-hook", "user-hooks"]
+

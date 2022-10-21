@@ -11,7 +11,7 @@ use helpers::{
 };
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
 use mpl_candy_machine::{CandyMachineData, ConfigLine};
-use mpl_candy_machine_core::CandyMachineData as CandyMachineDataV3;
+use mpl_candy_machine_core::{CandyMachineData as CandyMachineDataV3, ConfigLine as ConfigLineV3};
 use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
@@ -206,6 +206,42 @@ pub async fn check_balance(
             )));
         }
     }
+    Ok(())
+}
+pub async fn add_config_lines_v3(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    index: u32,
+    config_lines: Vec<ConfigLineV3>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_machine_core::accounts::AddConfigLines {
+        candy_machine: *candy_machine,
+        authority: authority.pubkey(),
+    }
+    .to_account_metas(None);
+
+    let data = mpl_candy_machine_core::instruction::AddConfigLines {
+        index,
+        config_lines,
+    }
+    .data();
+
+    let add_config_line_ix = Instruction {
+        program_id: mpl_candy_machine_core::id(),
+        data,
+        accounts,
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[add_config_line_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        solana_client.get_latest_blockhash().await?,
+    );
+
+    solana_client.send_and_confirm_transaction(&tx).await?;
+
     Ok(())
 }
 

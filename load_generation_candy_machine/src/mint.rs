@@ -182,3 +182,63 @@ pub fn mint_nft_ix(
     // }
     instructions
 }
+
+pub async fn mint_nft_v3(
+    candy_machine: &Pubkey,
+    candy_creator_pda: &Pubkey,
+    creator_bump: u8,
+    wallet: &Pubkey,
+    authority: &Pubkey,
+    payer: Arc<Keypair>,
+    edition_pubkey: Pubkey,
+    metadata_pubkey: Pubkey,
+    mint: Arc<Keypair>,
+    token_account: Pubkey,
+    solana_client: Arc<RpcClient>,
+) {
+    let ix = mint_nft_v3_ix(
+        candy_machine,
+        candy_creator_pda,
+        creator_bump,
+        wallet,
+        authority,
+        payer.clone(),
+        edition_pubkey,
+        metadata_pubkey,
+        mint,
+        token_account,
+    );
+}
+
+pub async fn mint_nft_v3_ix(
+    candy_machine: &Pubkey,
+    candy_creator_pda: &Pubkey,
+    creator_bump: u8,
+    wallet: &Pubkey,
+    authority: &Pubkey,
+    payer: Arc<Keypair>,
+    edition_pubkey: Pubkey,
+    metadata_pubkey: Pubkey,
+    mint: Arc<Keypair>,
+    token_account: Pubkey,
+) {
+    let mut accounts = mpl_candy_machine_core::accounts::Mint {
+        candy_machine: *candy_machine,
+        authority_pda: *candy_creator_pda,
+        mint_authority: payer.pubkey(),
+        payer: payer.pubkey(),
+        nft_mint: mint.pubkey(),
+        nft_mint_authority: payer.pubkey(),
+        nft_metadata: metadata_pubkey,
+        nft_master_edition: edition_pubkey,
+        collection_authority_record: todo!(),
+        collection_mint: todo!(),
+        collection_metadata: todo!(),
+        collection_master_edition: todo!(),
+        collection_update_authority: todo!(),
+        token_metadata_program: mpl_token_metadata::id(),
+        token_program: spl_token::id(),
+        system_program: system_program::id(),
+        recent_slothashes: sysvar::slot_hashes::id(),
+    };
+}

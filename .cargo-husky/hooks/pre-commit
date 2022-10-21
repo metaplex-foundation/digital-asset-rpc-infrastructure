@@ -17,6 +17,6 @@ set -eu
 #     exit 1
 # fi
 
-cargo +nightly fmt -- --check
+cargo +nightly fmt
 
 exit 0

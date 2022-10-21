@@ -36,19 +36,19 @@ services:
     build:
       context: .
       dockerfile: Ingest.Dockerfile
-  load:
-    depends_on:
-      - ingester
-      - solana
-    restart: always
-    environment:
-      KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
-      NETWORK: "local"
-      AMOUNT_OF_CHAOS: 1
-      RPC_URL: "http://digital-asset-rpc-infrastructure-solana-1:8899"
-    build:
-      context: .
-      dockerfile: Load.Dockerfile
+  # load:
+  #   depends_on:
+  #     - ingester
+  #     - solana
+  #   restart: always
+  #   environment:
+  #     KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
+  #     NETWORK: "local"
+  #     AMOUNT_OF_CHAOS: 1
+  #     RPC_URL: "http://digital-asset-rpc-infrastructure-solana-1:8899"
+  #   build:
+  #     context: .
+  #     dockerfile: Load.Dockerfile
   load-candy-machine:
     depends_on:
       - ingester
