@@ -62,6 +62,7 @@ impl ApiContract for DasApi {
         get_proof_for_asset(&self.db_connection, id_bytes)
             .await
             .and_then(|p| {
+                println!("Proof: {:?}", p);
                 if p.proof.len() == 0 {
                     return Err(not_found(&asset_id));
                 }

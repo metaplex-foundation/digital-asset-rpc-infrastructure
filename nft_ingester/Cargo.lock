@@ -529,7 +529,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.3.3"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "236b60afb5912f3075445118a07c56c8cbc8d3c57cea891fee91a4bf30b244cb"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -2337,11 +2339,13 @@ dependencies = [
  "futures-util",
  "hex",
  "lazy_static",
+ "mpl-bubblegum",
  "num-integer",
  "num-traits",
  "plerkle_messenger",
  "plerkle_serialization",
- "redis",
+ "rand 0.8.5",
+ "redis 0.21.6",
  "regex",
  "reqwest",
  "sea-orm",
@@ -2817,25 +2821,25 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plerkle_messenger"
-version = "0.4.6"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a34b49b357ddd109eb3b0b0269d77605ac7a6b34855eb7e3b5cc855a80b3645c"
+checksum = "84772847b68adf956cc03eaab92c4ed8c46c4bf8a3f95acc33c7882f55716903"
 dependencies = [
  "async-mutex",
  "async-trait",
  "figment",
  "futures",
  "log",
- "redis",
+ "redis 0.22.1",
  "serde",
  "thiserror",
 ]
 
 [[package]]
 name = "plerkle_serialization"
-version = "0.4.8"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bd56c4fdaf24f6dae52454dc277ac2053d5010361f50e1014fab49f863149db"
+checksum = "ac053579842c6d916c54d4afb446d92d3ee5a5f67ccda7372b5eacc9594201e0"
 dependencies = [
  "chrono",
  "flatbuffers",
@@ -3182,6 +3186,26 @@ dependencies = [
  "pin-project-lite",
  "ryu",
  "sha1 0.6.1",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "513b3649f1a111c17954296e4a3b9eecb108b766c803e2b99f179ebe27005985"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "combine",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
  "tokio",
  "tokio-util",
  "url",

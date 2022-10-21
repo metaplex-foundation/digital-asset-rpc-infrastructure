@@ -22,9 +22,11 @@ use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{TokenStandard, UseMethod, Uses},
 };
+use bs58;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
+use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -38,7 +40,7 @@ pub async fn mint_v1<'c>(
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let metadata = args;
         return match le.schema {
             LeafSchema::V1 {
@@ -89,6 +91,17 @@ pub async fn mint_v1<'c>(
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
+                println!("bundle keys  {:?}", bundle.keys);
+                let data_hash = hash_metadata(args)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
+                let creator_hash = hash_creators(&*args.creators)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
                 let model = asset::ActiveModel {
                     id: Set(id.to_bytes().to_vec()),
                     owner: Set(Some(owner.to_bytes().to_vec())),
@@ -98,7 +111,7 @@ pub async fn mint_v1<'c>(
                     supply: Set(1),
                     supply_mint: Set(None),
                     compressed: Set(true),
-                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())), //will change when we remove requests
+                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
                     nonce: Set(nonce as i64),
@@ -109,6 +122,8 @@ pub async fn mint_v1<'c>(
                     asset_data: Set(Some(data.id)),
                     seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(slot_i),
+                    data_hash: Set(Some(data_hash)),
+                    creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 
@@ -140,7 +155,7 @@ pub async fn mint_v1<'c>(
                 txn.execute(query).await?;
 
                 // Insert into `asset_creators` table.
-                if metadata.creators.len() > 0 {
+                if !metadata.creators.is_empty() {
                     let mut creators = Vec::with_capacity(metadata.creators.len());
                     for c in metadata.creators.iter() {
                         creators.push(asset_creators::ActiveModel {

@@ -23,6 +23,18 @@ use sea_orm::{
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
 
+use sea_orm::{FromQueryResult, JoinType, RelationTrait};
+use sea_query::Expr;
+
+#[derive(FromQueryResult)]
+struct OwnershipTokenModel {
+    supply: i64,
+    mint: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    token_account_amount: i64,
+}
+
 pub async fn save_v1_asset(
     id: FBPubkey,
     slot: u64,
@@ -54,11 +66,49 @@ pub async fn save_v1_asset(
     let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type
     {
         OwnerType::Single => {
-            let result = tokens::Entity::find_by_id(mint.clone())
-                .find_also_related(TokenAccounts)
+            let result: Option<OwnershipTokenModel> = tokens::Entity::find_by_id(mint.clone())
+                .column_as(token_accounts::Column::Amount, "token_account_amount")
+                .column_as(token_accounts::Column::Owner, "owner")
+                .column_as(token_accounts::Column::Delegate, "delegate")
+                .join(
+                    JoinType::InnerJoin,
+                    tokens::Entity::belongs_to(token_accounts::Entity)
+                        .from(tokens::Column::Mint)
+                        .to(token_accounts::Column::Mint)
+                        .into(),
+                )
+                .into_model::<OwnershipTokenModel>()
                 .one(txn)
                 .await?;
-            Ok(result)
+
+            Ok(result.map(|t| {
+                let token = tokens::Model {
+                    mint: t.mint.clone(),
+                    supply: t.supply,
+                    //Not Needed here
+                    decimals: 0,
+                    token_program: vec![],
+                    mint_authority: None,
+                    freeze_authority: None,
+                    close_authority: None,
+                    extension_data: None,
+                    slot_updated: 0,
+                };
+                let token_account = token_accounts::Model {
+                    pubkey: vec![],
+                    mint: t.mint,
+                    owner: t.owner,
+                    amount: t.token_account_amount,
+                    delegate: t.delegate,
+                    //Not Needed here
+                    frozen: false,
+                    close_authority: None,
+                    delegated_amount: 0,
+                    slot_updated: 0,
+                    token_program: vec![],
+                };
+                (token, Some(token_account))
+            }))
         }
         _ => {
             let token = tokens::Entity::find_by_id(mint.clone()).one(txn).await?;
@@ -129,7 +179,7 @@ pub async fn save_v1_asset(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    let res = txn.execute(query).await?;
+    let _res = txn.execute(query).await?;
 
     // Insert into `asset` table.
     let model = asset::ActiveModel {
