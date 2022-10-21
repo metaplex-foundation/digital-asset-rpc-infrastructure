@@ -307,8 +307,10 @@ pub async fn get_asset_list_data(
     db: &DatabaseConnection,
     assets: Vec<(asset::Model, Option<asset_data::Model>)>,
 ) -> Result<Vec<RpcAsset>, DbErr> {
-    let assets_map = assets.into_iter().fold(HashMap::new(), |mut x, asset| {
+    let mut ids = Vec::with_capacity(assets.len());
+    let mut assets_map = assets.into_iter().fold(HashMap::new(), |mut x, asset| {
         if let Some(ad) = asset.1 {
+            let id = asset.0.id.clone();
             let fa = FullAsset {
                 asset: asset.0,
                 data: ad,
@@ -317,7 +319,8 @@ pub async fn get_asset_list_data(
                 groups: vec![],
             };
 
-            x.insert(asset.0.id.clone(), fa);
+            x.insert(id.clone(), fa);
+            ids.push(id);
         }
         x
     });
@@ -329,14 +332,14 @@ pub async fn get_asset_list_data(
         .all(db)
         .await?;
     for a in authorities.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+        if let Some(asset) = assets_map.get_mut(&a.asset_id) {
             asset.authorities.push(a);
         }
     }
 
     let creators = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
+        .order_by_asc(asset_creators::Column::AssetId)
         .all(db)
         .await?;
     for c in creators.into_iter() {
@@ -347,7 +350,7 @@ pub async fn get_asset_list_data(
 
     let grouping = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
+        .order_by_asc(asset_grouping::Column::AssetId)
         .all(db)
         .await?;
     for g in grouping.into_iter() {
@@ -358,11 +361,11 @@ pub async fn get_asset_list_data(
     let len = assets_map.len();
     let built_assets = asset_list_to_rpc(FullAssetList {
         list: assets_map.into_iter().map(|(_, v)| v).collect()
-    }).into_iter().fold(Vec::with_capacity(len), | acc, i | {
+    }).into_iter().fold(Vec::with_capacity(len), | mut acc, i | {
         if let Ok(a) = i {
             acc.push(a);
         }
-        a
+        acc
     });
     Ok(built_assets)
 }

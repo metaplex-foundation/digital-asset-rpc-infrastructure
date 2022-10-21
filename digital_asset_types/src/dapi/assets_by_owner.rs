@@ -71,7 +71,7 @@ pub async fn get_assets_by_owner(
         assets
     };
 
-    let built_assets = get_asset_list_data( db, assets).await?;
+    let built_assets = get_asset_list_data(db, assets).await?;
 
     let total = built_assets.len() as u32;
 
