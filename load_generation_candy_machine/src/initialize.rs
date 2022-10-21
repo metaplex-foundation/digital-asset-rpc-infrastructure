@@ -143,7 +143,8 @@ pub async fn make_a_candy_machine_v3(
         solana_client.clone(),
     )
     .await?;
-    //  candy_manager.set_collection(context).await.unwrap();
+
+    sleep(Duration::from_millis(130000)).await;
 
     Ok(candy_machine.pubkey())
 }
