@@ -4,7 +4,7 @@ use blockbuster::token_metadata::{
     state::{Metadata, TokenStandard, UseMethod, Uses},
 };
 use digital_asset_types::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
         prelude::TokenAccounts,

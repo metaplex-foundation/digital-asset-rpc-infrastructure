@@ -16,7 +16,6 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, Figment};
-use futures_util::TryFutureExt;
 use plerkle_messenger::{
     Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
 };
@@ -191,7 +190,7 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
             );
         });
         let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
+        let res = manager.handle_account_update(&account_update).await;
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {

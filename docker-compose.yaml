@@ -45,10 +45,23 @@ services:
       KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
       NETWORK: "local"
       AMOUNT_OF_CHAOS: 1
-      RPC_URL: "http://digital-asset-rpc-solana-1:8899"
+      RPC_URL: "http://digital-asset-rpc-infrastructure-solana-1:8899"
     build:
       context: .
       dockerfile: Load.Dockerfile
+  load-candy-machine:
+    depends_on:
+      - ingester
+      - solana
+    restart: always
+    environment:
+      KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
+      NETWORK: "local"
+      AMOUNT_OF_CHAOS: 1
+      RPC_URL: "http://digital-asset-rpc-infrastructure-solana-1:8899"
+    build:
+      context: .
+      dockerfile: LoadCandyMachine.Dockerfile
   api:
     restart: always
     environment:
@@ -77,7 +90,7 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.4.6
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.3
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

@@ -1,10 +1,10 @@
-use crate::dao::asset;
-use crate::dao::prelude::AssetData;
+use crate::dao::generated::asset;
+use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::ListingSorting;
 use crate::rpc::response::ListingsList;
 use crate::rpc::AssetSale;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, ModelTrait};
+use sea_orm::{query::*, DbErr};
 
 pub async fn get_listed_assets_by_owner(
     db: &DatabaseConnection,
@@ -20,17 +20,14 @@ pub async fn get_listed_assets_by_owner(
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
-                    .add(
-                        asset::Column::Delegate.is_not_null()),
+                    .add(asset::Column::Delegate.is_not_null()),
             )
             .find_also_related(AssetData)
-            // .order_by_asc(sort_column)
             .paginate(db, limit.try_into().unwrap());
 
         paginator.fetch_page((page - 1).try_into().unwrap()).await?
     } else if !before.is_empty() {
         let rows = asset::Entity::find()
-            // .order_by_asc(sort_column)
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
@@ -52,7 +49,6 @@ pub async fn get_listed_assets_by_owner(
         assets
     } else {
         let rows = asset::Entity::find()
-            // .order_by_asc(sort_column)
             .filter(
                 Condition::all()
                     .add(asset::Column::Owner.eq(owner_address.clone()))
@@ -81,7 +77,7 @@ pub async fn get_listed_assets_by_owner(
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })
         .collect();
-    let build_listings_list = filter_assets?.into_iter().map(|(asset)| async move {
+    let build_listings_list = filter_assets?.into_iter().map(|asset| async move {
         AssetSale {
             listing_id: todo!(),
             asset_id: todo!(),

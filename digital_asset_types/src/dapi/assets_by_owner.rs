@@ -1,11 +1,11 @@
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::generated::prelude::AssetData;
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dapi::asset::get_interface;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Interface, Ownership, Royalty};
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
-use crate::dapi::asset::get_interface;
+use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryOrder, QueryFilter, CursorTrait, ModelTrait, PaginatorTrait};
+use sea_orm::DbErr;
 
 use super::asset::{get_content, to_authority, to_creators, to_grouping};
 
@@ -122,7 +122,10 @@ pub async fn get_assets_by_owner(
                     delegated: asset.delegate.is_some(),
                     delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
                     ownership_model: asset.owner_type.into(),
-                    owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
+                    owner: asset
+                        .owner
+                        .map(|o| bs58::encode(o).into_string())
+                        .unwrap_or("".to_string()),
                 },
             }
         });

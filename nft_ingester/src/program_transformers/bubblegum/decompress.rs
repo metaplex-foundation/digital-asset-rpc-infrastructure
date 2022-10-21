@@ -1,6 +1,6 @@
 use crate::IngesterError;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use digital_asset_types::dao::asset;
+use digital_asset_types::dao::generated::asset;
 use sea_orm::{
     entity::*, query::*, ColumnTrait, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait,
 };

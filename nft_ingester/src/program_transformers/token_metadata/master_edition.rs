@@ -1,13 +1,13 @@
 use crate::IngesterError;
 use blockbuster::token_metadata::state::{Key, MasterEditionV1, MasterEditionV2};
-use digital_asset_types::dao::{
-    asset, asset_data, asset_v1_account_attachments,
-    sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
+    SpecificationAssetClass, V1AccountAttachments,
 };
+use digital_asset_types::dao::generated::{asset, asset_v1_account_attachments};
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    DatabaseTransaction, DbBackend, EntityTrait,
 };
 
 pub async fn save_v2_master_edition(
@@ -64,7 +64,7 @@ pub async fn save_master_edition(
     let ser = serde_json::to_value(me_data)
         .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
 
-    let mut model = asset_v1_account_attachments::ActiveModel {
+    let model = asset_v1_account_attachments::ActiveModel {
         id: Set(id_bytes),
         attachment_type: Set(V1AccountAttachments::MasterEditionV1),
         data: Set(Some(ser)),
