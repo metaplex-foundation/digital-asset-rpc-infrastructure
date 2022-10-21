@@ -52,9 +52,9 @@ pub async fn get_candy_machine(
         .all(db)
         .await?;
 
-    let candy_guard = if let Some(candy_guard_pda) = candy_machine.candy_guard_pda {
+    let candy_guard = if let Some(candy_guard_id) = candy_machine.candy_guard_id {
         let (candy_guard, candy_guard_group): (candy_guard::Model, Vec<candy_guard_group::Model>) =
-            CandyGuard::find_by_id(candy_guard_pda)
+            CandyGuard::find_by_id(candy_guard_id)
                 .find_with_related(CandyGuardGroup)
                 .all(db)
                 .await

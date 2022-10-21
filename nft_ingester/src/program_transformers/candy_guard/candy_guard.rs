@@ -22,17 +22,17 @@ pub async fn candy_guard<'c>(
 ) -> Result<(), IngesterError> {
     let id_bytes = id.0.to_vec();
     let candy_guard_model = candy_guard::ActiveModel {
-        // TODO add correct id ticket P-629
-        id: Set(candy_guard.base.to_bytes().to_vec()),
+        id: Set(id_bytes),
         base: Set(candy_guard.base.to_bytes().to_vec()),
         bump: Set(candy_guard.bump),
         authority: Set(candy_guard.authority.to_bytes().to_vec()),
     };
 
-    // TODO need to get from DB for value cm and update the candy guard pda value ticket P-629
-    // i think that the candy_guard acc.key should be primary key and update any CMs that now have mint authority as a candy guard
-    let candy_machine: candy_machine::Model = CandyMachine::find_by_id(id_bytes)
-        .one(db)
+    // this is returning a vec because candy guards can wrap multiple candy machines
+    // but a single candy machine can have just one guard
+    let candy_machines: Vec<candy_machine::Model> = CandyMachine::find()
+        .all(db)
+        .filter(Condition::all().add(candy_machine::Column::MintAuthority.eq(id_bytes.clone())))
         .await
         .and_then(|o| match o {
             Some(a) => Ok(a),
@@ -42,11 +42,11 @@ pub async fn candy_guard<'c>(
     let query = candy_guard::Entity::insert(candy_guard_model)
         .on_conflict(
             OnConflict::columns([candy_guard::Column::Id])
-                // TODO add base to update ticket P-629
-                .update_columns([candy_guard::Column::Bump, candy_guard::Column::Authority])
+                .update_columns([candy_guard::Column::Authority])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+
     txn.execute(query)
         .await
         .map(|_| ())

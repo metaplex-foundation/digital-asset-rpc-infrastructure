@@ -237,7 +237,7 @@ create table candy_machine
     wallet                   bytea,
     token_mint               bytea,
     items_redeemed           bigint              not null,
-    candy_guard_pda          bytea,
+    candy_guard_id           bytea references candy_guard (id),
     collection_mint          bytea,                            
     allow_thaw               bool,                                    
     frozen_count             bigint,                                      
@@ -293,12 +293,11 @@ create unique index candy_machine_creators_candy_machine_id on candy_machine_cre
 create index candy_machine_creator on candy_machine_creators (candy_machine_id, creator);
 create index candy_machine_verified_creator on candy_machine_creators (candy_machine_id, verified);
 
--- TODO finalizing candy guard schema in P-683
 create table candy_guard
 (   
     id                   bytea                                   PRIMARY KEY,
     base                 bytea                                   not null,
-    bump                 int                                     not null,
+    bump                 smallint                                not null,
     authority            bytea                                   not null
 );
 
@@ -307,20 +306,36 @@ create table candy_guard_group
     id                               bigserial                              PRIMARY KEY,
     label                            varchar(50),
     candy_guard_id                   bytea references candy_guard (id)      not null,
-    whitelist_mode                   whitelist_mint_mode,                                      
-    whitelist_mint                   bytea,                                                    
-    whitelist_presale                bool,                                                    
-    whitelist_discount_price         int,
     bot_tax_lamports                 int,
     bot_tax_last_instruction         bool,
-    live_date                        int,    
+    start_date                       int,    
+    end_date                         int,    
     third_party_signer_key           bytea,    
     nft_payment_destination          bytea,                        
     nft_payment_required_collection  bytea,        
-    allow_list_merkle_root           bytea,  
     mint_limit_id                    int,    
     mint_limit_limit                 int,     
     gatekeeper_network               bytea,                                    
-    gatekeeper_expire_on_use         bool                                                                                  
+    gatekeeper_expire_on_use         bool,
+    sol_payment_lamports             int,
+    sol_payment_destination          bytea, 
+    redeemed_amount_maximum          int,
+    address_gate_address             bytea, 
+    freeze_sol_payment_lamport       int,
+    freeze_sol_payment_destination   bytea, 
+    token_gate_amount                int,
+    token_gate_mint                  bytea, 
+    nft_gate_required_collection     bytea, 
+    token_burn_amount                int,
+    token_burn_mint                  bytea,
+    nft_burn_required_collection     bytea,
+    token_payment_amount             int,
+    token_payment_mint               bytea, 
+    token_payment_destination_ata    bytea, 
+    allow_list_merkle_root           bytea,
+    freeze_token_payment_amount      int,
+    freeze_token_payment_mint        bytea,
+    freeze_token_payment_destination bytea,
+
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);

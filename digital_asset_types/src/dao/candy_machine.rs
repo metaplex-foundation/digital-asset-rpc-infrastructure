@@ -21,7 +21,7 @@ pub struct Model {
     pub wallet: Option<Vec<u8>>,
     pub token_mint: Option<Vec<u8>>,
     pub items_redeemed: i64,
-    pub candy_guard_pda: Option<Vec<u8>>,
+    pub candy_guard_id: Option<Vec<u8>>,
     pub collection_mint: Option<Vec<u8>>,
     pub allow_thaw: Option<bool>,
     pub frozen_count: Option<i64>,
