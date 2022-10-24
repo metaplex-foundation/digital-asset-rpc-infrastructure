@@ -44,9 +44,7 @@ spec:
           - name: RUST_LOG
             value: "info"
           - name: INGESTER_METRICS_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
+            value: 127.0.0.1
           - name: INGESTER_METRICS_PORT
             value: "8125"
           - name: INGESTER_DATABASE_CONFIG

@@ -43,7 +43,6 @@ pub type RpcConfig = figment::value::Dict;
 
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
-pub const DEFAULT_WORKER_COUNT: usize = 1;
 
 // Struct used for Figment configuration items.
 #[derive(Deserialize, PartialEq, Debug, Clone)]
@@ -53,8 +52,6 @@ pub struct IngesterConfig {
     pub rpc_config: RpcConfig,
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
-    pub account_stream_workers: Option<usize>,
-    pub transaction_stream_workers: Option<usize>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
@@ -105,7 +102,7 @@ async fn main() {
     // Setup Postgres.
     let mut tasks = vec![];
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(10)
         .connect(&url)
         .await
         .unwrap();
@@ -114,32 +111,25 @@ async fn main() {
     // Service streams as separate concurrent processes.
     println!("Setting up tasks");
     setup_metrics(&config);
-    for _i in 0..config
-        .transaction_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT)
-    {
-        tasks.push(
-            service_transaction_stream::<RedisMessenger>(
-                pool.clone(),
-                background_task_manager.get_sender(),
-                config.messenger_config.clone(),
-            )
+
+    tasks.push(
+        service_transaction_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
             .await,
-        );
-    }
-    for _i in 0..config
-        .account_stream_workers
-        .unwrap_or(DEFAULT_WORKER_COUNT)
-    {
-        tasks.push(
-            service_account_stream::<RedisMessenger>(
-                pool.clone(),
-                background_task_manager.get_sender(),
-                config.messenger_config.clone(),
-            )
+    );
+
+    tasks.push(
+        service_account_stream::<RedisMessenger>(
+            pool.clone(),
+            background_task_manager.get_sender(),
+            config.messenger_config.clone(),
+        )
             .await,
-        );
-    }
+    );
+
     safe_metric(|| {
         statsd_count!("ingester.startup", 1);
     });

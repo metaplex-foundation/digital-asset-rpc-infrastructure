@@ -256,7 +256,7 @@ pub async fn save_v1_asset(
     let creators = data.creators.unwrap_or_default();
     if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
-        for c in creators.into_iter() {
+        for (i, c) in creators.into_iter().enumerate() {
             db_creators.push(asset_creators::ActiveModel {
                 asset_id: Set(id.to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
@@ -264,6 +264,7 @@ pub async fn save_v1_asset(
                 verified: Set(c.verified),
                 seq: Set(0), // do we need this here @micheal-danenberg?
                 slot_updated: Set(slot_i),
+                position: Set(i as i16),
                 ..Default::default()
             });
         }
@@ -272,7 +273,7 @@ pub async fn save_v1_asset(
         // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
-                OnConflict::columns([asset_creators::Column::AssetId])
+                OnConflict::columns([asset_creators::Column::AssetId, asset_creators::Column::Position])
                     .update_columns([
                         asset_creators::Column::Creator,
                         asset_creators::Column::Share,

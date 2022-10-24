@@ -7,4 +7,4 @@ COPY digital_asset_types /digital_asset_types
 WORKDIR /migration
 RUN cargo build
 WORKDIR /
-CMD sea-orm-cli migrate up
+CMD sea-orm-cli migrate up -n 100
