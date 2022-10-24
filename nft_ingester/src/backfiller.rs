@@ -1,9 +1,6 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
-use crate::{
-    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
-    RPC_URL_KEY,
-};
+use crate::{error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY, safe_metric};
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
@@ -27,6 +24,7 @@ use solana_transaction_status::{
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::str::FromStr;
+use cadence_macros::statsd_count;
 use tokio::time::{sleep, Duration};
 
 // Constants used for varying delays when failures occur.

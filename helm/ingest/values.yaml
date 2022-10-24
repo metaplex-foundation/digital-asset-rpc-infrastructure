@@ -6,6 +6,8 @@ imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+backfiller:
+  replicaCount: 1
 generateLoad: true
 load:
   seed:

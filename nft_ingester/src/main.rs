@@ -52,6 +52,7 @@ pub struct IngesterConfig {
     pub rpc_config: RpcConfig,
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
+    pub backfiller: Option<bool>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
@@ -106,35 +107,41 @@ async fn main() {
         .connect(&url)
         .await
         .unwrap();
-    let background_task_manager =
-        TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
-    // Service streams as separate concurrent processes.
-    println!("Setting up tasks");
-    setup_metrics(&config);
+    let mut background_task_manager;
+    if config.backfiller.unwrap_or(false) {
+        tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
+        safe_metric(|| {
+            statsd_count!("ingester.backfiller.startup", 1);
+        });
+    } else {
+        background_task_manager = TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
+        // Service streams as separate concurrent processes.
+        println!("Setting up tasks");
+        setup_metrics(&config);
 
-    tasks.push(
-        service_transaction_stream::<RedisMessenger>(
-            pool.clone(),
-            background_task_manager.get_sender(),
-            config.messenger_config.clone(),
-        )
-            .await,
-    );
+        tasks.push(
+            service_transaction_stream::<RedisMessenger>(
+                pool.clone(),
+                background_task_manager.get_sender(),
+                config.messenger_config.clone(),
+            )
+                .await,
+        );
 
-    tasks.push(
-        service_account_stream::<RedisMessenger>(
-            pool.clone(),
-            background_task_manager.get_sender(),
-            config.messenger_config.clone(),
-        )
-            .await,
-    );
+        tasks.push(
+            service_account_stream::<RedisMessenger>(
+                pool.clone(),
+                background_task_manager.get_sender(),
+                config.messenger_config.clone(),
+            )
+                .await,
+        );
+        safe_metric(|| {
+            statsd_count!("ingester.startup", 1);
+        });
+    }
 
-    safe_metric(|| {
-        statsd_count!("ingester.startup", 1);
-    });
 
-    tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
     // Wait for ctrl-c.
     match tokio::signal::ctrl_c().await {
         Ok(()) => {}
