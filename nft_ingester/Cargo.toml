@@ -29,7 +29,7 @@ mpl-bubblegum = "0.1.3"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.5.4" }
+blockbuster = { version = "0.5.5" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
@@ -42,3 +42,7 @@ rand = "0.8.5"
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false
+
+[patch.crates-io]
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", branch = "alex/temp" }
+
