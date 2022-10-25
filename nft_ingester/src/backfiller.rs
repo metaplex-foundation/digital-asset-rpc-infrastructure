@@ -58,11 +58,11 @@ pub async fn backfiller<T: Messenger>(
             match result {
                 Ok(_) => break,
                 Err(err) if err.is_panic() => {
-                    statsd_count!("ingester.backfiller.panic", 1);
+                    statsd_count!("ingester.backfiller.task_panic", 1);
                 }
                 Err(err) => {
                     let err = err.to_string();
-                    statsd_count!("ingester.backfiller.error", 1, "error" => &err);
+                    statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
                 }
             }
         }

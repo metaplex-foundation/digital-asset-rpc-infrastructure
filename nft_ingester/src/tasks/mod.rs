@@ -16,42 +16,43 @@ pub trait BgTask: Send + Sync + Display {
 }
 
 pub struct TaskManager {
-    runtime: Runtime,
     producer: UnboundedSender<Box<dyn BgTask>>,
 }
 
 impl TaskManager {
     pub fn new(name: String, pool: Pool<Postgres>) -> Result<Self, IngesterError> {
-        let runtime = Builder::new_multi_thread()
-            .enable_all()
-            .thread_name(name)
-            .build()
-            .map_err(|err| {
-                IngesterError::TaskManagerError(format!(
-                    "Could not create tokio runtime: {:?}",
-                    err
-                ))
-            })?;
-
         let (producer, mut receiver) = mpsc::unbounded_channel::<Box<dyn BgTask>>();
-        let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-        runtime.spawn(async move {
+
+        tokio::spawn(async move {
             while let Some(data) = receiver.recv().await {
-                let task_res = data.task(&db).await;
+                let pool_clone = pool.clone();
+                let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool_clone);
+                let data_name = data.name().to_string();
+                // Spawning another task which allows us to catch panics.
+                let task_res = tokio::spawn(async move { data.task(&db).await }).await;
 
                 match task_res {
-                    Ok(_) => {
-                        statsd_count!("ingester.bgtask.complete", 1, "type" => data.name());
-                        println!("{} completed", data)
+                    Ok(inner_result) => match inner_result {
+                        Ok(_) => {
+                            statsd_count!("ingester.bgtask.complete", 1, "type" => &data_name);
+                            println!("{} completed", data_name)
+                        }
+                        Err(e) => {
+                            statsd_count!("ingester.bgtask.error", 1, "type" => &data_name);
+                            println!("{} errored with {:?}", data_name, e)
+                        }
+                    },
+                    Err(err) if err.is_panic() => {
+                        statsd_count!("ingester.bgtask.task_panic", 1);
                     }
-                    Err(e) => {
-                        statsd_count!("ingester.bgtask.error", 1, "type" => data.name());
-                        println!("{} errored with {:?}", data, e)
+                    Err(err) => {
+                        let err = err.to_string();
+                        statsd_count!("ingester.bgtask.task_error", 1, "error" => &err);
                     }
                 }
             }
         });
-        let tm = TaskManager { runtime, producer };
+        let tm = TaskManager { producer };
         Ok(tm)
     }
 
