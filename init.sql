@@ -228,6 +228,14 @@ create index asset_verified_creator on asset_creators (asset_id, verified);
 create type whitelist_mint_mode AS ENUM ('burn_every_time', 'never_burn');
 create type end_setting_type AS ENUM ('date', 'amount');
 
+create table candy_guard
+(   
+    id                   bytea                                   PRIMARY KEY,
+    base                 bytea                                   not null,
+    bump                 smallint                                not null,
+    authority            bytea                                   not null
+);
+
 create table candy_machine
 (
     id                       bytea               PRIMARY KEY,
@@ -293,14 +301,6 @@ create unique index candy_machine_creators_candy_machine_id on candy_machine_cre
 create index candy_machine_creator on candy_machine_creators (candy_machine_id, creator);
 create index candy_machine_verified_creator on candy_machine_creators (candy_machine_id, verified);
 
-create table candy_guard
-(   
-    id                   bytea                                   PRIMARY KEY,
-    base                 bytea                                   not null,
-    bump                 smallint                                not null,
-    authority            bytea                                   not null
-);
-
 create table candy_guard_group
 (
     id                               bigserial                              PRIMARY KEY,
@@ -313,15 +313,15 @@ create table candy_guard_group
     third_party_signer_key           bytea,    
     nft_payment_destination          bytea,                        
     nft_payment_required_collection  bytea,        
-    mint_limit_id                    int,    
-    mint_limit_limit                 int,     
+    mint_limit_id                    smallint,    
+    mint_limit_limit                 smallint,     
     gatekeeper_network               bytea,                                    
     gatekeeper_expire_on_use         bool,
     sol_payment_lamports             int,
     sol_payment_destination          bytea, 
     redeemed_amount_maximum          int,
     address_gate_address             bytea, 
-    freeze_sol_payment_lamport       int,
+    freeze_sol_payment_lamports       int,
     freeze_sol_payment_destination   bytea, 
     token_gate_amount                int,
     token_gate_mint                  bytea, 
@@ -335,7 +335,6 @@ create table candy_guard_group
     allow_list_merkle_root           bytea,
     freeze_token_payment_amount      int,
     freeze_token_payment_mint        bytea,
-    freeze_token_payment_destination bytea,
-
+    freeze_token_payment_destination bytea
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);

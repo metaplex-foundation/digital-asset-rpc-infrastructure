@@ -3,8 +3,8 @@ use crate::dao::generated::prelude::{Asset, AssetData};
 use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, MetadataItem, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
-    Royalty, Scope,
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
+    MetadataItem, Ownership, Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
@@ -130,7 +130,6 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
-
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),

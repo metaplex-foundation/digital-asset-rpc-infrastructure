@@ -16,7 +16,7 @@ pub struct ChainDataV1 {
 
 impl ChainDataV1 {
     pub fn sanitize(&mut self) {
-        self.name = self.name.trim().replace("\0","").to_string();
-        self.symbol = self.symbol.trim().replace("\0","").to_string();
+        self.name = self.name.trim().replace("\0", "").to_string();
+        self.symbol = self.symbol.trim().replace("\0", "").to_string();
     }
 }

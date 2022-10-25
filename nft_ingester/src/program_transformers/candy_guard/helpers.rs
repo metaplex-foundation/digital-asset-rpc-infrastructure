@@ -1,6 +1,6 @@
 use mpl_candy_guard::guards::{
     AddressGate, AllowList, BotTax, EndDate, FreezeSolPayment, FreezeTokenPayment, Gatekeeper,
-    MintLimit, MintLimit, NftBurn, NftGate, NftPayment, RedeemedAmount, SolPayment, StartDate,
+    MintLimit, NftBurn, NftGate, NftPayment, RedeemedAmount, SolPayment, StartDate,
     ThirdPartySigner, TokenBurn, TokenGate, TokenPayment,
 };
 
@@ -23,7 +23,7 @@ pub fn get_third_party_signer(third_party_signer: Option<ThirdPartySigner>) -> O
     }
 }
 
-pub fn get_sol_payment(sol_payment: Option<SolPayment>) {
+pub fn get_sol_payment(sol_payment: Option<SolPayment>) -> (Option<u64>, Option<Vec<u8>>) {
     if let Some(sol_payment) = sol_payment {
         (
             Some(sol_payment.lamports),
@@ -34,7 +34,7 @@ pub fn get_sol_payment(sol_payment: Option<SolPayment>) {
     }
 }
 
-pub fn get_start_date(start_date: Option<StartDate>) {
+pub fn get_start_date(start_date: Option<StartDate>) -> Option<i64> {
     if let Some(start_date) = start_date {
         Some(start_date.date)
     } else {
@@ -42,7 +42,7 @@ pub fn get_start_date(start_date: Option<StartDate>) {
     }
 }
 
-pub fn get_end_date(end_date: Option<EndDate>) {
+pub fn get_end_date(end_date: Option<EndDate>) -> Option<i64> {
     if let Some(end_date) = end_date {
         Some(end_date.date)
     } else {
@@ -50,7 +50,7 @@ pub fn get_end_date(end_date: Option<EndDate>) {
     }
 }
 
-pub fn get_redeemed_amount(redeemed_amount: Option<RedeemedAmount>) {
+pub fn get_redeemed_amount(redeemed_amount: Option<RedeemedAmount>) -> Option<i64> {
     if let Some(redeemed_amount) = redeemed_amount {
         Some(redeemed_amount.maximum)
     } else {
@@ -58,7 +58,7 @@ pub fn get_redeemed_amount(redeemed_amount: Option<RedeemedAmount>) {
     }
 }
 
-pub fn get_address_gate(address_gate: Option<AddressGate>) {
+pub fn get_address_gate(address_gate: Option<AddressGate>) -> Option<Vec<u8>> {
     if let Some(address_gate) = address_gate {
         Some(address_gate.address.to_bytes().to_vec())
     } else {
@@ -66,7 +66,9 @@ pub fn get_address_gate(address_gate: Option<AddressGate>) {
     }
 }
 
-pub fn get_freeze_sol_payment(freeze_sol_payment: Option<FreezeSolPayment>) {
+pub fn get_freeze_sol_payment(
+    freeze_sol_payment: Option<FreezeSolPayment>,
+) -> (Option<i64>, Option<Vec<u8>>) {
     if let Some(freeze_sol_payment) = freeze_sol_payment {
         (
             Some(freeze_sol_payment.lamports),
@@ -77,7 +79,7 @@ pub fn get_freeze_sol_payment(freeze_sol_payment: Option<FreezeSolPayment>) {
     }
 }
 
-pub fn get_token_gate(token_gate: Option<TokenGate>) {
+pub fn get_token_gate(token_gate: Option<TokenGate>) -> (Option<u64>, Option<Vec<u8>>) {
     if let Some(token_gate) = token_gate {
         (
             Some(token_gate.amount),
@@ -88,7 +90,7 @@ pub fn get_token_gate(token_gate: Option<TokenGate>) {
     }
 }
 
-pub fn get_nft_gate(nft_gate: Option<NftGate>) {
+pub fn get_nft_gate(nft_gate: Option<NftGate>) -> Option<Vec<u8>> {
     if let Some(nft_gate) = nft_gate {
         Some(nft_gate.required_collection.to_bytes().to_vec())
     } else {
@@ -96,7 +98,7 @@ pub fn get_nft_gate(nft_gate: Option<NftGate>) {
     }
 }
 
-pub fn get_token_burn(token_burn: Option<TokenBurn>) {
+pub fn get_token_burn(token_burn: Option<TokenBurn>) -> (Option<u64>, Option<Vec<u8>>) {
     if let Some(token_burn) = token_burn {
         (
             Some(token_burn.amount),
@@ -107,15 +109,15 @@ pub fn get_token_burn(token_burn: Option<TokenBurn>) {
     }
 }
 
-pub fn get_nft_burn(nft_burn: Option<NftBurn>) {
-    if let Some(nft_gate) = nft_gate {
-        Some(nft_gate.required_collection.to_bytes().to_vec())
+pub fn get_nft_burn(nft_burn: Option<NftBurn>) -> Option<Vec<u8>> {
+    if let Some(nft_burn) = nft_burn {
+        Some(nft_burn.required_collection.to_bytes().to_vec())
     } else {
         None
     }
 }
 
-pub fn get_mint_limit(mint_limit: Option<MintLimit>) {
+pub fn get_mint_limit(mint_limit: Option<MintLimit>) -> (Option<u8>, Option<u16>) {
     if let Some(mint_limit) = mint_limit {
         (Some(mint_limit.id), Some(mint_limit.limit))
     } else {

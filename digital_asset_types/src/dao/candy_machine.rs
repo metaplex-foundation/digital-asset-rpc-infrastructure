@@ -42,7 +42,7 @@ pub enum Column {
     Wallet,
     TokenMint,
     ItemsRedeemed,
-    CandyGuardPda,
+    CandyGuardId,
     CollectionMint,
     AllowThaw,
     FrozenCount,
@@ -83,7 +83,7 @@ impl ColumnTrait for Column {
             Self::Wallet => ColumnType::Binary.def().null(),
             Self::TokenMint => ColumnType::Binary.def().null(),
             Self::ItemsRedeemed => ColumnType::BigInteger.def(),
-            Self::CandyGuardPda => ColumnType::Binary.def().null(),
+            Self::CandyGuardId => ColumnType::Binary.def().null(),
             Self::CollectionMint => ColumnType::Binary.def().null(),
             Self::AllowThaw => ColumnType::Boolean.def().null(),
             Self::FrozenCount => ColumnType::BigInteger.def().null(),
@@ -106,6 +106,7 @@ impl RelationTrait for Relation {
             Self::CandyMachineCreators => {
                 Entity::has_many(super::candy_machine_creators::Entity).into()
             }
+            Self::
         }
     }
 }

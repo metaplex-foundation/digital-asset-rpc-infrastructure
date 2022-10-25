@@ -3,8 +3,8 @@ use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::ListingSorting;
 use crate::rpc::response::ListingsList;
 use crate::rpc::AssetSale;
-use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, ModelTrait};
 use sea_orm::{query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_listed_assets_by_owner(
     db: &DatabaseConnection,

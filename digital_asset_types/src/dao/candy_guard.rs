@@ -16,7 +16,7 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: Vec<u8>,
     pub base: Vec<u8>,
-    pub bump: i32,
+    pub bump: u8,
     pub authority: Vec<u8>,
 }
 
@@ -43,6 +43,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     CandyGuardGroup,
+    CandyMachine,
 }
 
 impl ColumnTrait for Column {
@@ -51,7 +52,7 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::Binary.def(),
             Self::Base => ColumnType::Binary.def(),
-            Self::Bump => ColumnType::Integer.def(),
+            Self::Bump => ColumnType::Binary.def(),
             Self::Authority => ColumnType::Binary.def(),
         }
     }
@@ -61,6 +62,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::CandyGuardGroup => Entity::has_many(super::candy_guard_group::Entity).into(),
+            Self::CandyMachine => Entity::has_many(super::candy_machine::Entity).into(),
         }
     }
 }
@@ -71,4 +73,9 @@ impl Related<super::candy_guard_group::Entity> for Entity {
     }
 }
 
+impl Related<super::candy_machine::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CandyMachine.def()
+    }
+}
 impl ActiveModelBehavior for ActiveModel {}
