@@ -43,3 +43,7 @@ url="2.3.1"
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false
+
+[patch.crates-io]
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", branch = "alex/temp" }
+
