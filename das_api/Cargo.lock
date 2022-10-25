@@ -935,6 +935,7 @@ dependencies = [
  "hyper",
  "jsonrpsee",
  "jsonrpsee-core",
+ "log",
  "metrics",
  "sea-orm",
  "serde",

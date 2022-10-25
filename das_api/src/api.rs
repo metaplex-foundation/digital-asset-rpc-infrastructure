@@ -86,11 +86,13 @@ impl<'a> RpcApiBuilder {
                 .await
                 .map_err(Into::into)
         })?;
+        module.register_alias("getAssetProof", "get_asset_proof")?;
         module.register_async_method("get_asset", |rpc_params, rpc_context| async move {
             let asset_id = rpc_params.one::<String>()?;
             println!("Asset Id {}", asset_id);
             rpc_context.get_asset(asset_id).await.map_err(Into::into)
         })?;
+        module.register_alias("getAsset", "get_asset")?;
         module.register_async_method(
             "get_assets_by_owner",
             |rpc_params, rpc_context| async move {
@@ -102,6 +104,7 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
+        module.register_alias("getAssetsByOwner", "get_assets_by_owner")?;
         module.register_async_method(
             "get_assets_by_creator",
             |rpc_params, rpc_context| async move {
@@ -113,6 +116,7 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
+        module.register_alias("getAssetsByCreator", "get_assets_by_creator")?;
         module.register_async_method(
             "get_assets_by_group",
             |rpc_params, rpc_context| async move {
@@ -124,6 +128,7 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
+        module.register_alias("getAssetsByGroup", "get_assets_by_group")?;
         module.register_async_method(
             "get_listed_assets_by_owner",
             |rpc_params, rpc_context| async move {
@@ -135,6 +140,7 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
+        module.register_alias("getListedAssetsByOwner", "get_listed_assets_by_owner")?;
         module.register_async_method(
             "get_offers_by_owner",
             |rpc_params, rpc_context| async move {
@@ -146,7 +152,7 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
-
+        module.register_alias("getOffersByOwner", "get_offers_by_owner")?;
         Ok(module)
     }
 }

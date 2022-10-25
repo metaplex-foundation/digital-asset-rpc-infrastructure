@@ -38,6 +38,23 @@ spec:
             hostPort: 8125
             name: dogstatsdport
             protocol: UDP
+        - name: proxy
+          image: "{{ .Values.image }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            {{- toYaml .Values.proxy.resources | nindent 12 }}
         - name: {{ .Chart.Name }}
           env:
           - name: APP_METRICS_HOST

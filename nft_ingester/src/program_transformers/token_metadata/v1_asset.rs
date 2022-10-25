@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
@@ -256,7 +257,11 @@ pub async fn save_v1_asset(
     let creators = data.creators.unwrap_or_default();
     if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
+        let mut creators_set = HashSet::new();
         for (i, c) in creators.into_iter().enumerate() {
+            if creators_set.contains(&c.address) {
+                continue;
+            }
             db_creators.push(asset_creators::ActiveModel {
                 asset_id: Set(id.to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
@@ -267,6 +272,7 @@ pub async fn save_v1_asset(
                 position: Set(i as i16),
                 ..Default::default()
             });
+            creators_set.push(&c.address);
         }
 
         // Do not attempt to modify any existing values:

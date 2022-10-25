@@ -25,3 +25,4 @@ sea-orm = { version = "0.9.0", features = ["macros", "runtime-tokio-rustls", "sq
 tokio-postgres = "0.7.5"
 solana-sdk = { version = ">=1.10.29" }
 bs58 = "0.4.0"
+log = "0.4.17"

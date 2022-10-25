@@ -1,3 +1,20 @@
+proxy:
+  sni:
+  wildcard: ""
+  resources:
+    requests:
+      cpu: 1
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 1024Mi
+resources:
+  limits:
+   cpu: 4
+   memory: 1024Mi
+  requests:
+   cpu: 2
+   memory: 512Mi
 ingress:
   enabled: true
   className: "alb"
