@@ -1,6 +1,10 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
-use crate::{error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY, safe_metric};
+use crate::{
+    error::IngesterError, safe_metric, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
+    RPC_COMMITMENT_KEY, RPC_URL_KEY,
+};
+use cadence_macros::statsd_count;
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
@@ -24,7 +28,6 @@ use solana_transaction_status::{
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::str::FromStr;
-use cadence_macros::statsd_count;
 use tokio::time::{sleep, Duration};
 
 // Constants used for varying delays when failures occur.
@@ -40,10 +43,29 @@ pub async fn backfiller<T: Messenger>(
     config: IngesterConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        println!("Backfiller task running");
+        loop {
+            let pool_cloned = pool.clone();
+            let config_cloned = config.clone();
 
-        let mut backfiller = Backfiller::<T>::new(pool, config).await;
-        backfiller.run().await;
+            let result = tokio::spawn(async {
+                println!("Backfiller task running");
+
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
+                backfiller.run().await;
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.backfiller.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
+                }
+            }
+        }
     })
 }
 

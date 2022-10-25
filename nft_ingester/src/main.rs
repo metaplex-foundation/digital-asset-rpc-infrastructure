@@ -114,7 +114,8 @@ async fn main() {
             statsd_count!("ingester.backfiller.startup", 1);
         });
     } else {
-        background_task_manager = TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
+        background_task_manager =
+            TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
         // Service streams as separate concurrent processes.
         println!("Setting up tasks");
         setup_metrics(&config);
@@ -125,7 +126,7 @@ async fn main() {
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
 
         tasks.push(
@@ -134,13 +135,12 @@ async fn main() {
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
         safe_metric(|| {
             statsd_count!("ingester.startup", 1);
         });
     }
-
 
     // Wait for ctrl-c.
     match tokio::signal::ctrl_c().await {
@@ -163,22 +163,41 @@ async fn service_transaction_stream<T: Messenger>(
     mut messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let manager = ProgramTransformer::new(pool, tasks);
-        let mut messenger = T::new(messenger_config).await.unwrap();
-        println!("Setting up transaction listener");
-
-        let mut ids = Vec::new();
-
         loop {
-            ids.clear();
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
 
-            if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                handle_transaction(&manager, data, &mut ids).await
-            }
+            let result = tokio::spawn(async {
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
+                println!("Setting up transaction listener");
 
-            if !ids.is_empty() {
-                if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
-                    println!("Error ACK-ing messages {:?}", e);
+                let mut ids = Vec::new();
+                loop {
+                    ids.clear();
+
+                    if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
+                        handle_transaction(&manager, data, &mut ids).await
+                    }
+
+                    if !ids.is_empty() {
+                        if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
+                            println!("Error ACK-ing messages {:?}", e);
+                        }
+                    }
+                }
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_transaction_stream.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_transaction_stream.task_error", 1, "error" => &err);
                 }
             }
         }
@@ -191,22 +210,42 @@ async fn service_account_stream<T: Messenger>(
     messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let manager = ProgramTransformer::new(pool, tasks);
-        let mut messenger = T::new(messenger_config).await.unwrap();
-        println!("Setting up account listener");
-
-        let mut ids = Vec::new();
-
         loop {
-            ids.clear();
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
 
-            if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                handle_account(&manager, data, &mut ids).await
-            }
+            let result = tokio::spawn(async {
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
+                println!("Setting up account listener");
 
-            if !ids.is_empty() {
-                if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
-                    println!("Error ACK-ing messages {:?}", e);
+                let mut ids = Vec::new();
+
+                loop {
+                    ids.clear();
+
+                    if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
+                        handle_account(&manager, data, &mut ids).await
+                    }
+
+                    if !ids.is_empty() {
+                        if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                            println!("Error ACK-ing messages {:?}", e);
+                        }
+                    }
+                }
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_account_stream.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_account_stream.task_error", 1, "error" => &err);
                 }
             }
         }
