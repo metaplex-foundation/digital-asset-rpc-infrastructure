@@ -1,6 +1,16 @@
+use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
 use crate::dao::prelude::{Asset, AssetData};
+use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links, MetadataItem, Ownership, Royalty, Scope, Uses};
+use crate::dao::{FullAsset, FullAssetList};
+use crate::rpc::filter::AssetSorting;
+
+use solana_sdk::{signature::Keypair, signer::Signer};
+
+use crate::rpc::{
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links,
+    MetadataItem, Ownership, Royalty, Scope, Uses,
+};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
@@ -9,10 +19,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
-use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
-use crate::dao::{FullAsset, FullAssetList};
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
-use crate::rpc::filter::AssetSorting;
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -204,9 +210,11 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
         .collect()
 }
 
-
 pub fn get_interface(asset: &asset::Model) -> Interface {
-    match (&asset.specification_version, &asset.specification_asset_class) {
+    match (
+        &asset.specification_version,
+        &asset.specification_asset_class,
+    ) {
         (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
         (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
         (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
@@ -236,9 +244,18 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            asset_hash: asset.leaf.map(|s| bs58::encode(s).into_string()).unwrap_or_default(),
-            data_hash: asset.data_hash.map(|e| e.trim().to_string()).unwrap_or_default(),
-            creator_hash: asset.creator_hash.map(|e| e.trim().to_string()).unwrap_or_default(),
+            asset_hash: asset
+                .leaf
+                .map(|s| bs58::encode(s).into_string())
+                .unwrap_or_default(),
+            data_hash: asset
+                .data_hash
+                .map(|e| e.trim().to_string())
+                .unwrap_or_default(),
+            creator_hash: asset
+                .creator_hash
+                .map(|e| e.trim().to_string())
+                .unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
         royalty: Some(Royalty {
@@ -253,16 +270,20 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
             ownership_model: asset.owner_type.into(),
-            owner: asset.owner.map(|o| bs58::encode(o).into_string()).unwrap_or("".to_string()),
+            owner: asset
+                .owner
+                .map(|o| bs58::encode(o).into_string())
+                .unwrap_or("".to_string()),
         },
-        uses: data.chain_data.get("uses").map(|u| {
-            Uses {
-                use_method: u.get("use_method").and_then(|s| {
-                    s.as_str()
-                }).unwrap_or("Single").to_string().into(),
-                total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-                remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-            }
+        uses: data.chain_data.get("uses").map(|u| Uses {
+            use_method: u
+                .get("use_method")
+                .and_then(|s| s.as_str())
+                .unwrap_or("Single")
+                .to_string()
+                .into(),
+            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
     })
 }
@@ -325,7 +346,6 @@ pub async fn get_asset_list_data(
         x
     });
 
-
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -360,8 +380,10 @@ pub async fn get_asset_list_data(
     }
     let len = assets_map.len();
     let built_assets = asset_list_to_rpc(FullAssetList {
-        list: assets_map.into_iter().map(|(_, v)| v).collect()
-    }).into_iter().fold(Vec::with_capacity(len), | mut acc, i | {
+        list: assets_map.into_iter().map(|(_, v)| v).collect(),
+    })
+    .into_iter()
+    .fold(Vec::with_capacity(len), |mut acc, i| {
         if let Ok(a) = i {
             acc.push(a);
         }
@@ -372,18 +394,60 @@ pub async fn get_asset_list_data(
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        dao::sea_orm_active_enums::{ChainMutability, Mutability},
+        json::ChainDataV1,
+    };
+    use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
+    use mpl_bubblegum::state::metaplex_adapter::{
+        MetadataArgs, TokenProgramVersion, TokenStandard,
+    };
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-    #[test]
-    fn simple_v1_content() {
-        let doc = r#"
-        {"name": "Handalf", "image": "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY", "attributes": [], "properties": {"files": ["https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY"], "category": null}, "description": "The Second NFT ever minted from justmint.xyz", "external_url": ""}
-        "#;
+    #[async_std::test]
+    async fn simple_v1_content() {
+        let metadata_1 = MetadataArgs {
+            name: String::from("Handalf"),
+            symbol: String::from(""),
+            uri: "https://arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
+            primary_sale_happened: true,
+            is_mutable: true,
+            edition_nonce: None,
+            token_standard: Some(TokenStandard::NonFungible),
+            collection: None,
+            uses: None,
+            token_program_version: TokenProgramVersion::Original,
+            creators: vec![].to_vec(),
+            seller_fee_basis_points: 0,
+        };
 
-        let json: Value = serde_json::from_str(doc).unwrap();
-        let mut selector = jsonpath_lib::selector(&json);
-        let c: Content = v1_content_from_json(&json).unwrap();
+        let body: serde_json::Value = reqwest::get(metadata_1.uri.clone())
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        let asset_data = asset_data::Model {
+            id: Keypair::new().pubkey().to_bytes().to_vec(),
+            chain_data_mutability: ChainMutability::Mutable,
+            chain_data: serde_json::to_value(ChainDataV1 {
+                name: String::from("Handalf"),
+                symbol: String::from(""),
+                edition_nonce: None,
+                primary_sale_happened: true,
+                token_standard: Some(TSBlockbuster::NonFungible),
+                uses: None,
+            })
+            .unwrap(),
+            metadata_url: metadata_1.uri,
+            metadata_mutability: Mutability::Mutable,
+            metadata: body,
+            slot_updated: 0,
+        };
+
+        let c: Content = v1_content_from_json(&asset_data).unwrap();
         assert_eq!(
             c.files,
             Some(vec![File {
@@ -393,7 +457,7 @@ mod tests {
                 mime: None,
                 quality: None,
                 contexts: None,
-            }])
+            },])
         )
     }
 }
