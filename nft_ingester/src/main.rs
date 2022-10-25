@@ -192,8 +192,13 @@ async fn service_transaction_stream<T: Messenger>(
 
             match result {
                 Ok(_) => break,
-                Err(err) if err.is_panic() => (),
-                Err(err) => (),
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_transaction_stream.panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_transaction_stream.error", 1, "error" => &err);
+                }
             }
         }
     })
@@ -235,8 +240,13 @@ async fn service_account_stream<T: Messenger>(
 
             match result {
                 Ok(_) => break,
-                Err(err) if err.is_panic() => (),
-                Err(err) => (),
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_account_stream.panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_account_stream.error", 1, "error" => &err);
+                }
             }
         }
     })
