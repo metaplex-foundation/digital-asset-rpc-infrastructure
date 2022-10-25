@@ -25,8 +25,8 @@ impl TaskManager {
 
         tokio::spawn(async move {
             while let Some(data) = receiver.recv().await {
-                let pool_clone = pool.clone();
-                let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool_clone);
+                let pool_cloned = pool.clone();
+                let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool_cloned);
                 let data_name = data.name().to_string();
                 // Spawning another task which allows us to catch panics.
                 let task_res = tokio::spawn(async move { data.task(&db).await }).await;
@@ -37,9 +37,9 @@ impl TaskManager {
                             statsd_count!("ingester.bgtask.complete", 1, "type" => &data_name);
                             println!("{} completed", data_name)
                         }
-                        Err(e) => {
+                        Err(err) => {
                             statsd_count!("ingester.bgtask.error", 1, "type" => &data_name);
-                            println!("{} errored with {:?}", data_name, e)
+                            println!("{} errored with {:?}", data_name, err)
                         }
                     },
                     Err(err) if err.is_panic() => {

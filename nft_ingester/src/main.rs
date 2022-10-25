@@ -164,13 +164,13 @@ async fn service_transaction_stream<T: Messenger>(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
-            let pool_clone = pool.clone();
-            let tasks_clone = tasks.clone();
-            let messenger_config_clone = messenger_config.clone();
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
 
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_clone, tasks_clone);
-                let mut messenger = T::new(messenger_config_clone).await.unwrap();
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up transaction listener");
 
                 let mut ids = Vec::new();
@@ -211,13 +211,13 @@ async fn service_account_stream<T: Messenger>(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
-            let pool_clone = pool.clone();
-            let tasks_clone = tasks.clone();
-            let messenger_config_clone = messenger_config.clone();
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
 
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_clone, tasks_clone);
-                let mut messenger = T::new(messenger_config_clone).await.unwrap();
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up account listener");
 
                 let mut ids = Vec::new();
