@@ -272,7 +272,7 @@ pub async fn save_v1_asset(
                 position: Set(i as i16),
                 ..Default::default()
             });
-            creators_set.push(&c.address);
+            creators_set.insert(c.address.clone());
         }
 
         // Do not attempt to modify any existing values:

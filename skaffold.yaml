@@ -50,6 +50,7 @@ deploy:
           api.redis_url: "{{.REDIS_URL}}"
           metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
           proxy.host: "{{.PROXY_HOST}}"
+          proxy.auth: "{{.PROXY_AUTH}}"
         valuesFiles:
           - ./helm/api/values.yaml
     flags:

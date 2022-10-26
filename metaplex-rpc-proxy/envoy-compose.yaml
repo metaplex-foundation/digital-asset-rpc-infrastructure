@@ -32,6 +32,9 @@ static_resources:
                       code:
                         local:
                           filename: "/etc/rpc_proxy.wasm"
+                      environment_variables:
+                        key_values:
+                          PROXY_AUTH: test
                       allow_precompiled: true
               - name: envoy.filters.http.router
                 typed_config:

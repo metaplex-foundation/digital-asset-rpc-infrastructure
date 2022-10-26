@@ -218,7 +218,7 @@ pub fn get_interface(asset: &asset::Model) -> Interface {
         (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
         (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
         (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
-        _ => Interface::Nft,
+        _ => Interface::V1NFT,
     }
 }
 
