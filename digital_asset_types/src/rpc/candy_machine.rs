@@ -120,15 +120,8 @@ pub struct BotTax {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolPayment {
-    lamports: u64,
-    destination: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct SplToken {
-    pub amount: i64,
-    pub token_mint: String,
-    pub destination_ata: String,
+    pub lamports: u64,
+    pub destination: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -161,6 +154,58 @@ pub struct MintLimit {
 pub struct NftPayment {
     pub destination: String,
     pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct AddressGate {
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RedeemedAmount {
+    pub maximum: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FreezeSolPayment {
+    pub lamports: u64,
+    pub destination: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenGate {
+    pub amount: u64,
+    pub mint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NftGate {
+    pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenBurn {
+    pub amount: u64,
+    pub mint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NftBurn {
+    pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenPayment {
+    pub amount: u64,
+    pub mint: String,
+    pub destination_ata: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FreezeTokenPayment {
+    pub amount: u64,
+    pub mint: String,
+    pub destination: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

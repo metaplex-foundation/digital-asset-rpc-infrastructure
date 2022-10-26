@@ -5,9 +5,10 @@ use crate::{
         sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     },
     rpc::{
-        AllowList, BotTax, ConfigLineSettings, EndDate, EndSettings, FreezeInfo, Gatekeeper,
-        GuardSet, HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SolPayment, SplToken,
-        StartDate, ThirdPartySigner, WhitelistMintSettings,
+        AddressGate, AllowList, BotTax, ConfigLineSettings, EndDate, EndSettings, FreezeInfo,
+        FreezeSolPayment, FreezeTokenPayment, Gatekeeper, GuardSet, HiddenSettings, MintLimit,
+        NftBurn, NftGate, NftPayment, RedeemedAmount, SolPayment, StartDate, ThirdPartySigner,
+        TokenBurn, TokenGate, TokenPayment, WhitelistMintSettings,
     },
 };
 
@@ -23,25 +24,7 @@ pub fn get_end_settings(
     {
         Some(EndSettings {
             end_setting_type,
-            number: end_setting_number,
-        })
-    } else {
-        None
-    }
-}
-
-pub fn get_spl_token(
-    spl_token_amount: Option<i64>,
-    spl_token_mint: Option<Vec<u8>>,
-    spl_token_destination_ata: Option<Vec<u8>>,
-) -> Option<SplToken> {
-    if let (Some(spl_token_amount), Some(spl_token_mint), Some(spl_token_destination_ata)) =
-        (spl_token_amount, spl_token_mint, spl_token_destination_ata)
-    {
-        Some(SplToken {
-            amount: spl_token_amount,
-            token_mint: bs58::encode(spl_token_mint).into_string(),
-            destination_ata: bs58::encode(spl_token_destination_ata).into_string(),
+            number: end_setting_number as u64,
         })
     } else {
         None
@@ -132,17 +115,6 @@ pub fn get_hidden_settings(
             name,
             uri,
             hash: bs58::encode(hash).into_string(),
-        })
-    } else {
-        None
-    }
-}
-
-pub fn get_lamports(amount: Option<i64>, destination: Option<Vec<u8>>) -> Option<Lamports> {
-    if let (Some(amount), Some(destination)) = (amount, destination) {
-        Some(Lamports {
-            amount,
-            destination: bs58::encode(destination).into_string(),
         })
     } else {
         None
@@ -298,6 +270,8 @@ pub fn get_freeze_sol_payment(
             lamports: freeze_sol_payment_lamports as u64,
             destination: bs58::encode(freeze_sol_payment_destination).into_string(),
         })
+    } else {
+        None
     }
 }
 
@@ -366,8 +340,10 @@ pub fn get_token_payment(
         Some(TokenPayment {
             amount: token_payment_amount as u64,
             mint: bs58::encode(token_payment_mint).into_string(),
-            destination: bs58::encode(token_payment_destination_ata).into_string(),
+            destination_ata: bs58::encode(token_payment_destination_ata).into_string(),
         })
+    } else {
+        None
     }
 }
 
@@ -408,30 +384,33 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.nft_payment_required_collection.clone(),
     );
 
-    let sol_payment = get_sol_payment(group.sol_payment_lamports, group.sol_payment_destination);
+    let sol_payment = get_sol_payment(
+        group.sol_payment_lamports,
+        group.sol_payment_destination.clone(),
+    );
     let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
     let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
     let start_date = get_start_date(group.start_date);
     let end_date = get_end_date(group.end_date);
-    let address_gate = get_address_gate(group.address_gate_address);
+    let address_gate = get_address_gate(group.address_gate_address.clone());
     let redeemed_amount = get_redeemed_amount(group.redeemed_amount_maximum);
     let freeze_sol_payment = get_freeze_sol_payment(
         group.freeze_sol_payment_lamports,
-        group.freeze_sol_payment_destination,
+        group.freeze_sol_payment_destination.clone(),
     );
-    let token_gate = get_token_gate(group.token_gate_amount, group.token_gate_mint);
-    let nft_gate = get_nft_gate(group.nft_gate_required_collection);
-    let token_burn = get_token_burn(group.token_burn_amount, group.token_burn_mint);
-    let nft_burn = get_nft_burn(group.nft_burn_required_collection);
+    let token_gate = get_token_gate(group.token_gate_amount, group.token_gate_mint.clone());
+    let nft_gate = get_nft_gate(group.nft_gate_required_collection.clone());
+    let token_burn = get_token_burn(group.token_burn_amount, group.token_burn_mint.clone());
+    let nft_burn = get_nft_burn(group.nft_burn_required_collection.clone());
     let token_payment = get_token_payment(
         group.token_payment_amount,
-        group.token_payment_mint,
-        group.token_payment_destination_ata,
+        group.token_payment_mint.clone(),
+        group.token_payment_destination_ata.clone(),
     );
     let freeze_token_payment = get_freeze_token_payment(
         group.freeze_token_payment_amount,
-        group.freeze_token_payment_mint,
-        group.freeze_token_payment_destination,
+        group.freeze_token_payment_mint.clone(),
+        group.freeze_token_payment_destination.clone(),
     );
 
     GuardSet {
