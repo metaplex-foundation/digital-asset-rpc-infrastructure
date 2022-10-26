@@ -35,9 +35,9 @@ data:
                             root_id: "proxy"
                             vm_config:
                               runtime: "envoy.wasm.runtime.v8"
-                              environment_variables:
-                                key_values:
-                                  PROXY_AUTH: "{{.Values.proxy.auth}}"
+                              configuration:
+                                "@type": type.googleapis.com/google.protobuf.StringValue
+                                value: "/{{.Values.proxy.auth}}"
                               code:
                                 local:
                                   filename: "/etc/rpc_proxy.wasm"

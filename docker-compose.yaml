@@ -65,7 +65,6 @@ services:
       dockerfile: Proxy.Dockerfile
     volumes:
       - ./metaplex-rpc-proxy/envoy-compose.yaml:/etc/envoy.yaml
-      - ${WASM_PATH:-./metaplex-rpc-proxy/target/wasm32-unknown-unknown/release/metaplex_rpc_proxy.wasm}:/etc/rpc_proxy.wasm
     ports:
       - 9091:9091
   api:

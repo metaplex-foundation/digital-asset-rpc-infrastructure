@@ -8,7 +8,7 @@ use log::info;
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_root_context(|_, _| -> Box<dyn HttpContext> { Box::new(Root) });
+    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(Root) });
 }}
 
 #[derive(Debug)]
@@ -17,34 +17,39 @@ struct Root;
 impl Context for Root {}
 
 impl RootContext for Root {
+    fn get_type(&self) -> Option<ContextType> {
+        Some(ContextType::HttpContext)
+    }
+
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
         let config = self.get_vm_configuration();
-        Some(Box::new(RpcProxy::new(config)))
+        let opath = config.and_then(|c|
+            String::from_utf8(c).ok()
+        );
+        Some(Box::new(RpcProxy::new(opath)))
     }
 }
 
 
 #[derive(Debug)]
-struct RpcProxy{
-    config: Option<Bytes>,
-};
+struct RpcProxy {
+    rpc_url_path: String,
+}
 
 impl RpcProxy {
-    fn new(config: Option<Bytes>) -> Self {
-
+    fn new(path: Option<String>) -> Self {
         return Self {
-            config,
+            rpc_url_path: path.unwrap_or("/".to_string())
         };
     }
 }
 
 fn call(service: &'static str, proxy: &mut RpcProxy, body: Bytes) -> Result<u32, Status> {
-    let path = env::var("PROXY_AUTH").unwrap_or("".to_string());
     proxy.dispatch_http_call(
         service,
         vec![
             (":method", "POST"),
-            (":path", format!("/{}", path).as_str()),
+            (":path", &*proxy.rpc_url_path),
             (":authority", service),
             ("content-type", "application/json"),
             ("content-length", &body.len().to_string()),
