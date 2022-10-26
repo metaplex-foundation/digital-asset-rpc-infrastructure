@@ -1,13 +1,13 @@
 use crate::{
-    dao::{
+    dao::generated::{
         candy_guard_group::Model as GuardGroupModel,
         candy_machine_data::Model,
-        generated::sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
+        sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     },
     rpc::{
         AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, GuardSet,
-        HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SplToken, ThirdPartySigner,
-        WhitelistMintSettings,
+        HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SolPayment, SplToken,
+        ThirdPartySigner, WhitelistMintSettings,
     },
 };
 
@@ -234,6 +234,22 @@ pub fn get_bot_tax(lamports: Option<i64>, last_instruction: Option<bool>) -> Opt
     }
 }
 
+pub fn get_sol_payment(
+    sol_payment_lamports: Option<i64>,
+    sol_payment_destination: Option<Vec<u8>>,
+) -> Option<SolPayment> {
+    if let (Some(sol_payment_lamports), Some(sol_payment_destination)) =
+        (sol_payment_lamports, sol_payment_destination)
+    {
+        Some(SolPayment {
+            lamports: sol_payment_lamports as u64,
+            destination: sol_payment_destination,
+        })
+    } else {
+        None
+    }
+}
+
 pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
     let gatekeeper = get_gatekeeper(
         group.gatekeeper_network.clone(),
@@ -247,6 +263,7 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         group.nft_payment_required_collection.clone(),
     );
 
+    let sol_payment = get_sol_payment(group.sol_payment_lamports, group.sol_payment_destination);
     // TODO fix later P-682
     // let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
 
@@ -259,8 +276,10 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
         allow_list,
         mint_limit: None,
         nft_payment,
+        sol_payment,
     }
 }
+
 pub fn get_candy_machine_data(
     candy_machine_data: Model,
 ) -> (

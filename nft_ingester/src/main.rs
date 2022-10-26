@@ -22,7 +22,7 @@ use plerkle_messenger::{
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
 use serde::Deserialize;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::{collections::HashSet, net::UdpSocket};
+use std::net::UdpSocket;
 use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.

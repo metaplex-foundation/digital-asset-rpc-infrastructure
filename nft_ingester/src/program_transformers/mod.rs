@@ -134,15 +134,15 @@ impl ProgramTransformer {
                         )
                         .await
                     }
-                    // ProgramParseResult::CandyGuard(parsing_result) => {
-                    //     handle_candy_guard_account_update(
-                    //         &acct,
-                    //         parsing_result,
-                    //         &self.storage,
-                    //         &self.task_sender,
-                    //     )
-                    //     .await
-                    // }
+                    ProgramParseResult::CandyGuard(parsing_result) => {
+                        handle_candy_guard_account_update(
+                            &acct,
+                            parsing_result,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await
+                    }
                     ProgramParseResult::TokenMetadata(parsing_result) => {
                         handle_token_metadata_account(
                             &acct,

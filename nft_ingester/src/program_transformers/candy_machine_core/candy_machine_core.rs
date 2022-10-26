@@ -1,7 +1,7 @@
 use crate::IngesterError;
 
 use chrono::Utc;
-use digital_asset_types::dao::{
+use digital_asset_types::dao::generated::{
     candy_machine, candy_machine_creators, candy_machine_data, prelude::CandyMachine,
 };
 use mpl_candy_machine_core::CandyMachine as CandyMachineCore;

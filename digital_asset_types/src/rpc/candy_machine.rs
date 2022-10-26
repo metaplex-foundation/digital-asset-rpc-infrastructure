@@ -56,7 +56,7 @@ impl From<EndSettingType> for EndSettingModel {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct EndSettings {
     pub end_setting_type: EndSettingType,
-    pub number: i64,
+    pub number: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -119,6 +119,12 @@ pub struct BotTax {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct SolPayment {
+    lamports: u64,
+    destination: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Lamports {
     pub amount: i64,
     pub destination: String,
@@ -173,6 +179,8 @@ pub struct GuardSet {
     pub mint_limit: Option<MintLimit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nft_payment: Option<NftPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sol_payment: Option<SolPayment>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -191,6 +199,7 @@ pub struct CandyGuardData {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CandyGuard {
     pub id: String,
+    pub base: String,
     pub bump: u8,
     pub authority: String,
     pub candy_guard_data: CandyGuardData,

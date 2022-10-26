@@ -1,6 +1,6 @@
 use crate::IngesterError;
 
-use digital_asset_types::dao::candy_machine;
+use digital_asset_types::dao::generated::candy_machine;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait,
