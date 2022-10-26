@@ -571,9 +571,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.5.7"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1adbd7dc3eac04f6b414c866ef41d8f21417304fc55a7c7e139c7fcfda2dab34"
+checksum = "75daa2a18f66936b5e29dc43939de3944a9951d2626f92d11c260a15218ba8ab"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -2075,9 +2075,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-guard"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79f08b4e0e8a488190aa621334eb9ba0903f5127ec68b78329b2775e9245dc2d"
+checksum = "cf911a47bf4731d49e5748ddcf9ebf669ac0d16034632e4ab47a6b82504175ce"
 dependencies = [
  "anchor-lang",
  "arrayref",
@@ -2092,9 +2092,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-guard-derive"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2ca93b6548fdbcdab8d19bf083ffed29109e9120e16aa951837c45519a32d80"
+checksum = "18e4d3002ea881e94a238798faf87a006a687297a24bd4b3f810fbb63611173d"
 dependencies = [
  "quote",
  "syn",
@@ -2102,9 +2102,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-candy-machine-core"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a383ff50af8896fa5a6d34e634758053b8ac1e8ba8be98f41839b712f29635c8"
+checksum = "f8e0f91fe953447e029166db0aeee8b732f9bd8b6cc72ac131c491a35d54dcbd"
 dependencies = [
  "anchor-lang",
  "arrayref",
