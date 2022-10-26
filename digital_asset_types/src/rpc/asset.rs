@@ -77,26 +77,30 @@ pub type Files = Vec<File>;
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
 pub struct MetadataItem(HashMap<String, serde_json::Value>);
 
+const SCHEMA: &str = "$$schema";
+
 impl MetadataItem {
-    pub fn new() -> Self {
-        Self(HashMap::new())
+    pub fn new(schema: &str) -> Self {
+        let mut g = HashMap::new();
+        g.insert(SCHEMA.to_string(), serde_json::Value::String(schema.to_string()));
+        Self(g)
     }
 
     pub fn inner(&self) -> &HashMap<String, serde_json::Value> {
         &self.0
     }
-
-    pub fn single(key: String, value: serde_json::Value) -> Self {
-        let mut map = HashMap::new();
-        map.insert(key, value);
-        Self(map)
+    pub fn single(schema: &str, key: &str, value: serde_json::Value) -> Self {
+        let mut map = MetadataItem::new(schema);
+        map.set_item(key, value);
+        map
     }
 
-    pub fn set_item(&mut self, key: String, value: serde_json::Value) -> &mut Self {
-        self.0.insert(key, value);
+    pub fn set_item(&mut self, key: &str, value: serde_json::Value) -> &mut Self {
+        self.0.insert(key.to_string(), value);
         self
     }
 }
+
 // TODO sub schema support
 pub type Links = HashMap<String, serde_json::Value>;
 
@@ -145,7 +149,11 @@ pub struct Authority {
 pub struct Compression {
     pub eligible: bool,
     pub compressed: bool,
+    pub data_hash: String,
+    pub creator_hash: String,
+    pub asset_hash: String,
 }
+
 
 pub type GroupKey = String;
 pub type GroupValue = String;
@@ -247,6 +255,33 @@ pub struct Ownership {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum UseMethod {
+    Burn,
+    Multiple,
+    Single,
+}
+
+impl From<String> for UseMethod {
+    fn from(s: String) -> Self {
+        match &*s {
+            "Burn" => UseMethod::Burn,
+            "Single" => UseMethod::Single,
+            "Multiple" => UseMethod::Multiple,
+            _ => UseMethod::Single,
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Uses {
+    pub use_method: UseMethod,
+    pub remaining: u64,
+    pub total: u64,
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,
@@ -263,4 +298,6 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
     pub ownership: Ownership,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uses: Option<Uses>,
 }

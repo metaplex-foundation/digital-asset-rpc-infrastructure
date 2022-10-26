@@ -14,6 +14,14 @@ build:
       image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
       docker:
         dockerfile: Ingest.Dockerfile
+    - context: .
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
+      docker:
+        dockerfile: Migrator.Dockerfile
+    - context: .
+      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
+      docker:
+          dockerfile: Proxy.Dockerfile
 deploy:
   helm:
     releases:
@@ -22,6 +30,7 @@ deploy:
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
           loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+          migratorImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
         setValueTemplates:
           ingest.db_url: "{{.DATABASE_URL}}"
           ingest.rpc_url: "{{.RPC_URL}}"
@@ -35,10 +44,13 @@ deploy:
         chartPath: helm/api
         artifactOverrides:
           image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
+          proxy.image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
         setValueTemplates:
           api.db_url: "{{.DATABASE_URL}}"
           api.redis_url: "{{.REDIS_URL}}"
           metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
+          proxy.host: "{{.PROXY_HOST}}"
+          proxy.auth: "{{.PROXY_AUTH}}"
         valuesFiles:
           - ./helm/api/values.yaml
     flags:

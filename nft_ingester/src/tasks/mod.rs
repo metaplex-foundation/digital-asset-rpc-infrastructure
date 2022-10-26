@@ -1,5 +1,6 @@
 use crate::error::IngesterError;
 use async_trait::async_trait;
+use cadence_macros::statsd_count;
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use sqlx::{Pool, Postgres};
 use std::fmt::Display;
@@ -10,39 +11,48 @@ use tokio::{
 
 #[async_trait]
 pub trait BgTask: Send + Sync + Display {
+    fn name(&self) -> &'static str;
     async fn task(&self, db: &DatabaseConnection) -> Result<(), IngesterError>;
 }
 
 pub struct TaskManager {
-    runtime: Runtime,
     producer: UnboundedSender<Box<dyn BgTask>>,
 }
 
 impl TaskManager {
     pub fn new(name: String, pool: Pool<Postgres>) -> Result<Self, IngesterError> {
-        let runtime = Builder::new_multi_thread()
-            .enable_all()
-            .thread_name(name)
-            .build()
-            .map_err(|err| {
-                IngesterError::TaskManagerError(format!(
-                    "Could not create tokio runtime: {:?}",
-                    err
-                ))
-            })?;
-
         let (producer, mut receiver) = mpsc::unbounded_channel::<Box<dyn BgTask>>();
-        let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-        runtime.spawn(async move {
+
+        tokio::spawn(async move {
             while let Some(data) = receiver.recv().await {
-                let task_res = data.task(&db).await;
+                let pool_cloned = pool.clone();
+                let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool_cloned);
+                let data_name = data.name().to_string();
+                // Spawning another task which allows us to catch panics.
+                let task_res = tokio::spawn(async move { data.task(&db).await }).await;
+
                 match task_res {
-                    Ok(_) => println!("{} completed", data),
-                    Err(e) => println!("{} errored with {:?}", data, e),
+                    Ok(inner_result) => match inner_result {
+                        Ok(_) => {
+                            statsd_count!("ingester.bgtask.complete", 1, "type" => &data_name);
+                            println!("{} completed", data_name)
+                        }
+                        Err(err) => {
+                            statsd_count!("ingester.bgtask.error", 1, "type" => &data_name);
+                            println!("{} errored with {:?}", data_name, err)
+                        }
+                    },
+                    Err(err) if err.is_panic() => {
+                        statsd_count!("ingester.bgtask.task_panic", 1);
+                    }
+                    Err(err) => {
+                        let err = err.to_string();
+                        statsd_count!("ingester.bgtask.task_error", 1, "error" => &err);
+                    }
                 }
             }
         });
-        let tm = TaskManager { runtime, producer };
+        let tm = TaskManager { producer };
         Ok(tm)
     }
 

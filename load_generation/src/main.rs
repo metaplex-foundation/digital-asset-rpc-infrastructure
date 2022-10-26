@@ -157,7 +157,11 @@ pub async fn make_a_nft_thing(
             "fake".to_string(),
             "fake".to_string(),
             "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
-            None,
+            Some(vec![Creator {
+                address: payer.pubkey(),
+                verified: false,
+                share: 100,
+            }]),
             0,
             true,
             true,
@@ -174,7 +178,16 @@ pub async fn make_a_nft_thing(
                 pubkey,
                 payer.pubkey(),
                 Some(0),
-            )
+            ),
+        ],
+        Some(&payer.pubkey()),
+        &[payer.as_ref()],
+        solana_client.get_latest_blockhash().await?,
+    );
+    solana_client.send_and_confirm_transaction(&tx).await?;
+    let tx = Transaction::new_signed_with_payer(
+        &[
+            mpl_token_metadata::instruction::update_metadata_accounts_v2(prg_uid, pubkey, payer.pubkey(), None, None, None, Some(false)),
         ],
         Some(&payer.pubkey()),
         &[payer.as_ref()],

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ingest.fullname" . }}-backfiller
+  labels:
+    app: {{ include "ingest.fullname" . }}-backfiller
+spec:
+  replicas: {{ .Values.backfiller.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "ingest.fullname" . }}-backfiller
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ include "ingest.fullname" . }}-backfiller
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ingest.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: datadog
+          image: gcr.io/datadoghq/dogstatsd:latest
+          env:
+          - name: "DD_API_KEY"
+            value: "{{ .Values.metrics.data_dog_api_key }}"
+          ports:
+          - containerPort: 8125
+            name: dogstatsdport
+            protocol: UDP
+        - name: {{ .Chart.Name }}
+          env:
+          - name: RUST_BACKTRACE
+            value: "1"
+          - name: RUST_LOG
+            value: "info"
+          - name: INGESTER_METRICS_HOST
+            value: 127.0.0.1
+          - name: INGESTER_BACKFILLER
+            value: "true"
+          - name: INGESTER_METRICS_PORT
+            value: "8125"
+          - name: INGESTER_DATABASE_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "ingest.secret" . }}
+                key: INGESTER_DATABASE_CONFIG
+                optional: false
+          - name: INGESTER_RPC_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "ingest.secret" . }}
+                key: INGESTER_RPC_CONFIG
+                optional: false
+          - name: INGESTER_MESSENGER_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "ingest.secret" . }}
+                key: INGESTER_MESSENGER_CONFIG
+                optional: false
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          readinessProbe:
+            exec:
+              command:
+                - echo
+                - "true"
+          livenessProbe:
+            exec:
+              command:
+                - echo
+                - "true"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

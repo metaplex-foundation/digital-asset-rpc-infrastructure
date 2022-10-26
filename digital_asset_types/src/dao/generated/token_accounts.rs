@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub pubkey: Vec<u8>,
-    pub mint: Option<Vec<u8>>,
+    pub mint: Vec<u8>,
     pub amount: i64,
     pub owner: Vec<u8>,
     pub frozen: bool,
@@ -53,16 +53,14 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    Tokens,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
             Self::Pubkey => ColumnType::Binary.def(),
-            Self::Mint => ColumnType::Binary.def().null(),
+            Self::Mint => ColumnType::Binary.def(),
             Self::Amount => ColumnType::BigInteger.def(),
             Self::Owner => ColumnType::Binary.def(),
             Self::Frozen => ColumnType::Boolean.def(),
@@ -77,18 +75,7 @@ impl ColumnTrait for Column {
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::Tokens => Entity::belongs_to(super::tokens::Entity)
-                .from(Column::Mint)
-                .to(super::tokens::Column::Mint)
-                .into(),
-        }
-    }
-}
-
-impl Related<super::tokens::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Tokens.def()
+        panic!("No RelationDef")
     }
 }
 

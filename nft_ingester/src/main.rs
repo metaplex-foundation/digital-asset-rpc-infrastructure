@@ -11,18 +11,26 @@ use crate::{
     program_transformers::ProgramTransformer,
     tasks::{BgTask, TaskManager},
 };
-use blockbuster::instruction::{order_instructions, InstructionBundle};
+use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
-use cadence_macros::{set_global_default, statsd_count, statsd_time};
+use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use figment::{providers::Env, Figment};
-use plerkle_messenger::{
-    Messenger, MessengerConfig, RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM,
+use figment::{
+    providers::Env,
+    value::{Dict, Tag, Value},
+    Figment,
 };
-use plerkle_serialization::{root_as_account_info, root_as_transaction_info};
+use futures_util::TryFutureExt;
+use plerkle_messenger::{
+    redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
+    TRANSACTION_STREAM,
+};
+use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
+use solana_sdk::pubkey::Pubkey;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::net::UdpSocket;
+use std::{env, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.
@@ -44,11 +52,12 @@ pub struct IngesterConfig {
     pub rpc_config: RpcConfig,
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
+    pub backfiller: Option<bool>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
     let uri = config.metrics_host.clone();
-    let port = config.metrics_port.clone();
+    let port = config.metrics_port;
     if uri.is_some() || port.is_some() {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket.set_nonblocking(true).unwrap();
@@ -60,18 +69,29 @@ fn setup_metrics(config: &IngesterConfig) {
     }
 }
 
+fn rand_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
+}
+
 #[tokio::main]
 async fn main() {
     // Read config.
     println!("Starting DASgester");
-    let config: IngesterConfig = Figment::new()
+    let mut config: IngesterConfig = Figment::new()
         .join(Env::prefixed("INGESTER_"))
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),
         })
         .unwrap();
-    // Get database config.
+    config
+        .messenger_config
+        .connection_config
+        .insert("consumer_id".to_string(), Value::from(rand_string()));
     let url = config
         .database_config
         .get(&*DATABASE_URL_KEY)
@@ -83,36 +103,45 @@ async fn main() {
     // Setup Postgres.
     let mut tasks = vec![];
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(10)
         .connect(&url)
         .await
         .unwrap();
-    let background_task_manager =
-        TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
-    // Service streams as separate concurrent processes.
-    println!("Setting up tasks");
-    setup_metrics(&config);
-    tasks.push(
-        service_transaction_stream::<RedisMessenger>(
-            pool.clone(),
-            background_task_manager.get_sender(),
-            config.messenger_config.clone(),
-        )
-        .await,
-    );
-    tasks.push(
-        service_account_stream::<RedisMessenger>(
-            pool.clone(),
-            background_task_manager.get_sender(),
-            config.messenger_config.clone(),
-        )
-        .await,
-    );
-    safe_metric(|| {
-        statsd_count!("ingester.startup", 1);
-    });
+    let mut background_task_manager;
+    if config.backfiller.unwrap_or(false) {
+        tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
+        safe_metric(|| {
+            statsd_count!("ingester.backfiller.startup", 1);
+        });
+    } else {
+        background_task_manager =
+            TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
+        // Service streams as separate concurrent processes.
+        println!("Setting up tasks");
+        setup_metrics(&config);
 
-    tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
+        tasks.push(
+            service_transaction_stream::<RedisMessenger>(
+                pool.clone(),
+                background_task_manager.get_sender(),
+                config.messenger_config.clone(),
+            )
+            .await,
+        );
+
+        tasks.push(
+            service_account_stream::<RedisMessenger>(
+                pool.clone(),
+                background_task_manager.get_sender(),
+                config.messenger_config.clone(),
+            )
+            .await,
+        );
+        safe_metric(|| {
+            statsd_count!("ingester.startup", 1);
+        });
+    }
+
     // Wait for ctrl-c.
     match tokio::signal::ctrl_c().await {
         Ok(()) => {}
@@ -131,18 +160,45 @@ async fn main() {
 async fn service_transaction_stream<T: Messenger>(
     pool: Pool<Postgres>,
     tasks: UnboundedSender<Box<dyn BgTask>>,
-    messenger_config: MessengerConfig,
+    mut messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let manager = ProgramTransformer::new(pool, tasks);
-        let mut messenger = T::new(messenger_config).await.unwrap();
-        println!("Setting up transaction listener");
         loop {
-            // This call to messenger.recv() blocks with no timeout until
-            // a message is received on the stream.
-            if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                //TODO -> do not ACK until this is Ok(())
-                handle_transaction(&manager, data).await
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
+
+            let result = tokio::spawn(async {
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
+                println!("Setting up transaction listener");
+
+                let mut ids = Vec::new();
+                loop {
+                    ids.clear();
+
+                    if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
+                        handle_transaction(&manager, data, &mut ids).await
+                    }
+
+                    if !ids.is_empty() {
+                        if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
+                            println!("Error ACK-ing messages {:?}", e);
+                        }
+                    }
+                }
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_transaction_stream.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_transaction_stream.task_error", 1, "error" => &err);
+                }
             }
         }
     })
@@ -154,21 +210,58 @@ async fn service_account_stream<T: Messenger>(
     messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let manager = ProgramTransformer::new(pool, tasks);
-        let mut messenger = T::new(messenger_config).await.unwrap();
-        println!("Setting up account listener");
         loop {
-            // This call to messenger.recv() blocks with no timeout until
-            // a message is received on the stream.
-            if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                handle_account(&manager, data).await
+            let pool_cloned = pool.clone();
+            let tasks_cloned = tasks.clone();
+            let messenger_config_cloned = messenger_config.clone();
+
+            let result = tokio::spawn(async {
+                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let mut messenger = T::new(messenger_config_cloned).await.unwrap();
+                println!("Setting up account listener");
+
+                let mut ids = Vec::new();
+
+                loop {
+                    ids.clear();
+
+                    if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
+                        handle_account(&manager, data, &mut ids).await
+                    }
+
+                    if !ids.is_empty() {
+                        if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                            println!("Error ACK-ing messages {:?}", e);
+                        }
+                    }
+                }
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.service_account_stream.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.service_account_stream.task_error", 1, "error" => &err);
+                }
             }
         }
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (_message_id, data) in data {
+async fn handle_account(
+    manager: &ProgramTransformer,
+    data: Vec<RecvData<'_>>,
+    ids: &mut Vec<String>,
+) {
+    statsd_gauge!("ingester.account_batch_size", data.len() as u64);
+    for item in data {
+        ids.push(item.id);
+
+        let data = item.data;
         // Get root of account info flatbuffers object.
         let account_update = match root_as_account_info(data) {
             Err(err) => {
@@ -214,8 +307,52 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
     }
 }
 
-async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])>) {
-    for (_message_id, tx_data) in data.iter() {
+async fn process_instruction<'i>(
+    manager: &ProgramTransformer,
+    slot: u64,
+    keys: &[FBPubkey],
+    outer_ix: IxPair<'i>,
+    inner_ix: Option<Vec<IxPair<'i>>>,
+) -> Result<(), IngesterError> {
+    let (program, instruction) = outer_ix;
+    let ix_accounts = instruction.accounts().unwrap_or(&[]);
+    let ix_account_len = ix_accounts.len();
+    let max = ix_accounts.iter().max().map(|r| *r).unwrap_or(0) as usize;
+    if keys.len() < max {
+        return Err(IngesterError::DeserializationError(
+            "Missing Accounts in Serialized Ixn/Txn".to_string(),
+        ));
+    }
+    let ix_accounts = ix_accounts
+        .iter()
+        .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
+            if let Some(key) = keys.get(*a as usize) {
+                acc.push(key.clone());
+            }
+            //else case here is handled on 272
+            acc
+        });
+    let bundle = InstructionBundle {
+        txn_id: "",
+        program,
+        instruction,
+        inner_ix,
+        keys: ix_accounts.as_slice(),
+        slot: slot,
+    };
+    manager.handle_instruction(&bundle).await
+}
+
+async fn handle_transaction(
+    manager: &ProgramTransformer,
+    data: Vec<RecvData<'_>>,
+    ids: &mut Vec<String>,
+) {
+    statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
+    for item in data {
+        ids.push(item.id);
+
+        let tx_data = item.data;
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
         //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
@@ -226,7 +363,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
         // Get root of transaction info flatbuffers object.
         if let Ok(tx) = root_as_transaction_info(tx_data) {
             let instructions = manager.break_transaction(&tx);
-            let keys = tx.account_keys();
+            let keys = tx.account_keys().unwrap_or(&[]);
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
                 safe_metric(|| {
@@ -234,26 +371,17 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                 });
             }
             let seen_at = Utc::now();
+            safe_metric(|| {
+                statsd_time!(
+                    "ingester.bus_ingest_time",
+                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                );
+            });
             for (outer_ix, inner_ix) in instructions {
-                let (program, instruction) = outer_ix;
-                let bundle = InstructionBundle {
-                    txn_id: "",
-                    program,
-                    instruction,
-                    inner_ix,
-                    keys: keys.unwrap(),
-                    slot: tx.slot(),
-                };
                 let (program, _) = &outer_ix;
                 let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-                safe_metric(|| {
-                    statsd_time!(
-                        "ingester.bus_ingest_time",
-                        (seen_at.timestamp_millis() - tx.seen_at()) as u64
-                    );
-                });
                 let begin_processing = Utc::now();
-                let res = manager.handle_instruction(&bundle).await;
+                let res = process_instruction(manager, tx.slot(), keys, outer_ix, inner_ix).await;
                 let finish_processing = Utc::now();
                 match res {
                     Ok(_) => {
@@ -275,8 +403,6 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<(i64, &[u8])
                     }
                 }
             }
-            // TODO -> DLQ message if it failed.
         }
     }
 }
-// Associates logs with the given program ID

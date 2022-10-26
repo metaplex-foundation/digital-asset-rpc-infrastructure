@@ -1,10 +1,13 @@
 replicaCount: 1
 image: ""
 loadImage: ""
+migratorImage: ""
 imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+backfiller:
+  replicaCount: 1
 generateLoad: true
 load:
   seed:

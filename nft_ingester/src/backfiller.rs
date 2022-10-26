@@ -1,9 +1,10 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 use crate::{
-    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
-    RPC_URL_KEY,
+    error::IngesterError, safe_metric, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
+    RPC_COMMITMENT_KEY, RPC_URL_KEY,
 };
+use cadence_macros::statsd_count;
 use chrono::Utc;
 use digital_asset_types::dao::generated::backfill_items;
 use flatbuffers::FlatBufferBuilder;
@@ -42,10 +43,29 @@ pub async fn backfiller<T: Messenger>(
     config: IngesterConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        println!("Backfiller task running");
+        loop {
+            let pool_cloned = pool.clone();
+            let config_cloned = config.clone();
 
-        let mut backfiller = Backfiller::<T>::new(pool, config).await;
-        backfiller.run().await;
+            let result = tokio::spawn(async {
+                println!("Backfiller task running");
+
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
+                backfiller.run().await;
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.backfiller.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
+                }
+            }
+        }
     })
 }
 
@@ -202,7 +222,7 @@ impl<T: Messenger> Backfiller<T> {
         loop {
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
-                    if backfill_trees.len() == 0 {
+                    if backfill_trees.is_empty() {
                         // If there are no trees to backfill, wait for a notification on the db
                         // listener channel.
                         let _notification = self.listener.recv().await.unwrap();
@@ -366,7 +386,7 @@ impl<T: Messenger> Backfiller<T> {
         // Similar to `plugGapsBatched()` in `backfiller.ts` (although not batched).
         for gap in gaps.iter() {
             // Similar to `plugGaps()` in `backfiller.ts`.
-            let _result = self.plug_gap(&gap, tree).await?;
+            self.plug_gap(gap, tree).await?;
         }
 
         Ok(opt_max_seq)
@@ -514,18 +534,13 @@ impl<T: Messenger> Backfiller<T> {
                 println!("Serializing transaction");
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                let builder = serialize_transaction(
-                    builder,
-                    &meta,
-                    &ui_raw_message,
-                    slot.try_into().unwrap(),
-                )?;
+                let builder =
+                    serialize_transaction(builder, meta, ui_raw_message, slot.try_into().unwrap())?;
 
                 // Debug.
                 println!("Putting data into Redis");
                 // Put data into Redis.
-                let _ = self
-                    .messenger
+                self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }
@@ -624,7 +639,7 @@ fn serialize_transaction<'a>(
     let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
         let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
         for message in log_messages {
-            log_messages_fb_vec.push(builder.create_string(&message));
+            log_messages_fb_vec.push(builder.create_string(message));
         }
         Some(builder.create_vector(&log_messages_fb_vec))
     } else {
@@ -674,7 +689,7 @@ fn serialize_transaction<'a>(
 
     // Serialize outer instructions.
     let outer_instructions = &ui_raw_message.instructions;
-    let outer_instructions = if outer_instructions.len() > 0 {
+    let outer_instructions = if !outer_instructions.is_empty() {
         let mut instructions_fb_vec = Vec::with_capacity(outer_instructions.len());
         for ui_compiled_instruction in outer_instructions.iter() {
             let program_id_index = ui_compiled_instruction.program_id_index;

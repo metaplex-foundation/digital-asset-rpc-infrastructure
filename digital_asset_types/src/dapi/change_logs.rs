@@ -20,7 +20,7 @@ pub async fn get_proof_for_asset(
     db: &DatabaseConnection,
     asset_id: Vec<u8>,
 ) -> Result<AssetProof, DbErr> {
-    let leaf: Option<cl_items::Model> = cl_items::Entity::find()
+    let sel = cl_items::Entity::find()
         .join_rev(
             JoinType::InnerJoin,
             asset::Entity::belongs_to(cl_items::Entity)
@@ -31,12 +31,15 @@ pub async fn get_proof_for_asset(
         .order_by_desc(cl_items::Column::Seq)
         .filter(Expr::cust("asset.tree_id = cl_items.tree"))
         .filter(Expr::cust_with_values(
-            "asset.id = ?::bytea",
+            "asset.id = $1::bytea",
             vec![asset_id],
         ))
-        .filter(cl_items::Column::Level.eq(0i64))
-        .one(db)
-        .await?;
+        .filter(cl_items::Column::Level.eq(0i64));
+    let sql = sel.clone().build(DbBackend::Postgres);
+    println!("find leaf sql {} ", sql.sql);
+    let leaf: Option<cl_items::Model> =
+        sel.one(db)
+            .await?;
     if leaf.is_none() {
         return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
     }
@@ -96,7 +99,7 @@ pub async fn get_proof_for_asset(
             .map(|model| bs58::encode(&model.hash).into_string())
             .collect(),
         node_index: leaf.node_idx,
-        tree_id: bs58::encode(&leaf.tree).into_string(),
+        tree_id: bs58::encode(&leaf.tree).into_string()
     })
 }
 

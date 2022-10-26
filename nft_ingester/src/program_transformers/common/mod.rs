@@ -82,7 +82,7 @@ pub async fn insert_change_log(
         // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
         // then we know we will need to backfill the tree from sequence number 1 up to the current
         // sequence number.  So in this case we set at flag to force checking the tree.
-        let force_chk = rows.len() == 0 && change_log_event.seq > 1;
+        let force_chk = rows.is_empty() && change_log_event.seq > 1;
 
         println!("Adding to backfill_items table at level {}", i - 1);
         let item = backfill_items::ActiveModel {

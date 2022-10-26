@@ -48,7 +48,7 @@ pub async fn save_v1_master_edition(
 }
 
 pub async fn save_master_edition(
-    version: V1AccountAttachments,
+    _version: V1AccountAttachments,
     id: FBPubkey,
     slot: u64,
     me_data: &MasterEditionV2,
@@ -72,7 +72,7 @@ pub async fn save_master_edition(
         ..Default::default()
     };
 
-    if let Some((me, Some(asset))) = master_edition {
+    if let Some((_me, Some(asset))) = master_edition {
         let mut updatable: asset::ActiveModel = asset.into();
         updatable.supply = Set(1);
         updatable.specification_asset_class = Set(SpecificationAssetClass::Nft);

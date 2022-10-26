@@ -541,9 +541,15 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
+<<<<<<< HEAD
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "580ac4b4dd6258d0ccd43c18bbd41a98afddfe8edf5266a27d05464a048f4b20"
+=======
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab1db2f38d6c191305fdcc69adabb394162a921d660b25e91938d4ceac24c0f"
+>>>>>>> origin/main
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -1211,8 +1217,10 @@ dependencies = [
  "futures",
  "jsonpath_lib",
  "mime_guess",
+ "mpl-bubblegum",
  "num-derive",
  "num-traits",
+ "reqwest",
  "sea-orm",
  "sea-query",
  "serde",
@@ -2489,6 +2497,7 @@ dependencies = [
  "futures-util",
  "hex",
  "lazy_static",
+<<<<<<< HEAD
  "mpl-candy-guard 0.1.1 (git+https://github.com/metaplex-foundation/mpl-candy-guard)",
  "mpl-candy-machine",
  "mpl-candy-machine-core",
@@ -2497,6 +2506,15 @@ dependencies = [
  "plerkle_messenger",
  "plerkle_serialization 0.4.8",
  "redis",
+=======
+ "mpl-bubblegum",
+ "num-integer",
+ "num-traits",
+ "plerkle_messenger",
+ "plerkle_serialization",
+ "rand 0.8.5",
+ "redis 0.21.6",
+>>>>>>> origin/main
  "regex",
  "reqwest",
  "sea-orm",
@@ -2972,25 +2990,31 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plerkle_messenger"
+<<<<<<< HEAD
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b18dccc937c77dea6e53248f4b4850bfd3e890e53f314bfca8d9bb1aa3e535b7"
+=======
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84772847b68adf956cc03eaab92c4ed8c46c4bf8a3f95acc33c7882f55716903"
+>>>>>>> origin/main
 dependencies = [
  "async-mutex",
  "async-trait",
  "figment",
  "futures",
  "log",
- "redis",
+ "redis 0.22.1",
  "serde",
  "thiserror",
 ]
 
 [[package]]
 name = "plerkle_serialization"
-version = "0.4.8"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bd56c4fdaf24f6dae52454dc277ac2053d5010361f50e1014fab49f863149db"
+checksum = "ac053579842c6d916c54d4afb446d92d3ee5a5f67ccda7372b5eacc9594201e0"
 dependencies = [
  "chrono",
  "flatbuffers",
@@ -3349,6 +3373,26 @@ dependencies = [
  "pin-project-lite",
  "ryu",
  "sha1 0.6.1",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "513b3649f1a111c17954296e4a3b9eecb108b766c803e2b99f179ebe27005985"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "combine",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
  "tokio",
  "tokio-util",
  "url",

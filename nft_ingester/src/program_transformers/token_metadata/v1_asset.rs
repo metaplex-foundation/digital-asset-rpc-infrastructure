@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
@@ -22,6 +23,18 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
+
+use sea_orm::{FromQueryResult, JoinType, RelationTrait};
+use sea_query::Expr;
+
+#[derive(FromQueryResult)]
+struct OwnershipTokenModel {
+    supply: i64,
+    mint: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    token_account_amount: i64,
+}
 
 pub async fn save_v1_asset(
     id: FBPubkey,
@@ -54,11 +67,49 @@ pub async fn save_v1_asset(
     let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type
     {
         OwnerType::Single => {
-            let result = tokens::Entity::find_by_id(mint.clone())
-                .find_also_related(TokenAccounts)
+            let result: Option<OwnershipTokenModel> = tokens::Entity::find_by_id(mint.clone())
+                .column_as(token_accounts::Column::Amount, "token_account_amount")
+                .column_as(token_accounts::Column::Owner, "owner")
+                .column_as(token_accounts::Column::Delegate, "delegate")
+                .join(
+                    JoinType::InnerJoin,
+                    tokens::Entity::belongs_to(token_accounts::Entity)
+                        .from(tokens::Column::Mint)
+                        .to(token_accounts::Column::Mint)
+                        .into(),
+                )
+                .into_model::<OwnershipTokenModel>()
                 .one(txn)
                 .await?;
-            Ok(result)
+
+            Ok(result.map(|t| {
+                let token = tokens::Model {
+                    mint: t.mint.clone(),
+                    supply: t.supply,
+                    //Not Needed here
+                    decimals: 0,
+                    token_program: vec![],
+                    mint_authority: None,
+                    freeze_authority: None,
+                    close_authority: None,
+                    extension_data: None,
+                    slot_updated: 0,
+                };
+                let token_account = token_accounts::Model {
+                    pubkey: vec![],
+                    mint: t.mint,
+                    owner: t.owner,
+                    amount: t.token_account_amount,
+                    delegate: t.delegate,
+                    //Not Needed here
+                    frozen: false,
+                    close_authority: None,
+                    delegated_amount: 0,
+                    slot_updated: 0,
+                    token_program: vec![],
+                };
+                (token, Some(token_account))
+            }))
         }
         _ => {
             let token = tokens::Entity::find_by_id(mint.clone()).one(txn).await?;
@@ -129,7 +180,7 @@ pub async fn save_v1_asset(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    let res = txn.execute(query).await?;
+    let _res = txn.execute(query).await?;
 
     // Insert into `asset` table.
     let model = asset::ActiveModel {
@@ -206,7 +257,11 @@ pub async fn save_v1_asset(
     let creators = data.creators.unwrap_or_default();
     if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
-        for c in creators.into_iter() {
+        let mut creators_set = HashSet::new();
+        for (i, c) in creators.into_iter().enumerate() {
+            if creators_set.contains(&c.address) {
+                continue;
+            }
             db_creators.push(asset_creators::ActiveModel {
                 asset_id: Set(id.to_vec()),
                 creator: Set(c.address.to_bytes().to_vec()),
@@ -214,15 +269,17 @@ pub async fn save_v1_asset(
                 verified: Set(c.verified),
                 seq: Set(0), // do we need this here @micheal-danenberg?
                 slot_updated: Set(slot_i),
+                position: Set(i as i16),
                 ..Default::default()
             });
+            creators_set.insert(c.address.clone());
         }
 
         // Do not attempt to modify any existing values:
         // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
-                OnConflict::columns([asset_creators::Column::AssetId])
+                OnConflict::columns([asset_creators::Column::AssetId, asset_creators::Column::Position])
                     .update_columns([
                         asset_creators::Column::Creator,
                         asset_creators::Column::Share,
