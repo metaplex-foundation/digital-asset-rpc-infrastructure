@@ -28,8 +28,8 @@ digital_asset_types = { path = "../digital_asset_types", features = ["json_types
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-mpl-candy-guard = { version = "0.1.1", features = ["no-entrypoint"] }
-mpl-candy-machine-core = { version = "0.1.1", features = ["no-entrypoint"] }
+mpl-candy-guard = { git ="https://github.com/metaplex-foundation/mpl-candy-guard", features = ["no-entrypoint"] }
+mpl-candy-machine-core = { version = "0.1.3", features = ["no-entrypoint"] }
 mpl-candy-machine = { version = "4.5.0", features = ["no-entrypoint"]}
 borsh = "0.9.3"
 blockbuster = { version = "0.3.3" }
