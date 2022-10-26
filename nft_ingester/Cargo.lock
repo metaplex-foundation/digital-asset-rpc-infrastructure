@@ -554,7 +554,30 @@ dependencies = [
  "mpl-candy-guard 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "mpl-candy-machine-core",
  "mpl-token-metadata",
- "plerkle_serialization",
+ "plerkle_serialization 0.4.8",
+ "solana-sdk",
+ "spl-account-compression",
+ "spl-noop",
+ "spl-token",
+ "thiserror",
+]
+
+[[package]]
+name = "blockbuster"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab1db2f38d6c191305fdcc69adabb394162a921d660b25e91938d4ceac24c0f"
+dependencies = [
+ "anchor-lang",
+ "async-trait",
+ "borsh",
+ "flatbuffers",
+ "lazy_static",
+ "mpl-bubblegum",
+ "mpl-candy-guard 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mpl-candy-machine-core",
+ "mpl-token-metadata",
+ "plerkle_serialization 0.5.3",
  "solana-sdk",
  "spl-account-compression",
  "spl-noop",
@@ -1183,7 +1206,7 @@ dependencies = [
 name = "digital_asset_types"
 version = "0.0.1"
 dependencies = [
- "blockbuster",
+ "blockbuster 0.3.3",
  "bs58 0.4.0",
  "futures",
  "jsonpath_lib",
@@ -2454,7 +2477,7 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "base64 0.13.0",
- "blockbuster",
+ "blockbuster 0.5.4",
  "borsh",
  "bs58 0.4.0",
  "cadence",
@@ -2472,7 +2495,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "plerkle_messenger",
- "plerkle_serialization",
+ "plerkle_serialization 0.4.8",
  "redis",
  "regex",
  "reqwest",
@@ -2968,6 +2991,18 @@ name = "plerkle_serialization"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bd56c4fdaf24f6dae52454dc277ac2053d5010361f50e1014fab49f863149db"
+dependencies = [
+ "chrono",
+ "flatbuffers",
+ "solana-geyser-plugin-interface",
+ "solana-runtime",
+]
+
+[[package]]
+name = "plerkle_serialization"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac053579842c6d916c54d4afb446d92d3ee5a5f67ccda7372b5eacc9594201e0"
 dependencies = [
  "chrono",
  "flatbuffers",

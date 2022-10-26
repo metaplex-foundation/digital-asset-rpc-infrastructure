@@ -83,7 +83,7 @@ pub enum Column {
     AllowListMerkleRoot,
     FreezeTokenPaymentAmount,
     FreezeTokenPaymentMint,
-    FreezeTokenPaymentDestinationAtaAta,
+    FreezeTokenPaymentDestinationAta,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -139,7 +139,7 @@ impl ColumnTrait for Column {
             Self::AllowListMerkleRoot => ColumnType::Binary.def().null(),
             Self::FreezeTokenPaymentAmount => ColumnType::BigInteger.def().null(),
             Self::FreezeTokenPaymentMint => ColumnType::Binary.def().null(),
-            Self::FreezeTokenPaymentDestinationAtaAta => ColumnType::Binary.def().null(),
+            Self::FreezeTokenPaymentDestinationAta=> ColumnType::Binary.def().null(),
         }
     }
 }
