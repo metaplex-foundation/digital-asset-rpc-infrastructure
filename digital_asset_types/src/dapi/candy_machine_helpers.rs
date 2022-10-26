@@ -5,9 +5,9 @@ use crate::{
         sea_orm_active_enums::{EndSettingType, WhitelistMintMode},
     },
     rpc::{
-        AllowList, BotTax, ConfigLineSettings, EndSettings, FreezeInfo, Gatekeeper, GuardSet,
-        HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SolPayment, SplToken,
-        ThirdPartySigner, WhitelistMintSettings,
+        AllowList, BotTax, ConfigLineSettings, EndDate, EndSettings, FreezeInfo, Gatekeeper,
+        GuardSet, HiddenSettings, Lamports, LiveDate, MintLimit, NftPayment, SolPayment, SplToken,
+        StartDate, ThirdPartySigner, WhitelistMintSettings,
     },
 };
 
@@ -202,32 +202,49 @@ pub fn get_config_line_settings(
 }
 
 pub fn get_mint_limit(
-    mint_limit_id: Option<u8>,
-    mint_limit_limit: Option<u16>,
+    mint_limit_id: Option<i16>,
+    mint_limit_limit: Option<i16>,
 ) -> Option<MintLimit> {
     if let (Some(mint_limit_id), Some(mint_limit_limit)) = (mint_limit_id, mint_limit_limit) {
         Some(MintLimit {
-            id: mint_limit_id,
-            limit: mint_limit_limit,
+            id: mint_limit_id as u8,
+            limit: mint_limit_limit as u16,
         })
     } else {
         None
     }
 }
 
-pub fn get_live_date(live_date: Option<i64>) -> Option<LiveDate> {
-    if live_date.is_some() {
-        Some(LiveDate { date: live_date })
+pub fn get_start_date(start_date: Option<i64>) -> Option<StartDate> {
+    if let Some(start_date) = start_date {
+        Some(StartDate {
+            date: start_date as u64,
+        })
     } else {
         None
     }
 }
 
-pub fn get_bot_tax(lamports: Option<i64>, last_instruction: Option<bool>) -> Option<BotTax> {
-    if let (Some(lamports), Some(last_instruction)) = (lamports, last_instruction) {
+pub fn get_end_date(end_date: Option<i64>) -> Option<EndDate> {
+    if let Some(end_date) = end_date {
+        Some(EndDate {
+            date: end_date as u64,
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_bot_tax(
+    bot_tax_lamports: Option<i64>,
+    bot_tax_last_instruction: Option<bool>,
+) -> Option<BotTax> {
+    if let (Some(bot_tax_lamports), Some(bot_tax_last_instruction)) =
+        (bot_tax_lamports, bot_tax_last_instruction)
+    {
         Some(BotTax {
-            lamports,
-            last_instruction,
+            lamports: bot_tax_lamports as u64,
+            last_instruction: bot_tax_last_instruction,
         })
     } else {
         None
@@ -243,7 +260,135 @@ pub fn get_sol_payment(
     {
         Some(SolPayment {
             lamports: sol_payment_lamports as u64,
-            destination: sol_payment_destination,
+            destination: bs58::encode(sol_payment_destination).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_address_gate(address_gate_address: Option<Vec<u8>>) -> Option<AddressGate> {
+    if let Some(address_gate_address) = address_gate_address {
+        Some(AddressGate {
+            address: bs58::encode(address_gate_address).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_redeemed_amount(redeemed_amount_maximum: Option<i64>) -> Option<RedeemedAmount> {
+    if let Some(redeemed_amount_maximum) = redeemed_amount_maximum {
+        Some(RedeemedAmount {
+            maximum: redeemed_amount_maximum as u64,
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_freeze_sol_payment(
+    freeze_sol_payment_lamports: Option<i64>,
+    freeze_sol_payment_destination: Option<Vec<u8>>,
+) -> Option<FreezeSolPayment> {
+    if let (Some(freeze_sol_payment_lamports), Some(freeze_sol_payment_destination)) =
+        (freeze_sol_payment_lamports, freeze_sol_payment_destination)
+    {
+        Some(FreezeSolPayment {
+            lamports: freeze_sol_payment_lamports as u64,
+            destination: bs58::encode(freeze_sol_payment_destination).into_string(),
+        })
+    }
+}
+
+pub fn get_token_gate(
+    token_gate_amount: Option<i64>,
+    token_gate_mint: Option<Vec<u8>>,
+) -> Option<TokenGate> {
+    if let (Some(token_gate_amount), Some(token_gate_mint)) = (token_gate_amount, token_gate_mint) {
+        Some(TokenGate {
+            amount: token_gate_amount as u64,
+            mint: bs58::encode(token_gate_mint).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_nft_gate(nft_gate_required_collection: Option<Vec<u8>>) -> Option<NftGate> {
+    if let Some(nft_gate_required_collection) = nft_gate_required_collection {
+        Some(NftGate {
+            required_collection: bs58::encode(nft_gate_required_collection).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_token_burn(
+    token_burn_amount: Option<i64>,
+    token_burn_mint: Option<Vec<u8>>,
+) -> Option<TokenBurn> {
+    if let (Some(token_burn_amount), Some(token_burn_mint)) = (token_burn_amount, token_burn_mint) {
+        Some(TokenBurn {
+            amount: token_burn_amount as u64,
+            mint: bs58::encode(token_burn_mint).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_nft_burn(nft_gate_required_collection: Option<Vec<u8>>) -> Option<NftBurn> {
+    if let Some(nft_gate_required_collection) = nft_gate_required_collection {
+        Some(NftBurn {
+            required_collection: bs58::encode(nft_gate_required_collection).into_string(),
+        })
+    } else {
+        None
+    }
+}
+
+pub fn get_token_payment(
+    token_payment_amount: Option<i64>,
+    token_payment_mint: Option<Vec<u8>>,
+    token_payment_destination_ata: Option<Vec<u8>>,
+) -> Option<TokenPayment> {
+    if let (
+        Some(token_payment_amount),
+        Some(token_payment_mint),
+        Some(token_payment_destination_ata),
+    ) = (
+        token_payment_amount,
+        token_payment_mint,
+        token_payment_destination_ata,
+    ) {
+        Some(TokenPayment {
+            amount: token_payment_amount as u64,
+            mint: bs58::encode(token_payment_mint).into_string(),
+            destination: bs58::encode(token_payment_destination_ata).into_string(),
+        })
+    }
+}
+
+pub fn get_freeze_token_payment(
+    freeze_token_payment_amount: Option<i64>,
+    freeze_token_payment_mint: Option<Vec<u8>>,
+    freeze_token_payment_destination: Option<Vec<u8>>,
+) -> Option<FreezeTokenPayment> {
+    if let (
+        Some(freeze_token_payment_amount),
+        Some(freeze_token_payment_mint),
+        Some(freeze_token_payment_destination),
+    ) = (
+        freeze_token_payment_amount,
+        freeze_token_payment_mint,
+        freeze_token_payment_destination,
+    ) {
+        Some(FreezeTokenPayment {
+            amount: freeze_token_payment_amount as u64,
+            mint: bs58::encode(freeze_token_payment_mint).into_string(),
+            destination: bs58::encode(freeze_token_payment_destination).into_string(),
         })
     } else {
         None
@@ -264,19 +409,50 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
     );
 
     let sol_payment = get_sol_payment(group.sol_payment_lamports, group.sol_payment_destination);
-    // TODO fix later P-682
-    // let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
-
-    // let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
+    let mint_limit = get_mint_limit(group.mint_limit_id, group.mint_limit_limit);
+    let bot_tax = get_bot_tax(group.bot_tax_lamports, group.bot_tax_last_instruction);
+    let start_date = get_start_date(group.start_date);
+    let end_date = get_end_date(group.end_date);
+    let address_gate = get_address_gate(group.address_gate_address);
+    let redeemed_amount = get_redeemed_amount(group.redeemed_amount_maximum);
+    let freeze_sol_payment = get_freeze_sol_payment(
+        group.freeze_sol_payment_lamports,
+        group.freeze_sol_payment_destination,
+    );
+    let token_gate = get_token_gate(group.token_gate_amount, group.token_gate_mint);
+    let nft_gate = get_nft_gate(group.nft_gate_required_collection);
+    let token_burn = get_token_burn(group.token_burn_amount, group.token_burn_mint);
+    let nft_burn = get_nft_burn(group.nft_burn_required_collection);
+    let token_payment = get_token_payment(
+        group.token_payment_amount,
+        group.token_payment_mint,
+        group.token_payment_destination_ata,
+    );
+    let freeze_token_payment = get_freeze_token_payment(
+        group.freeze_token_payment_amount,
+        group.freeze_token_payment_mint,
+        group.freeze_token_payment_destination,
+    );
 
     GuardSet {
-        bot_tax: None,
+        bot_tax,
         third_party_signer,
         gatekeeper,
         allow_list,
-        mint_limit: None,
+        mint_limit,
         nft_payment,
         sol_payment,
+        start_date,
+        end_date,
+        address_gate,
+        redeemed_amount,
+        freeze_sol_payment,
+        token_gate,
+        nft_gate,
+        token_burn,
+        nft_burn,
+        token_payment,
+        freeze_token_payment,
     }
 }
 

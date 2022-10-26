@@ -114,7 +114,7 @@ pub struct WhitelistMintSettings {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct BotTax {
-    pub lamports: i64,
+    pub lamports: u64,
     pub last_instruction: bool,
 }
 
@@ -125,12 +125,6 @@ pub struct SolPayment {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Lamports {
-    pub amount: i64,
-    pub destination: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SplToken {
     pub amount: i64,
     pub token_mint: String,
@@ -138,9 +132,13 @@ pub struct SplToken {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct LiveDate {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date: Option<i64>,
+pub struct StartDate {
+    pub date: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct EndDate {
+    pub date: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -181,6 +179,28 @@ pub struct GuardSet {
     pub nft_payment: Option<NftPayment>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sol_payment: Option<SolPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<StartDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<EndDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address_gate: Option<AddressGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redeemed_amount: Option<RedeemedAmount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_sol_payment: Option<FreezeSolPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_gate: Option<TokenGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nft_gate: Option<NftGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_burn: Option<TokenBurn>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nft_burn: Option<NftBurn>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_payment: Option<TokenPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_token_payment: Option<FreezeTokenPayment>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
