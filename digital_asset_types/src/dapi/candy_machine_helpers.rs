@@ -350,21 +350,21 @@ pub fn get_token_payment(
 pub fn get_freeze_token_payment(
     freeze_token_payment_amount: Option<i64>,
     freeze_token_payment_mint: Option<Vec<u8>>,
-    freeze_token_payment_destination: Option<Vec<u8>>,
+    freeze_token_payment_destination_ata_ata: Option<Vec<u8>>,
 ) -> Option<FreezeTokenPayment> {
     if let (
         Some(freeze_token_payment_amount),
         Some(freeze_token_payment_mint),
-        Some(freeze_token_payment_destination),
+        Some(freeze_token_payment_destination_ata_ata),
     ) = (
         freeze_token_payment_amount,
         freeze_token_payment_mint,
-        freeze_token_payment_destination,
+        freeze_token_payment_destination_ata_ata,
     ) {
         Some(FreezeTokenPayment {
             amount: freeze_token_payment_amount as u64,
             mint: bs58::encode(freeze_token_payment_mint).into_string(),
-            destination: bs58::encode(freeze_token_payment_destination).into_string(),
+            destination_ata: bs58::encode(freeze_token_payment_destination_ata_ata).into_string(),
         })
     } else {
         None
@@ -410,7 +410,7 @@ pub fn get_candy_guard_group(group: &GuardGroupModel) -> GuardSet {
     let freeze_token_payment = get_freeze_token_payment(
         group.freeze_token_payment_amount,
         group.freeze_token_payment_mint.clone(),
-        group.freeze_token_payment_destination.clone(),
+        group.freeze_token_payment_destination_ata.clone(),
     );
 
     GuardSet {

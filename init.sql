@@ -335,6 +335,6 @@ create table candy_guard_group
     allow_list_merkle_root           bytea,
     freeze_token_payment_amount      bigint,
     freeze_token_payment_mint        bytea,
-    freeze_token_payment_destination bytea
+    freeze_token_payment_destination_ata bytea
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);

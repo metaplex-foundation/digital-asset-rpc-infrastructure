@@ -118,7 +118,9 @@ pub async fn candy_guard<'c>(
         allow_list_merkle_root: Set(default_guard.allow_list_merkle_root),
         freeze_token_payment_amount: Set(default_guard.freeze_token_payment_amount),
         freeze_token_payment_mint: Set(default_guard.freeze_token_payment_mint),
-        freeze_token_payment_destination: Set(default_guard.freeze_token_payment_destination),
+        freeze_token_payment_destination_ata: Set(
+            default_guard.freeze_token_payment_destination_ata
+        ),
         ..Default::default()
     };
 
@@ -202,7 +204,9 @@ pub async fn candy_guard<'c>(
                     allow_list_merkle_root: Set(guards.allow_list_merkle_root),
                     freeze_token_payment_amount: Set(guards.freeze_token_payment_amount),
                     freeze_token_payment_mint: Set(guards.freeze_token_payment_mint),
-                    freeze_token_payment_destination: Set(guards.freeze_token_payment_destination),
+                    freeze_token_payment_destination_ata: Set(
+                        guards.freeze_token_payment_destination_ata
+                    ),
                     ..Default::default()
                 };
 

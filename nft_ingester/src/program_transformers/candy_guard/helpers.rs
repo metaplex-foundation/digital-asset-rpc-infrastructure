@@ -74,7 +74,7 @@ pub fn get_freeze_sol_payment(
 ) -> (Option<i64>, Option<Vec<u8>>) {
     if let Some(freeze_sol_payment) = freeze_sol_payment {
         (
-            Some(freeze_sol_payment.lamports),
+            Some(freeze_sol_payment.lamports as i64),
             Some(freeze_sol_payment.destination.to_bytes().to_vec()),
         )
     } else {
@@ -177,9 +177,9 @@ pub fn get_freeze_token_payment(
 ) -> (Option<i64>, Option<Vec<u8>>, Option<Vec<u8>>) {
     if let Some(freeze_token_payment) = freeze_token_payment {
         (
-            Some(freeze_token_payment.amount),
+            Some(freeze_token_payment.amount as i64),
             Some(freeze_token_payment.mint.to_bytes().to_vec()),
-            Some(freeze_token_payment.destination.to_bytes().to_vec()),
+            Some(freeze_token_payment.destination_ata.to_bytes().to_vec()),
         )
     } else {
         (None, None, None)
@@ -216,12 +216,15 @@ pub struct DBGuardSet {
     pub allow_list_merkle_root: Option<Vec<u8>>,
     pub freeze_token_payment_amount: Option<i64>,
     pub freeze_token_payment_mint: Option<Vec<u8>>,
-    pub freeze_token_payment_destination: Option<Vec<u8>>,
+    pub freeze_token_payment_destination_ata: Option<Vec<u8>>,
 }
 
 pub fn get_all_guards(guard_set: &GuardSet) -> DBGuardSet {
-    let (freeze_token_payment_amount, freeze_token_payment_mint, freeze_token_payment_destination) =
-        get_freeze_token_payment(guard_set.freeze_token_payment);
+    let (
+        freeze_token_payment_amount,
+        freeze_token_payment_mint,
+        freeze_token_payment_destination_ata,
+    ) = get_freeze_token_payment(guard_set.freeze_token_payment);
     let (bot_tax_lamports, bot_tax_last_instruction) = get_bot_tax(guard_set.bot_tax);
     let (sol_payment_lamports, sol_payment_destination) = get_sol_payment(guard_set.sol_payment);
     let (redeemed_amount_maximum) = get_redeemed_amount(guard_set.redeemed_amount);
@@ -273,6 +276,6 @@ pub fn get_all_guards(guard_set: &GuardSet) -> DBGuardSet {
         allow_list_merkle_root,
         freeze_token_payment_amount,
         freeze_token_payment_mint,
-        freeze_token_payment_destination,
+        freeze_token_payment_destination_ata,
     }
 }

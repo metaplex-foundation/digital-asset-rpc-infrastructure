@@ -205,7 +205,7 @@ pub struct TokenPayment {
 pub struct FreezeTokenPayment {
     pub amount: u64,
     pub mint: String,
-    pub destination: String,
+    pub destination_ata: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]

@@ -46,7 +46,7 @@ pub struct Model {
     pub allow_list_merkle_root: Option<Vec<u8>>,
     pub freeze_token_payment_amount: Option<i64>,
     pub freeze_token_payment_mint: Option<Vec<u8>>,
-    pub freeze_token_payment_destination: Option<Vec<u8>>,
+    pub freeze_token_payment_destination_ata: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -83,7 +83,7 @@ pub enum Column {
     AllowListMerkleRoot,
     FreezeTokenPaymentAmount,
     FreezeTokenPaymentMint,
-    FreezeTokenPaymentDestination,
+    FreezeTokenPaymentDestinationAtaAta,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -139,7 +139,7 @@ impl ColumnTrait for Column {
             Self::AllowListMerkleRoot => ColumnType::Binary.def().null(),
             Self::FreezeTokenPaymentAmount => ColumnType::BigInteger.def().null(),
             Self::FreezeTokenPaymentMint => ColumnType::Binary.def().null(),
-            Self::FreezeTokenPaymentDestination => ColumnType::Binary.def().null(),
+            Self::FreezeTokenPaymentDestinationAtaAta => ColumnType::Binary.def().null(),
         }
     }
 }
