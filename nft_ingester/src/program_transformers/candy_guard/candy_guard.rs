@@ -4,6 +4,7 @@ use digital_asset_types::dao::generated::{
     candy_guard, candy_guard_group, candy_machine, prelude::CandyMachine,
 };
 
+use mpl_candy_guard::state::{CandyGuard, CandyGuardData};
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseConnection,
@@ -14,7 +15,7 @@ use super::helpers::*;
 
 pub async fn candy_guard<'c>(
     candy_guard: &CandyGuard,
-    candy_guard_data: &Box<CandyGuardData>,
+    candy_guard_data: CandyGuardData,
     id: FBPubkey,
     txn: &DatabaseTransaction,
     db: &DatabaseConnection,

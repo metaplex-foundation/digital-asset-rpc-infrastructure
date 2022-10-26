@@ -1,16 +1,8 @@
-use crate::dao::generated::prelude::AssetData;
-use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dapi::asset::get_interface;
+use crate::dao::generated::{asset, asset_data, prelude::AssetData};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
-use sea_orm::DbErr;
-use sea_orm::{
-    ColumnTrait, CursorTrait, DatabaseConnection, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder,
-};
-
-use super::asset::{get_content, to_authority, to_creators, to_grouping};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QueryOrder, QueryFilter, PaginatorTrait, ColumnTrait, CursorTrait, ModelTrait};
 
 pub async fn get_assets_by_owner(
     db: &DatabaseConnection,

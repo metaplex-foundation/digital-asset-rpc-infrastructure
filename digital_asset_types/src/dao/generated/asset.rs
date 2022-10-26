@@ -41,8 +41,8 @@ pub struct Model {
     pub created_at: Option<DateTimeWithTimeZone>,
     pub burnt: bool,
     pub slot_updated: i64,
-    pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
+    pub data_hash: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -70,8 +70,8 @@ pub enum Column {
     CreatedAt,
     Burnt,
     SlotUpdated,
-    DataHash,
     CreatorHash,
+    DataHash,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -122,8 +122,8 @@ impl ColumnTrait for Column {
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::Burnt => ColumnType::Boolean.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
-            Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
-            Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::CreatorHash => ColumnType::String(Some(64u32)).def().null(),
+            Self::DataHash => ColumnType::String(Some(64u32)).def().null(),
         }
     }
 }

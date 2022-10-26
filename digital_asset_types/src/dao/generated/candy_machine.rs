@@ -29,8 +29,8 @@ pub struct Model {
     pub freeze_time: Option<i64>,
     pub freeze_fee: Option<i64>,
     pub version: i16,
-    pub created_at: Option<DateTimeUtc>,
-    pub last_minted: Option<DateTimeUtc>,
+    pub created_at: Option<DateTimeWithTimeZone>,
+    pub last_minted: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]

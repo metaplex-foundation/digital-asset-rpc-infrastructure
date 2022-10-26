@@ -4,16 +4,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
@@ -40,12 +30,30 @@ pub enum SpecificationAssetClass {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "end_setting_type")]
-pub enum EndSettingType {
-    #[sea_orm(string_value = "amount")]
-    Amount,
-    #[sea_orm(string_value = "date")]
-    Date,
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "specification_versions"
+)]
+pub enum SpecificationVersions {
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "v0")]
+    V0,
+    #[sea_orm(string_value = "v1")]
+    V1,
+    #[sea_orm(string_value = "v2")]
+    V2,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
+pub enum OwnerType {
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "token")]
+    Token,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
@@ -66,6 +74,24 @@ pub enum V1AccountAttachments {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
+pub enum Mutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "end_setting_type")]
+pub enum EndSettingType {
+    #[sea_orm(string_value = "amount")]
+    Amount,
+    #[sea_orm(string_value = "date")]
+    Date,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
 pub enum ChainMutability {
     #[sea_orm(string_value = "immutable")]
@@ -79,44 +105,6 @@ pub enum ChainMutability {
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
-    enum_name = "specification_versions"
-)]
-pub enum SpecificationVersions {
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-    #[sea_orm(string_value = "v0")]
-    V0,
-    #[sea_orm(string_value = "v1")]
-    V1,
-    #[sea_orm(string_value = "v2")]
-    V2,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-<<<<<<< HEAD
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-=======
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
->>>>>>> origin/main
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-<<<<<<< HEAD
-    enum_name = "whitelist_mint_mode"
-=======
     enum_name = "royalty_target_type"
 )]
 pub enum RoyaltyTargetType {
@@ -133,32 +121,11 @@ pub enum RoyaltyTargetType {
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
-    enum_name = "specification_asset_class"
->>>>>>> origin/main
+    enum_name = "whitelist_mint_mode"
 )]
 pub enum WhitelistMintMode {
     #[sea_orm(string_value = "burn_every_time")]
     BurnEveryTime,
     #[sea_orm(string_value = "never_burn")]
     NeverBurn,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
 }

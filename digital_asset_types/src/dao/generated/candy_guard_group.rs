@@ -139,7 +139,7 @@ impl ColumnTrait for Column {
             Self::AllowListMerkleRoot => ColumnType::Binary.def().null(),
             Self::FreezeTokenPaymentAmount => ColumnType::BigInteger.def().null(),
             Self::FreezeTokenPaymentMint => ColumnType::Binary.def().null(),
-            Self::FreezeTokenPaymentDestinationAta=> ColumnType::Binary.def().null(),
+            Self::FreezeTokenPaymentDestinationAta => ColumnType::Binary.def().null(),
         }
     }
 }

@@ -8,7 +8,6 @@ use digital_asset_types::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
-        prelude::TokenAccounts,
         sea_orm_active_enums::{
             ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
             SpecificationVersions, V1AccountAttachments,

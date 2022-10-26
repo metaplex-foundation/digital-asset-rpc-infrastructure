@@ -206,7 +206,9 @@ create table asset
     -- visibility
     created_at                timestamp with time zone           default (now() at time zone 'utc'),
     burnt                     bool                      not null default false,
-    slot_updated              bigint                    not null
+    slot_updated              bigint                    not null,
+    creator_hash              varchar(64),
+    data_hash                 varchar(64)          
 );
 -- @@@@@@
 
@@ -395,8 +397,8 @@ create table candy_guard_group
     token_payment_mint               bytea, 
     token_payment_destination_ata    bytea, 
     allow_list_merkle_root           bytea,
-    freeze_token_payment_amount      bigint,
-    freeze_token_payment_mint        bytea,
+    freeze_token_payment_amount          bigint,
+    freeze_token_payment_mint            bytea,
     freeze_token_payment_destination_ata bytea
 );
 create unique index candy_guard_group_candy_guard_id on candy_guard_group (candy_guard_id);

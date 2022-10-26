@@ -1,4 +1,4 @@
-use blockbuster::{self, programs::candy_guard::CandyGuardAccountData};
+use blockbuster::programs::candy_guard::CandyGuardAccountData;
 
 use plerkle_serialization::AccountInfo;
 use sea_orm::{DatabaseConnection, TransactionTrait};

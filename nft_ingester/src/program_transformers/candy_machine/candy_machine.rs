@@ -1,6 +1,6 @@
 use crate::IngesterError;
 
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use digital_asset_types::dao::generated::{
     candy_machine, candy_machine_creators, candy_machine_data,
     prelude::CandyMachine,
@@ -33,7 +33,7 @@ pub async fn candy_machine<'c>(
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
         if candy_machine_model.items_redeemed < candy_machine.items_redeemed as i64 {
-            Some(Utc::now())
+            Some(Utc::now().with_timezone(&FixedOffset::west(0)))
         } else {
             candy_machine_model.last_minted
         }
@@ -48,7 +48,7 @@ pub async fn candy_machine<'c>(
         token_mint: Set(token_mint),
         items_redeemed: Set(candy_machine.items_redeemed as i64),
         version: Set(2),
-        created_at: Set(Some(Utc::now())),
+        created_at: Set(Some(Utc::now().with_timezone(&FixedOffset::west(0)))),
         last_minted: Set(last_minted),
         ..Default::default()
     };
