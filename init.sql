@@ -42,7 +42,7 @@ CREATE TABLE backfill_items
     slot       BIGINT NOT NULL,
     force_chk  bool,
     backfilled bool,
-    failed     bool
+    failed     bool default false
 );
 -- @@@@@@
 

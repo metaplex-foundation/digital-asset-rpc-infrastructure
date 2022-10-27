@@ -91,6 +91,7 @@ pub async fn insert_change_log(
             slot: Set(slot as i64),
             force_chk: Set(Some(force_chk)),
             backfilled: Set(Some(false)),
+            failed: Set(Some(false)),
             ..Default::default()
         };
 
