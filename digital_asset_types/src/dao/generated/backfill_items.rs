@@ -20,6 +20,7 @@ pub struct Model {
     pub slot: i64,
     pub force_chk: Option<bool>,
     pub backfilled: Option<bool>,
+    pub failed: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -30,6 +31,7 @@ pub enum Column {
     Slot,
     ForceChk,
     Backfilled,
+    Failed,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -57,6 +59,7 @@ impl ColumnTrait for Column {
             Self::Slot => ColumnType::BigInteger.def(),
             Self::ForceChk => ColumnType::Boolean.def().null(),
             Self::Backfilled => ColumnType::Boolean.def().null(),
+            Self::Failed => ColumnType::Boolean.def().null(),
         }
     }
 }

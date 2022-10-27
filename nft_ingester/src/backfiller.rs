@@ -202,7 +202,7 @@ impl<T: Messenger> Backfiller<T> {
 
         // Instantiate messenger.
         let mut messenger = T::new(config.messenger_config).await.unwrap();
-        messenger.add_stream(TRANSACTION_STREAM).await;
+        messenger.add_stream(TRANSACTION_STREAM).await.unwrap();
         messenger.set_buffer_size(TRANSACTION_STREAM, 5000).await;
 
         Self {

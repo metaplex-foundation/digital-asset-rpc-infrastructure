@@ -41,7 +41,8 @@ CREATE TABLE backfill_items
     seq        BIGINT NOT NULL,
     slot       BIGINT NOT NULL,
     force_chk  bool,
-    backfilled bool
+    backfilled bool,
+    failed     bool
 );
 -- @@@@@@
 
@@ -55,11 +56,17 @@ CREATE INDEX backfill_items_force_chk_idx on backfill_items (force_chk);
 -- @@@@@@
 CREATE INDEX backfill_items_backfilled_idx on backfill_items (backfilled);
 -- @@@@@@
+CREATE INDEX backfill_items_failed_idx on backfill_items (failed);
+-- @@@@@@
 CREATE INDEX backfill_items_tree_seq_idx on backfill_items (tree, seq);
 -- @@@@@@
 CREATE INDEX backfill_items_tree_slot_idx on backfill_items (tree, slot);
 -- @@@@@@
 CREATE INDEX backfill_items_tree_force_chk_idx on backfill_items (tree, force_chk);
+-- @@@@@@
+CREATE INDEX backfill_items_tree_backfilled_idx on backfill_items (tree, backfilled);
+-- @@@@@@
+CREATE INDEX backfill_items_tree_failed_idx on backfill_items (tree, failed);
 -- @@@@@@
 
 CREATE

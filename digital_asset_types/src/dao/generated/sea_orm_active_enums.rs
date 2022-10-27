@@ -4,40 +4,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "v1_account_attachments"
-)]
-pub enum V1AccountAttachments {
-    #[sea_orm(string_value = "edition")]
-    Edition,
-    #[sea_orm(string_value = "edition_marker")]
-    EditionMarker,
-    #[sea_orm(string_value = "master_edition_v1")]
-    MasterEditionV1,
-    #[sea_orm(string_value = "master_edition_v2")]
-    MasterEditionV2,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "specification_versions"
-)]
-pub enum SpecificationVersions {
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-    #[sea_orm(string_value = "v0")]
-    V0,
-    #[sea_orm(string_value = "v1")]
-    V1,
-    #[sea_orm(string_value = "v2")]
-    V2,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
 pub enum OwnerType {
     #[sea_orm(string_value = "single")]
@@ -67,6 +33,22 @@ pub enum RoyaltyTargetType {
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
+    enum_name = "specification_versions"
+)]
+pub enum SpecificationVersions {
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "v0")]
+    V0,
+    #[sea_orm(string_value = "v1")]
+    V1,
+    #[sea_orm(string_value = "v2")]
+    V2,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
     enum_name = "specification_asset_class"
 )]
 pub enum SpecificationAssetClass {
@@ -86,6 +68,24 @@ pub enum SpecificationAssetClass {
     PrintableNft,
     #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
     TransferRestrictedNft,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "v1_account_attachments"
+)]
+pub enum V1AccountAttachments {
+    #[sea_orm(string_value = "edition")]
+    Edition,
+    #[sea_orm(string_value = "edition_marker")]
+    EditionMarker,
+    #[sea_orm(string_value = "master_edition_v1")]
+    MasterEditionV1,
+    #[sea_orm(string_value = "master_edition_v2")]
+    MasterEditionV2,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
