@@ -5,7 +5,7 @@ use blockbuster::token_metadata::{
     state::{Metadata, TokenStandard, UseMethod, Uses},
 };
 use digital_asset_types::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
         prelude::TokenAccounts,
@@ -23,18 +23,6 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
-
-use sea_orm::{FromQueryResult, JoinType, RelationTrait};
-use sea_query::Expr;
-
-#[derive(FromQueryResult)]
-struct OwnershipTokenModel {
-    supply: i64,
-    mint: Vec<u8>,
-    owner: Vec<u8>,
-    delegate: Option<Vec<u8>>,
-    token_account_amount: i64,
-}
 
 pub async fn save_v1_asset(
     id: FBPubkey,

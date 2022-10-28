@@ -1,10 +1,10 @@
-use crate::dao::asset;
-use crate::dao::prelude::AssetData;
+use crate::dao::generated::asset;
+use crate::dao::generated::prelude::AssetData;
 use crate::rpc::filter::OfferSorting;
 use crate::rpc::response::OfferList;
 use crate::rpc::Offer;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_offers_by_owner(
     db: &DatabaseConnection,
@@ -68,7 +68,7 @@ pub async fn get_offers_by_owner(
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })
         .collect();
-    let build_listings_list = filter_assets?.into_iter().map(|(asset)| async move {
+    let build_listings_list = filter_assets?.into_iter().map(|asset| async move {
         Offer {
             from: todo!(),
             amount: todo!(),

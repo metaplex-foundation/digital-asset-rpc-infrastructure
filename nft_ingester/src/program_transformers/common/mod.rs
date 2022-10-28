@@ -1,6 +1,6 @@
 use crate::IngesterError;
 use blockbuster::programs::bubblegum::ChangeLogEventV1;
-use digital_asset_types::dao::{backfill_items, cl_items};
+use digital_asset_types::dao::generated::{backfill_items, cl_items};
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend};
 
 pub mod task;
@@ -10,7 +10,7 @@ pub async fn save_changelog_event(
     slot: u64,
     txn: &DatabaseTransaction,
 ) -> Result<u64, IngesterError> {
-    insert_change_log(change_log_event, slot, txn, false).await?;
+    insert_change_log(&change_log_event, slot, txn, false).await?;
     Ok(change_log_event.seq)
 }
 

@@ -1,20 +1,15 @@
-use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{FullAsset, FullAssetList};
-use crate::rpc::filter::AssetSorting;
-
-use solana_sdk::{signature::Keypair, signer::Signer};
-
+use crate::dao::full_asset;
+use crate::dao::generated::prelude::{Asset, AssetData};
+use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links,
-    MetadataItem, Ownership, Royalty, Scope, Uses,
+    Asset as RpcAsset, MetadataItem, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Royalty, Scope,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::DbErr;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
@@ -252,8 +247,8 @@ pub fn get_interface(asset: &asset::Model) -> Interface {
 }
 
 //TODO -> impl custom erro type
-pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
-    let FullAsset {
+pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
+    let full_asset::FullAsset {
         asset,
         data,
         authorities,
@@ -344,7 +339,7 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .all(db)
         .await?;
-    asset_to_rpc(FullAsset {
+    asset_to_rpc(full_asset::FullAsset {
         asset,
         data,
         authorities,

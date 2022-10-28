@@ -6,7 +6,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema},
 };
-use digital_asset_types::dao::asset;
+use digital_asset_types::dao::generated::asset;
 use sea_orm::{entity::*, DatabaseTransaction};
 
 pub async fn redeem<'c>(

@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-use crate::dao::prelude::AssetData;
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, FullAssetList, sea_orm_active_enums::*};
-use crate::dapi::asset::{asset_list_to_rpc, get_asset_list_data, get_content, get_interface, to_authority, to_creators, to_grouping};
+use crate::dao::generated::prelude::AssetData;
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dapi::asset::{get_content, get_interface, to_authority, to_creators, to_grouping};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Interface, Ownership, Royalty};
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
-use crate::dao::cl_items::Column::Hash;
-use crate::rpc::Scope::Full;
+use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
+use sea_orm::{query::*, DbErr, EntityTrait, ModelTrait};
+use sea_orm::{ColumnTrait, DatabaseConnection};
 
 pub async fn get_assets_by_creator(
     db: &DatabaseConnection,

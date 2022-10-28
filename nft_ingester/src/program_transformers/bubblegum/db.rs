@@ -1,5 +1,5 @@
 use crate::IngesterError;
-use digital_asset_types::dao::asset;
+use digital_asset_types::dao::generated::asset;
 use sea_orm::{entity::*, query::*, ColumnTrait, DatabaseTransaction, DbErr, EntityTrait};
 
 pub async fn update_asset(

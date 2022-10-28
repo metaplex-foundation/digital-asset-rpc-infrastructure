@@ -4,10 +4,12 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use digital_asset_types::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
+        sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, V1AccountAttachments,
+        },
     },
     json::ChainDataV1,
 };
@@ -18,15 +20,11 @@ use sea_orm::{
 };
 
 use crate::program_transformers::common::task::DownloadMetadata;
-use blockbuster::token_metadata::{
-    pda::find_master_edition_account,
-    state::{TokenStandard, UseMethod, Uses},
+use blockbuster::token_metadata::pda::find_master_edition_account;
+use blockbuster::token_metadata::state::{TokenStandard, UseMethod, Uses};
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions,
 };
-use bs58;
-use digital_asset_types::dao::sea_orm_active_enums::{
-    SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
-};
-use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 

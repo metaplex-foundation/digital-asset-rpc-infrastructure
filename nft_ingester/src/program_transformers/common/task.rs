@@ -1,6 +1,6 @@
 use crate::{BgTask, IngesterError};
 use async_trait::async_trait;
-use digital_asset_types::dao::asset_data;
+use digital_asset_types::dao::generated::asset_data;
 
 use sea_orm::{DatabaseConnection, *};
 use std::fmt::{Display, Formatter};

@@ -6,7 +6,7 @@ use crate::{
 };
 use cadence_macros::statsd_count;
 use chrono::Utc;
-use digital_asset_types::dao::backfill_items;
+use digital_asset_types::dao::generated::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::{
@@ -15,7 +15,7 @@ use plerkle_serialization::{
 };
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
-    SqlxPostgresConnector, TryGetableMany,
+    SqlxPostgresConnector,
 };
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcBlockConfig};
 use solana_sdk::{
@@ -450,7 +450,7 @@ impl<T: Messenger> Backfiller<T> {
 
     // Similar to `plugGaps()` in `backfiller.ts`.
     async fn plug_gap(&mut self, gap: &GapInfo, tree: &[u8]) -> Result<(), IngesterError> {
-        // TODO: This needs to make sure all slots are available otherwise it will partially
+        // TODO This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
         let _ = self

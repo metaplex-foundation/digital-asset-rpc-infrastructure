@@ -29,7 +29,10 @@ mpl-bubblegum = "0.1.3"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.5.4" }
+mpl-candy-guard = { version = "0.1.1", features = ["no-entrypoint"] }
+mpl-candy-machine-core = { version = "0.1.1", features = ["no-entrypoint"] }
+borsh = "0.9.3"
+blockbuster = { version = "0.3.3" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"

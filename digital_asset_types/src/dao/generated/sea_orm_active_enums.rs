@@ -109,3 +109,25 @@ pub enum Mutability {
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
+
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "whitelist_mint_mode"
+)]
+pub enum WhitelistMintMode {
+    #[sea_orm(string_value = "burn_every_time")]
+    BurnEveryTime,
+    #[sea_orm(string_value = "never_burn")]
+    NeverBurn,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "end_setting_type")]
+pub enum EndSettingType {
+    #[sea_orm(string_value = "date")]
+    Date,
+    #[sea_orm(string_value = "amount")]
+    Amount,
+}

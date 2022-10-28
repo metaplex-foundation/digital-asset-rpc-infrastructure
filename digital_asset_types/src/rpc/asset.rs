@@ -1,11 +1,9 @@
 #[cfg(feature = "sql_types")]
-use crate::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType};
-use std::str::FromStr;
+use crate::dao::generated::sea_orm_active_enums::{OwnerType, RoyaltyTargetType};
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-use crate::dao::asset::Model as AssetModel;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
