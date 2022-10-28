@@ -265,6 +265,7 @@ impl<T: Messenger> Backfiller<T> {
                                             opt_max_seq,
                                             tree,
                                             &tree_string,
+                                            tries,
                                         )
                                         .await;
                                         self.reset_delay();
@@ -301,11 +302,12 @@ impl<T: Messenger> Backfiller<T> {
         opt_max_seq: Option<i64>,
         tree: &[u8],
         tree_string: &String,
+        tries: i32,
     ) {
         match opt_max_seq {
             Some(max_seq) => {
                 // Debug.
-                println!("Successfully backfilled tree: {tree_string}");
+                println!("Successfully backfilled tree: {tree_string}, attempt {tries}");
 
                 // Delete extra rows and mark as backfilled.
                 match self
