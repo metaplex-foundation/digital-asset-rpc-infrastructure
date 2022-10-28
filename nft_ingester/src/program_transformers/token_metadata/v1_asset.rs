@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
+use crate::{program_transformers::common::task::DownloadMetadata, IngesterError, TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
@@ -26,6 +26,7 @@ use sea_orm::{
 
 use sea_orm::{FromQueryResult, JoinType, RelationTrait};
 use sea_query::Expr;
+use crate::tasks::IntoTaskData;
 
 #[derive(FromQueryResult)]
 struct OwnershipTokenModel {
@@ -41,7 +42,7 @@ pub async fn save_v1_asset(
     slot: u64,
     metadata: &Metadata,
     txn: &DatabaseTransaction,
-) -> Result<DownloadMetadata, IngesterError> {
+) -> Result<TaskData, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
     let meta_mint_pubkey = metadata.mint;
@@ -116,7 +117,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
@@ -346,8 +347,9 @@ pub async fn save_v1_asset(
             }
         }
     }
-    Ok(DownloadMetadata {
+    let task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
-    })
+    };
+    task.into_task_data()
 }

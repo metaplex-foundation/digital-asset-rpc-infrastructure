@@ -117,24 +117,34 @@ async fn main() {
     } else {
         background_task_manager =
             TaskManager::new(rand_string(), pool.clone());
-        tasks.push(background_task_manager.start());
+        let (schedule, listener) = background_task_manager.start();
+        tasks.push(schedule);
+        tasks.push(listener);
         // Service streams as separate concurrent processes.
         println!("Setting up tasks");
         setup_metrics(&config);
-
+        let sender = background_task_manager.get_sender();
+        if sender.is_err() {
+            // fail the startup
+            panic!("Failed to get Background Task sender");
+        }
         tasks.push(
             service_transaction_stream::<RedisMessenger>(
                 pool.clone(),
-                background_task_manager.get_sender(),
+                sender.unwrap(), // This is allowed because we must
                 config.messenger_config.clone(),
             )
                 .await,
         );
-
+        let sender = background_task_manager.get_sender();
+        if sender.is_err() {
+            // fail the startup
+            panic!("Failed to get Background Task sender");
+        }
         tasks.push(
             service_account_stream::<RedisMessenger>(
                 pool.clone(),
-                background_task_manager.get_sender(),
+                sender.unwrap(),
                 config.messenger_config.clone(),
             )
                 .await,

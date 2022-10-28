@@ -1,4 +1,4 @@
-use crate::BgTask;
+use crate::TaskData;
 use blockbuster::error::BlockbusterError;
 use plerkle_messenger::MessengerError;
 use sea_orm::{DbErr, TransactionError};
@@ -41,6 +41,8 @@ pub enum IngesterError {
     DatabaseError(String),
     #[error("Unknown Task Type {0}")]
     UnknownTaskType(String),
+    #[error("BG Task Manager Not Started")]
+    TaskManagerNotStarted
 }
 
 impl From<reqwest::Error> for IngesterError {
@@ -73,8 +75,8 @@ impl From<TransactionError<IngesterError>> for IngesterError {
     }
 }
 
-impl From<SendError<Box<dyn BgTask>>> for IngesterError {
-    fn from(err: SendError<Box<dyn BgTask>>) -> Self {
+impl From<SendError<TaskData>> for IngesterError {
+    fn from(err: SendError<TaskData>) -> Self {
         IngesterError::TaskManagerError(format!("Could not create task: {:?}", err.to_string()))
     }
 }

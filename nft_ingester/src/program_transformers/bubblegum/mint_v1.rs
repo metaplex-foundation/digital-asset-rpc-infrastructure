@@ -1,4 +1,4 @@
-use crate::{program_transformers::common::save_changelog_event, IngesterError};
+use crate::{program_transformers::common::save_changelog_event, IngesterError, TaskData};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -27,6 +27,7 @@ use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
 use mpl_bubblegum::{hash_creators, hash_metadata};
+use crate::tasks::IntoTaskData;
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -34,7 +35,7 @@ pub async fn mint_v1<'c>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c DatabaseTransaction,
-) -> Result<DownloadMetadata, IngesterError> {
+) -> Result<TaskData, IngesterError> {
     if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (
         &parsing_result.leaf_update,
         &parsing_result.tree_update,
@@ -225,10 +226,12 @@ pub async fn mint_v1<'c>(
                         }
                     }
                 }
-                return Ok(DownloadMetadata {
+               let task = DownloadMetadata {
                     asset_data_id: id.to_bytes().to_vec(),
                     uri: metadata.uri.clone(),
-                });
+                };
+
+                return task.into_task_data();
             }
             _ => Err(IngesterError::NotImplemented),
         }?;

@@ -1,15 +1,18 @@
 use crate::{BgTask, IngesterError};
 use async_trait::async_trait;
 use digital_asset_types::dao::asset_data;
-
-use sea_orm::{DatabaseConnection, *};
+use serde::{Deserialize, Serialize};
+use sea_orm::{*};
 use std::fmt::{Display, Formatter};
+use crate::tasks::IntoTaskData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
 }
+
+impl IntoTaskData for DownloadMetadata {}
 
 #[async_trait]
 impl BgTask for DownloadMetadata {

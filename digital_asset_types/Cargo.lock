@@ -571,9 +571,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.5.4"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab1db2f38d6c191305fdcc69adabb394162a921d660b25e91938d4ceac24c0f"
+checksum = "1adbd7dc3eac04f6b414c866ef41d8f21417304fc55a7c7e139c7fcfda2dab34"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -2060,9 +2060,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-bubblegum"
-version = "0.1.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43bff280714053dfa997cab92432d66515145f6840577ab3d7a8d18f14f04bb2"
+checksum = "b1e283f25eb1f7cb949cbece4d847443bbe7c19eb8f60a0b2e459539b831ec1a"
 dependencies = [
  "anchor-lang",
  "bytemuck",
@@ -2116,9 +2116,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-token-metadata"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36ab16f4c83f2f18e136f53157a8c9ab3783d84eaefdec7962bf19c0e4d5548"
+checksum = "1d15278d9daa7813f7bf02abe91121695c15eca6acf255e448e63eb0e910ce80"
 dependencies = [
  "arrayref",
  "borsh",
