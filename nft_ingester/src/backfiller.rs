@@ -390,8 +390,7 @@ impl<T: Messenger> Backfiller<T> {
 
     async fn backfill_tree_from_seq_1(&self, tree: &[u8]) -> Result<Option<i64>, IngesterError> {
         //TODO implement gap filler that gap fills from sequence number 1.
-        //For now just return the max sequence number.
-        self.get_max_seq(tree).await.map_err(Into::into)
+        Err(IngesterError::NotImplemented)
     }
 
     async fn get_max_seq(&self, tree: &[u8]) -> Result<Option<i64>, DbErr> {
