@@ -88,7 +88,7 @@ pub async fn get_assets_by_creator(
         assets
     };
 
-    let built_assets = get_asset_list_data( db, assets).await?;
+    let built_assets = get_asset_list_data(db, assets).await?;
     let total = built_assets.len() as u32;
     let page = if page > 0 { Some(page) } else { None };
     let before = if !before.is_empty() {

@@ -9,5 +9,6 @@ pub use super::asset_v1_account_attachments::Entity as AssetV1AccountAttachments
 pub use super::backfill_items::Entity as BackfillItems;
 pub use super::cl_items::Entity as ClItems;
 pub use super::raw_txn::Entity as RawTxn;
+pub use super::tasks::Entity as Tasks;
 pub use super::token_accounts::Entity as TokenAccounts;
 pub use super::tokens::Entity as Tokens;

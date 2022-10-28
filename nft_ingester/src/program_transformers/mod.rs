@@ -7,7 +7,7 @@ use blockbuster::{
     },
 };
 
-use crate::{error::IngesterError, BgTask};
+use crate::{error::IngesterError, BgTask, TaskData};
 use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
@@ -31,13 +31,13 @@ mod token_metadata;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
-    task_sender: UnboundedSender<Box<dyn BgTask>>,
+    task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: PgPool, task_sender: UnboundedSender<Box<dyn BgTask>>) -> Self {
+    pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>) -> Self {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};

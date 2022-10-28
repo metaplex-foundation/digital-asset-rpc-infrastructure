@@ -11,9 +11,9 @@ base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
 tokio = { version = "1.14.1", features = ["full"] }
-sqlx = { version = "0.6.1", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
-sea-orm = { version = "0.9.2", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
-sea-query = { version = "0.26.3", features = ["postgres-array"] }
+sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sea-orm = { optional = true, version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-query = { version = "0.27.1", features = ["postgres-array"] }
 chrono = "0.4.19"
 tokio-postgres = "0.7.5"
 serde = "1.0.136"
@@ -38,7 +38,7 @@ solana-client = "~1.10.3"
 spl-token = { version = "~3.3.1", features = ["no-entrypoint"] }
 solana-transaction-status = "~1.10.3"
 rand = "0.8.5"
-
+sha2 = "0.10.6"
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false

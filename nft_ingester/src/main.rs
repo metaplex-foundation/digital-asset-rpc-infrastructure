@@ -32,6 +32,7 @@ use solana_sdk::pubkey::Pubkey;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
+use crate::tasks::TaskData;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -115,7 +116,8 @@ async fn main() {
         });
     } else {
         background_task_manager =
-            TaskManager::new("background-tasks".to_string(), pool.clone()).unwrap();
+            TaskManager::new(rand_string(), pool.clone());
+        tasks.push(background_task_manager.start());
         // Service streams as separate concurrent processes.
         println!("Setting up tasks");
         setup_metrics(&config);
@@ -126,7 +128,7 @@ async fn main() {
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-            .await,
+                .await,
         );
 
         tasks.push(
@@ -135,7 +137,7 @@ async fn main() {
                 background_task_manager.get_sender(),
                 config.messenger_config.clone(),
             )
-            .await,
+                .await,
         );
         safe_metric(|| {
             statsd_count!("ingester.startup", 1);
@@ -159,7 +161,7 @@ async fn main() {
 
 async fn service_transaction_stream<T: Messenger>(
     pool: Pool<Postgres>,
-    tasks: UnboundedSender<Box<dyn BgTask>>,
+    tasks: UnboundedSender<TaskData>,
     mut messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -188,7 +190,7 @@ async fn service_transaction_stream<T: Messenger>(
                     }
                 }
             })
-            .await;
+                .await;
 
             match result {
                 Ok(_) => break,
@@ -206,7 +208,7 @@ async fn service_transaction_stream<T: Messenger>(
 
 async fn service_account_stream<T: Messenger>(
     pool: Pool<Postgres>,
-    tasks: UnboundedSender<Box<dyn BgTask>>,
+    tasks: UnboundedSender<TaskData>,
     messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -236,7 +238,7 @@ async fn service_account_stream<T: Messenger>(
                     }
                 }
             })
-            .await;
+                .await;
 
             match result {
                 Ok(_) => break,

@@ -39,6 +39,8 @@ pub enum IngesterError {
     ParsingError(String),
     #[error("Data Base Error {0}")]
     DatabaseError(String),
+    #[error("Unknown Task Type {0}")]
+    UnknownTaskType(String),
 }
 
 impl From<reqwest::Error> for IngesterError {

@@ -4,6 +4,8 @@ use digital_asset_types::dao::asset_data;
 
 use sea_orm::{DatabaseConnection, *};
 use std::fmt::{Display, Formatter};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
@@ -15,7 +17,11 @@ impl BgTask for DownloadMetadata {
         "DownloadMetadata"
     }
 
-    async fn task(&self, db: &DatabaseConnection) -> Result<(), IngesterError> {
+    fn data(&self) -> Result<serde_json::Value, IngesterError> {
+        serde_json::to_value(self).map_err(|e| IngesterError::SerializatonError(e.to_string()))
+    }
+
+    async fn task(&self, db: &DatabaseTransaction) -> Result<(), IngesterError> {
         let body: serde_json::Value = reqwest::get(self.uri.clone()) // Need to check for malicious sites ?
             .await?
             .json()
