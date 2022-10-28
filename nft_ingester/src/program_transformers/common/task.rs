@@ -18,7 +18,15 @@ impl BgTask for DownloadMetadata {
     }
 
     fn data(&self) -> Result<serde_json::Value, IngesterError> {
-        serde_json::to_value(self).map_err(|e| IngesterError::SerializatonError(e.to_string()))
+        serde_json::to_value(&self).map_err(|e| IngesterError::SerializatonError(e.to_string()))
+    }
+
+    fn lock_duration(&self) -> i64 {
+        5
+    }
+
+    fn max_attempts(&self) -> i16 {
+        5
     }
 
     async fn task(&self, db: &DatabaseTransaction) -> Result<(), IngesterError> {

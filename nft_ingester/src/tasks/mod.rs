@@ -1,4 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use crate::error::IngesterError;
 use async_trait::async_trait;
@@ -7,11 +6,11 @@ use sea_orm::{DatabaseConnection,
               DatabaseTransaction,
               SqlxPostgresConnector,
               TransactionTrait,
-              entity::*, query::*,
+              entity::*,
+              query::*git
 };
 use sqlx::{Pool, Postgres};
 use std::fmt::Display;
-use std::hash::Hasher;
 use std::sync::Arc;
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -77,6 +76,7 @@ impl TaskManager {
         let start = Utc::now();
         let res = task_executor.task(txn).await;
         let end = Utc::now();
+        task.duration = Some(((end.timestamp_millis() - start.timestamp_millis()) / 1000 as i32) as i32);
         statsd_histogram!("ingester.bgtask.proc_time", end.timestamp_millis() - start.timestamp_millis(), "type" => data.name());
         match res {
             Ok(_) => {
@@ -128,7 +128,7 @@ impl TaskManager {
                             let lock = Utc::now() + Duration::seconds(task_executor.lock_duration());
                             let mut model = tasks::Model {
                                 id: hash.clone(),
-                                r#type: task.name.to_string(),
+                                task_type: task.name.to_string(),
                                 data: task.data,
                                 status: TaskStatus::Pending,
                                 created_at: Utc::now().naive_utc(),
