@@ -1,21 +1,3 @@
-<<<<<<< HEAD:tests/load_generation/src/main.rs
-use std::env;
-use std::sync::Arc;
-use std::time::Duration;
-use mpl_token_metadata::state::Creator;
-use solana_client::client_error::ClientError;
-use solana_sdk::signature::keypair_from_seed;
-use solana_sdk::signer::keypair::Keypair;
-use tokio::sync::Semaphore;
-use solana_sdk::signature::Signer;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_request::RpcError;
-use solana_client::rpc_request::RpcError::RpcRequestError;
-use solana_program::native_token::LAMPORTS_PER_SOL;
-use solana_sdk::system_instruction;
-use solana_program::pubkey::Pubkey;
-use solana_sdk::transaction::Transaction;
-=======
 use solana_client::{
     client_error::ClientError, nonblocking::rpc_client::RpcClient,
     rpc_request::RpcError::RpcRequestError,
@@ -27,7 +9,6 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
->>>>>>> origin/stranzhay/cm-v3-load-gen:load_generation/src/main.rs
 use spl_token::solana_program::program_pack::Pack;
 use std::{env, sync::Arc, time::Duration};
 use tokio::{sync::Semaphore, time::sleep};

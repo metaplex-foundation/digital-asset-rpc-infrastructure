@@ -1,6 +1,6 @@
 use crate::dao::generated::prelude::AssetData;
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_grouping};
-use crate::dapi::asset::{get_content, get_interface, to_authority, to_creators, to_grouping};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
@@ -85,7 +85,7 @@ pub async fn get_assets_by_group(
         assets
     };
 
-    let built_assets = get_asset_list_data( db, assets).await?;
+    let built_assets = get_asset_list_data(db, assets).await?;
 
     let total = built_assets.len() as u32;
 

@@ -1,9 +1,8 @@
 use crate::dao::generated::prelude::AssetData;
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dapi::asset::{get_content, get_interface, to_authority, to_creators, to_grouping};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Ownership, Royalty};
 use sea_orm::{query::*, DbErr, EntityTrait, ModelTrait};
 use sea_orm::{ColumnTrait, DatabaseConnection};
 
@@ -85,7 +84,7 @@ pub async fn get_assets_by_creator(
         assets
     };
 
-    let built_assets = get_asset_list_data( db, assets).await?;
+    let built_assets = get_asset_list_data(db, assets).await?;
     let total = built_assets.len() as u32;
     let page = if page > 0 { Some(page) } else { None };
     let before = if !before.is_empty() {

@@ -1,4 +1,3 @@
-
 pub const FREEZE_FEE: u64 = 0; //100000; // 0.0001 SOL
 pub const DEFAULT_UUID: &str = "ABCDEF";
 pub const DEFAULT_PRICE: u64 = 1;

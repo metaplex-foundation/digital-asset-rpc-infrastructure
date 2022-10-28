@@ -101,8 +101,97 @@ async fn main() {
         )
         .await;
 
+        make_compressed_nfts(
+            le_blockchain.clone(),
+            kp.clone(),
+            carnage,
+            semaphore.clone(),
+        )
+        .await;
+
         check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     }
+}
+
+pub async fn make_a_compressed_nft(solana_client: Arc<RpcClient>, payer: Arc<Keypair>) {
+    let compressed_metadata = MetadataArgs {
+        name: String::from("Handalf"),
+        symbol: String::from("ONLYHDZ"),
+        uri: "https://arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
+        primary_sale_happened: true,
+        is_mutable: true,
+        edition_nonce: Some(253),
+        token_standard: Some(TokenStandard::NonFungible),
+        collection: None,
+        uses: Some(Uses {
+            use_method: Burn,
+            remaining: 20,
+            total: 20,
+        }),
+        token_program_version: TokenProgramVersion::Original,
+        creators: vec![].to_vec(),
+        seller_fee_basis_points: 0,
+    };
+
+    let merkle_tree_keypair = Keypair.generate();
+    //   const space = getConcurrentMerkleTreeAccountSize(maxDepth, maxBufferSize);
+    //   const allocTreeIx = SystemProgram.createAccount({
+    //     fromPubkey: payer,
+    //     newAccountPubkey: merkleTree,
+    //     lamports: await connection.getMinimumBalanceForRentExemption(space),
+    //     space: space,
+    //     programId: SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
+    //   });
+
+    let tree_authority = Pubkey::find_program_address(
+        &[merkle_tree_keypair.pubkey().as_ref()],
+        &mpl_bubblegum::id(),
+    )
+    .0;
+
+    let accounts = mpl_bubblegum::accounts::CreateTree {
+        tree_authority: self.authority(),
+        payer: payer.pubkey(),
+        tree_creator: self.creator_pubkey(),
+        log_wrapper: spl_noop::id(),
+        system_program: system_program::id(),
+        compression_program: spl_account_compression::id(),
+        merkle_tree: self.tree_pubkey(),
+    };
+
+    // The conversions below should not fail.
+    let data = mpl_bubblegum::instruction::CreateTree {
+        max_depth: u32::try_from(MAX_DEPTH).unwrap(),
+        max_buffer_size: u32::try_from(MAX_BUFFER_SIZE).unwrap(),
+        public: Some(public),
+    };
+
+    let accounts = mpl_bubblegum::accounts::MintV1 {
+        tree_authority: self.authority(),
+        tree_delegate: tree_delegate.pubkey(),
+        payer: payer.clone().pubkey(),
+        log_wrapper: spl_noop::id(),
+        compression_program: spl_account_compression::id(),
+        leaf_owner: args.owner.pubkey(),
+        leaf_delegate: args.delegate.pubkey(),
+        merkle_tree: self.tree_pubkey(),
+        system_program: system_program::id(),
+    };
+
+    let data = mpl_bubblegum::instruction::MintV1 {
+        message: args.metadata.clone(),
+    };
+
+    let owner = payer.clone();
+
+    let tx = Transaction::new_signed_with_payer(
+        &[add_config_line_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        solana_client.get_latest_blockhash().await?,
+    );
+
+    solana_client.send_and_confirm_transaction(&tx).await?;
 }
 
 pub async fn make_candy_machines(
