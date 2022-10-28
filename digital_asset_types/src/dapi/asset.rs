@@ -115,6 +115,29 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     if let Some(symbol) = symbol {
         meta.push(symbol);
     }
+    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
+        .map(|x| MetadataItem::single("edition_nonce", "edition_nonce", x.clone()));
+    if let Some(edition_nonce) = edition_nonce {
+        meta.push(edition_nonce);
+    }
+    let primary_sale_happened = safe_select(chain_data_selector, "$.primary_sale_happened")
+        .map(|x| MetadataItem::single("primary_sale_happened", "primary_sale_happened", x.clone()));
+    if let Some(primary_sale_happened) = primary_sale_happened {
+        meta.push(primary_sale_happened);
+    }
+
+    let token_standard = safe_select(chain_data_selector, "$.token_standard")
+        .map(|x| MetadataItem::single("token_standard", "token_standard", x.clone()));
+    if let Some(token_standard) = token_standard {
+        meta.push(token_standard);
+    }
+
+    let uses = safe_select(chain_data_selector, "$.uses")
+        .map(|x| MetadataItem::single("uses", "uses", x.clone()));
+    if let Some(uses) = uses {
+        meta.push(uses);
+    }
+
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
     let external_url = safe_select(selector, "$.external_url").map(|val| {
@@ -162,6 +185,12 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
+
+    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
+        .map(|x| MetadataItem::single("edition_nonce", "edition_nonce", x.clone()));
+    if let Some(edition_nonce) = edition_nonce {
+        meta.push(edition_nonce);
+    }
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
