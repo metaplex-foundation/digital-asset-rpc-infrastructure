@@ -37,12 +37,12 @@ CREATE UNIQUE INDEX cl_items__tree_node on cl_items (tree, node_idx);
 CREATE TABLE backfill_items
 (
     id         bigserial PRIMARY KEY,
-    tree       BYTEA  NOT NULL,
-    seq        BIGINT NOT NULL,
-    slot       BIGINT NOT NULL,
-    force_chk  bool,
-    backfilled bool,
-    failed     bool default false
+    tree       BYTEA    not null,
+    seq        BIGINT   not null,
+    slot       BIGINT   not null,
+    force_chk  bool     not null,
+    backfilled bool     not null,
+    failed     bool     not null default false
 );
 -- @@@@@@
 

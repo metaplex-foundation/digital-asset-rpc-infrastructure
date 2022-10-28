@@ -18,9 +18,9 @@ pub struct Model {
     pub tree: Vec<u8>,
     pub seq: i64,
     pub slot: i64,
-    pub force_chk: Option<bool>,
-    pub backfilled: Option<bool>,
-    pub failed: Option<bool>,
+    pub force_chk: bool,
+    pub backfilled: bool,
+    pub failed: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -57,9 +57,9 @@ impl ColumnTrait for Column {
             Self::Tree => ColumnType::Binary.def(),
             Self::Seq => ColumnType::BigInteger.def(),
             Self::Slot => ColumnType::BigInteger.def(),
-            Self::ForceChk => ColumnType::Boolean.def().null(),
-            Self::Backfilled => ColumnType::Boolean.def().null(),
-            Self::Failed => ColumnType::Boolean.def().null(),
+            Self::ForceChk => ColumnType::Boolean.def(),
+            Self::Backfilled => ColumnType::Boolean.def(),
+            Self::Failed => ColumnType::Boolean.def(),
         }
     }
 }
