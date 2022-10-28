@@ -25,8 +25,8 @@ use blockbuster::token_metadata::{
     state::{TokenStandard, UseMethod, Uses},
 };
 use bs58;
-use digital_asset_types::dao::sea_orm_active_enums::{
-    SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions,
 };
 use mpl_bubblegum::{hash_creators, hash_metadata};
 

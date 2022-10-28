@@ -207,8 +207,6 @@ create table asset
     created_at                timestamp with time zone           default (now() at time zone 'utc'),
     burnt                     bool                      not null default false,
     slot_updated              bigint                    not null,
-    creator_hash              varchar(64),
-    data_hash                 varchar(64)          
 );
 -- @@@@@@
 

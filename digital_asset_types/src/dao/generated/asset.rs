@@ -122,8 +122,8 @@ impl ColumnTrait for Column {
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::Burnt => ColumnType::Boolean.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
-            Self::CreatorHash => ColumnType::String(Some(64u32)).def().null(),
-            Self::DataHash => ColumnType::String(Some(64u32)).def().null(),
+            Self::CreatorHash => ColumnType::String(Some(50u32)).def().null(),
+            Self::DataHash => ColumnType::String(Some(50u32)).def().null(),
         }
     }
 }

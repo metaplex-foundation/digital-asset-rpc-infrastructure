@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
@@ -22,9 +21,9 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
+use std::collections::HashSet;
 
-use sea_orm::{FromQueryResult, JoinType, RelationTrait};
-use sea_query::Expr;
+use sea_orm::{FromQueryResult, JoinType};
 
 #[derive(FromQueryResult)]
 struct OwnershipTokenModel {
@@ -278,15 +277,18 @@ pub async fn save_v1_asset(
         // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
-                OnConflict::columns([asset_creators::Column::AssetId, asset_creators::Column::Position])
-                    .update_columns([
-                        asset_creators::Column::Creator,
-                        asset_creators::Column::Share,
-                        asset_creators::Column::Verified,
-                        asset_creators::Column::Seq,
-                        asset_creators::Column::SlotUpdated,
-                    ])
-                    .to_owned(),
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
