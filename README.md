@@ -80,10 +80,6 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 
 You need to run the following script (which takes a long time) in order to get all those .so files.
 
-#### Authentication with Docker and AWS
-
-```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
-
 ```bash
 chmod +x ./prepare-local-docker-env.sh
 ./prepare-local-docker-env.sh
@@ -91,7 +87,13 @@ chmod +x ./prepare-local-docker-env.sh
 This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
 If you get some permissions errors, just sudo delete the programs directory and start again.
 
-We use ``docker-compose`` on some systems its ``docker compose``.
+#### Authentication with Docker and AWS
+
+```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
+
+#### Running the application
+
+We use ``docker-compose`` to build the multi-container Docker application.  On some systems its ``docker compose``.
 ```bash
 docker-compose build 
 ```
@@ -102,10 +104,31 @@ Keep in mind that the version `latest` on the Solana Validator image will match 
 docker-compose up 
 ```
 
+#### Developing
+
 When making changes you will need to ``docker compose up --build --force-recreate`` again to get the latest changes.
 Also when mucking about with the docker file if your gut tells you that something is wrong, and you are getting build errors run `docker compose build --no-cache`
 
-Sometimes you will want to delete the db do so with `sudo rm -rf db-data`.  
+Sometimes you will want to delete the db do so with `sudo rm -rf db-data`.  You can also delete the ledger with `sudo rm -rf ledger`.
+
+#### Logs
+To get a reasonable amount of logs while running Docker, direct grafana logs to a file:
+```
+grafana:
+    ...
+    environment:
+      ...
+      - GF_LOG_MODE=file
+```
+and set Solana Rust logs to error level:
+```
+  solana:
+    ...
+    environment:
+      RUST_LOG: error
+```
+
+#### Interacting with API
 
 Once everything is working you can see that there is a api being served on
 ```
