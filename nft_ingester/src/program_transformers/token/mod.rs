@@ -1,4 +1,4 @@
-use crate::{BgTask, IngesterError, TaskData};
+use crate::{IngesterError, TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;

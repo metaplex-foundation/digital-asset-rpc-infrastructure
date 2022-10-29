@@ -7,7 +7,7 @@ use blockbuster::{
     },
 };
 
-use crate::{error::IngesterError, BgTask, TaskData};
+use crate::{error::IngesterError, TaskData};
 use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
@@ -25,7 +25,6 @@ use crate::{
 };
 
 mod bubblegum;
-mod common;
 mod token;
 mod token_metadata;
 

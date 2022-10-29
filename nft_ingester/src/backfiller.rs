@@ -1,7 +1,7 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 use crate::{
-    error::IngesterError, safe_metric, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
+    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
     RPC_COMMITMENT_KEY, RPC_URL_KEY,
 };
 use cadence_macros::statsd_count;
@@ -142,7 +142,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get database listener channel.
         let channel = config
             .database_config
-            .get(&*DATABASE_LISTENER_CHANNEL_KEY)
+            .get(DATABASE_LISTENER_CHANNEL_KEY)
             .and_then(|u| u.clone().into_string())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!(
@@ -164,7 +164,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get RPC URL.
         let rpc_url = config
             .rpc_config
-            .get(&*RPC_URL_KEY)
+            .get(RPC_URL_KEY)
             .and_then(|u| u.clone().into_string())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!("RPC URL missing: {}", RPC_URL_KEY),
@@ -174,7 +174,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get RPC commitment level.
         let rpc_commitment_level = config
             .rpc_config
-            .get(&*RPC_COMMITMENT_KEY)
+            .get(RPC_COMMITMENT_KEY)
             .and_then(|v| v.as_str())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!("RPC commitment level missing: {}", RPC_COMMITMENT_KEY),

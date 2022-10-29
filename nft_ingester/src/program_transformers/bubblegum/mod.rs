@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
@@ -17,7 +17,7 @@ mod transfer;
 
 pub use db::*;
 
-use crate::{BgTask, IngesterError, TaskData};
+use crate::{IngesterError, TaskData};
 
 pub async fn handle_bubblegum_instruction<'c>(
     parsing_result: &'c BubblegumInstruction,

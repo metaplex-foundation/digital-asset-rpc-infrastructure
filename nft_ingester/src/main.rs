@@ -9,7 +9,7 @@ use crate::{
     error::IngesterError,
     metrics::safe_metric,
     program_transformers::ProgramTransformer,
-    tasks::{BgTask, TaskManager},
+    tasks::{common::task::DownloadMetadataTask, BgTask, TaskData, TaskManager},
 };
 use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
@@ -17,7 +17,7 @@ use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time
 use chrono::Utc;
 use figment::{
     providers::Env,
-    value::{Dict, Tag, Value},
+    value::{Value},
     Figment,
 };
 use futures_util::TryFutureExt;
@@ -28,11 +28,10 @@ use plerkle_messenger::{
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
-use solana_sdk::pubkey::Pubkey;
+
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::{env, net::UdpSocket};
+use std::{net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;
-use crate::tasks::TaskData;
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -95,7 +94,7 @@ async fn main() {
         .insert("consumer_id".to_string(), Value::from(rand_string()));
     let url = config
         .database_config
-        .get(&*DATABASE_URL_KEY)
+        .get(DATABASE_URL_KEY)
         .and_then(|u| u.clone().into_string())
         .ok_or(IngesterError::ConfigurationError {
             msg: format!("Database connection string missing: {}", DATABASE_URL_KEY),
@@ -115,13 +114,14 @@ async fn main() {
             statsd_count!("ingester.backfiller.startup", 1);
         });
     } else {
+        let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
         background_task_manager =
-            TaskManager::new(rand_string(), pool.clone());
+            TaskManager::new(rand_string(), pool.clone(), bg_task_definitions);
         let (schedule, listener) = background_task_manager.start();
+        println!("Setting up tasks");
         tasks.push(schedule);
         tasks.push(listener);
         // Service streams as separate concurrent processes.
-        println!("Setting up tasks");
         setup_metrics(&config);
         let sender = background_task_manager.get_sender();
         if sender.is_err() {
@@ -134,7 +134,7 @@ async fn main() {
                 sender.unwrap(), // This is allowed because we must
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
         let sender = background_task_manager.get_sender();
         if sender.is_err() {
@@ -147,7 +147,7 @@ async fn main() {
                 sender.unwrap(),
                 config.messenger_config.clone(),
             )
-                .await,
+            .await,
         );
         safe_metric(|| {
             statsd_count!("ingester.startup", 1);
@@ -172,7 +172,7 @@ async fn main() {
 async fn service_transaction_stream<T: Messenger>(
     pool: Pool<Postgres>,
     tasks: UnboundedSender<TaskData>,
-    mut messenger_config: MessengerConfig,
+    messenger_config: MessengerConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         loop {
@@ -200,7 +200,7 @@ async fn service_transaction_stream<T: Messenger>(
                     }
                 }
             })
-                .await;
+            .await;
 
             match result {
                 Ok(_) => break,
@@ -248,7 +248,7 @@ async fn service_account_stream<T: Messenger>(
                     }
                 }
             })
-                .await;
+            .await;
 
             match result {
                 Ok(_) => break,
@@ -329,7 +329,7 @@ async fn process_instruction<'i>(
     let (program, instruction) = outer_ix;
     let ix_accounts = instruction.accounts().unwrap_or(&[]);
     let ix_account_len = ix_accounts.len();
-    let max = ix_accounts.iter().max().map(|r| *r).unwrap_or(0) as usize;
+    let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
     if keys.len() < max {
         return Err(IngesterError::DeserializationError(
             "Missing Accounts in Serialized Ixn/Txn".to_string(),
@@ -339,7 +339,7 @@ async fn process_instruction<'i>(
         .iter()
         .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
             if let Some(key) = keys.get(*a as usize) {
-                acc.push(key.clone());
+                acc.push(*key);
             }
             //else case here is handled on 272
             acc
@@ -350,7 +350,7 @@ async fn process_instruction<'i>(
         instruction,
         inner_ix,
         keys: ix_accounts.as_slice(),
-        slot: slot,
+        slot,
     };
     manager.handle_instruction(&bundle).await
 }

@@ -1,4 +1,4 @@
-use crate::{program_transformers::common::save_changelog_event, IngesterError, TaskData};
+use crate::{IngesterError, TaskData};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -17,17 +17,19 @@ use sea_orm::{
     EntityTrait, JsonValue,
 };
 
-use crate::program_transformers::common::task::DownloadMetadata;
+use crate::tasks::{
+    common::{save_changelog_event, task::DownloadMetadata},
+    IntoTaskData,
+};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{TokenStandard, UseMethod, Uses},
 };
-use bs58;
+
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
 use mpl_bubblegum::{hash_creators, hash_metadata};
-use crate::tasks::IntoTaskData;
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -98,7 +100,7 @@ pub async fn mint_v1<'c>(
                     .unwrap_or("".to_string())
                     .trim()
                     .to_string();
-                let creator_hash = hash_creators(&*args.creators)
+                let creator_hash = hash_creators(&args.creators)
                     .map(|e| bs58::encode(e).into_string())
                     .unwrap_or("".to_string())
                     .trim()
@@ -226,11 +228,11 @@ pub async fn mint_v1<'c>(
                         }
                     }
                 }
-               let task = DownloadMetadata {
+                let mut task = DownloadMetadata {
                     asset_data_id: id.to_bytes().to_vec(),
                     uri: metadata.uri.clone(),
                 };
-
+                task.sanitize();
                 return task.into_task_data();
             }
             _ => Err(IngesterError::NotImplemented),

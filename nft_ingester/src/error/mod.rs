@@ -42,12 +42,18 @@ pub enum IngesterError {
     #[error("Unknown Task Type {0}")]
     UnknownTaskType(String),
     #[error("BG Task Manager Not Started")]
-    TaskManagerNotStarted
+    TaskManagerNotStarted,
 }
 
 impl From<reqwest::Error> for IngesterError {
     fn from(_err: reqwest::Error) -> Self {
         IngesterError::BatchInitNetworkingError
+    }
+}
+
+impl From<serde_json::Error> for IngesterError {
+    fn from(_err: serde_json::Error) -> Self {
+        IngesterError::SerializatonError("JSON ERROR".to_string())
     }
 }
 

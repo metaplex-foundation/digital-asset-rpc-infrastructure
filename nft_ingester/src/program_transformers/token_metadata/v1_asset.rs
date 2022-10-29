@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-use crate::{program_transformers::common::task::DownloadMetadata, IngesterError, TaskData};
+use crate::{IngesterError, TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
@@ -8,7 +7,6 @@ use digital_asset_types::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
-        prelude::TokenAccounts,
         sea_orm_active_enums::{
             ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
             SpecificationVersions, V1AccountAttachments,
@@ -23,10 +21,10 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
+use std::collections::HashSet;
 
-use sea_orm::{FromQueryResult, JoinType, RelationTrait};
-use sea_query::Expr;
-use crate::tasks::IntoTaskData;
+use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
+use sea_orm::{FromQueryResult, JoinType};
 
 #[derive(FromQueryResult)]
 struct OwnershipTokenModel {
@@ -117,7 +115,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
@@ -273,22 +271,25 @@ pub async fn save_v1_asset(
                 position: Set(i as i16),
                 ..Default::default()
             });
-            creators_set.insert(c.address.clone());
+            creators_set.insert(c.address);
         }
 
         // Do not attempt to modify any existing values:
         // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
-                OnConflict::columns([asset_creators::Column::AssetId, asset_creators::Column::Position])
-                    .update_columns([
-                        asset_creators::Column::Creator,
-                        asset_creators::Column::Share,
-                        asset_creators::Column::Verified,
-                        asset_creators::Column::Seq,
-                        asset_creators::Column::SlotUpdated,
-                    ])
-                    .to_owned(),
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
@@ -347,9 +348,10 @@ pub async fn save_v1_asset(
             }
         }
     }
-    let task = DownloadMetadata {
+    let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
     };
+    task.sanitize();
     task.into_task_data()
 }
