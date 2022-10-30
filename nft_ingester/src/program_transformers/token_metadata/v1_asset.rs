@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
@@ -8,7 +7,6 @@ use digital_asset_types::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
-        prelude::TokenAccounts,
         sea_orm_active_enums::{
             ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
             SpecificationVersions, V1AccountAttachments,
@@ -21,8 +19,18 @@ use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue, FromQueryResult,
 };
+use std::collections::HashSet;
+
+#[derive(FromQueryResult)]
+struct OwnershipTokenModel {
+    supply: i64,
+    mint: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    token_account_amount: i64,
+}
 
 pub async fn save_v1_asset(
     id: FBPubkey,
@@ -267,15 +275,18 @@ pub async fn save_v1_asset(
         // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
-                OnConflict::columns([asset_creators::Column::AssetId, asset_creators::Column::Position])
-                    .update_columns([
-                        asset_creators::Column::Creator,
-                        asset_creators::Column::Share,
-                        asset_creators::Column::Verified,
-                        asset_creators::Column::Seq,
-                        asset_creators::Column::SlotUpdated,
-                    ])
-                    .to_owned(),
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;

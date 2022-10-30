@@ -5,7 +5,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_owner",
   "params": [
-    "FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v",
+    "ApvvorNPLTfT2ZYFpjud4o3G6So87TNLyXRgsagSD5u6",
     "created",
     50,
     1,
@@ -73,7 +73,7 @@ content-type: application/json
   "id": "0",
   "method": "get_asset",
   "params": [
-    "BEczha2EVgjJMqDLrqv2z19C3t5YVjpER9AHBYeh5zjG"
+    "G9riLDH1nw4eW4gnBqrnKtFXVXfxNwpEMF94uy5GM1Xx"
   ]
 }
 

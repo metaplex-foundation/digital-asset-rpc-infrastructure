@@ -7,8 +7,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 RUN apt-get update -y && \
-    apt-get install -y build-essential make git libudev-dev && \
-    cargo install cargo-watch
+    apt-get install -y build-essential make git
 COPY load_generation_candy_machine /rust/load_generation_candy_machine
 RUN mkdir -p /rust/load_generation_candy_machine
 WORKDIR /rust/load_generation_candy_machine
@@ -18,7 +17,7 @@ COPY load_generation_candy_machine/Cargo.toml .
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY load_generation_candy_machine .
 # Build application
-RUN RUSTFLAGS=-Awarnings cargo build --release
+RUN cargo build --release
 
 FROM rust:1.63-slim-bullseye
 ARG APP=/usr/src/app
@@ -34,5 +33,4 @@ COPY --from=builder /rust/load_generation_candy_machine/target/release/load_gene
 RUN chown -R $APP_USER:$APP_USER ${APP}
 USER $APP_USER
 WORKDIR ${APP}
-CMD /usr/src/app/load_generation_candy_machine 
-# CMD ["cargo", "watch", "-x", "run", "/usr/src/app/load_generation_candy_machine"]
+CMD /usr/src/app/load_generation_candy_machine

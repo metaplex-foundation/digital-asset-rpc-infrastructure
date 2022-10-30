@@ -15,7 +15,7 @@ use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use figment::{providers::Env, Figment};
+use figment::{providers::Env, value::Value, Figment};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
@@ -23,7 +23,6 @@ use plerkle_messenger::{
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
-use solana_sdk::pubkey::Pubkey;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, net::UdpSocket};
 use tokio::sync::mpsc::UnboundedSender;

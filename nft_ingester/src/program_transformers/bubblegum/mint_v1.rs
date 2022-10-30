@@ -26,6 +26,8 @@ use digital_asset_types::dao::generated::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions,
 };
 
+use mpl_bubblegum::{hash_creators, hash_metadata};
+
 // TODO -> consider moving structs into these functions to avoid clone
 
 pub async fn mint_v1<'c>(

@@ -3,27 +3,37 @@ mod helpers;
 mod initialize;
 mod mint;
 
-use anchor_lang::{InstructionData, ToAccountMetas};
+use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
 use helpers::{
     create_v3, create_v3_master_edition, find_candy_machine_creator_pda, find_master_edition_pda,
     find_metadata_pda,
 };
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
+use mpl_bubblegum::state::{
+    metaplex_adapter::{MetadataArgs, TokenProgramVersion, TokenStandard, UseMethod::Burn, Uses},
+    TreeConfig,
+};
 use mpl_candy_machine::{CandyMachineData, ConfigLine};
 use mpl_candy_machine_core::{CandyMachineData as CandyMachineDataV3, ConfigLine as ConfigLineV3};
 use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
-use solana_client::rpc_request::RpcError::RpcRequestError;
-use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
+use solana_client::{
+    client_error::ClientError, nonblocking::rpc_client::RpcClient,
+    rpc_request::RpcError::RpcRequestError,
+};
 use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
 use solana_sdk::{
+    account::ReadableAccount,
+    borsh::try_from_slice_unchecked,
     pubkey::Pubkey,
     signature::{keypair_from_seed, Keypair},
     signer::Signer,
     system_instruction, system_program, sysvar,
     transaction::Transaction,
 };
-use std::{env, sync::Arc, time::Duration};
+use spl_account_compression::{state::CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1, ConcurrentMerkleTree};
+use spl_merkle_tree_reference::{MAX_DEPTH, MAX_SIZE};
+use std::{env, mem::size_of, sync::Arc, time::Duration};
 use tokio::{sync::Semaphore, time::sleep};
 
 #[tokio::main]
@@ -47,59 +57,22 @@ async fn main() {
     let semaphore = Arc::new(Semaphore::new(carnage));
 
     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    // loop {
-    //     let mut tasks = vec![];
-    //     for _ in 0..carnage {
-    //         let kp = kp.clone();
-    //         let le_clone = le_blockchain.clone();
-    //         let semaphore = semaphore.clone();
-
-    //         // Start tasks
-    //         tasks.push(tokio::spawn(async move {
-    //             let _permit = semaphore.acquire().await.unwrap();
-
-    //             sleep(Duration::from_millis(1000)).await;
-    //             let res = make_a_candy_machine(le_clone, kp).await;
-    //             // TODO put the ids in a vec and then call update on them
-    //             res
-    //         }));
-    //     }
-
-    //     for task in tasks {
-    //         match task.await.unwrap() {
-    //             Ok(e) => {
-    //                 println!("Candy machine created with an id of: {:?}", e);
-    //                 let candy_machine_account =
-    //                     le_blockchain.clone().get_account(&e).await.unwrap();
-
-    //                 println!("candy {:?}", candy_machine_account);
-    //                 continue;
-    //             }
-    //             Err(e) => {
-    //                 println!("Error: {:?}", e);
-    //                 continue;
-    //             }
-    //         }
-    //     }
-
-    //     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    // }
     loop {
-        make_candy_machines(
-            le_blockchain.clone(),
-            kp.clone(),
-            carnage,
-            semaphore.clone(),
-        )
-        .await;
+        // make_candy_machines(
+        //     le_blockchain.clone(),
+        //     kp.clone(),
+        //     carnage,
+        //     semaphore.clone(),
+        // )
+        // .await;
 
-        make_candy_machines_v3(
-            le_blockchain.clone(),
-            kp.clone(),
-            carnage,
-            semaphore.clone(),
-        )
-        .await;
+        // make_candy_machines_v3(
+        //     le_blockchain.clone(),
+        //     kp.clone(),
+        //     carnage,
+        //     semaphore.clone(),
+        // )
+        // .await;
 
         make_compressed_nfts(
             le_blockchain.clone(),
@@ -113,7 +86,49 @@ async fn main() {
     }
 }
 
-pub async fn make_a_compressed_nft(solana_client: Arc<RpcClient>, payer: Arc<Keypair>) {
+pub async fn make_compressed_nfts(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    carnage: usize,
+    semaphore: Arc<Semaphore>,
+) -> Result<(), ClientError> {
+    let mut tasks = vec![];
+    for _ in 0..carnage {
+        let kp = payer.clone();
+        let le_clone = solana_client.clone();
+        let semaphore = semaphore.clone();
+
+        // Start tasks
+        tasks.push(tokio::spawn(async move {
+            let _permit = semaphore.acquire().await.unwrap();
+
+            sleep(Duration::from_millis(3000)).await;
+            let res = make_a_compressed_nft(le_clone, kp).await;
+            res
+        }));
+    }
+
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(e) => {
+                println!("Minted a compressed nft id of: {:?}", e);
+
+                continue;
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+                continue;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn make_a_compressed_nft(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+) -> Result<Pubkey, ClientError> {
     let compressed_metadata = MetadataArgs {
         name: String::from("Handalf"),
         symbol: String::from("ONLYHDZ"),
@@ -133,15 +148,20 @@ pub async fn make_a_compressed_nft(solana_client: Arc<RpcClient>, payer: Arc<Key
         seller_fee_basis_points: 0,
     };
 
-    let merkle_tree_keypair = Keypair.generate();
-    //   const space = getConcurrentMerkleTreeAccountSize(maxDepth, maxBufferSize);
-    //   const allocTreeIx = SystemProgram.createAccount({
-    //     fromPubkey: payer,
-    //     newAccountPubkey: merkleTree,
-    //     lamports: await connection.getMinimumBalanceForRentExemption(space),
-    //     space: space,
-    //     programId: SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
-    //   });
+    let merkle_tree_keypair = Arc::new(Keypair::new());
+
+    let account_size = CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1
+        + size_of::<ConcurrentMerkleTree<MAX_DEPTH, MAX_SIZE>>();
+
+    let ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &merkle_tree_keypair.clone().pubkey(),
+        solana_client
+            .get_minimum_balance_for_rent_exemption(account_size)
+            .await?,
+        u64::try_from(account_size).unwrap(),
+        &spl_account_compression::id(),
+    );
 
     let tree_authority = Pubkey::find_program_address(
         &[merkle_tree_keypair.pubkey().as_ref()],
@@ -150,48 +170,84 @@ pub async fn make_a_compressed_nft(solana_client: Arc<RpcClient>, payer: Arc<Key
     .0;
 
     let accounts = mpl_bubblegum::accounts::CreateTree {
-        tree_authority: self.authority(),
+        tree_authority,
+        merkle_tree: merkle_tree_keypair.clone().pubkey(),
         payer: payer.pubkey(),
-        tree_creator: self.creator_pubkey(),
+        tree_creator: payer.pubkey(),
         log_wrapper: spl_noop::id(),
-        system_program: system_program::id(),
         compression_program: spl_account_compression::id(),
-        merkle_tree: self.tree_pubkey(),
-    };
+        system_program: system_program::id(),
+    }
+    .to_account_metas(None);
 
-    // The conversions below should not fail.
     let data = mpl_bubblegum::instruction::CreateTree {
         max_depth: u32::try_from(MAX_DEPTH).unwrap(),
-        max_buffer_size: u32::try_from(MAX_BUFFER_SIZE).unwrap(),
-        public: Some(public),
+        max_buffer_size: u32::try_from(MAX_SIZE).unwrap(),
+        public: Some(false),
+    }
+    .data();
+
+    let create_tree_ix = Instruction {
+        program_id: mpl_bubblegum::id(),
+        data,
+        accounts,
     };
 
     let accounts = mpl_bubblegum::accounts::MintV1 {
-        tree_authority: self.authority(),
-        tree_delegate: tree_delegate.pubkey(),
+        tree_authority,
+        leaf_owner: payer.clone().pubkey(),
+        leaf_delegate: payer.clone().pubkey(),
+        merkle_tree: merkle_tree_keypair.clone().pubkey(),
         payer: payer.clone().pubkey(),
+        tree_delegate: payer.clone().pubkey(),
         log_wrapper: spl_noop::id(),
         compression_program: spl_account_compression::id(),
-        leaf_owner: args.owner.pubkey(),
-        leaf_delegate: args.delegate.pubkey(),
-        merkle_tree: self.tree_pubkey(),
         system_program: system_program::id(),
-    };
+    }
+    .to_account_metas(None);
 
     let data = mpl_bubblegum::instruction::MintV1 {
-        message: args.metadata.clone(),
+        message: compressed_metadata.clone(),
+    }
+    .data();
+
+    let mint_ix = Instruction {
+        program_id: mpl_bubblegum::id(),
+        data,
+        accounts,
     };
 
-    let owner = payer.clone();
-
     let tx = Transaction::new_signed_with_payer(
-        &[add_config_line_ix],
-        Some(&authority.pubkey()),
-        &[authority],
+        &[ix, create_tree_ix, mint_ix],
+        Some(&payer.pubkey()),
+        &[payer.as_ref(), merkle_tree_keypair.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
 
     solana_client.send_and_confirm_transaction(&tx).await?;
+
+    let tree_account = solana_client
+        .clone()
+        .get_account(&tree_authority)
+        .await
+        .unwrap();
+
+    let tree_data: TreeConfig =
+        try_from_slice_unchecked(&tree_account.data()[..tree_account.data().len() - 15]).unwrap();
+
+    println!("tree config {:?}", tree_data);
+
+    let asset_id = Pubkey::find_program_address(
+        &[
+            "asset".as_ref(),
+            merkle_tree_keypair.pubkey().as_ref(),
+            &tree_data.num_minted.to_le_bytes(),
+        ],
+        &mpl_bubblegum::id(),
+    )
+    .0;
+
+    Ok(asset_id)
 }
 
 pub async fn make_candy_machines(

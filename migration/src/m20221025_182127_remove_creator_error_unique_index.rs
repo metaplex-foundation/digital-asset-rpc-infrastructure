@@ -1,5 +1,5 @@
 use sea_orm_migration::prelude::*;
-use digital_asset_types::dao::asset_creators;
+use digital_asset_types::dao::generated::asset_creators;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

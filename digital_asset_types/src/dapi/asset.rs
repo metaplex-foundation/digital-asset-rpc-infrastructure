@@ -1,18 +1,16 @@
-use crate::dao::full_asset;
+use crate::dao::full_asset::{FullAsset, FullAssetList};
 use crate::dao::generated::prelude::{Asset, AssetData};
 use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, MetadataItem, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
-    Royalty, Scope,
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
+    MetadataItem, Ownership, Royalty, Scope, Uses,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DbErr;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DbErr, QueryOrder,DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
@@ -247,8 +245,8 @@ pub fn get_interface(asset: &asset::Model) -> Interface {
 }
 
 //TODO -> impl custom erro type
-pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
-    let full_asset::FullAsset {
+pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
+    let FullAsset {
         asset,
         data,
         authorities,
@@ -339,7 +337,7 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .all(db)
         .await?;
-    asset_to_rpc(full_asset::FullAsset {
+    asset_to_rpc(FullAsset {
         asset,
         data,
         authorities,
@@ -419,13 +417,14 @@ pub async fn get_asset_list_data(
 #[cfg(test)]
 mod tests {
     use crate::{
-        dao::sea_orm_active_enums::{ChainMutability, Mutability},
+        dao::generated::sea_orm_active_enums::{ChainMutability, Mutability},
         json::ChainDataV1,
     };
     use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
     use mpl_bubblegum::state::metaplex_adapter::{
         MetadataArgs, TokenProgramVersion, TokenStandard,
     };
+    use solana_sdk::{signature::Keypair, signer::Signer};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
