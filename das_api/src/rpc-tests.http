@@ -60,7 +60,7 @@ content-type: application/json
   "id": "0",
   "method": "get_asset_proof",
   "params": [
-    "BEczha2EVgjJMqDLrqv2z19C3t5YVjpER9AHBYeh5zjG"
+    "9TCQ9cjCBsr28r6dmDCxLg9fqKaMZJWszsByN5wYzRgK"
   ]
 }
 
@@ -73,7 +73,7 @@ content-type: application/json
   "id": "0",
   "method": "get_asset",
   "params": [
-    "G9riLDH1nw4eW4gnBqrnKtFXVXfxNwpEMF94uy5GM1Xx"
+    "6UFCqQ74gnjScCzKGQQq4fnhAfRVVBdCkST4Qu6cAe8K"
   ]
 }
 

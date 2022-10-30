@@ -232,8 +232,7 @@ pub async fn make_a_compressed_nft(
         .await
         .unwrap();
 
-    let tree_data: TreeConfig =
-        try_from_slice_unchecked(&tree_account.data()[..tree_account.data().len() - 15]).unwrap();
+    let tree_data: TreeConfig = try_from_slice_unchecked(&tree_account.data()).unwrap();
 
     println!("tree config {:?}", tree_data);
 

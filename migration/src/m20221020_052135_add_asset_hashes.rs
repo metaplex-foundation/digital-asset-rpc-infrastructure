@@ -19,6 +19,8 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        println!("migration here");
         manager
             .alter_table(
                 sea_query::Table::alter()

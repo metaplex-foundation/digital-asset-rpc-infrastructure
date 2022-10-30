@@ -206,7 +206,9 @@ create table asset
     -- visibility
     created_at                timestamp with time zone           default (now() at time zone 'utc'),
     burnt                     bool                      not null default false,
-    slot_updated              bigint                    not null
+    slot_updated              bigint                    not null,
+    data_hash                 char(50),
+    creator_hash              char(50)
 );
 -- @@@@@@
 
