@@ -1,16 +1,19 @@
 use crate::dao::full_asset::{FullAsset, FullAssetList};
 use crate::dao::generated::prelude::{Asset, AssetData};
-use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::generated::sea_orm_active_enums::{
+    ChainMutability, SpecificationAssetClass, SpecificationVersions,
+};
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
-    MetadataItem, Ownership, Royalty, Scope, Uses,
+    MetadataItem, Ownership, Royalty, Scope, Uses, AdditionalMetadataArgs,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::{ColumnTrait, DbErr, QueryOrder,DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use serde_json::Value;
-use std::{collections::HashMap, path::Path};
+use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
@@ -108,28 +111,6 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     if let Some(symbol) = symbol {
         meta.push(symbol);
     }
-    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .map(|x| MetadataItem::single("edition_nonce", "edition_nonce", x.clone()));
-    if let Some(edition_nonce) = edition_nonce {
-        meta.push(edition_nonce);
-    }
-    let primary_sale_happened = safe_select(chain_data_selector, "$.primary_sale_happened")
-        .map(|x| MetadataItem::single("primary_sale_happened", "primary_sale_happened", x.clone()));
-    if let Some(primary_sale_happened) = primary_sale_happened {
-        meta.push(primary_sale_happened);
-    }
-
-    let token_standard = safe_select(chain_data_selector, "$.token_standard")
-        .map(|x| MetadataItem::single("token_standard", "token_standard", x.clone()));
-    if let Some(token_standard) = token_standard {
-        meta.push(token_standard);
-    }
-
-    let uses = safe_select(chain_data_selector, "$.uses")
-        .map(|x| MetadataItem::single("uses", "uses", x.clone()));
-    if let Some(uses) = uses {
-        meta.push(uses);
-    }
 
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
@@ -178,13 +159,6 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
-
-    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .map(|x| MetadataItem::single("edition_nonce", "edition_nonce", x.clone()));
-    if let Some(edition_nonce) = edition_nonce {
-        meta.push(edition_nonce);
-    }
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         files: Some(files),
@@ -307,6 +281,43 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
+        additional_metadata_args: AdditionalMetadataArgs {
+            is_mutable: match data.chain_data_mutability {
+                ChainMutability::Mutable => true,
+                ChainMutability::Immutable => false,
+                _ => true,
+            },
+            metadata_uri: data.metadata_url,
+            edition_nonce: data
+                .chain_data
+                .get("edition_nonce")
+                .and_then(|t| Some(t.as_u64()))
+                .unwrap_or(None),
+            primary_sale_happened: data
+                .chain_data
+                .get("primary_sale_happened")
+                .and_then(|t| t.as_bool())
+                .unwrap_or(true),
+            token_standard: data
+                .chain_data
+                .get("token_standard")
+                .and_then(|s| s.as_str())
+                .unwrap_or("NonFungible")
+                .to_string()
+                .into(),
+            name: data
+                .chain_data
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("")
+                .to_string(),
+            symbol: data
+                .chain_data
+                .get("symbol")
+                .and_then(|n| n.as_str())
+                .unwrap_or("")
+                .to_string(),
+        },
     })
 }
 
@@ -351,7 +362,8 @@ pub async fn get_asset_list_data(
     assets: Vec<(asset::Model, Option<asset_data::Model>)>,
 ) -> Result<Vec<RpcAsset>, DbErr> {
     let mut ids = Vec::with_capacity(assets.len());
-    let mut assets_map = assets.into_iter().fold(HashMap::new(), |mut x, asset| {
+    // Using BTreeMap to preserve order.
+    let mut assets_map = assets.into_iter().fold(BTreeMap::new(), |mut x, asset| {
         if let Some(ad) = asset.1 {
             let id = asset.0.id.clone();
             let fa = FullAsset {

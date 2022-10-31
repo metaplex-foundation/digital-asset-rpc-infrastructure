@@ -22,17 +22,17 @@ services:
     volumes:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
-  migrator:
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgres://solana:solana@db/solana
-    build:
-      context: .
-      dockerfile: Migrator.Dockerfile
+  # migrator:
+  #   depends_on:
+  #     - db
+  #   environment:
+  #     DATABASE_URL: postgres://solana:solana@db/solana
+  #   build:
+  #     context: .
+  #     dockerfile: Migrator.Dockerfile
   ingester:
     depends_on:
-      - migrator
+      # - migrator
       - redis
     restart: always
     environment:
@@ -40,7 +40,7 @@ services:
       INGESTER_METRICS_HOST: graphite
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={redis_connection_str="redis://redis"}, messenger_type="Redis"}'
-      INGESTER_RPC_CONFIG: '{url="http://digital-asset-rpc-solana-1:8899", commitment="finalized"}'
+      INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="finalized"}'
       RUST_BACKTRACE: 1
     build:
       context: .
@@ -60,7 +60,7 @@ services:
   #     dockerfile: Load.Dockerfile
   load-candy-machine:
     depends_on:
-      - migrator
+      # - migrator
       - ingester
       - solana
     restart: always
@@ -81,8 +81,8 @@ services:
     ports:
       - 9091:9091
   api:
-    depends_on:
-      - migrator
+    # depends_on:
+    #   - migrator
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana

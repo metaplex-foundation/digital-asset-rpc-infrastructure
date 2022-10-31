@@ -5,7 +5,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_owner",
   "params": [
-    "ApvvorNPLTfT2ZYFpjud4o3G6So87TNLyXRgsagSD5u6",
+    "9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ",
     "created",
     50,
     1,
@@ -23,7 +23,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_creator",
   "params": [
-    ["FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v"],
+    ["9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ"],
     "created",
     50,
     1,
@@ -73,7 +73,7 @@ content-type: application/json
   "id": "0",
   "method": "get_asset",
   "params": [
-    "6UFCqQ74gnjScCzKGQQq4fnhAfRVVBdCkST4Qu6cAe8K"
+    "9k6q2EYhqtE4TQRUewPov2e8KUsrfEk3FjDsVYhEPp5z"
   ]
 }
 

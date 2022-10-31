@@ -82,7 +82,10 @@ const SCHEMA: &str = "$$schema";
 impl MetadataItem {
     pub fn new(schema: &str) -> Self {
         let mut g = HashMap::new();
-        g.insert(SCHEMA.to_string(), serde_json::Value::String(schema.to_string()));
+        g.insert(
+            SCHEMA.to_string(),
+            serde_json::Value::String(schema.to_string()),
+        );
         Self(g)
     }
 
@@ -153,7 +156,6 @@ pub struct Compression {
     pub creator_hash: String,
     pub asset_hash: String,
 }
-
 
 pub type GroupKey = String;
 pub type GroupValue = String;
@@ -272,7 +274,6 @@ impl From<String> for UseMethod {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Uses {
     pub use_method: UseMethod,
@@ -280,6 +281,37 @@ pub struct Uses {
     pub total: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum TokenStandard {
+    NonFungible,
+    FungibleAsset,
+    Fungible,
+    NonFungibleEdition,
+}
+
+impl From<String> for TokenStandard {
+    fn from(s: String) -> Self {
+        match &*s {
+            "NonFungible" => TokenStandard::NonFungible,
+            "FungibleAsset" => TokenStandard::FungibleAsset,
+            "Fungible" => TokenStandard::Fungible,
+            "NonFungibleEdition" => TokenStandard::NonFungibleEdition,
+            _ => TokenStandard::NonFungible,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct AdditionalMetadataArgs {
+    pub is_mutable: bool,
+    pub metadata_uri: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edition_nonce: Option<u64>,
+    pub primary_sale_happened: bool,
+    pub token_standard: TokenStandard,
+    pub name: String,
+    pub symbol: String,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Asset {
@@ -300,4 +332,5 @@ pub struct Asset {
     pub ownership: Ownership,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
+    pub additional_metadata_args: AdditionalMetadataArgs,
 }

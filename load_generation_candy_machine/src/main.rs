@@ -11,7 +11,9 @@ use helpers::{
 };
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
 use mpl_bubblegum::state::{
-    metaplex_adapter::{MetadataArgs, TokenProgramVersion, TokenStandard, UseMethod::Burn, Uses},
+    metaplex_adapter::{
+        Creator, MetadataArgs, TokenProgramVersion, TokenStandard, UseMethod::Burn, Uses,
+    },
     TreeConfig,
 };
 use mpl_candy_machine::{CandyMachineData, ConfigLine};
@@ -25,6 +27,7 @@ use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
 use solana_sdk::{
     account::ReadableAccount,
     borsh::try_from_slice_unchecked,
+    bs58,
     pubkey::Pubkey,
     signature::{keypair_from_seed, Keypair},
     signer::Signer,
@@ -128,7 +131,7 @@ pub async fn make_compressed_nfts(
 pub async fn make_a_compressed_nft(
     solana_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
-) -> Result<Pubkey, ClientError> {
+) -> Result<(), ClientError> {
     let compressed_metadata = MetadataArgs {
         name: String::from("Handalf"),
         symbol: String::from("ONLYHDZ"),
@@ -144,7 +147,12 @@ pub async fn make_a_compressed_nft(
             total: 20,
         }),
         token_program_version: TokenProgramVersion::Original,
-        creators: vec![].to_vec(),
+        creators: vec![Creator {
+            address: Keypair::new().pubkey(),
+            share: 100,
+            verified: false,
+        }]
+        .to_vec(),
         seller_fee_basis_points: 0,
     };
 
@@ -226,27 +234,9 @@ pub async fn make_a_compressed_nft(
 
     solana_client.send_and_confirm_transaction(&tx).await?;
 
-    let tree_account = solana_client
-        .clone()
-        .get_account(&tree_authority)
-        .await
-        .unwrap();
+    println!("payer {:?}", bs58::encode(payer.pubkey()).into_string());
 
-    let tree_data: TreeConfig = try_from_slice_unchecked(&tree_account.data()).unwrap();
-
-    println!("tree config {:?}", tree_data);
-
-    let asset_id = Pubkey::find_program_address(
-        &[
-            "asset".as_ref(),
-            merkle_tree_keypair.pubkey().as_ref(),
-            &tree_data.num_minted.to_le_bytes(),
-        ],
-        &mpl_bubblegum::id(),
-    )
-    .0;
-
-    Ok(asset_id)
+    Ok(())
 }
 
 pub async fn make_candy_machines(
