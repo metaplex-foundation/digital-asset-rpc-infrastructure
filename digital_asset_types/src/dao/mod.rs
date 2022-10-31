@@ -1,5 +1,5 @@
-mod full_asset;
-mod generated;
+pub mod full_asset;
+pub mod generated;
 
 pub use generated::*;
 pub use full_asset::*;
