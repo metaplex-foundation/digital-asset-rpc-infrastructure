@@ -1,20 +1,16 @@
-use crate::dao::asset::Relation::{AssetAuthority, AssetCreators, AssetGrouping};
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{FullAsset, FullAssetList};
-use crate::rpc::filter::AssetSorting;
-
-use solana_sdk::{signature::Keypair, signer::Signer};
-
+use crate::dao::full_asset::{FullAsset, FullAssetList};
+use crate::dao::generated::prelude::{Asset, AssetData};
+use crate::dao::generated::sea_orm_active_enums::{
+    ChainMutability, SpecificationAssetClass, SpecificationVersions,
+};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links,
-    MetadataItem, Ownership, Royalty, Scope, Uses,
+    AdditionalMetadataArgs, Asset as RpcAsset, Authority, Compression, Content, Creator, File,
+    Group, Interface, MetadataItem, Ownership, Royalty, Scope, Uses,
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -115,6 +111,7 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     if let Some(symbol) = symbol {
         meta.push(symbol);
     }
+
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
     let external_url = safe_select(selector, "$.external_url").map(|val| {
@@ -162,7 +159,6 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         files: Some(files),
@@ -285,6 +281,43 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
+        additional_metadata_args: AdditionalMetadataArgs {
+            is_mutable: match data.chain_data_mutability {
+                ChainMutability::Mutable => true,
+                ChainMutability::Immutable => false,
+                _ => true,
+            },
+            metadata_uri: data.metadata_url,
+            edition_nonce: data
+                .chain_data
+                .get("edition_nonce")
+                .and_then(|t| Some(t.as_u64()))
+                .unwrap_or(None),
+            primary_sale_happened: data
+                .chain_data
+                .get("primary_sale_happened")
+                .and_then(|t| t.as_bool())
+                .unwrap_or(true),
+            token_standard: data
+                .chain_data
+                .get("token_standard")
+                .and_then(|s| s.as_str())
+                .unwrap_or("NonFungible")
+                .to_string()
+                .into(),
+            name: data
+                .chain_data
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or("")
+                .to_string(),
+            symbol: data
+                .chain_data
+                .get("symbol")
+                .and_then(|n| n.as_str())
+                .unwrap_or("")
+                .to_string(),
+        },
     })
 }
 
@@ -396,13 +429,14 @@ pub async fn get_asset_list_data(
 #[cfg(test)]
 mod tests {
     use crate::{
-        dao::sea_orm_active_enums::{ChainMutability, Mutability},
+        dao::generated::sea_orm_active_enums::{ChainMutability, Mutability},
         json::ChainDataV1,
     };
     use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
     use mpl_bubblegum::state::metaplex_adapter::{
         MetadataArgs, TokenProgramVersion, TokenStandard,
     };
+    use solana_sdk::{signature::Keypair, signer::Signer};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
