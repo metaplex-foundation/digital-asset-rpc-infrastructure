@@ -9,7 +9,7 @@ use {
     digital_asset_types::{
         dapi::{
             asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*, change_logs::*,
-            listed_assets_by_owner::*, offers_by_owner::*,
+            listed_assets_by_owner::*, offers_by_owner::*, search_assets::*,
         },
         rpc::{
             filter::{AssetSorting, ListingSorting, OfferSorting},
