@@ -78,7 +78,6 @@ impl TaskManager {
             .filter(
                 Condition::all()
                     .add(tasks::Column::Status.ne(TaskStatus::Success))
-                    .add(tasks::Column::Status.ne(TaskStatus::Running))
                     .add(
                         Condition::any()
                             .add(tasks::Column::LockedUntil.lte(Utc::now()))
@@ -216,6 +215,7 @@ impl TaskManager {
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
                 task.locked_by = Set(None);
+                println!("Task Run Error: {}", e.to_string());
             }
         }
         Ok(task)
@@ -242,7 +242,7 @@ impl TaskManager {
         match task_res {
             Ok(Ok(_)) => (),
             Ok(Err(e)) => {
-                println!("new task error: {}", e);
+                println!("new task error: {}", e.to_string());
             }
             Err(err) if err.is_panic() => {
                 safe_metric(|| {

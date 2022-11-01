@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::{IngesterError, TaskData};
 use blockbuster::{
     instruction::InstructionBundle,
@@ -85,8 +86,8 @@ pub async fn mint_v1<'c>(
                     slot_updated: Set(slot_i),
                     ..Default::default()
                 }
-                .insert(txn)
-                .await?;
+                    .insert(txn)
+                    .await?;
 
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
@@ -94,7 +95,6 @@ pub async fn mint_v1<'c>(
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                println!("bundle keys  {:?}", bundle.keys);
                 let data_hash = hash_metadata(args)
                     .map(|e| bs58::encode(e).into_string())
                     .unwrap_or("".to_string())
@@ -158,74 +158,87 @@ pub async fn mint_v1<'c>(
                 txn.execute(query).await?;
 
                 // Insert into `asset_creators` table.
-                if !metadata.creators.is_empty() {
-                    let mut creators = Vec::with_capacity(metadata.creators.len());
-                    for c in metadata.creators.iter() {
-                        creators.push(asset_creators::ActiveModel {
+                let creators = &metadata.creators;
+                if !creators.is_empty() {
+                    let mut db_creators = Vec::with_capacity(creators.len());
+                    let mut creators_set = HashSet::new();
+                    for (i, c) in creators.into_iter().enumerate() {
+                        if creators_set.contains(&c.address) {
+                            continue;
+                        }
+                        db_creators.push(asset_creators::ActiveModel {
                             asset_id: Set(id.to_bytes().to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             share: Set(c.share as i32),
                             verified: Set(c.verified),
+                            seq: Set(seq as i64), // do we need this here @micheal-danenberg?
+                            slot_updated: Set(slot_i),
+                            position: Set(i as i16),
+                            ..Default::default()
+                        });
+                        creators_set.insert(c.address);
+                    }
+
+                    let query = asset_creators::Entity::insert_many(db_creators)
+                        .on_conflict(
+                            OnConflict::columns([
+                                asset_creators::Column::AssetId,
+                                asset_creators::Column::Position,
+                            ])
+                                .update_columns([
+                                    asset_creators::Column::Creator,
+                                    asset_creators::Column::Share,
+                                    asset_creators::Column::Verified,
+                                    asset_creators::Column::Seq,
+                                    asset_creators::Column::SlotUpdated,
+                                ])
+                                .to_owned(),
+                        )
+                        .build(DbBackend::Postgres);
+                    txn.execute(query).await?;
+                }
+                // Insert into `asset_authority` table.
+                let model = asset_authority::ActiveModel {
+                    asset_id: Set(id.to_bytes().to_vec()),
+                    authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
+                    seq: Set(seq as i64),
+                    slot_updated: Set(slot_i),
+                    ..Default::default()
+                };
+
+                // Do not attempt to modify any existing values:
+                // `ON CONFLICT ('asset_id') DO NOTHING`.
+                let query = asset_authority::Entity::insert(model)
+                    .on_conflict(
+                        OnConflict::columns([asset_authority::Column::AssetId])
+                            .do_nothing()
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                txn.execute(query).await?;
+
+                // Insert into `asset_grouping` table.
+                if let Some(c) = &metadata.collection {
+                    if c.verified {
+                        let model = asset_grouping::ActiveModel {
+                            asset_id: Set(id.to_bytes().to_vec()),
+                            group_key: Set("collection".to_string()),
+                            group_value: Set(c.key.to_string()),
                             seq: Set(seq as i64), // gummyroll seq
                             slot_updated: Set(slot_i),
                             ..Default::default()
-                        });
-                    }
+                        };
 
-                    // Do not attempt to modify any existing values:
-                    // `ON CONFLICT ('asset_id') DO NOTHING`.
-                    let query = asset_creators::Entity::insert_many(creators)
-                        .on_conflict(
-                            OnConflict::columns([asset_creators::Column::AssetId])
-                                .do_nothing()
-                                .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    txn.execute(query).await?;
-
-                    // Insert into `asset_authority` table.
-                    let model = asset_authority::ActiveModel {
-                        asset_id: Set(id.to_bytes().to_vec()),
-                        authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
-                        seq: Set(seq as i64),
-                        slot_updated: Set(slot_i),
-                        ..Default::default()
-                    };
-
-                    // Do not attempt to modify any existing values:
-                    // `ON CONFLICT ('asset_id') DO NOTHING`.
-                    let query = asset_authority::Entity::insert(model)
-                        .on_conflict(
-                            OnConflict::columns([asset_authority::Column::AssetId])
-                                .do_nothing()
-                                .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    txn.execute(query).await?;
-
-                    // Insert into `asset_grouping` table.
-                    if let Some(c) = &metadata.collection {
-                        if c.verified {
-                            let model = asset_grouping::ActiveModel {
-                                asset_id: Set(id.to_bytes().to_vec()),
-                                group_key: Set("collection".to_string()),
-                                group_value: Set(c.key.to_string()),
-                                seq: Set(seq as i64), // gummyroll seq
-                                slot_updated: Set(slot_i),
-                                ..Default::default()
-                            };
-
-                            // Do not attempt to modify any existing values:
-                            // `ON CONFLICT ('asset_id') DO NOTHING`.
-                            let query = asset_grouping::Entity::insert(model)
-                                .on_conflict(
-                                    OnConflict::columns([asset_grouping::Column::AssetId])
-                                        .do_nothing()
-                                        .to_owned(),
-                                )
-                                .build(DbBackend::Postgres);
-                            txn.execute(query).await?;
-                        }
+                        // Do not attempt to modify any existing values:
+                        // `ON CONFLICT ('asset_id') DO NOTHING`.
+                        let query = asset_grouping::Entity::insert(model)
+                            .on_conflict(
+                                OnConflict::columns([asset_grouping::Column::AssetId])
+                                    .do_nothing()
+                                    .to_owned(),
+                            )
+                            .build(DbBackend::Postgres);
+                        txn.execute(query).await?;
                     }
                 }
                 let mut task = DownloadMetadata {

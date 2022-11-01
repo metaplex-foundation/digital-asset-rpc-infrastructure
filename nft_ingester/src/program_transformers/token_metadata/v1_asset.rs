@@ -274,8 +274,6 @@ pub async fn save_v1_asset(
             creators_set.insert(c.address);
         }
 
-        // Do not attempt to modify any existing values:
-        // `ON CONFLICT ('asset_id') DO NOTHING`.
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([
