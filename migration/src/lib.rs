@@ -6,6 +6,7 @@ mod m20221022_140350_add_creator_asset_unique_index;
 mod m20221025_182127_remove_creator_error_unique_index;
 mod m20221026_155220_add_bg_tasks;
 mod m20221104_094327_add_backfiller_failed;
+mod m20221114_173041_add_collection_info;
 
 pub struct Migrator;
 
@@ -19,6 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20221025_182127_remove_creator_error_unique_index::Migration),
             Box::new(m20221026_155220_add_bg_tasks::Migration),
             Box::new(m20221104_094327_add_backfiller_failed::Migration),
+            Box::new(m20221114_173041_add_collection_info::Migration),
         ]
     }
 }
