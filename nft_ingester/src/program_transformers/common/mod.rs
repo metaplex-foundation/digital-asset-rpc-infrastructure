@@ -89,8 +89,9 @@ pub async fn insert_change_log(
             tree: Set(tree_id.to_vec()),
             seq: Set(change_log_event.seq as i64),
             slot: Set(slot as i64),
-            force_chk: Set(Some(force_chk)),
-            backfilled: Set(Some(false)),
+            force_chk: Set(force_chk),
+            backfilled: Set(false),
+            failed: Set(false),
             ..Default::default()
         };
 

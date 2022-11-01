@@ -16,7 +16,7 @@ use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use url::Url;
 
@@ -329,7 +329,8 @@ pub async fn get_asset_list_data(
     assets: Vec<(asset::Model, Option<asset_data::Model>)>,
 ) -> Result<Vec<RpcAsset>, DbErr> {
     let mut ids = Vec::with_capacity(assets.len());
-    let mut assets_map = assets.into_iter().fold(HashMap::new(), |mut x, asset| {
+    // Using BTreeMap to preserve order.
+    let mut assets_map = assets.into_iter().fold(BTreeMap::new(), |mut x, asset| {
         if let Some(ad) = asset.1 {
             let id = asset.0.id.clone();
             let fa = FullAsset {

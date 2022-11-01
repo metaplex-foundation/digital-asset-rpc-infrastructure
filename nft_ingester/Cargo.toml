@@ -29,11 +29,12 @@ mpl-bubblegum = "0.1.3"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-mpl-candy-guard = { git ="https://github.com/metaplex-foundation/mpl-candy-guard", features = ["no-entrypoint"] }
+mpl-candy-guard = { version = "0.2.0", features = ["no-entrypoint"] }
 mpl-candy-machine-core = { version = "0.1.3", features = ["no-entrypoint"] }
 mpl-candy-machine = { version = "4.5.0", features = ["no-entrypoint"]}
 borsh = "0.9.3"
-blockbuster = { version = "0.5.4" }
+# blockbuster = { version = "0.5.4" }
+blockbuster = {path = "/Users/stranzhay/Programming/blockbuster/blockbuster"}
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
