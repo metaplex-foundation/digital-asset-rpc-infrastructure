@@ -1,17 +1,9 @@
-use crate::dao::cl_items::Column::Hash;
 use crate::dao::prelude::AssetData;
-use crate::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping, sea_orm_active_enums::*,
-    FullAsset, FullAssetList,
-};
-use crate::dapi::asset::{
-    asset_list_to_rpc, get_asset_list_data, get_content, get_interface, to_authority, to_creators,
-    to_grouping,
-};
+use crate::dao::{asset, asset_creators, asset_data};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
 use serde::Deserialize;
 
 pub async fn search_assets(
@@ -228,7 +220,7 @@ impl SearchAssetsQuery {
                     self.royalty_amount
                         .map(|x| asset::Column::RoyaltyAmount.eq(x)),
                 )
-                .add_option(self.chain_data_id.map(|x| asset::Column::ChainDataId.eq(x)))
+                .add_option(self.chain_data_id.map(|x| asset::Column::AssetData.eq(x)))
                 .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
                 .add_option(self.seq.map(|x| asset::Column::Seq.eq(x))),
 
@@ -246,7 +238,7 @@ impl SearchAssetsQuery {
                     self.royalty_amount
                         .map(|x| asset::Column::RoyaltyAmount.eq(x)),
                 )
-                .add_option(self.chain_data_id.map(|x| asset::Column::ChainDataId.eq(x)))
+                .add_option(self.chain_data_id.map(|x| asset::Column::AssetData.eq(x)))
                 .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
                 .add_option(self.seq.map(|x| asset::Column::Seq.eq(x))),
         };
