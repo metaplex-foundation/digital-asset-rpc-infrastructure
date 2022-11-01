@@ -55,8 +55,8 @@ pub trait ApiContract: Send + Sync + 'static {
         after: String,
     ) -> Result<AssetList, DasApiError>;
     async fn search_assets(
-        &mut self,
-        search_expression: String,
+        &self,
+        search_expression: serde_json::Value,
         sort_by: AssetSorting,
         limit: u32,
         page: u32,
@@ -74,9 +74,7 @@ impl<'a> RpcApiBuilder {
         let mut module = RpcModule::new(contract);
         module.register_async_method("healthz", |rpc_params, rpc_context| async move {
             println!("Checking Health");
-            rpc_context.check_health()
-                .await
-                .map_err(Into::into)
+            rpc_context.check_health().await.map_err(Into::into)
         })?;
         module.register_async_method("get_asset_proof", |rpc_params, rpc_context| async move {
             let asset_id = rpc_params.one::<String>()?;
