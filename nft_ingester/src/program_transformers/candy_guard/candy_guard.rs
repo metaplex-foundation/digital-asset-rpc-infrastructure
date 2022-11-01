@@ -15,7 +15,7 @@ use super::helpers::*;
 
 pub async fn candy_guard<'c>(
     candy_guard: &CandyGuard,
-    candy_guard_data: CandyGuardData,
+    candy_guard_data: &Box<CandyGuardData>,
     id: FBPubkey,
     txn: &DatabaseTransaction,
     db: &DatabaseConnection,
@@ -85,7 +85,7 @@ pub async fn candy_guard<'c>(
         .map(|_| ())
         .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
-    let default_guard = get_all_guards(&candy_guard_data.clone().default);
+    let default_guard = get_all_guards(candy_guard_data.clone().default);
 
     let candy_guard_default_set = candy_guard_group::ActiveModel {
         label: Set(None),
@@ -171,7 +171,7 @@ pub async fn candy_guard<'c>(
     if let Some(groups) = candy_guard_data.clone().groups {
         if groups.len() > 0 {
             for g in groups.iter() {
-                let guards = get_all_guards(&g.clone().guards);
+                let guards = get_all_guards(g.clone().guards);
 
                 let candy_guard_group = candy_guard_group::ActiveModel {
                     label: Set(Some(g.clone().label)),

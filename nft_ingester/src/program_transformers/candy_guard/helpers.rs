@@ -219,7 +219,7 @@ pub struct DBGuardSet {
     pub freeze_token_payment_destination_ata: Option<Vec<u8>>,
 }
 
-pub fn get_all_guards(guard_set: &GuardSet) -> DBGuardSet {
+pub fn get_all_guards(guard_set: GuardSet) -> DBGuardSet {
     let (
         freeze_token_payment_amount,
         freeze_token_payment_mint,
@@ -235,7 +235,8 @@ pub fn get_all_guards(guard_set: &GuardSet) -> DBGuardSet {
     let end_date = get_end_date(guard_set.end_date);
     let third_party_signer_key = get_third_party_signer(guard_set.third_party_signer);
     let (mint_limit_id, mint_limit_limit) = get_mint_limit(guard_set.mint_limit);
-    let (gatekeeper_expire_on_use, gatekeeper_network) = get_gatekeeper(guard_set.gatekeeper);
+    let (gatekeeper_expire_on_use, gatekeeper_network) =
+        get_gatekeeper(guard_set.gatekeeper);
     let (freeze_sol_payment_lamports, freeze_sol_payment_destination) =
         get_freeze_sol_payment(guard_set.freeze_sol_payment);
     let (token_gate_amount, token_gate_mint) = get_token_gate(guard_set.token_gate);
