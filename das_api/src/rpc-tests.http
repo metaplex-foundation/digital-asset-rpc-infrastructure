@@ -87,8 +87,10 @@ content-type: application/json
   "params": [
     {
       //"id": "A7ubV8hnDiJfryepfXV6pqT6o7NKsB5EuuhBAq7M8mj",
+      "specification_asset_class": "Nft",
       "supply": 1,
       "compresssed": false,
+      "royalty_target_type": "Creators",
       "burnt": false
     },
     "created",

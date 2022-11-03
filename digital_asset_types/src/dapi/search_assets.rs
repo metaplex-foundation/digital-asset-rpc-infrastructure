@@ -1,5 +1,10 @@
-use crate::dao::prelude::AssetData;
-use crate::dao::{asset, asset_creators, asset_data};
+use crate::dao::{
+    asset, asset_creators, asset_data,
+    prelude::AssetData,
+    sea_orm_active_enums::{
+        OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
+    },
+};
 use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
@@ -124,10 +129,10 @@ pub struct SearchAssetsQuery {
     // Asset columns
     id: Option<String>,
     alt_id: Option<String>,
-    specification_version: Option<u64>,
-    //specification_asset_class: specification_asset_class
+    specification_version: Option<SpecificationVersions>,
+    specification_asset_class: Option<SpecificationAssetClass>,
     owner: Option<String>,
-    //owner_type: owner_type
+    owner_type: Option<OwnerType>,
     delegate: Option<String>,
     frozen: Option<bool>,
     supply: Option<u64>,
@@ -138,7 +143,7 @@ pub struct SearchAssetsQuery {
     tree_id: Option<String>,
     leaf: Option<String>,
     nonce: Option<u64>,
-    //royalty_target_type: royalty_target_type,
+    royalty_target_type: Option<RoyaltyTargetType>,
     royalty_target: Option<String>,
     royalty_amount: Option<u32>,
     asset_data: Option<String>,
@@ -168,7 +173,13 @@ impl SearchAssetsQuery {
         if self.specification_version.is_some() {
             num_conditions += 1;
         }
+        if self.specification_asset_class.is_some() {
+            num_conditions += 1;
+        }
         if self.owner.is_some() {
+            num_conditions += 1;
+        }
+        if self.owner_type.is_some() {
             num_conditions += 1;
         }
         if self.delegate.is_some() {
@@ -199,6 +210,9 @@ impl SearchAssetsQuery {
             num_conditions += 1;
         }
         if self.nonce.is_some() {
+            num_conditions += 1;
+        }
+        if self.royalty_target_type.is_some() {
             num_conditions += 1;
         }
         if self.royalty_target.is_some() {
@@ -232,9 +246,20 @@ impl SearchAssetsQuery {
             .add_option(validate_opt_pubkey(&self.alt_id)?.map(|x| asset::Column::AltId.eq(x)))
             .add_option(
                 self.specification_version
+                    .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
+            .add_option(
+                self.specification_asset_class
+                    .clone()
+                    .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
+            )
             .add_option(validate_opt_pubkey(&self.owner)?.map(|x| asset::Column::Owner.eq(x)))
+            .add_option(
+                self.owner_type
+                    .clone()
+                    .map(|x| asset::Column::OwnerType.eq(x)),
+            )
             .add_option(validate_opt_pubkey(&self.delegate)?.map(|x| asset::Column::Delegate.eq(x)))
             .add_option(self.frozen.map(|x| asset::Column::Frozen.eq(x)))
             .add_option(self.supply.map(|x| asset::Column::Supply.eq(x)))
@@ -247,6 +272,11 @@ impl SearchAssetsQuery {
             .add_option(validate_opt_pubkey(&self.tree_id)?.map(|x| asset::Column::TreeId.eq(x)))
             .add_option(validate_opt_pubkey(&self.leaf)?.map(|x| asset::Column::Leaf.eq(x)))
             .add_option(self.nonce.map(|x| asset::Column::Nonce.eq(x)))
+            .add_option(
+                self.royalty_target_type
+                    .clone()
+                    .map(|x| asset::Column::RoyaltyTargetType.eq(x)),
+            )
             .add_option(
                 validate_opt_pubkey(&self.royalty_target)?
                     .map(|x| asset::Column::RoyaltyTarget.eq(x)),
