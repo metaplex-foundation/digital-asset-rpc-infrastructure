@@ -103,7 +103,7 @@ async fn main() {
     // Setup Postgres.
     let mut tasks = vec![];
     let pool = PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(100)
         .connect(&url)
         .await
         .unwrap();

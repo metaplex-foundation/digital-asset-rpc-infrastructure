@@ -7,6 +7,9 @@ use digital_asset_types::dao::asset_data;
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::time::Duration;
+use reqwest::{Client, ClientBuilder};
+use solana_sdk::client;
 
 const TASK_NAME: &str = "DownloadMetadata";
 
@@ -15,11 +18,13 @@ pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
 }
+
 impl DownloadMetadata {
     pub fn sanitize(&mut self) {
         self.uri = self.uri.trim().replace('\0', "");
     }
 }
+
 impl IntoTaskData for DownloadMetadata {
     fn into_task_data(self) -> Result<TaskData, IngesterError> {
         let data = serde_json::to_value(self)
@@ -40,6 +45,20 @@ impl FromTaskData<DownloadMetadata> for DownloadMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadMetadataTask {}
 
+impl DownloadMetadataTask {
+    async fn request_metadata(uri: String) -> Result<serde_json::Value, IngesterError> {
+        let client = ClientBuilder::new()
+            .timeout(Duration::from_secs(5))
+            .build()?;
+        let val: serde_json::Value = Client::get(&client, uri) // Need to check for malicious sites ?
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(val)
+    }
+}
+
 #[async_trait]
 impl BgTask for DownloadMetadataTask {
     fn name(&self) -> &'static str {
@@ -54,16 +73,15 @@ impl BgTask for DownloadMetadataTask {
         5
     }
 
+
     async fn task(
         &self,
         db: &DatabaseTransaction,
         data: serde_json::Value,
     ) -> Result<(), IngesterError> {
         let download_metadata: DownloadMetadata = serde_json::from_value(data)?;
-        let body: serde_json::Value = reqwest::get(download_metadata.uri.clone()) // Need to check for malicious sites ?
-            .await?
-            .json()
-            .await?;
+
+        let body = DownloadMetadataTask::request_metadata(download_metadata.uri.clone()).await?;
         let model = asset_data::ActiveModel {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),

@@ -57,6 +57,7 @@ pub async fn mint_v1<'c>(
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
+                let uri = metadata.uri.trim().replace('\0', "");
                 let mut chain_data = ChainDataV1 {
                     name: metadata.name.clone(),
                     symbol: metadata.symbol.clone(),
@@ -76,12 +77,14 @@ pub async fn mint_v1<'c>(
                     true => ChainMutability::Mutable,
                     false => ChainMutability::Immutable,
                 };
-
+                if uri.is_empty() {
+                    return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+                }
                 let data = asset_data::ActiveModel {
                     id: Set(id_bytes.to_vec()),
                     chain_data_mutability: Set(chain_mutability),
                     chain_data: Set(chain_data_json),
-                    metadata_url: Set(metadata.uri.trim().replace('\0', "")),
+                    metadata_url: Set(uri),
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),

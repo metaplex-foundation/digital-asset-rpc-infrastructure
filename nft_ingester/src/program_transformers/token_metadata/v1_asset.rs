@@ -49,7 +49,10 @@ pub async fn save_v1_asset(
     let authority = metadata.update_authority.to_bytes().to_vec();
     let id = id.0;
     let slot_i = slot as i64;
-    let uri = data.uri.clone();
+    let uri = data.uri.trim().replace('\0', "");
+    if uri.is_empty() {
+        return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+    }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
@@ -261,11 +264,18 @@ pub async fn save_v1_asset(
             .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
             .all(txn)
             .await?;
-        
-        asset_creators::Entity::delete_many()
-            .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
-            .exec(txn)
-            .await?;
+        let existing_len = existing_creators.len();
+        let incoming_len = creators.len();
+        if existing_len > incoming_len {
+            let idx_to_delete = (existing_len - incoming_len) - 1;
+            asset_creators::Entity::delete_many()
+                .filter(Condition::all()
+                    .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+                    .add(asset_creators::Column::Position.gte(idx_to_delete as i8))
+                )
+                .exec(txn)
+                .await?;
+        }
         for (i, c) in creators.into_iter().enumerate() {
             if creators_set.contains(&c.address) {
                 continue;

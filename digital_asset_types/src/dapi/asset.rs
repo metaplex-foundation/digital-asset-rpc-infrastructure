@@ -1,13 +1,10 @@
-
 use crate::dao::prelude::{Asset, AssetData};
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::dao::{FullAsset, FullAssetList};
 
 
-
-
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, MetadataItem, Ownership, Royalty, Scope, Supply, Uses};
+use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, MetadataMap, Ownership, Royalty, Scope, Supply, Uses};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
@@ -66,29 +63,28 @@ pub fn safe_select<'a>(
 
 pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr> {
     // todo -> move this to the bg worker for pre processing
+    let json_uri = asset_data.metadata_url.clone();
     let metadata = &asset_data.metadata;
     let mut selector_fn = jsonpath_lib::selector(metadata);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&asset_data.chain_data);
     let selector = &mut selector_fn;
     let chain_data_selector = &mut chain_data_selector_fn;
-    println!("{}", metadata.to_string());
-    let mut meta: Vec<MetadataItem> = Vec::new();
-    let mut description_meta = MetadataItem::new("description");
-    let _image = safe_select(selector, "$.image");
+    let mut meta: MetadataMap = MetadataMap::new();
     let name = safe_select(chain_data_selector, "$.name");
     if let Some(name) = name {
-        description_meta.set_item("name", name.clone());
+        meta.set_item("name", name.clone());
     }
     let desc = safe_select(selector, "$.description");
     if let Some(desc) = desc {
-        description_meta.set_item("description", desc.clone());
+        meta.set_item("description", desc.clone());
     }
-    meta.push(description_meta);
-    let _description_meta = MetadataItem::new("description");
-    let symbol = safe_select(chain_data_selector, "$.symbol")
-        .map(|x| MetadataItem::single("symbol", "symbol", x.clone()));
+    let symbol = safe_select(chain_data_selector, "$.symbol");
     if let Some(symbol) = symbol {
-        meta.push(symbol);
+        meta.set_item("symbol", symbol.clone());
+    }
+    let symbol = safe_select(selector, "$.attributes");
+    if let Some(symbol) = symbol {
+        meta.set_item("attributes", symbol.clone());
     }
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
@@ -140,8 +136,9 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
+        json_uri,
         files: Some(files),
-        metadata: Some(meta),
+        metadata: meta,
         links: external_url,
     })
 }
@@ -263,10 +260,10 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         },
         supply: match interface {
             Interface::V1NFT => Some(
-                Supply{
+                Supply {
                     edition_nonce: edition_nonce,
                     print_current_supply: 0,
-                    print_max_supply: 0
+                    print_max_supply: 0,
                 }
             ),
             _ => None

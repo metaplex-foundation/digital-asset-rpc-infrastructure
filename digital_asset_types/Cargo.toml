@@ -14,7 +14,7 @@ spl-concurrent-merkle-tree = { version = "0.1.1" }
 sea-orm = { optional = true, version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.27.1", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
-serde_json = { version = "1.0.81", optional = true }
+serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] }
 bs58 = "0.4.0"
 borsh = { version = "0.9.3", optional = true }
 borsh-derive = { version = "0.9.3", optional = true }

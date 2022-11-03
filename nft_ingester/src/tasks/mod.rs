@@ -34,8 +34,8 @@ pub trait BgTask: Send + Sync {
         data: serde_json::Value,
     ) -> Result<(), IngesterError>;
 }
-const RETRY_INTERVAL: u64 = 10000;
-const MAX_TASK_BATCH_SIZE: u64 = 200;
+const RETRY_INTERVAL: u64 = 1000;
+const MAX_TASK_BATCH_SIZE: u64 = 50;
 pub struct TaskData {
     pub name: &'static str,
     pub data: serde_json::Value,
@@ -95,9 +95,10 @@ impl TaskManager {
     }
 
     pub async fn purge_old_tasks(conn: &DatabaseConnection) -> Result<DeleteResult, IngesterError> {
-        let cod = Expr::cust("NOW() - created_at::timestamp > interval '1 minute'"); //TOdo parametrize
+        let cod = Expr::cust("NOW() - created_at::timestamp > interval '60 minute'"); //TOdo parametrize
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
+
             .exec(conn)
             .await
             .map_err(|e| e.into())
