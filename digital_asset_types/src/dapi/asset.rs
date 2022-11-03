@@ -1,13 +1,12 @@
-
 use crate::dao::prelude::{Asset, AssetData};
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::dao::{FullAsset, FullAssetList};
 
-
-
-
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, MetadataItem, Ownership, Royalty, Scope, Supply, Uses};
+use crate::rpc::{
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
+    MetadataItem, Ownership, Royalty, Scope, Supply, Uses,
+};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
@@ -16,7 +15,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
-
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -224,7 +222,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         id: bs58::encode(asset.id).into_string(),
         content: Some(content),
         authorities: Some(rpc_authorities),
-        mutability: data.chain_data_mutability.into(),
+        mutable: data.chain_data_mutability.into(),
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
@@ -262,14 +260,12 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
                 .unwrap_or("".to_string()),
         },
         supply: match interface {
-            Interface::V1NFT => Some(
-                Supply{
-                    edition_nonce: edition_nonce,
-                    print_current_supply: 0,
-                    print_max_supply: 0
-                }
-            ),
-            _ => None
+            Interface::V1NFT => Some(Supply {
+                edition_nonce: edition_nonce,
+                print_current_supply: 0,
+                print_max_supply: 0,
+            }),
+            _ => None,
         },
         uses: data.chain_data.get("uses").map(|u| Uses {
             use_method: u
@@ -281,6 +277,13 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
+        token_standard: data
+            .chain_data
+            .get("token_standard")
+            .and_then(|s| s.as_str())
+            .unwrap_or("NonFungible")
+            .to_string()
+            .into(),
     })
 }
 
@@ -378,13 +381,12 @@ pub async fn get_asset_list_data(
     let built_assets = asset_list_to_rpc(FullAssetList {
         list: assets_map.into_iter().map(|(_, v)| v).collect(),
     })
-        .into_iter()
-        .fold(Vec::with_capacity(len), |mut acc, i| {
-            if let Ok(a) = i {
-                acc.push(a);
-            }
-            acc
-        });
+    .into_iter()
+    .fold(Vec::with_capacity(len), |mut acc, i| {
+        if let Ok(a) = i {
+            acc.push(a);
+        }
+        acc
+    });
     Ok(built_assets)
 }
-

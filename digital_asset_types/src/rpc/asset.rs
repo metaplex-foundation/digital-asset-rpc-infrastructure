@@ -1,14 +1,13 @@
-use blockbuster::token_metadata::state::TokenStandard;
-use mpl_bubblegum::state::metaplex_adapter::{MetadataArgs};
 #[cfg(feature = "sql_types")]
 use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType};
+use blockbuster::token_metadata::state::TokenStandard;
+use mpl_bubblegum::state::metaplex_adapter::MetadataArgs;
 
+use crate::dao::sea_orm_active_enums::ChainMutability;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-use crate::dao::sea_orm_active_enums::ChainMutability;
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
@@ -87,7 +86,10 @@ const SCHEMA: &str = "$$schema";
 impl MetadataItem {
     pub fn new(schema: &str) -> Self {
         let mut g = HashMap::new();
-        g.insert(SCHEMA.to_string(), serde_json::Value::String(schema.to_string()));
+        g.insert(
+            SCHEMA.to_string(),
+            serde_json::Value::String(schema.to_string()),
+        );
         Self(g)
     }
 
@@ -150,7 +152,6 @@ pub struct Authority {
     pub scopes: Vec<Scope>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Compression {
     pub eligible: bool,
@@ -159,7 +160,6 @@ pub struct Compression {
     pub creator_hash: String,
     pub asset_hash: String,
 }
-
 
 pub type GroupKey = String;
 pub type GroupValue = String;
@@ -289,9 +289,9 @@ pub enum Mutability {
 impl From<ChainMutability> for Mutability {
     fn from(s: ChainMutability) -> Self {
         match s {
-            ChainMutability::Mutable => Mutability::Mutable,
-            ChainMutability::Immutable => Mutability::Immutable,
-            _ => Mutability::Mutable
+            ChainMutability::Mutable => true,
+            ChainMutability::Immutable => false,
+            _ => true,
         }
     }
 }
@@ -305,9 +305,9 @@ pub struct Uses {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Supply {
-   pub print_max_supply: u64,
-   pub print_current_supply: u64,
-    pub edition_nonce: u64
+    pub print_max_supply: u64,
+    pub print_current_supply: u64,
+    pub edition_nonce: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -330,5 +330,6 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
     pub supply: Option<Supply>,
-    pub mutability: Mutability,
+    pub token_standard: TokenStandard,
+    pub mutable: Mutability,
 }
