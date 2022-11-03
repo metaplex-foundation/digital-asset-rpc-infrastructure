@@ -1,15 +1,14 @@
-use std::collections::BTreeMap;
-use blockbuster::token_metadata::state::TokenStandard;
-use mpl_bubblegum::state::metaplex_adapter::{MetadataArgs};
 #[cfg(feature = "sql_types")]
-use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType};
+use std::collections::BTreeMap;
+use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions};
+use blockbuster::token_metadata::state::TokenStandard;
+use mpl_bubblegum::state::metaplex_adapter::MetadataArgs;
 
+use crate::dao::sea_orm_active_enums::ChainMutability;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-use crate::dao::sea_orm_active_enums::ChainMutability;
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
@@ -83,6 +82,7 @@ pub type Files = Vec<File>;
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
+
 impl MetadataMap {
     pub fn new() -> Self {
         Self(BTreeMap::new())
@@ -142,7 +142,6 @@ pub struct Authority {
     pub scopes: Vec<Scope>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Compression {
     pub eligible: bool,
@@ -151,7 +150,6 @@ pub struct Compression {
     pub creator_hash: String,
     pub asset_hash: String,
 }
-
 
 pub type GroupKey = String;
 pub type GroupValue = String;
@@ -272,18 +270,14 @@ impl From<String> for UseMethod {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum Mutability {
-    Mutable,
-    Immutable,
-}
+pub type Mutability = bool;
 
 impl From<ChainMutability> for Mutability {
     fn from(s: ChainMutability) -> Self {
         match s {
-            ChainMutability::Mutable => Mutability::Mutable,
-            ChainMutability::Immutable => Mutability::Immutable,
-            _ => Mutability::Mutable
+            ChainMutability::Mutable => true,
+            ChainMutability::Immutable => false,
+            _ => true,
         }
     }
 }
@@ -322,5 +316,5 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
     pub supply: Option<Supply>,
-    pub mutability: Mutability,
+    pub mutable: bool,
 }
