@@ -55,6 +55,7 @@ pub async fn mint_v1<'c>(
                 ..
             } => {
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
+                let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
                 let mut chain_data = ChainDataV1 {
                     name: metadata.name.clone(),
@@ -77,7 +78,7 @@ pub async fn mint_v1<'c>(
                 };
 
                 let data = asset_data::ActiveModel {
-                    id: Set(id.to_bytes().to_vec()),
+                    id: Set(id_bytes.to_vec()),
                     chain_data_mutability: Set(chain_mutability),
                     chain_data: Set(chain_data_json),
                     metadata_url: Set(metadata.uri.trim().replace('\0', "")),
@@ -106,7 +107,7 @@ pub async fn mint_v1<'c>(
                     .trim()
                     .to_string();
                 let model = asset::ActiveModel {
-                    id: Set(id.to_bytes().to_vec()),
+                    id: Set(id_bytes.to_vec()),
                     owner: Set(Some(owner.to_bytes().to_vec())),
                     owner_type: Set(OwnerType::Single),
                     delegate: Set(delegate),
@@ -167,7 +168,7 @@ pub async fn mint_v1<'c>(
                             continue;
                         }
                         db_creators.push(asset_creators::ActiveModel {
-                            asset_id: Set(id.to_bytes().to_vec()),
+                            asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             share: Set(c.share as i32),
                             verified: Set(c.verified),
@@ -199,7 +200,7 @@ pub async fn mint_v1<'c>(
                 }
                 // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
-                    asset_id: Set(id.to_bytes().to_vec()),
+                    asset_id: Set(id_bytes.to_vec()),
                     authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
                     seq: Set(seq as i64),
                     slot_updated: Set(slot_i),
@@ -221,7 +222,7 @@ pub async fn mint_v1<'c>(
                 if let Some(c) = &metadata.collection {
                     if c.verified {
                         let model = asset_grouping::ActiveModel {
-                            asset_id: Set(id.to_bytes().to_vec()),
+                            asset_id: Set(id_bytes.to_vec()),
                             group_key: Set("collection".to_string()),
                             group_value: Set(c.key.to_string()),
                             seq: Set(seq as i64), // gummyroll seq
@@ -242,7 +243,7 @@ pub async fn mint_v1<'c>(
                     }
                 }
                 let mut task = DownloadMetadata {
-                    asset_data_id: id.to_bytes().to_vec(),
+                    asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
                 };
                 task.sanitize();

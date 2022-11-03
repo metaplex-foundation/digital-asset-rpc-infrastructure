@@ -115,7 +115,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
@@ -257,6 +257,15 @@ pub async fn save_v1_asset(
     if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
         let mut creators_set = HashSet::new();
+        let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+            .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
+            .all(txn)
+            .await?;
+        
+        asset_creators::Entity::delete_many()
+            .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
+            .exec(txn)
+            .await?;
         for (i, c) in creators.into_iter().enumerate() {
             if creators_set.contains(&c.address) {
                 continue;
@@ -274,20 +283,21 @@ pub async fn save_v1_asset(
             creators_set.insert(c.address);
         }
 
+
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
                     asset_creators::Column::Position,
                 ])
-                .update_columns([
-                    asset_creators::Column::Creator,
-                    asset_creators::Column::Share,
-                    asset_creators::Column::Verified,
-                    asset_creators::Column::Seq,
-                    asset_creators::Column::SlotUpdated,
-                ])
-                .to_owned(),
+                    .update_columns([
+                        asset_creators::Column::Creator,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::Seq,
+                        asset_creators::Column::SlotUpdated,
+                    ])
+                    .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;

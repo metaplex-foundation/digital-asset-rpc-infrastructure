@@ -69,11 +69,16 @@ impl BgTask for DownloadMetadataTask {
             metadata: Set(body),
             ..Default::default()
         };
+        println!("download metadata for {:?}", bs58::encode(download_metadata.asset_data_id.clone()).into_string());
+
         asset_data::Entity::update(model)
             .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()))
             .exec(db)
             .await
-            .map(|_| ())
+            .map(|u| {
+                println!("rows updated {:?}", u);
+                ()
+            })
             .map_err(|db| {
                 IngesterError::TaskManagerError(format!(
                     "Database error with {}, error: {}",
