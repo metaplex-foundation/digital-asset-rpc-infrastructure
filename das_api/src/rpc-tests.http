@@ -91,6 +91,7 @@ content-type: application/json
       "supply": 1,
       "compresssed": false,
       "royalty_target_type": "Creators",
+      //"created_at": "2022-11-02T15:46:07.510485+0000",
       "burnt": false
     },
     "created",

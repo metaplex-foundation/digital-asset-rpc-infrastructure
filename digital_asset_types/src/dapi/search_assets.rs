@@ -8,7 +8,7 @@ use crate::dao::{
 use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
+use sea_orm::{entity::*, prelude::DateTimeWithTimeZone, query::*, DatabaseConnection, DbErr};
 use serde::Deserialize;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
@@ -147,7 +147,7 @@ pub struct SearchAssetsQuery {
     royalty_target: Option<String>,
     royalty_amount: Option<u32>,
     asset_data: Option<String>,
-    //created_at: timestamp with timezone
+    created_at: Option<DateTimeWithTimeZone>,
     burnt: Option<bool>,
     slot_updated: Option<u64>,
 }
@@ -224,6 +224,9 @@ impl SearchAssetsQuery {
         if self.asset_data.is_some() {
             num_conditions += 1;
         }
+        if self.created_at.is_some() {
+            num_conditions += 1;
+        }
         if self.burnt.is_some() {
             num_conditions += 1;
         }
@@ -288,6 +291,7 @@ impl SearchAssetsQuery {
             .add_option(
                 validate_opt_pubkey(&self.asset_data)?.map(|x| asset::Column::AssetData.eq(x)),
             )
+            .add_option(self.created_at.map(|x| asset::Column::CreatedAt.eq(x)))
             .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
             .add_option(self.slot_updated.map(|x| asset::Column::SlotUpdated.eq(x)));
 
