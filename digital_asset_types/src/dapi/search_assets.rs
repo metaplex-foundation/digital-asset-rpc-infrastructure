@@ -5,6 +5,8 @@ use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
 use serde::Deserialize;
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
 
 pub async fn search_assets(
     db: &DatabaseConnection,
@@ -27,7 +29,7 @@ pub async fn search_assets(
         ));
     }
 
-    let conditions: Condition = search_assets_query.conditions();
+    let conditions: Condition = search_assets_query.conditions()?;
 
     let assets: Vec<(asset::Model, Option<asset_data::Model>)> = if page > 0 {
         let paginator = asset::Entity::find()
@@ -113,31 +115,6 @@ pub async fn search_assets(
 
 #[derive(Deserialize, Debug)]
 pub struct SearchAssetsQuery {
-    // fn def(&self) -> ColumnDef {
-    //     match self {
-    //         Self::Id => ColumnType::Binary.def(),
-    // done    Self::SpecificationVersion => ColumnType::Integer.def(),
-    //         Self::Owner => ColumnType::Binary.def(),
-    //         Self::OwnerType => OwnerType::db_type(),
-    //         Self::Delegate => ColumnType::Binary.def().null(),
-    //         Self::Frozen => ColumnType::Boolean.def(),
-    //         Self::Supply => ColumnType::BigInteger.def(),
-    //         Self::SupplyMint => ColumnType::Binary.def().null(),
-    //         Self::Compressed => ColumnType::Boolean.def(),
-    // done    Self::Compressible => ColumnType::Boolean.def(),
-    //         Self::TreeId => ColumnType::Binary.def().null(),
-    //         Self::Leaf => ColumnType::Binary.def().null(),
-    //         Self::Nonce => ColumnType::BigInteger.def(),
-    //         Self::RoyaltyTargetType => RoyaltyTargetType::db_type(),
-    //         Self::RoyaltyTarget => ColumnType::Binary.def().null(),
-    //         Self::RoyaltyAmount => ColumnType::Integer.def(),
-    //         Self::ChainDataId => ColumnType::BigInteger.def().null(),
-    //         Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
-    //         Self::Burnt => ColumnType::Boolean.def(),
-    //         Self::Seq => ColumnType::BigInteger.def(),
-    //     }
-    // }
-
     // Conditions
     negate: Option<bool>,
 
@@ -145,16 +122,29 @@ pub struct SearchAssetsQuery {
     condition_type: Option<ConditionType>,
 
     // Asset columns
-    specification_verison: Option<u64>,
+    id: Option<String>,
+    alt_id: Option<String>,
+    specification_version: Option<u64>,
+    //specification_asset_class: specification_asset_class
+    owner: Option<String>,
+    //owner_type: owner_type
+    delegate: Option<String>,
     frozen: Option<bool>,
     supply: Option<u64>,
+    supply_mint: Option<String>,
     compressed: Option<bool>,
     compressible: Option<bool>,
-    nonce: Option<u64>,
-    royalty_amount: Option<u32>,
-    chain_data_id: Option<u64>,
-    burnt: Option<bool>,
     seq: Option<u64>,
+    tree_id: Option<String>,
+    leaf: Option<String>,
+    nonce: Option<u64>,
+    //royalty_target_type: royalty_target_type,
+    royalty_target: Option<String>,
+    royalty_amount: Option<u32>,
+    asset_data: Option<String>,
+    //created_at: timestamp with timezone
+    burnt: Option<bool>,
+    slot_updated: Option<u64>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -169,7 +159,19 @@ impl SearchAssetsQuery {
         let mut num_conditions = 0;
 
         // Increment for each condition
-        if self.specification_verison.is_some() {
+        if self.id.is_some() {
+            num_conditions += 1;
+        }
+        if self.alt_id.is_some() {
+            num_conditions += 1;
+        }
+        if self.specification_version.is_some() {
+            num_conditions += 1;
+        }
+        if self.owner.is_some() {
+            num_conditions += 1;
+        }
+        if self.delegate.is_some() {
             num_conditions += 1;
         }
         if self.frozen.is_some() {
@@ -178,74 +180,101 @@ impl SearchAssetsQuery {
         if self.supply.is_some() {
             num_conditions += 1;
         }
+        if self.supply_mint.is_some() {
+            num_conditions += 1;
+        }
         if self.compressed.is_some() {
             num_conditions += 1;
         }
         if self.compressible.is_some() {
             num_conditions += 1;
         }
+        if self.seq.is_some() {
+            num_conditions += 1;
+        }
+        if self.tree_id.is_some() {
+            num_conditions += 1;
+        }
+        if self.leaf.is_some() {
+            num_conditions += 1;
+        }
         if self.nonce.is_some() {
+            num_conditions += 1;
+        }
+        if self.royalty_target.is_some() {
             num_conditions += 1;
         }
         if self.royalty_amount.is_some() {
             num_conditions += 1;
         }
-        if self.chain_data_id.is_some() {
+        if self.asset_data.is_some() {
             num_conditions += 1;
         }
         if self.burnt.is_some() {
             num_conditions += 1;
         }
-        if self.seq.is_some() {
+        if self.slot_updated.is_some() {
             num_conditions += 1;
         }
 
         num_conditions
     }
 
-    pub fn conditions(&self) -> Condition {
-        let conditions = match self.condition_type {
+    pub fn conditions(&self) -> Result<Condition, DbErr> {
+        let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
-            None | Some(ConditionType::All) => Condition::all()
-                .add_option(
-                    self.specification_verison
-                        .map(|x| asset::Column::SpecificationVersion.eq(x)),
-                )
-                .add_option(self.frozen.map(|x| asset::Column::Frozen.eq(x)))
-                .add_option(self.supply.map(|x| asset::Column::Supply.eq(x)))
-                .add_option(self.compressed.map(|x| asset::Column::Compressed.eq(x)))
-                .add_option(self.compressible.map(|x| asset::Column::Compressible.eq(x)))
-                .add_option(self.nonce.map(|x| asset::Column::Nonce.eq(x)))
-                .add_option(
-                    self.royalty_amount
-                        .map(|x| asset::Column::RoyaltyAmount.eq(x)),
-                )
-                .add_option(self.chain_data_id.map(|x| asset::Column::AssetData.eq(x)))
-                .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
-                .add_option(self.seq.map(|x| asset::Column::Seq.eq(x))),
-
-            Some(ConditionType::Any) => Condition::any()
-                .add_option(
-                    self.specification_verison
-                        .map(|x| asset::Column::SpecificationVersion.eq(x)),
-                )
-                .add_option(self.frozen.map(|x| asset::Column::Frozen.eq(x)))
-                .add_option(self.supply.map(|x| asset::Column::Supply.eq(x)))
-                .add_option(self.compressed.map(|x| asset::Column::Compressed.eq(x)))
-                .add_option(self.compressible.map(|x| asset::Column::Compressible.eq(x)))
-                .add_option(self.nonce.map(|x| asset::Column::Nonce.eq(x)))
-                .add_option(
-                    self.royalty_amount
-                        .map(|x| asset::Column::RoyaltyAmount.eq(x)),
-                )
-                .add_option(self.chain_data_id.map(|x| asset::Column::AssetData.eq(x)))
-                .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
-                .add_option(self.seq.map(|x| asset::Column::Seq.eq(x))),
+            None | Some(ConditionType::All) => Condition::all(),
+            Some(ConditionType::Any) => Condition::any(),
         };
 
+        conditions = conditions
+            .add_option(validate_opt_pubkey(&self.id)?.map(|x| asset::Column::Id.eq(x)))
+            .add_option(validate_opt_pubkey(&self.alt_id)?.map(|x| asset::Column::AltId.eq(x)))
+            .add_option(
+                self.specification_version
+                    .map(|x| asset::Column::SpecificationVersion.eq(x)),
+            )
+            .add_option(validate_opt_pubkey(&self.owner)?.map(|x| asset::Column::Owner.eq(x)))
+            .add_option(validate_opt_pubkey(&self.delegate)?.map(|x| asset::Column::Delegate.eq(x)))
+            .add_option(self.frozen.map(|x| asset::Column::Frozen.eq(x)))
+            .add_option(self.supply.map(|x| asset::Column::Supply.eq(x)))
+            .add_option(
+                validate_opt_pubkey(&self.supply_mint)?.map(|x| asset::Column::SupplyMint.eq(x)),
+            )
+            .add_option(self.compressed.map(|x| asset::Column::Compressed.eq(x)))
+            .add_option(self.compressible.map(|x| asset::Column::Compressible.eq(x)))
+            .add_option(self.seq.map(|x| asset::Column::Seq.eq(x)))
+            .add_option(validate_opt_pubkey(&self.tree_id)?.map(|x| asset::Column::TreeId.eq(x)))
+            .add_option(validate_opt_pubkey(&self.leaf)?.map(|x| asset::Column::Leaf.eq(x)))
+            .add_option(self.nonce.map(|x| asset::Column::Nonce.eq(x)))
+            .add_option(
+                validate_opt_pubkey(&self.royalty_target)?
+                    .map(|x| asset::Column::RoyaltyTarget.eq(x)),
+            )
+            .add_option(
+                self.royalty_amount
+                    .map(|x| asset::Column::RoyaltyAmount.eq(x)),
+            )
+            .add_option(
+                validate_opt_pubkey(&self.asset_data)?.map(|x| asset::Column::AssetData.eq(x)),
+            )
+            .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
+            .add_option(self.slot_updated.map(|x| asset::Column::SlotUpdated.eq(x)));
+
         match self.negate {
-            None | Some(false) => conditions,
-            Some(true) => conditions.not(),
+            None | Some(false) => Ok(conditions),
+            Some(true) => Ok(conditions.not()),
         }
     }
+}
+
+fn validate_opt_pubkey(pubkey: &Option<String>) -> Result<Option<Vec<u8>>, DbErr> {
+    let opt_bytes = if let Some(pubkey) = pubkey {
+        let pubkey = Pubkey::from_str(pubkey)
+            .map_err(|_| DbErr::Custom(format!("Invalid pubkey {}", pubkey)))?;
+        Some(pubkey.to_bytes().to_vec())
+    } else {
+        None
+    };
+    Ok(opt_bytes)
 }

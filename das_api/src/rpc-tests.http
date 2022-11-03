@@ -86,6 +86,7 @@ content-type: application/json
   "method": "search_assets",
   "params": [
     {
+      //"id": "A7ubV8hnDiJfryepfXV6pqT6o7NKsB5EuuhBAq7M8mj",
       "supply": 1,
       "compresssed": false,
       "burnt": false
