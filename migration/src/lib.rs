@@ -4,6 +4,7 @@ mod m20220101_000001_init;
 mod m20221020_052135_add_asset_hashes;
 mod m20221022_140350_add_creator_asset_unique_index;
 mod m20221025_182127_remove_creator_error_unique_index;
+mod m20221026_155220_add_bg_tasks;
 
 pub struct Migrator;
 
@@ -15,6 +16,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20221020_052135_add_asset_hashes::Migration),
             Box::new(m20221022_140350_add_creator_asset_unique_index::Migration),
             Box::new(m20221025_182127_remove_creator_error_unique_index::Migration),
+            Box::new(m20221026_155220_add_bg_tasks::Migration),
         ]
     }
 }

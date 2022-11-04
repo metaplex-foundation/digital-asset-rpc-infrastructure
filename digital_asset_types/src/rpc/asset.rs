@@ -1,11 +1,14 @@
 #[cfg(feature = "sql_types")]
-use crate::dao::sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType};
-use std::str::FromStr;
+use std::collections::BTreeMap;
+use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions};
+use blockbuster::token_metadata::state::TokenStandard;
+use mpl_bubblegum::state::metaplex_adapter::MetadataArgs;
+
+use crate::dao::sea_orm_active_enums::ChainMutability;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
-use crate::dao::asset::Model as AssetModel;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AssetProof {
@@ -77,24 +80,16 @@ pub struct File {
 pub type Files = Vec<File>;
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
-pub struct MetadataItem(HashMap<String, serde_json::Value>);
+pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
-const SCHEMA: &str = "$$schema";
 
-impl MetadataItem {
-    pub fn new(schema: &str) -> Self {
-        let mut g = HashMap::new();
-        g.insert(SCHEMA.to_string(), serde_json::Value::String(schema.to_string()));
-        Self(g)
+impl MetadataMap {
+    pub fn new() -> Self {
+        Self(BTreeMap::new())
     }
 
-    pub fn inner(&self) -> &HashMap<String, serde_json::Value> {
+    pub fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.0
-    }
-    pub fn single(schema: &str, key: &str, value: serde_json::Value) -> Self {
-        let mut map = MetadataItem::new(schema);
-        map.set_item(key, value);
-        map
     }
 
     pub fn set_item(&mut self, key: &str, value: serde_json::Value) -> &mut Self {
@@ -110,10 +105,10 @@ pub type Links = HashMap<String, serde_json::Value>;
 pub struct Content {
     #[serde(rename = "$schema")]
     pub schema: String,
+    pub json_uri: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Files>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Vec<MetadataItem>>,
+    pub metadata: MetadataMap,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Links>,
 }
@@ -155,7 +150,6 @@ pub struct Compression {
     pub creator_hash: String,
     pub asset_hash: String,
 }
-
 
 pub type GroupKey = String;
 pub type GroupValue = String;
@@ -204,6 +198,8 @@ pub struct Royalty {
     pub royalty_model: RoyaltyModel,
     pub target: Option<String>,
     pub percent: f64,
+    pub basis_points: u32,
+    pub primary_sale_happened: bool,
     pub locked: bool,
 }
 
@@ -274,6 +270,17 @@ impl From<String> for UseMethod {
     }
 }
 
+pub type Mutability = bool;
+
+impl From<ChainMutability> for Mutability {
+    fn from(s: ChainMutability) -> Self {
+        match s {
+            ChainMutability::Mutable => true,
+            ChainMutability::Immutable => false,
+            _ => true,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Uses {
@@ -282,6 +289,12 @@ pub struct Uses {
     pub total: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Supply {
+    pub print_max_supply: u64,
+    pub print_current_supply: u64,
+    pub edition_nonce: u64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Asset {
@@ -302,4 +315,6 @@ pub struct Asset {
     pub ownership: Ownership,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
+    pub supply: Option<Supply>,
+    pub mutable: bool,
 }

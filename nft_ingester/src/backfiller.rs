@@ -1,7 +1,7 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 use crate::{
-    error::IngesterError, safe_metric, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
+    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
     RPC_COMMITMENT_KEY, RPC_URL_KEY,
 };
 use cadence_macros::statsd_count;

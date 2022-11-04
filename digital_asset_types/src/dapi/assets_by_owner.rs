@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, FullAssetList};
+
+use crate::dao::prelude::{AssetData};
+use crate::dao::{asset, asset_data};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use crate::rpc::{Asset as RpcAsset, Compression, Interface, Ownership, Royalty};
+
 use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, DbErr};
-use crate::dapi::asset::{asset_list_to_rpc, get_asset_list_data, get_interface};
+use crate::dapi::asset::{get_asset_list_data};
 
-use super::asset::{get_content, to_authority, to_creators, to_grouping};
+
 
 pub async fn get_assets_by_owner(
     db: &DatabaseConnection,

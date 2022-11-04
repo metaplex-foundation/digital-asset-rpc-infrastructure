@@ -1,4 +1,4 @@
-use crate::{BgTask, IngesterError};
+use crate::{IngesterError, TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
@@ -14,7 +14,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenProgramAccount,
     db: &'c DatabaseConnection,
-    _task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    _task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
     let key = *account_update.pubkey().unwrap();

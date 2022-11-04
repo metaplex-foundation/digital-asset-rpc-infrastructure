@@ -5,8 +5,7 @@ use crate::{
     program_transformers::token_metadata::{
         master_edition::{save_v1_master_edition, save_v2_master_edition},
         v1_asset::save_v1_asset,
-    },
-    BgTask, IngesterError,
+    }, IngesterError, TaskData,
 };
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
 use plerkle_serialization::AccountInfo;
@@ -17,7 +16,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenMetadataAccountState,
     db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
     let key = *account_update.pubkey().unwrap();
@@ -32,7 +31,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
             let task =
                 save_v1_asset(m.mint.as_ref().into(), account_update.slot(), m, &txn).await?;
             txn.commit().await?;
-            task_manager.send(Box::new(task))?;
+            task_manager.send(task)?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {

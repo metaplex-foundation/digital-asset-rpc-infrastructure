@@ -3,7 +3,7 @@ use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 use std::time::Duration;
 use lazy_static::lazy_static;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use log::info;
 
 proxy_wasm::main! {{
@@ -80,7 +80,8 @@ impl Context for RpcProxy {
 impl HttpContext for RpcProxy {
     fn on_http_request_body(&mut self, body_size: usize, end_of_stream: bool) -> Action {
         lazy_static! {
-            static ref FILTER: Regex = Regex::new(r"asset").unwrap();
+            static ref FILTER: Regex = RegexBuilder::new(r"asset")
+            .case_insensitive(true).build().unwrap();
         }
         if !end_of_stream {
             return Action::Pause;
