@@ -9,7 +9,7 @@ use {
     digital_asset_types::{
         dapi::{
             asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*, change_logs::*,
-            listed_assets_by_owner::*, offers_by_owner::*,
+            listed_assets_by_owner::*, offers_by_owner::*, search_assets::*,
         },
         rpc::{
             filter::{AssetSorting, ListingSorting, OfferSorting},
@@ -305,14 +305,28 @@ impl ApiContract for DasApi {
     }
 
     async fn search_assets(
-        &mut self,
-        _search_expression: String,
-        _sort_by: AssetSorting,
-        _limit: u32,
-        _page: u32,
-        _before: String,
-        _after: String,
+        &self,
+        search_expression: serde_json::Value,
+        sort_by: AssetSorting,
+        limit: u32,
+        page: u32,
+        before: String,
+        after: String,
     ) -> Result<AssetList, DasApiError> {
-        todo!()
+        // Deserialize search assets query
+        let search_assets_query: SearchAssetsQuery = serde_json::from_value(search_expression)?;
+
+        // Execute query
+        search_assets(
+            &self.db_connection,
+            search_assets_query,
+            sort_by,
+            limit,
+            page,
+            before.as_bytes().to_vec(),
+            after.as_bytes().to_vec(),
+        )
+        .await
+        .map_err(Into::into)
     }
 }

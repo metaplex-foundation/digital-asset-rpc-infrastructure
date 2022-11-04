@@ -5,7 +5,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_owner",
   "params": [
-    "FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v",
+    "9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ",
     "created",
     50,
     1,
@@ -23,7 +23,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_creator",
   "params": [
-    ["FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v"],
+    ["9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ"],
     "created",
     50,
     1,
@@ -75,4 +75,30 @@ content-type: application/json
   "params": [
     "BEczha2EVgjJMqDLrqv2z19C3t5YVjpER9AHBYeh5zjG"
   ]
+}
+
+###
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "search_assets",
+  "params": [
+    {
+      //"id": "A7ubV8hnDiJfryepfXV6pqT6o7NKsB5EuuhBAq7M8mj",
+      "specification_asset_class": "Nft",
+      "supply": 1,
+      "compresssed": false,
+      "royalty_target_type": "Creators",
+      //"created_at": "2022-11-02T15:46:07.510485+0000",
+      "burnt": false
+    },
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ],
+  "id": 0
 }

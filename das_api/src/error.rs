@@ -16,6 +16,8 @@ pub enum DasApiError {
     DatabaseError(#[from] sea_orm::DbErr),
     #[error("Pagination Error. Only one pagination parameter supported per query.")]
     PaginationError,
+    #[error("Deserialization error: {0}")]
+    DeserializationError(#[from] serde_json::Error),
 }
 
 impl Into<RpcError> for DasApiError {
