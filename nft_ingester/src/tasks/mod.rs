@@ -1,7 +1,7 @@
 use crate::{error::IngesterError, safe_metric};
 use async_trait::async_trait;
 use cadence_macros::{statsd_count, statsd_histogram};
-use chrono::{Duration, Utc};
+use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
 use sea_orm::{
@@ -34,12 +34,16 @@ pub trait BgTask: Send + Sync {
         data: serde_json::Value,
     ) -> Result<(), IngesterError>;
 }
-const RETRY_INTERVAL: u64 = 1000;
-const MAX_TASK_BATCH_SIZE: u64 = 50;
+
+const RETRY_INTERVAL: u64 = 500;
+const MAX_TASK_BATCH_SIZE: u64 = 100;
+
 pub struct TaskData {
     pub name: &'static str,
     pub data: serde_json::Value,
+    pub created_at: Option<NaiveDateTime>,
 }
+
 
 impl TaskData {
     pub fn hash(&self) -> Result<String, IngesterError> {
@@ -88,6 +92,7 @@ impl TaskManager {
                             .less_or_equal(Expr::col(tasks::Column::MaxAttempts)),
                     ),
             )
+            .order_by_desc(tasks::Column::CreatedAt)
             .limit(MAX_TASK_BATCH_SIZE)
             .all(conn)
             .await
@@ -108,8 +113,8 @@ impl TaskManager {
         txn: &A,
         task: tasks::ActiveModel,
     ) -> Result<tasks::ActiveModel, IngesterError>
-    where
-        A: ConnectionTrait,
+        where
+            A: ConnectionTrait,
     {
         let act: tasks::ActiveModel = task;
         act.save(txn).await.map_err(|e| e.into())
@@ -143,23 +148,8 @@ impl TaskManager {
                     duration: Set(None),
                     errors: Set(None),
                 };
-                TaskManager::lock_task(
-                    &mut model,
-                    Duration::seconds(task_executor.lock_duration()),
-                    name,
-                );
-                let model = model.insert(&conn).await?;
-
-                let txn = conn.begin().await?;
-                let model = TaskManager::execute_task(&txn, task_executor, model.into()).await;
-                match model {
-                    Ok(m) => {
-                        TaskManager::save_task(&txn, m).await?;
-                        txn.commit().await
-                    }
-                    Err(_e) => txn.rollback().await,
-                }
-                .map_err(|e| e.into())
+                model.insert(&conn).await?;
+                return Ok(());
             } else {
                 Err(IngesterError::TaskManagerError(format!(
                     "{} not a valid task type",
@@ -263,6 +253,12 @@ impl TaskManager {
 
         let listener_handle = tokio::spawn(async move {
             while let Some(task) = receiver.recv().await {
+                if let Some(task_created_time) = task.created_at {
+                    let bus_time = Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
+                    safe_metric(|| {
+                        statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
+                    });
+                }
                 let name = instance_name.clone();
                 if let Ok(hash) = task.hash() {
                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
@@ -307,55 +303,39 @@ impl TaskManager {
                         println!("tasks that need to be executed: {}", tasks.len());
                         let task_map_clone = task_map.clone();
                         let instance_name = instance_name.clone();
-                        if let Ok(txn) = conn.begin().await {
-                            for task in tasks.iter() {
-                                if let Some(task_executor) =
-                                    task_map_clone.clone().get(&*task.task_type)
+                        for task in tasks {
+                            let task_map_clone = task_map.clone();
+                            let instance_name_clone = instance_name.clone();
+                            let pool = pool.clone();
+                            let task_res = tokio::task::spawn(async move {
+                                if let Some(task_executor) = task_map_clone.clone().get(&*task.task_type)
                                 {
-                                    let mut active_model: tasks::ActiveModel = task.clone().into(); //requires owned
+                                    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
+                                    let mut active_model: tasks::ActiveModel = task.into();
                                     TaskManager::lock_task(
                                         &mut active_model,
                                         Duration::seconds(task_executor.lock_duration()),
-                                        instance_name.clone(),
+                                        instance_name_clone,
                                     );
                                     // can ignore as txn will bubble up errors
-                                    TaskManager::save_task(&txn, active_model).await;
-                                }
-                            }
-                            txn.commit().await;
-                        }
-                        for task in tasks {
-                            let task_map_clone = task_map.clone();
-                            let _instance_name = instance_name.clone();
-                            let pool = pool.clone();
-                            let task_res = tokio::task::spawn(async move {
-                                if let Some(task_executor) =
-                                    task_map_clone.clone().get(&*task.task_type)
-                                {
-                                    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-                                    let active_model: tasks::ActiveModel = task.into();
+                                    let active_model = TaskManager::save_task(&conn, active_model).await?;
                                     let txn = conn.begin().await?;
                                     let model = TaskManager::execute_task(
                                         &txn,
                                         task_executor,
                                         active_model,
                                     )
-                                    .await;
-                                    return match model {
-                                        Ok(m) => {
-                                            TaskManager::save_task(&txn, m).await?;
-                                            txn.commit().await
-                                        }
-                                        Err(_e) => txn.rollback().await,
-                                    }
-                                    .map_err(|e| e.into());
+                                        .await?;
+                                    txn.commit().await?;
+                                    TaskManager::save_task(&conn, model).await?;
+                                    return Ok(());
                                 }
                                 Err(IngesterError::TaskManagerError(format!(
                                     "{} not a valid task type",
                                     task.task_type
                                 )))
                             })
-                            .await;
+                                .await;
                             TaskManager::task_metrics(task_res);
                         }
                     }

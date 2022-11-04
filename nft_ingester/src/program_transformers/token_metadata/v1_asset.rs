@@ -22,6 +22,7 @@ use sea_orm::{
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
+use chrono::Utc;
 
 use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
 use sea_orm::{FromQueryResult, JoinType};
@@ -369,6 +370,7 @@ pub async fn save_v1_asset(
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
+        created_at: Some(Utc::now().naive_utc())
     };
     task.sanitize();
     task.into_task_data()

@@ -8,6 +8,7 @@ use sea_orm::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
+use chrono::NaiveDateTime;
 use reqwest::{Client, ClientBuilder};
 use solana_sdk::client;
 
@@ -17,6 +18,8 @@ const TASK_NAME: &str = "DownloadMetadata";
 pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
+    #[serde(skip_serializing)]
+    pub created_at: Option<NaiveDateTime>
 }
 
 impl DownloadMetadata {
@@ -27,11 +30,13 @@ impl DownloadMetadata {
 
 impl IntoTaskData for DownloadMetadata {
     fn into_task_data(self) -> Result<TaskData, IngesterError> {
+        let ts = self.created_at.clone();
         let data = serde_json::to_value(self)
             .map_err(<serde_json::Error as Into<IngesterError>>::into)?;
         Ok(TaskData {
             name: TASK_NAME,
             data,
+            created_at: ts
         })
     }
 }

@@ -26,6 +26,7 @@ use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{TokenStandard, UseMethod, Uses},
 };
+use chrono::Utc;
 
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
@@ -248,6 +249,7 @@ pub async fn mint_v1<'c>(
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
+                    created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();
                 return task.into_task_data();
