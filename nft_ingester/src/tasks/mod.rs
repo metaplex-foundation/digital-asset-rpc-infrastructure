@@ -5,12 +5,8 @@ use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
 use sea_orm::{
-    entity::*,
-    query::*,
-    sea_query::{Expr},
-    ActiveValue::Set,
-    ColumnTrait, DatabaseConnection, DatabaseTransaction, DeleteResult, SqlxPostgresConnector,
-    TransactionTrait,
+    entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
+    DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
 };
 
 use sqlx::{Pool, Postgres};
@@ -35,7 +31,7 @@ pub trait BgTask: Send + Sync {
     ) -> Result<(), IngesterError>;
 }
 
-const RETRY_INTERVAL: u64 = 500;
+const RETRY_INTERVAL: u64 = 1000;
 const MAX_TASK_BATCH_SIZE: u64 = 100;
 
 pub struct TaskData {
@@ -43,7 +39,6 @@ pub struct TaskData {
     pub data: serde_json::Value,
     pub created_at: Option<NaiveDateTime>,
 }
-
 
 impl TaskData {
     pub fn hash(&self) -> Result<String, IngesterError> {
@@ -103,7 +98,6 @@ impl TaskManager {
         let cod = Expr::cust("NOW() - created_at::timestamp > interval '60 minute'"); //TOdo parametrize
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
-
             .exec(conn)
             .await
             .map_err(|e| e.into())
@@ -113,8 +107,8 @@ impl TaskManager {
         txn: &A,
         task: tasks::ActiveModel,
     ) -> Result<tasks::ActiveModel, IngesterError>
-        where
-            A: ConnectionTrait,
+    where
+        A: ConnectionTrait,
     {
         let act: tasks::ActiveModel = task;
         act.save(txn).await.map_err(|e| e.into())
@@ -128,12 +122,13 @@ impl TaskManager {
 
     fn new_task_executor(
         pool: Pool<Postgres>,
+        instance_name: String,
         name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
     ) -> JoinHandle<Result<(), IngesterError>> {
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-        tokio::spawn(async move {
+        tokio::task::spawn(async move {
             if let Some(task_executor) = tasks_def.get(task.name) {
                 let mut model = tasks::ActiveModel {
                     id: Set(task.hash()?),
@@ -148,7 +143,13 @@ impl TaskManager {
                     duration: Set(None),
                     errors: Set(None),
                 };
-                model.insert(&conn).await?;
+                let duration = Duration::seconds(task_executor.lock_duration());
+                TaskManager::lock_task(&mut model, duration, instance_name);
+                let model = model.insert(&conn).await?;
+                let txn = conn.begin().await?;
+                let model = TaskManager::execute_task(&txn, task_executor, model.into()).await?;
+                txn.commit().await?;
+                TaskManager::save_task(&conn, model).await?;
                 return Ok(());
             } else {
                 Err(IngesterError::TaskManagerError(format!(
@@ -199,13 +200,18 @@ impl TaskManager {
                 task.locked_by = Set(None);
             }
             Err(e) => {
+                if e == IngesterError::UnrecoverableTaskError {
+                    task.attempts = Set(task_def.max_attempts() + 1);
+                    task.locked_by = Set(Some("permanent failure".to_string())); // todo add new task status
+                } else {
+                    task.locked_by = Set(None);
+                }
                 safe_metric(|| {
                     statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
                 });
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
-                task.locked_by = Set(None);
                 println!("Task Run Error: {}", e.to_string());
             }
         }
@@ -229,21 +235,6 @@ impl TaskManager {
         }
     }
 
-    fn task_metrics(task_res: Result<Result<(), IngesterError>, JoinError>) {
-        match task_res {
-            Ok(Ok(_)) => (),
-            Ok(Err(e)) => {
-                println!("new task error: {}", e.to_string());
-            }
-            Err(err) if err.is_panic() => {
-                safe_metric(|| {
-                    statsd_count!("ingester.bgtask.task_panic", 1);
-                });
-            }
-            Err(_) => (),
-        };
-    }
-
     pub fn start(&mut self) -> (JoinHandle<()>, JoinHandle<()>) {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
@@ -251,10 +242,11 @@ impl TaskManager {
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
-        let listener_handle = tokio::spawn(async move {
+        let listener_handle = tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
                 if let Some(task_created_time) = task.created_at {
-                    let bus_time = Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
+                    let bus_time =
+                        Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
                     safe_metric(|| {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     });
@@ -272,11 +264,14 @@ impl TaskManager {
                         });
                         continue;
                     }
-                    let task_res =
-                        TaskManager::new_task_executor(pool.clone(), name, task, task_map.clone())
-                            .await;
-                    TaskManager::task_metrics(task_res);
-                };
+                    TaskManager::new_task_executor(
+                        pool.clone(),
+                        instance_name.clone(),
+                        name,
+                        task,
+                        task_map.clone(),
+                    );
+                }
             }
         });
 
@@ -307,8 +302,9 @@ impl TaskManager {
                             let task_map_clone = task_map.clone();
                             let instance_name_clone = instance_name.clone();
                             let pool = pool.clone();
-                            let task_res = tokio::task::spawn(async move {
-                                if let Some(task_executor) = task_map_clone.clone().get(&*task.task_type)
+                            tokio::task::spawn(async move {
+                                if let Some(task_executor) =
+                                    task_map_clone.clone().get(&*task.task_type)
                                 {
                                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
                                     let mut active_model: tasks::ActiveModel = task.into();
@@ -318,14 +314,15 @@ impl TaskManager {
                                         instance_name_clone,
                                     );
                                     // can ignore as txn will bubble up errors
-                                    let active_model = TaskManager::save_task(&conn, active_model).await?;
+                                    let active_model =
+                                        TaskManager::save_task(&conn, active_model).await?;
                                     let txn = conn.begin().await?;
                                     let model = TaskManager::execute_task(
                                         &txn,
                                         task_executor,
                                         active_model,
                                     )
-                                        .await?;
+                                    .await?;
                                     txn.commit().await?;
                                     TaskManager::save_task(&conn, model).await?;
                                     return Ok(());
@@ -334,9 +331,7 @@ impl TaskManager {
                                     "{} not a valid task type",
                                     task.task_type
                                 )))
-                            })
-                                .await;
-                            TaskManager::task_metrics(task_res);
+                            });
                         }
                     }
                     Err(e) => {

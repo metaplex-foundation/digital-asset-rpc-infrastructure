@@ -149,6 +149,9 @@ pub struct Compression {
     pub data_hash: String,
     pub creator_hash: String,
     pub asset_hash: String,
+    pub tree: String,
+    pub seq: i64,
+    pub leaf_id: i64
 }
 
 pub type GroupKey = String;

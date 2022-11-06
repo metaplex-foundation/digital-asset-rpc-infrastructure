@@ -41,8 +41,7 @@ CREATE TABLE backfill_items
     seq        BIGINT   not null,
     slot       BIGINT   not null,
     force_chk  bool     not null,
-    backfilled bool     not null,
-    failed     bool     not null default false
+    backfilled bool     not null
 );
 -- @@@@@@
 

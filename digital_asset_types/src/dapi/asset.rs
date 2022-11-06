@@ -225,6 +225,10 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
+            leaf_id: asset.nonce,
+            seq: asset.seq,
+            tree: asset.tree_id.map(|s| bs58::encode(s).into_string())
+                .unwrap_or_default(),
             asset_hash: asset
                 .leaf
                 .map(|s| bs58::encode(s).into_string())
@@ -277,7 +281,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
                 .into(),
             total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-        })
+        }),
     })
 }
 
@@ -376,12 +380,12 @@ pub async fn get_asset_list_data(
     let built_assets = asset_list_to_rpc(FullAssetList {
         list: assets_map.into_iter().map(|(_, v)| v).collect(),
     })
-    .into_iter()
-    .fold(Vec::with_capacity(len), |mut acc, i| {
-        if let Ok(a) = i {
-            acc.push(a);
-        }
-        acc
-    });
+        .into_iter()
+        .fold(Vec::with_capacity(len), |mut acc, i| {
+            if let Ok(a) = i {
+                acc.push(a);
+            }
+            acc
+        });
     Ok(built_assets)
 }

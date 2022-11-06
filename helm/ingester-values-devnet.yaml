@@ -1,6 +1,6 @@
 generateLoad: true
 load:
   network: "devnet"
-replicaCount: 5
+replicaCount: 10
 backfiller:
   replicaCount: 1

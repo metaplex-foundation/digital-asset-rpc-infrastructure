@@ -5,7 +5,7 @@ use sea_orm::{DbErr, TransactionError};
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum IngesterError {
     #[error("ChangeLog Event Malformed")]
     ChangeLogEventMalformed,
@@ -43,6 +43,8 @@ pub enum IngesterError {
     UnknownTaskType(String),
     #[error("BG Task Manager Not Started")]
     TaskManagerNotStarted,
+    #[error("Unrecoverable task error")]
+    UnrecoverableTaskError
 }
 
 impl From<reqwest::Error> for IngesterError {
