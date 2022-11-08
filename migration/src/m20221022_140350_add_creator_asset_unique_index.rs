@@ -1,4 +1,4 @@
-use digital_asset_types::dao::asset_creators;
+use digital_asset_types::dao::generated::asset_creators;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
