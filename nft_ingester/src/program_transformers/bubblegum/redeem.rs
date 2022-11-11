@@ -1,5 +1,5 @@
 use crate::{
-    program_transformers::{bubblegum::db::update_asset, common::save_changelog_event},
+    program_transformers::bubblegum::db::update_asset, tasks::common::save_changelog_event,
     IngesterError,
 };
 use blockbuster::{
@@ -15,7 +15,7 @@ pub async fn redeem<'c>(
     txn: &'c DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         return match le.schema {
             LeafSchema::V1 {
                 id,

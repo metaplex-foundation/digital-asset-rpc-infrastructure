@@ -9,3 +9,4 @@ pub mod candy_machines_by_size;
 pub mod change_logs;
 pub mod listed_assets_by_owner;
 pub mod offers_by_owner;
+pub mod search_assets;

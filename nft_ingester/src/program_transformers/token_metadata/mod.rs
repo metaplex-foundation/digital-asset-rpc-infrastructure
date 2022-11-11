@@ -1,32 +1,37 @@
-mod v1_asset;
 mod master_edition;
+mod v1_asset;
 
-use crate::{program_transformers::token_metadata::v1_asset::save_v1_asset, BgTask, IngesterError};
+use crate::{
+    program_transformers::token_metadata::{
+        master_edition::{save_v1_master_edition, save_v2_master_edition},
+        v1_asset::save_v1_asset,
+    }, IngesterError, TaskData,
+};
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
-use crate::program_transformers::token_metadata::master_edition::{save_v1_master_edition, save_v2_master_edition};
 
 pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenMetadataAccountState,
     db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
-    let key = account_update.pubkey().unwrap().clone();
+    let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
         // TokenMetadataAccountData::EditionV1(e) => {}
         TokenMetadataAccountData::MasterEditionV1(m) => {
-            save_v1_master_edition(key, account_update.slot(), &m, &txn).await?;
+            save_v1_master_edition(key, account_update.slot(), m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            let task = save_v1_asset(m.mint.as_ref().into(), account_update.slot(), &m, &txn).await?;
+            let task =
+                save_v1_asset(m.mint.as_ref().into(), account_update.slot(), m, &txn).await?;
             txn.commit().await?;
-            task_manager.send(Box::new(task))?;
+            task_manager.send(task)?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {

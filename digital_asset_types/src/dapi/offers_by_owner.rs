@@ -9,7 +9,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 pub async fn get_offers_by_owner(
     db: &DatabaseConnection,
     owner_address: Vec<u8>,
-    sort_by: OfferSorting,
+    _sort_by: OfferSorting,
     limit: u32,
     page: u32,
     before: Vec<u8>,
@@ -68,7 +68,7 @@ pub async fn get_offers_by_owner(
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })
         .collect();
-    let build_listings_list = filter_assets?.into_iter().map(|asset| async move {
+    let build_listings_list = filter_assets?.into_iter().map(|_asset| async move {
         Offer {
             from: todo!(),
             amount: todo!(),

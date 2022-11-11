@@ -1,17 +1,16 @@
-use crate::dao::full_asset;
+use crate::dao::full_asset::{ FullAssetList, FullAsset};
 use crate::dao::generated::prelude::{Asset, AssetData};
 use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, MetadataItem, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
-    Royalty, Scope,
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Royalty, Scope, Supply, Uses, MetadataMap
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DbErr;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{QueryOrder,DbErr,ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use url::Url;
 
@@ -61,27 +60,30 @@ pub fn safe_select<'a>(
         .and_then(|v| v.pop())
 }
 
-fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> {
+pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr> {
     // todo -> move this to the bg worker for pre processing
+    let json_uri = asset_data.metadata_url.clone();
+    let metadata = &asset_data.metadata;
     let mut selector_fn = jsonpath_lib::selector(metadata);
+    let mut chain_data_selector_fn = jsonpath_lib::selector(&asset_data.chain_data);
     let selector = &mut selector_fn;
-    println!("{}", metadata.to_string());
-    let mut meta: Vec<MetadataItem> = Vec::new();
-    let image = safe_select(selector, "$.image");
-    let name = safe_select(selector, "$.name")
-        .map(|x| MetadataItem::single("name".to_string(), x.clone()));
+    let chain_data_selector = &mut chain_data_selector_fn;
+    let mut meta: MetadataMap = MetadataMap::new();
+    let name = safe_select(chain_data_selector, "$.name");
     if let Some(name) = name {
-        meta.push(name);
+        meta.set_item("name", name.clone());
     }
-    let desc = safe_select(selector, "$.description")
-        .map(|x| MetadataItem::single("description".to_string(), x.clone()));
+    let desc = safe_select(selector, "$.description");
     if let Some(desc) = desc {
-        meta.push(desc);
+        meta.set_item("description", desc.clone());
     }
-    let symbol = safe_select(selector, "$.symbol")
-        .map(|x| MetadataItem::single("symbol".to_string(), x.clone()));
+    let symbol = safe_select(chain_data_selector, "$.symbol");
     if let Some(symbol) = symbol {
-        meta.push(symbol);
+        meta.set_item("symbol", symbol.clone());
+    }
+    let symbol = safe_select(selector, "$.attributes");
+    if let Some(symbol) = symbol {
+        meta.set_item("attributes", symbol.clone());
     }
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
@@ -90,7 +92,7 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
         links.insert("external_url".to_string(), val[0].to_owned());
         links
     });
-    let metadata = safe_select(selector, "description");
+    let _metadata = safe_select(selector, "description");
     let mut actual_files: HashMap<String, File> = HashMap::new();
     selector("$.properties.files[*]")
         .ok()
@@ -131,19 +133,19 @@ fn v1_content_from_json(metadata: &serde_json::Value) -> Result<Content, DbErr> 
     track_top_level_file(&mut actual_files, animation);
     let files: Vec<File> = actual_files.into_values().collect();
 
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
+        json_uri,
         files: Some(files),
-        metadata: Some(meta),
+        metadata: meta,
         links: external_url,
     })
 }
 
 pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
-        SpecificationVersions::V1 => v1_content_from_json(&data.metadata),
-        SpecificationVersions::V0 => v1_content_from_json(&data.metadata),
+        SpecificationVersions::V1 => v1_content_from_json(data),
+        SpecificationVersions::V0 => v1_content_from_json(data),
         _ => Err(DbErr::Custom("Version Not Implemented".to_string())),
     }
 }
@@ -187,13 +189,13 @@ pub fn get_interface(asset: &asset::Model) -> Interface {
         (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
         (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
         (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
-        _ => Interface::Nft,
+        _ => Interface::V1NFT,
     }
 }
 
 //TODO -> impl custom erro type
-pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
-    let full_asset::FullAsset {
+pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
+    let FullAsset {
         asset,
         data,
         authorities,
@@ -205,20 +207,47 @@ pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
     let rpc_groups = to_grouping(groups);
     let interface = get_interface(&asset);
     let content = get_content(&asset, &data)?;
+    let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
+    let chain_data_selector = &mut chain_data_selector_fn;
+    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     Ok(RpcAsset {
-        interface,
+        interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
         content: Some(content),
         authorities: Some(rpc_authorities),
+        mutable: data.chain_data_mutability.into(),
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
+            leaf_id: asset.nonce,
+            seq: asset.seq,
+            tree: asset.tree_id.map(|s| bs58::encode(s).into_string())
+                .unwrap_or_default(),
+            asset_hash: asset
+                .leaf
+                .map(|s| bs58::encode(s).into_string())
+                .unwrap_or_default(),
+            data_hash: asset
+                .data_hash
+                .map(|e| e.trim().to_string())
+                .unwrap_or_default(),
+            creator_hash: asset
+                .creator_hash
+                .map(|e| e.trim().to_string())
+                .unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
         royalty: Some(Royalty {
             royalty_model: asset.royalty_target_type.into(),
             target: asset.royalty_target.map(|s| bs58::encode(s).into_string()),
             percent: (asset.royalty_amount as f64) * 0.0001,
+            basis_points: asset.royalty_amount as u32,
+            primary_sale_happened: basis_points,
             locked: false,
         }),
         creators: Some(rpc_creators),
@@ -232,12 +261,30 @@ pub fn asset_to_rpc(asset: full_asset::FullAsset) -> Result<RpcAsset, DbErr> {
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
         },
+        supply: match interface {
+            Interface::V1NFT => Some(
+                Supply {
+                    edition_nonce: edition_nonce,
+                    print_current_supply: 0,
+                    print_max_supply: 0,
+                }
+            ),
+            _ => None
+        },
+        uses: data.chain_data.get("uses").map(|u| Uses {
+            use_method: u
+                .get("use_method")
+                .and_then(|s| s.as_str())
+                .unwrap_or("Single")
+                .to_string()
+                .into(),
+            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+        }),
     })
 }
 
-pub async fn asset_list_to_rpc(
-    asset_list: full_asset::FullAssetList,
-) -> Vec<Result<RpcAsset, DbErr>> {
+pub fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
     asset_list.list.into_iter().map(asset_to_rpc).collect()
 }
 
@@ -264,7 +311,7 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .all(db)
         .await?;
-    asset_to_rpc(full_asset::FullAsset {
+    asset_to_rpc(FullAsset {
         asset,
         data,
         authorities,
@@ -273,30 +320,71 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
     })
 }
 
-#[cfg(test)]
-mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+pub async fn get_asset_list_data(
+    db: &DatabaseConnection,
+    assets: Vec<(asset::Model, Option<asset_data::Model>)>,
+) -> Result<Vec<RpcAsset>, DbErr> {
+    let mut ids = Vec::with_capacity(assets.len());
+    // Using BTreeMap to preserve order.
+    let mut assets_map = assets.into_iter().fold(BTreeMap::new(), |mut x, asset| {
+        if let Some(ad) = asset.1 {
+            let id = asset.0.id.clone();
+            let fa = FullAsset {
+                asset: asset.0,
+                data: ad,
+                authorities: vec![],
+                creators: vec![],
+                groups: vec![],
+            };
 
-    #[test]
-    fn simple_v1_content() {
-        let doc = r#"
-        {"name": "Handalf", "image": "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY", "attributes": [], "properties": {"files": ["https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY"], "category": null}, "description": "The Second NFT ever minted from justmint.xyz", "external_url": ""}
-        "#;
+            x.insert(id.clone(), fa);
+            ids.push(id);
+        }
+        x
+    });
 
-        let json: Value = serde_json::from_str(doc).unwrap();
-        let mut selector = jsonpath_lib::selector(&json);
-        let c: Content = v1_content_from_json(&json).unwrap();
-        assert_eq!(
-            c.files,
-            Some(vec![File {
-                uri: Some(
-                    "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY".to_string()
-                ),
-                mime: None,
-                quality: None,
-                contexts: None,
-            }])
-        )
+    let authorities = asset_authority::Entity::find()
+        .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_authority::Column::AssetId)
+        .all(db)
+        .await?;
+    for a in authorities.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&a.asset_id) {
+            asset.authorities.push(a);
+        }
     }
+
+    let creators = asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_creators::Column::AssetId)
+        .all(db)
+        .await?;
+    for c in creators.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+            asset.creators.push(c);
+        }
+    }
+
+    let grouping = asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_grouping::Column::AssetId)
+        .all(db)
+        .await?;
+    for g in grouping.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+            asset.groups.push(g);
+        }
+    }
+    let len = assets_map.len();
+    let built_assets = asset_list_to_rpc(FullAssetList {
+        list: assets_map.into_iter().map(|(_, v)| v).collect(),
+    })
+        .into_iter()
+        .fold(Vec::with_capacity(len), |mut acc, i| {
+            if let Ok(a) = i {
+                acc.push(a);
+            }
+            acc
+        });
+    Ok(built_assets)
 }

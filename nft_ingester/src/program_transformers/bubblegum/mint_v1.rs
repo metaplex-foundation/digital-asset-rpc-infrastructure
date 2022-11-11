@@ -1,4 +1,5 @@
-use crate::{program_transformers::common::save_changelog_event, IngesterError};
+use std::collections::HashSet;
+use crate::{IngesterError, TaskData};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -7,9 +8,7 @@ use digital_asset_types::{
     dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
-        sea_orm_active_enums::{
-            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, V1AccountAttachments,
-        },
+        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
 };
@@ -19,12 +18,20 @@ use sea_orm::{
     EntityTrait, JsonValue,
 };
 
-use crate::program_transformers::common::task::DownloadMetadata;
-use blockbuster::token_metadata::pda::find_master_edition_account;
-use blockbuster::token_metadata::state::{TokenStandard, UseMethod, Uses};
-use digital_asset_types::dao::generated::sea_orm_active_enums::{
-    SpecificationAssetClass, SpecificationVersions,
+use crate::tasks::{
+    common::{save_changelog_event, task::DownloadMetadata},
+    IntoTaskData,
 };
+use blockbuster::token_metadata::{
+    pda::find_master_edition_account,
+    state::{TokenStandard, UseMethod, Uses},
+};
+use chrono::Utc;
+
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
+};
+use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -32,13 +39,13 @@ pub async fn mint_v1<'c>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c DatabaseTransaction,
-) -> Result<DownloadMetadata, IngesterError> {
+) -> Result<TaskData, IngesterError> {
     if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (
         &parsing_result.leaf_update,
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let metadata = args;
         return match le.schema {
             LeafSchema::V1 {
@@ -49,7 +56,9 @@ pub async fn mint_v1<'c>(
                 ..
             } => {
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
+                let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
+                let uri = metadata.uri.trim().replace('\0', "");
                 let mut chain_data = ChainDataV1 {
                     name: metadata.name.clone(),
                     symbol: metadata.symbol.clone(),
@@ -69,19 +78,21 @@ pub async fn mint_v1<'c>(
                     true => ChainMutability::Mutable,
                     false => ChainMutability::Immutable,
                 };
-
+                if uri.is_empty() {
+                    return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+                }
                 let data = asset_data::ActiveModel {
-                    id: Set(id.to_bytes().to_vec()),
+                    id: Set(id_bytes.to_vec()),
                     chain_data_mutability: Set(chain_mutability),
                     chain_data: Set(chain_data_json),
-                    metadata_url: Set(metadata.uri.trim().replace('\0', "")),
+                    metadata_url: Set(uri),
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),
                     ..Default::default()
                 }
-                .insert(txn)
-                .await?;
+                    .insert(txn)
+                    .await?;
 
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
@@ -89,8 +100,18 @@ pub async fn mint_v1<'c>(
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
+                let data_hash = hash_metadata(args)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
+                let creator_hash = hash_creators(&args.creators)
+                    .map(|e| bs58::encode(e).into_string())
+                    .unwrap_or("".to_string())
+                    .trim()
+                    .to_string();
                 let model = asset::ActiveModel {
-                    id: Set(id.to_bytes().to_vec()),
+                    id: Set(id_bytes.to_vec()),
                     owner: Set(Some(owner.to_bytes().to_vec())),
                     owner_type: Set(OwnerType::Single),
                     delegate: Set(delegate),
@@ -98,7 +119,7 @@ pub async fn mint_v1<'c>(
                     supply: Set(1),
                     supply_mint: Set(None),
                     compressed: Set(true),
-                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())), //will change when we remove requests
+                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
                     nonce: Set(nonce as i64),
@@ -109,6 +130,8 @@ pub async fn mint_v1<'c>(
                     asset_data: Set(Some(data.id)),
                     seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(slot_i),
+                    data_hash: Set(Some(data_hash)),
+                    creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 
@@ -140,80 +163,96 @@ pub async fn mint_v1<'c>(
                 txn.execute(query).await?;
 
                 // Insert into `asset_creators` table.
-                if metadata.creators.len() > 0 {
-                    let mut creators = Vec::with_capacity(metadata.creators.len());
-                    for c in metadata.creators.iter() {
-                        creators.push(asset_creators::ActiveModel {
-                            asset_id: Set(id.to_bytes().to_vec()),
+                let creators = &metadata.creators;
+                if !creators.is_empty() {
+                    let mut db_creators = Vec::with_capacity(creators.len());
+                    let mut creators_set = HashSet::new();
+                    for (i, c) in creators.into_iter().enumerate() {
+                        if creators_set.contains(&c.address) {
+                            continue;
+                        }
+                        db_creators.push(asset_creators::ActiveModel {
+                            asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             share: Set(c.share as i32),
                             verified: Set(c.verified),
+                            seq: Set(seq as i64), // do we need this here @micheal-danenberg?
+                            slot_updated: Set(slot_i),
+                            position: Set(i as i16),
+                            ..Default::default()
+                        });
+                        creators_set.insert(c.address);
+                    }
+
+                    let query = asset_creators::Entity::insert_many(db_creators)
+                        .on_conflict(
+                            OnConflict::columns([
+                                asset_creators::Column::AssetId,
+                                asset_creators::Column::Position,
+                            ])
+                                .update_columns([
+                                    asset_creators::Column::Creator,
+                                    asset_creators::Column::Share,
+                                    asset_creators::Column::Verified,
+                                    asset_creators::Column::Seq,
+                                    asset_creators::Column::SlotUpdated,
+                                ])
+                                .to_owned(),
+                        )
+                        .build(DbBackend::Postgres);
+                    txn.execute(query).await?;
+                }
+                // Insert into `asset_authority` table.
+                let model = asset_authority::ActiveModel {
+                    asset_id: Set(id_bytes.to_vec()),
+                    authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
+                    seq: Set(seq as i64),
+                    slot_updated: Set(slot_i),
+                    ..Default::default()
+                };
+
+                // Do not attempt to modify any existing values:
+                // `ON CONFLICT ('asset_id') DO NOTHING`.
+                let query = asset_authority::Entity::insert(model)
+                    .on_conflict(
+                        OnConflict::columns([asset_authority::Column::AssetId])
+                            .do_nothing()
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                txn.execute(query).await?;
+
+                // Insert into `asset_grouping` table.
+                if let Some(c) = &metadata.collection {
+                    if c.verified {
+                        let model = asset_grouping::ActiveModel {
+                            asset_id: Set(id_bytes.to_vec()),
+                            group_key: Set("collection".to_string()),
+                            group_value: Set(c.key.to_string()),
                             seq: Set(seq as i64), // gummyroll seq
                             slot_updated: Set(slot_i),
                             ..Default::default()
-                        });
-                    }
+                        };
 
-                    // Do not attempt to modify any existing values:
-                    // `ON CONFLICT ('asset_id') DO NOTHING`.
-                    let query = asset_creators::Entity::insert_many(creators)
-                        .on_conflict(
-                            OnConflict::columns([asset_creators::Column::AssetId])
-                                .do_nothing()
-                                .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    txn.execute(query).await?;
-
-                    // Insert into `asset_authority` table.
-                    let model = asset_authority::ActiveModel {
-                        asset_id: Set(id.to_bytes().to_vec()),
-                        authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
-                        seq: Set(seq as i64),
-                        slot_updated: Set(slot_i),
-                        ..Default::default()
-                    };
-
-                    // Do not attempt to modify any existing values:
-                    // `ON CONFLICT ('asset_id') DO NOTHING`.
-                    let query = asset_authority::Entity::insert(model)
-                        .on_conflict(
-                            OnConflict::columns([asset_authority::Column::AssetId])
-                                .do_nothing()
-                                .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    txn.execute(query).await?;
-
-                    // Insert into `asset_grouping` table.
-                    if let Some(c) = &metadata.collection {
-                        if c.verified {
-                            let model = asset_grouping::ActiveModel {
-                                asset_id: Set(id.to_bytes().to_vec()),
-                                group_key: Set("collection".to_string()),
-                                group_value: Set(c.key.to_string()),
-                                seq: Set(seq as i64), // gummyroll seq
-                                slot_updated: Set(slot_i),
-                                ..Default::default()
-                            };
-
-                            // Do not attempt to modify any existing values:
-                            // `ON CONFLICT ('asset_id') DO NOTHING`.
-                            let query = asset_grouping::Entity::insert(model)
-                                .on_conflict(
-                                    OnConflict::columns([asset_grouping::Column::AssetId])
-                                        .do_nothing()
-                                        .to_owned(),
-                                )
-                                .build(DbBackend::Postgres);
-                            txn.execute(query).await?;
-                        }
+                        // Do not attempt to modify any existing values:
+                        // `ON CONFLICT ('asset_id') DO NOTHING`.
+                        let query = asset_grouping::Entity::insert(model)
+                            .on_conflict(
+                                OnConflict::columns([asset_grouping::Column::AssetId])
+                                    .do_nothing()
+                                    .to_owned(),
+                            )
+                            .build(DbBackend::Postgres);
+                        txn.execute(query).await?;
                     }
                 }
-                return Ok(DownloadMetadata {
-                    asset_data_id: id.to_bytes().to_vec(),
+                let mut task = DownloadMetadata {
+                    asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
-                });
+                    created_at: Some(Utc::now().naive_utc()),
+                };
+                task.sanitize();
+                return task.into_task_data();
             }
             _ => Err(IngesterError::NotImplemented),
         }?;

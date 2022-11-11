@@ -9,7 +9,7 @@ use blockbuster::{
     },
 };
 
-use crate::{error::IngesterError, BgTask};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
@@ -32,19 +32,18 @@ mod bubblegum;
 // mod candy_guard;
 mod candy_machine;
 mod candy_machine_core;
-mod common;
 mod token;
 mod token_metadata;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
-    task_sender: UnboundedSender<Box<dyn BgTask>>,
+    task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: PgPool, task_sender: UnboundedSender<Box<dyn BgTask>>) -> Self {
+    pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>) -> Self {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
         let bgum = BubblegumParser {};
         let candy_machine = CandyMachineParser {};
@@ -95,7 +94,7 @@ impl ProgramTransformer {
                 ProgramParseResult::Bubblegum(parsing_result) => {
                     handle_bubblegum_instruction(
                         parsing_result,
-                        &ix,
+                        ix,
                         &self.storage,
                         &self.task_sender,
                     )
@@ -112,59 +111,58 @@ impl ProgramTransformer {
         &self,
         acct: &'b AccountInfo<'b>,
     ) -> Result<(), IngesterError> {
-        if let Some(owner) = acct.owner() {
-            if let Some(program) = self.match_program(owner) {
-                let result = program.handle_account(acct)?;
-                let concrete = result.result_type();
-                match concrete {
-                    ProgramParseResult::CandyMachine(parsing_result) => {
-                        handle_candy_machine_account_update(
-                            &acct,
-                            parsing_result,
-                            &self.storage,
-                            &self.task_sender,
-                        )
-                        .await
-                    }
-                    ProgramParseResult::CandyMachineCore(parsing_result) => {
-                        handle_candy_machine_core_account_update(
-                            &acct,
-                            parsing_result,
-                            &self.storage,
-                            &self.task_sender,
-                        )
-                        .await
-                    }
-                    // ProgramParseResult::CandyGuard(parsing_result) => {
-                    //     handle_candy_guard_account_update(
-                    //         &acct,
-                    //         parsing_result,
-                    //         &self.storage,
-                    //         &self.task_sender,
-                    //     )
-                    //     .await
-                    // }
-                    ProgramParseResult::TokenMetadata(parsing_result) => {
-                        handle_token_metadata_account(
-                            &acct,
-                            parsing_result,
-                            &self.storage,
-                            &self.task_sender,
-                        )
-                        .await
-                    }
-                    ProgramParseResult::TokenProgramAccount(parsing_result) => {
-                        handle_token_program_account(
-                            &acct,
-                            parsing_result,
-                            &self.storage,
-                            &self.task_sender,
-                        )
-                        .await
-                    }
-                    _ => Err(IngesterError::NotImplemented),
-                }?;
-            }
+        let owner = acct.owner().unwrap();
+        if let Some(program) = self.match_program(owner) {
+            let result = program.handle_account(&acct)?;
+            let concrete = result.result_type();
+            match concrete {
+                ProgramParseResult::TokenMetadata(parsing_result) => {
+                    handle_token_metadata_account(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
+                }
+                ProgramParseResult::TokenProgramAccount(parsing_result) => {
+                    handle_token_program_account(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
+                }
+                ProgramParseResult::CandyMachine(parsing_result) => {
+                    handle_candy_machine_account_update(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
+                }
+                ProgramParseResult::CandyMachineCore(parsing_result) => {
+                    handle_candy_machine_core_account_update(
+                        &acct,
+                        parsing_result,
+                        &self.storage,
+                        &self.task_sender,
+                    )
+                    .await
+                }
+                // ProgramParseResult::CandyGuard(parsing_result) => {
+                //     handle_candy_guard_account_update(
+                //         &acct,
+                //         parsing_result,
+                //         &self.storage,
+                //         &self.task_sender,
+                //     )
+                //     .await
+                // }
+                _ => Err(IngesterError::NotImplemented),
+            }?;
         }
         Ok(())
     }

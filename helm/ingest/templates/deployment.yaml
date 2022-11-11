@@ -16,6 +16,7 @@ spec:
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
+        ad.datadoghq.com/{{ .Chart.Name }}.logs: '[{"source":"ingester","service":"ingester","tags":"env:devnet"}]'
       {{- end }}
       labels:
         {{- include "ingest.selectorLabels" . | nindent 8 }}
@@ -35,7 +36,6 @@ spec:
             value: "{{ .Values.metrics.data_dog_api_key }}"
           ports:
           - containerPort: 8125
-            hostPort: 8125
             name: dogstatsdport
             protocol: UDP
         - name: {{ .Chart.Name }}
@@ -45,9 +45,7 @@ spec:
           - name: RUST_LOG
             value: "info"
           - name: INGESTER_METRICS_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
+            value: 127.0.0.1
           - name: INGESTER_METRICS_PORT
             value: "8125"
           - name: INGESTER_DATABASE_CONFIG

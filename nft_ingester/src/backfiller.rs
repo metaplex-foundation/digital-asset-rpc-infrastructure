@@ -1,9 +1,10 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 use crate::{
-    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
-    RPC_URL_KEY,
+    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY,
+    RPC_COMMITMENT_KEY, RPC_URL_KEY,
 };
+use cadence_macros::statsd_count;
 use chrono::Utc;
 use digital_asset_types::dao::generated::backfill_items;
 use flatbuffers::FlatBufferBuilder;
@@ -29,6 +30,9 @@ use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::str::FromStr;
 use tokio::time::{sleep, Duration};
 
+// Number of tries to backfill a single tree before marking as "failed".
+const NUM_TRIES: i32 = 5;
+
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
@@ -42,10 +46,29 @@ pub async fn backfiller<T: Messenger>(
     config: IngesterConfig,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        println!("Backfiller task running");
+        loop {
+            let pool_cloned = pool.clone();
+            let config_cloned = config.clone();
 
-        let mut backfiller = Backfiller::<T>::new(pool, config).await;
-        backfiller.run().await;
+            let result = tokio::spawn(async {
+                println!("Backfiller task running");
+
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
+                backfiller.run().await;
+            })
+            .await;
+
+            match result {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    statsd_count!("ingester.backfiller.task_panic", 1);
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
+                }
+            }
+        }
     })
 }
 
@@ -122,7 +145,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get database listener channel.
         let channel = config
             .database_config
-            .get(&*DATABASE_LISTENER_CHANNEL_KEY)
+            .get(DATABASE_LISTENER_CHANNEL_KEY)
             .and_then(|u| u.clone().into_string())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!(
@@ -144,7 +167,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get RPC URL.
         let rpc_url = config
             .rpc_config
-            .get(&*RPC_URL_KEY)
+            .get(RPC_URL_KEY)
             .and_then(|u| u.clone().into_string())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!("RPC URL missing: {}", RPC_URL_KEY),
@@ -154,7 +177,7 @@ impl<T: Messenger> Backfiller<T> {
         // Get RPC commitment level.
         let rpc_commitment_level = config
             .rpc_config
-            .get(&*RPC_COMMITMENT_KEY)
+            .get(RPC_COMMITMENT_KEY)
             .and_then(|v| v.as_str())
             .ok_or(IngesterError::ConfigurationError {
                 msg: format!("RPC commitment level missing: {}", RPC_COMMITMENT_KEY),
@@ -182,7 +205,7 @@ impl<T: Messenger> Backfiller<T> {
 
         // Instantiate messenger.
         let mut messenger = T::new(config.messenger_config).await.unwrap();
-        messenger.add_stream(TRANSACTION_STREAM).await;
+        messenger.add_stream(TRANSACTION_STREAM).await.unwrap();
         messenger.set_buffer_size(TRANSACTION_STREAM, 5000).await;
 
         Self {
@@ -202,7 +225,7 @@ impl<T: Messenger> Backfiller<T> {
         loop {
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
-                    if backfill_trees.len() == 0 {
+                    if backfill_trees.is_empty() {
                         // If there are no trees to backfill, wait for a notification on the db
                         // listener channel.
                         let _notification = self.listener.recv().await.unwrap();
@@ -220,49 +243,45 @@ impl<T: Messenger> Backfiller<T> {
                         }
 
                         for backfill_tree in backfill_trees {
-                            // Get the tree out of nested structs.
-                            let tree = backfill_tree.unique_tree.tree;
-                            let tree_str = bs58::encode(&tree).into_string();
-                            println!("Backfilling tree: {tree_str}");
+                            for tries in 1..=NUM_TRIES {
+                                // Get the tree out of nested structs.
+                                let tree = &backfill_tree.unique_tree.tree;
+                                let tree_string = bs58::encode(&tree).into_string();
+                                println!("Backfilling tree: {tree_string}");
 
-                            // Call different methods based on whether tree needs to be backfilled
-                            // completely from seq number 1 or just have any gaps in seq number
-                            // filled.
-                            let result = if backfill_tree.backfill_from_seq_1 {
-                                self.backfill_tree_from_seq_1(&tree).await
-                            } else {
-                                self.fetch_and_plug_gaps(&tree).await
-                            };
+                                // Call different methods based on whether tree needs to be backfilled
+                                // completely from seq number 1 or just have any gaps in seq number
+                                // filled.
+                                let result = if backfill_tree.backfill_from_seq_1 {
+                                    self.backfill_tree_from_seq_1(tree).await
+                                } else {
+                                    self.fetch_and_plug_gaps(tree).await
+                                };
 
-                            match result {
-                                Ok(opt_max_seq) => {
-                                    if let Some(max_seq) = opt_max_seq {
-                                        // Debug.
-                                        println!("Successfully backfilled tree: {tree_str}");
-
-                                        // Only delete extra tree rows if fetching and plugging gaps worked.
-                                        if let Err(err) = self
-                                            .delete_extra_rows_and_mark_as_backfilled(
-                                                &tree, max_seq,
-                                            )
-                                            .await
-                                        {
-                                            println!("Error deleting rows and marking as backfilled: {err}");
-                                            self.sleep_and_increase_delay().await;
-                                        } else {
-                                            // Debug.
-                                            println!("Successfully deleted rows up to {max_seq}");
-                                            self.reset_delay()
-                                        }
-                                    } else {
-                                        // Debug.
-                                        println!("Unexpected error, tree was in list, but no rows found for {tree_str}");
-                                        self.sleep_and_increase_delay().await;
+                                match result {
+                                    Ok(opt_max_seq) => {
+                                        // Successfully backfilled the tree.  Now clean up database.
+                                        self.clean_up_backfilled_tree(
+                                            opt_max_seq,
+                                            tree,
+                                            &tree_string,
+                                            tries,
+                                        )
+                                        .await;
+                                        self.reset_delay();
+                                        break;
+                                    }
+                                    Err(err) => {
+                                        println!("Failed to fetch and plug gaps for {tree_string}, attempt {tries}");
+                                        println!("{err}");
                                     }
                                 }
-                                Err(err) => {
-                                    println!("Failed to fetch and plug gaps for {tree_str}");
-                                    println!("{err}");
+
+                                if tries == NUM_TRIES {
+                                    if let Err(err) = self.mark_as_failed(tree).await {
+                                        println!("Error marking tree as failed to backfill: {err}");
+                                    }
+                                } else {
                                     self.sleep_and_increase_delay().await;
                                 }
                             }
@@ -273,6 +292,45 @@ impl<T: Messenger> Backfiller<T> {
                     // Print error but keep trying.
                     println!("Could not get trees to backfill from db: {err}");
                     self.sleep_and_increase_delay().await;
+                }
+            }
+        }
+    }
+
+    async fn clean_up_backfilled_tree(
+        &mut self,
+        opt_max_seq: Option<i64>,
+        tree: &[u8],
+        tree_string: &String,
+        tries: i32,
+    ) {
+        match opt_max_seq {
+            Some(max_seq) => {
+                // Debug.
+                println!("Successfully backfilled tree: {tree_string}, attempt {tries}");
+
+                // Delete extra rows and mark as backfilled.
+                match self
+                    .delete_extra_rows_and_mark_as_backfilled(tree, max_seq)
+                    .await
+                {
+                    Ok(_) => {
+                        // Debug.
+                        println!("Successfully deleted rows up to {max_seq}");
+                    }
+                    Err(err) => {
+                        println!("Error deleting rows and marking as backfilled: {err}");
+                        if let Err(err) = self.mark_as_failed(tree).await {
+                            println!("Error marking tree as failed to backfill: {err}");
+                        }
+                    }
+                }
+            }
+            None => {
+                // Debug.
+                println!("Unexpected error, tree was in list, but no rows found for {tree_string}");
+                if let Err(err) = self.mark_as_failed(tree).await {
+                    println!("Error marking tree as failed to backfill: {err}");
                 }
             }
         }
@@ -297,7 +355,7 @@ impl<T: Messenger> Backfiller<T> {
         let force_chk_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT DISTINCT backfill_items.tree FROM backfill_items\n\
-            WHERE backfill_items.force_chk = TRUE",
+            WHERE backfill_items.force_chk = TRUE AND backfill_items.failed = FALSE",
             vec![],
         ))
         .all(&self.db)
@@ -313,6 +371,7 @@ impl<T: Messenger> Backfiller<T> {
         let multi_row_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT backfill_items.tree FROM backfill_items\n\
+            WHERE backfill_items.failed = FALSE\n\
             GROUP BY backfill_items.tree\n\
             HAVING COUNT(*) > 1",
             vec![],
@@ -333,8 +392,7 @@ impl<T: Messenger> Backfiller<T> {
 
     async fn backfill_tree_from_seq_1(&self, tree: &[u8]) -> Result<Option<i64>, IngesterError> {
         //TODO implement gap filler that gap fills from sequence number 1.
-        //For now just return the max sequence number.
-        self.get_max_seq(tree).await.map_err(Into::into)
+        Err(IngesterError::NotImplemented)
     }
 
     async fn get_max_seq(&self, tree: &[u8]) -> Result<Option<i64>, DbErr> {
@@ -366,7 +424,7 @@ impl<T: Messenger> Backfiller<T> {
         // Similar to `plugGapsBatched()` in `backfiller.ts` (although not batched).
         for gap in gaps.iter() {
             // Similar to `plugGaps()` in `backfiller.ts`.
-            let _result = self.plug_gap(&gap, tree).await?;
+            self.plug_gap(gap, tree).await?;
         }
 
         Ok(opt_max_seq)
@@ -514,18 +572,13 @@ impl<T: Messenger> Backfiller<T> {
                 println!("Serializing transaction");
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                let builder = serialize_transaction(
-                    builder,
-                    &meta,
-                    &ui_raw_message,
-                    slot.try_into().unwrap(),
-                )?;
+                let builder =
+                    serialize_transaction(builder, meta, ui_raw_message, slot.try_into().unwrap())?;
 
                 // Debug.
                 println!("Putting data into Redis");
                 // Put data into Redis.
-                let _ = self
-                    .messenger
+                self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }
@@ -596,6 +649,17 @@ impl<T: Messenger> Backfiller<T> {
 
         Ok(())
     }
+
+    async fn mark_as_failed(&self, tree: &[u8]) -> Result<(), DbErr> {
+        // Mark all rows for this tree as failed future backfilling can skip this tree.
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::Failed, Expr::value(true))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
 }
 
 fn serialize_transaction<'a>(
@@ -624,7 +688,7 @@ fn serialize_transaction<'a>(
     let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
         let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
         for message in log_messages {
-            log_messages_fb_vec.push(builder.create_string(&message));
+            log_messages_fb_vec.push(builder.create_string(message));
         }
         Some(builder.create_vector(&log_messages_fb_vec))
     } else {
@@ -674,7 +738,7 @@ fn serialize_transaction<'a>(
 
     // Serialize outer instructions.
     let outer_instructions = &ui_raw_message.instructions;
-    let outer_instructions = if outer_instructions.len() > 0 {
+    let outer_instructions = if !outer_instructions.is_empty() {
         let mut instructions_fb_vec = Vec::with_capacity(outer_instructions.len());
         for ui_compiled_instruction in outer_instructions.iter() {
             let program_id_index = ui_compiled_instruction.program_id_index;

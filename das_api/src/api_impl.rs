@@ -1,7 +1,3 @@
-use digital_asset_types::{
-    dapi::candy_machines_by_size::get_candy_machines_by_size,
-    rpc::{filter::CandyMachineSorting, response::CandyMachineList},
-};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use {
     crate::api::ApiContract,
@@ -13,11 +9,11 @@ use {
         dapi::{
             asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*,
             candy_machine::*, candy_machines_by_creator::*, change_logs::*,
-            listed_assets_by_owner::*, offers_by_owner::*,
+            listed_assets_by_owner::*, offers_by_owner::*, search_assets::*,candy_machines_by_size::*
         },
         rpc::{
-            filter::{AssetSorting, ListingSorting, OfferSorting},
-            response::{AssetList, ListingsList, OfferList},
+            filter::{AssetSorting,CandyMachineSorting, ListingSorting, OfferSorting},
+            response::{AssetList, ListingsList, OfferList,CandyMachineList},
             Asset, AssetProof, CandyMachine,
         },
     },
@@ -66,6 +62,7 @@ impl ApiContract for DasApi {
         get_proof_for_asset(&self.db_connection, id_bytes)
             .await
             .and_then(|p| {
+                println!("Proof: {:?}", p);
                 if p.proof.len() == 0 {
                     return Err(not_found(&asset_id));
                 }
@@ -308,15 +305,29 @@ impl ApiContract for DasApi {
     }
 
     async fn search_assets(
-        &mut self,
-        _search_expression: String,
-        _sort_by: AssetSorting,
-        _limit: u32,
-        _page: u32,
-        _before: String,
-        _after: String,
+        &self,
+        search_expression: serde_json::Value,
+        sort_by: AssetSorting,
+        limit: u32,
+        page: u32,
+        before: String,
+        after: String,
     ) -> Result<AssetList, DasApiError> {
-        todo!()
+        // Deserialize search assets query
+        let search_assets_query: SearchAssetsQuery = serde_json::from_value(search_expression)?;
+
+        // Execute query
+        search_assets(
+            &self.db_connection,
+            search_assets_query,
+            sort_by,
+            limit,
+            page,
+            before.as_bytes().to_vec(),
+            after.as_bytes().to_vec(),
+        )
+        .await
+        .map_err(Into::into)
     }
 
     async fn get_candy_machine(

@@ -1,6 +1,6 @@
 use crate::IngesterError;
 use digital_asset_types::dao::generated::asset;
-use sea_orm::{entity::*, query::*, ColumnTrait, DatabaseTransaction, DbErr, EntityTrait};
+use sea_orm::{query::*, ColumnTrait, DatabaseTransaction, DbErr, EntityTrait};
 
 pub async fn update_asset(
     txn: &DatabaseTransaction,
@@ -20,7 +20,7 @@ pub async fn update_asset(
         Ok(_) => Ok(()),
         Err(err) => match err {
             DbErr::RecordNotFound(ref s) => {
-                if s.find("None of the database rows are affected") != None {
+                if s.contains("None of the database rows are affected") {
                     Ok(())
                 } else {
                     Err(IngesterError::from(err))

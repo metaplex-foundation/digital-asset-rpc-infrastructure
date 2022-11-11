@@ -1,0 +1,21 @@
+[package]
+name = "migration"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "migration"
+path = "src/lib.rs"
+
+[dependencies]
+async-std = { version = "^1", features = ["attributes", "tokio1", ] }
+digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
+enum-iterator = "1.2.0"
+enum-iterator-derive = "1.1.0"
+[dependencies.sea-orm-migration]
+version = "0.9.3"
+features = [
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+]

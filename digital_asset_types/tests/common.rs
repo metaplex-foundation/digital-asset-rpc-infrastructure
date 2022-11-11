@@ -1,11 +1,7 @@
-mod get_asset_by_id;
-mod get_assets_by_creator;
-mod get_assets_by_group;
-mod get_assets_by_owner;
-mod get_candy_machine_by_id;
-
-use crate::adapter::{Collection, Creator, TokenProgramVersion, TokenStandard, Uses};
-use crate::{
+use sea_orm::{JsonValue, Set};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use blockbuster::token_metadata::state::*;
+use digital_asset_types::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
         candy_machine_data,
@@ -15,11 +11,11 @@ use crate::{
     },
     json::ChainDataV1,
 };
-use sea_orm::{JsonValue, Set};
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use digital_asset_types::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+
 
 #[derive(Clone)]
-pub struct MetadataArgs {
+pub struct MockMetadataArgs {
     /// The name of the asset
     pub name: String,
     /// The symbol for the asset
@@ -40,7 +36,6 @@ pub struct MetadataArgs {
     pub collection: Option<Collection>,
     /// Uses
     pub uses: Option<Uses>,
-    pub token_program_version: TokenProgramVersion,
     pub creators: Vec<Creator>,
 }
 
@@ -159,8 +154,8 @@ pub fn create_candy_machine_data(
 }
 
 pub fn create_asset_data(
-    metadata: MetadataArgs,
-    row_num: i64,
+    metadata: MockMetadataArgs,
+    row_num: Vec<u8>,
 ) -> (asset_data::ActiveModel, asset_data::Model) {
     let chain_data = ChainDataV1 {
         name: metadata.name,
@@ -181,7 +176,6 @@ pub fn create_asset_data(
     (
         asset_data::ActiveModel {
             chain_data_mutability: Set(chain_mutability),
-            schema_version: Set(1),
             chain_data: Set(chain_data_json),
             metadata_url: Set(metadata.uri),
             metadata: Set(JsonValue::String("processing".to_string())),
@@ -219,18 +213,17 @@ pub fn create_asset(
     compressed: bool,
     compressible: bool,
     tree_id: Option<Vec<u8>>,
-    specification_version: i32,
+    specification_version: SpecificationVersions,
     nonce: i64,
     leaf: Option<Vec<u8>>,
     royalty_target_type: RoyaltyTargetType,
     royalty_target: Option<Vec<u8>>,
     royalty_amount: i32,
-    chain_data_id: Option<i64>,
 ) -> (asset::ActiveModel, asset::Model) {
     (
         asset::ActiveModel {
             id: Set(id.clone()),
-            owner: Set(owner.clone()),
+            owner: Set(Some(owner.clone())),
             owner_type: Set(owner_type.clone()),
             delegate: Set(delegate.clone()),
             frozen: Set(frozen),
@@ -239,18 +232,17 @@ pub fn create_asset(
             compressed: Set(compressed),
             compressible: Set(compressible),
             tree_id: Set(tree_id.clone()),
-            specification_version: Set(specification_version),
+            specification_version: Set(specification_version.clone()),
             nonce: Set(nonce),
             leaf: Set(leaf.clone()),
             royalty_target_type: Set(royalty_target_type.clone()),
             royalty_target: Set(royalty_target.clone()),
             royalty_amount: Set(royalty_amount), //basis points
-            chain_data_id: Set(chain_data_id),
             ..Default::default()
         },
         asset::Model {
-            id,
-            owner,
+            id: id.clone(),
+            owner: Some(owner),
             owner_type,
             delegate,
             frozen,
@@ -266,11 +258,14 @@ pub fn create_asset(
             royalty_target_type,
             royalty_target,
             royalty_amount,
-            asset_data: chain_data_id,
+            asset_data: Some(id.clone()),
             burnt: false,
             created_at: None,
             specification_asset_class: SpecificationAssetClass::Nft,
             slot_updated: 0,
+            data_hash: None,
+            alt_id: None,
+            creator_hash: None
         },
     )
 }
@@ -298,6 +293,7 @@ pub fn create_asset_creator(
             verified,
             seq: 0,
             slot_updated: 0,
+            position: 0
         },
     )
 }

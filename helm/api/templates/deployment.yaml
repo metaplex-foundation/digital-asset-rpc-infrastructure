@@ -27,6 +27,10 @@ spec:
       serviceAccountName: {{ include "api.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ include "api.fullname" . }}-proxy-config
       containers:
         - name: datadog
           image: gcr.io/datadoghq/dogstatsd:latest
@@ -38,16 +42,27 @@ spec:
             hostPort: 8125
             name: dogstatsdport
             protocol: UDP
+        - name: proxy
+          image: "{{ .Values.proxy.image }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.proxy.resources | nindent 12 }}
         - name: {{ .Chart.Name }}
           env:
           - name: APP_METRICS_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: status.hostIP
+            value: 127.0.0.1
           - name: APP_METRICS_PORT
             value: "8125"
           - name: APP_SERVER_PORT
-            value: "{{ .Values.service.port }}"
+            value: "{{ .Values.app.server_port }}"
           - name: APP_DATABASE_URL
             valueFrom:
               secretKeyRef:
@@ -60,7 +75,7 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.app.server_port }}
               protocol: TCP
           livenessProbe:
             httpGet:

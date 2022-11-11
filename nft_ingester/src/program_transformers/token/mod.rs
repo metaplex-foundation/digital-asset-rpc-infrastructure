@@ -1,10 +1,10 @@
-use crate::{BgTask, IngesterError};
+use crate::{IngesterError, TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
 use digital_asset_types::dao::generated::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseConnection, DbBackend, EntityTrait,
+    query::*, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait,
+    ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait,
 };
 use solana_sdk::program_option::COption;
 use spl_token::state::AccountState;
@@ -14,10 +14,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenProgramAccount,
     db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    _task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
-    let key = account_update.pubkey().unwrap().clone();
+    let key = *account_update.pubkey().unwrap();
     let key_bytes = key.0.to_vec();
     let spl_token_program = account_update.owner().unwrap().0.to_vec();
     match &parsing_result {
@@ -34,7 +34,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),
-                mint: Set(Some(mint.clone())),
+                mint: Set(mint.clone()),
                 delegate: Set(delegate),
                 owner: Set(owner.clone()),
                 frozen: Set(frozen),
@@ -49,10 +49,12 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 .on_conflict(
                     OnConflict::columns([token_accounts::Column::Pubkey])
                         .update_columns([
+                            token_accounts::Column::Mint,
                             token_accounts::Column::DelegatedAmount,
                             token_accounts::Column::Delegate,
                             token_accounts::Column::Amount,
                             token_accounts::Column::Frozen,
+                            token_accounts::Column::TokenProgram,
                             token_accounts::Column::Owner,
                             token_accounts::Column::CloseAuthority,
                             token_accounts::Column::SlotUpdated,
@@ -98,11 +100,13 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                     OnConflict::columns([tokens::Column::Mint])
                         .update_columns([
                             tokens::Column::Supply,
+                            tokens::Column::TokenProgram,
                             tokens::Column::MintAuthority,
                             tokens::Column::CloseAuthority,
                             tokens::Column::ExtensionData,
                             tokens::Column::SlotUpdated,
                             tokens::Column::Decimals,
+                            tokens::Column::FreezeAuthority,
                         ])
                         .to_owned(),
                 )
