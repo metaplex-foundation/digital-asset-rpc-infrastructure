@@ -415,3 +415,12 @@ pub async fn initialize_candy_machine_v3(
 
     Ok(())
 }
+
+pub async fn wrap_candy_machine(
+    candy_machine_id: &Pubkey,
+    payer: Arc<Keypair>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), Error> {
+
+    Ok(())
+}
