@@ -23,6 +23,10 @@ pub fn find_candy_machine_creator_pda(
     Pubkey::find_program_address(creator_seeds, &program_id)
 }
 
+pub fn find_candy_guard_pda(base: &PublicKey, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&["candy_guard".as_bytes(), base.as_ref()], &program_id)
+}
+
 pub fn find_metadata_account(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &["metadata".as_bytes(), program_id.as_ref(), mint.as_ref()],

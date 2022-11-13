@@ -1830,6 +1830,7 @@ dependencies = [
  "cargo-husky",
  "console",
  "fake",
+ "mpl-candy-guard",
  "mpl-candy-machine",
  "mpl-candy-machine-core",
  "mpl-token-metadata",
@@ -1987,6 +1988,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a7d5f7076603ebc68de2dc6a650ec331a062a13abaa346975be747bbfa4b789"
 dependencies = [
  "proc-macro2 1.0.47",
+ "quote 1.0.21",
+ "syn 1.0.103",
+]
+
+[[package]]
+name = "mpl-candy-guard"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf911a47bf4731d49e5748ddcf9ebf669ac0d16034632e4ab47a6b82504175ce"
+dependencies = [
+ "anchor-lang",
+ "arrayref",
+ "mpl-candy-guard-derive",
+ "mpl-candy-machine-core",
+ "mpl-token-metadata",
+ "solana-gateway",
+ "solana-program",
+ "spl-associated-token-account",
+ "spl-token",
+]
+
+[[package]]
+name = "mpl-candy-guard-derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18e4d3002ea881e94a238798faf87a006a687297a24bd4b3f810fbb63611173d"
+dependencies = [
  "quote 1.0.21",
  "syn 1.0.103",
 ]

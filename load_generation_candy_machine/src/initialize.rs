@@ -1,4 +1,6 @@
 use anchor_lang::AccountDeserialize;
+use mpl_candy_guard::guards::{SolPayment, SolPayment, StartDate, ThirdPartySigner};
+use mpl_candy_guard::state::{CandyGuardData, GuardSet};
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
     CandyMachine as CandyMachineV3, CandyMachineData as CandyMachineDataV3,
@@ -13,7 +15,7 @@ use tokio::time::sleep;
 use crate::{
     add_config_lines, add_config_lines_v3,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
-    helpers::{find_candy_machine_creator_pda, prepare_nft},
+    helpers::{find_candy_guard_pda, find_candy_machine_creator_pda, prepare_nft},
     initialize_candy_machine, initialize_candy_machine_v3,
     mint::mint_nft,
 };
@@ -146,9 +148,60 @@ pub async fn make_a_candy_machine_v3(
 
     sleep(Duration::from_millis(130000)).await;
 
-    wrap_candy_machine(candy_machine.pubkey(), payer.clone(), solana_client.clone());
+    wrap_in_candy_guard(&payer.clone(), solana_client.clone()).await?;
 
     Ok(candy_machine.pubkey())
+}
+
+pub async fn wrap_in_candy_guard(
+    payer: &Keypair,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    let candy_guard_data = CandyGuardData {
+        default: GuardSet {
+            bot_tax: Some(BotTax {
+                lamports: 100000000,
+                last_instruction: true,
+            }),
+            sol_payment: Some(SolPayment {
+                lamports: 100000000,
+                destination: payer.clone().pubkey(),
+            }),
+            token_payment: None,
+            start_date: Some(StartDate { date: 1663965742 }),
+            third_party_signer: Some(ThirdPartySigner {
+                signer_key: payer.clone().pubkey(),
+            }),
+            token_gate: None,
+            gatekeeper: None,
+            end_date: None,
+            allow_list: None,
+            mint_limit: None,
+            nft_payment: None,
+            redeemed_amount: None,
+            address_gate: None,
+            nft_gate: None,
+            nft_burn: None,
+            token_burn: None,
+            freeze_sol_payment: None,
+            freeze_token_payment: None,
+            program_gate: None,
+        },
+        groups: None,
+    };
+
+    let base_keypair = Arc::new(Keypair::new());
+    let pda = find_candy_guard_pda(base_keypair.clone().pubkey(), PROGRAM_ID);
+
+    let candy_guard_id = initialize_candy_guard(
+        solana_client.clone(),
+        payer.clone(),
+        base_keypair.clone(),
+        pda,
+    )
+    .await?;
+
+    Ok(())
 }
 
 pub fn make_config_lines(start_index: u32, total: u8) -> Vec<ConfigLine> {
