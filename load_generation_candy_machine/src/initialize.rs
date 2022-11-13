@@ -1,19 +1,21 @@
-use anchor_client::Client;
 use anchor_lang::AccountDeserialize;
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
-    CandyMachineData as CandyMachineDataV3, ConfigLineSettings, Creator as CandyMachineCreatorV3,
+    CandyMachine as CandyMachineV3, CandyMachineData as CandyMachineDataV3,
+    ConfigLine as ConfigLineV3, ConfigLineSettings, Creator as CandyMachineCreatorV3,
 };
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
 use solana_sdk::{signature::Keypair, signer::Signer};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::time::sleep;
 
 use crate::{
-    // add_config_lines,
+    add_config_lines, add_config_lines_v3,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
-    initialize_candy_machine,
-    initialize_candy_machine_v3,
+    helpers::{find_candy_machine_creator_pda, prepare_nft},
+    initialize_candy_machine, initialize_candy_machine_v3,
+    mint::mint_nft,
 };
 
 pub async fn make_a_candy_machine(
@@ -23,6 +25,7 @@ pub async fn make_a_candy_machine(
     let (candy_machine, authority, minter) =
         init_candy_machine_info(payer.clone(), solana_client.clone()).await?;
 
+    let minter = Arc::new(minter);
     solana_client
         .clone()
         .request_airdrop(&payer.clone().pubkey(), LAMPORTS_PER_SOL * 100)
@@ -58,9 +61,36 @@ pub async fn make_a_candy_machine(
     )
     .await?;
 
-    // TODO add config lines will be finished in next pr P-674
-    // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
+    add_all_config_lines(&candy_machine.pubkey(), &payer, solana_client.clone()).await?;
     //  candy_manager.set_collection(context).await.unwrap();
+
+    // added this to allow time to grab id and see that items avail has changed
+    sleep(Duration::from_millis(130000)).await;
+
+    let (edition_pubkey, metadata_pubkey, mint, token_account) =
+        prepare_nft(minter.clone(), solana_client.clone()).await?;
+    let (candy_creator_pda, creator_bump) =
+        find_candy_machine_creator_pda(&candy_machine.pubkey(), &mpl_candy_machine::id());
+
+    mint_nft(
+        &candy_machine.pubkey(),
+        &candy_creator_pda,
+        creator_bump,
+        &payer.pubkey(),
+        &payer.pubkey(),
+        minter,
+        edition_pubkey,
+        metadata_pubkey,
+        mint,
+        token_account,
+        solana_client.clone(),
+        // token_info,
+        // whitelist_info,
+        // collection_info,
+        // gateway_info,
+        // freeze_info,
+    )
+    .await?;
 
     Ok(candy_machine.pubkey())
 }
@@ -101,14 +131,20 @@ pub async fn make_a_candy_machine_v3(
     initialize_candy_machine_v3(
         &candy_machine,
         payer.clone(),
-        &authority.pubkey(),
+        &payer.pubkey(),
         candy_data,
         solana_client.clone(),
     )
     .await?;
 
-    // add_all_config_lines(&candy_machine.pubkey(), &authority, solana_client.clone()).await?;
-    //  candy_manager.set_collection(context).await.unwrap();
+    add_all_config_lines_v3(
+        &candy_machine.pubkey(),
+        &payer.clone(),
+        solana_client.clone(),
+    )
+    .await?;
+
+    sleep(Duration::from_millis(130000)).await;
 
     Ok(candy_machine.pubkey())
 }
@@ -119,6 +155,17 @@ pub fn make_config_lines(start_index: u32, total: u8) -> Vec<ConfigLine> {
         config_lines.push(ConfigLine {
             name: format!("Item #{}", i as u32 + start_index),
             uri: format!("Item #{} URI", i as u32 + start_index),
+        })
+    }
+    config_lines
+}
+
+pub fn make_config_lines_v3(start_index: u32, total: u8) -> Vec<ConfigLineV3> {
+    let mut config_lines = Vec::with_capacity(total as usize);
+    for i in 0..total {
+        config_lines.push(ConfigLineV3 {
+            name: format!("NFT #{}", i as u32 + start_index),
+            uri: format!("uJSdJIsz_tYTcjUEWdeVSj0aR90K-hjDauATWZSi-tQs"),
         })
     }
     config_lines
@@ -136,8 +183,6 @@ pub async fn add_all_config_lines(
 
     let candy_machine_account = solana_client.get_account(candy_machine).await?;
 
-    println!("candy {:?}", candy_machine_account);
-
     let candy_machine_data =
         CandyMachine::try_deserialize(&mut candy_machine_account.data.as_ref()).unwrap();
 
@@ -145,29 +190,72 @@ pub async fn add_all_config_lines(
     for i in 0..total_items / 10 {
         let index = (i * 10) as u32;
         let config_lines = make_config_lines(index, 10);
-        // TODO add config lines will be finished in next pr P-674
-        // add_config_lines(
-        //     candy_machine,
-        //     authority,
-        //     index,
-        //     config_lines,
-        //     solana_client.clone(),
-        // )
-        // .await?;
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
     }
     let remainder = total_items & 10;
     if remainder > 0 {
         let index = (total_items as u32 / 10).saturating_sub(1);
         let config_lines = make_config_lines(index, remainder as u8);
-        // TODO add config lines will be finished in next pr P-674
-        // add_config_lines(
-        //     candy_machine,
-        //     authority,
-        //     index,
-        //     config_lines,
-        //     solana_client.clone(),
-        // )
-        // .await?;
+        add_config_lines(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+pub async fn add_all_config_lines_v3(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    solana_client
+        .clone()
+        .request_airdrop(&authority.pubkey(), LAMPORTS_PER_SOL * 100)
+        .await?;
+
+    let candy_machine_account = solana_client.get_account(candy_machine).await?;
+
+    let candy_machine_data =
+        CandyMachineV3::try_deserialize(&mut candy_machine_account.data.as_ref()).unwrap();
+
+    let total_items = candy_machine_data.data.items_available;
+    for i in 0..total_items / 10 {
+        let index = (i * 10) as u32;
+        let config_lines = make_config_lines_v3(index, 10);
+        add_config_lines_v3(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
+    }
+    let remainder = total_items & 10;
+    if remainder > 0 {
+        let index = (total_items as u32 / 10).saturating_sub(1);
+        let config_lines = make_config_lines_v3(index, remainder as u8);
+        add_config_lines_v3(
+            candy_machine,
+            authority,
+            index,
+            config_lines,
+            solana_client.clone(),
+        )
+        .await?;
     }
 
     Ok(())
@@ -186,7 +274,14 @@ pub async fn init_candy_machine_info(
         .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL * 10)
         .await?;
 
-    //TODO all below code P-626
+    solana_client
+        .request_airdrop(&minter.pubkey(), LAMPORTS_PER_SOL * 10)
+        .await?;
+
+    solana_client
+        .request_airdrop(&authority.pubkey(), LAMPORTS_PER_SOL * 10)
+        .await?;
+
     // let sized = if let Some(sized) = &collection {
     //     *sized
     // } else {

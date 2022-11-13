@@ -1,6 +1,11 @@
 use blockbuster::token_metadata::state::{TokenStandard, Uses};
 use serde::{Deserialize, Serialize};
 
+
+pub enum ChainData {
+    V1(ChainDataV1)
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ChainDataV1 {
     pub name: String,

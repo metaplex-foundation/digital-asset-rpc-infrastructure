@@ -10,19 +10,48 @@ use solana_sdk::{
     program_pack::Pack, signature::Keypair, signer::Signer, system_instruction,
     transaction::Transaction,
 };
+use spl_associated_token_account::get_associated_token_address;
 use spl_token::state::Mint;
 use std::sync::Arc;
 
-pub fn find_authority_pda(candy_machine_key: &Pubkey) -> (Pubkey, u8) {
-    let authority_seeds = [AUTHORITY_SEED.as_bytes(), candy_machine_key.as_ref()];
-    Pubkey::find_program_address(&authority_seeds, &mpl_candy_machine_core::id())
+pub fn find_candy_machine_creator_pda(
+    candy_machine_id: &Pubkey,
+    program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    let creator_seeds = &["candy_machine".as_bytes(), candy_machine_id.as_ref()];
+
+    Pubkey::find_program_address(creator_seeds, &program_id)
 }
 
-pub fn find_collection_pda(candy_machine_key: &Pubkey) -> (Pubkey, u8) {
+pub fn find_metadata_account(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &["collection".as_bytes(), candy_machine_key.as_ref()],
-        &mpl_candy_machine_core::id(),
+        &["metadata".as_bytes(), program_id.as_ref(), mint.as_ref()],
+        &program_id,
     )
+}
+
+pub fn find_metadata_pda(mint: &Pubkey, program_id: &Pubkey) -> Pubkey {
+    let (pda, _bump) = find_metadata_account(mint, program_id);
+
+    pda
+}
+
+pub fn find_master_edition_account(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            "metadata".as_bytes(),
+            program_id.as_ref(),
+            mint.as_ref(),
+            "edition".as_bytes(),
+        ],
+        program_id,
+    )
+}
+
+pub fn find_master_edition_pda(mint: &Pubkey, program_id: &Pubkey) -> Pubkey {
+    let (pda, _bump) = find_master_edition_account(mint, program_id);
+
+    pda
 }
 
 pub async fn create_mint(
@@ -255,4 +284,54 @@ pub async fn create_v3_master_edition(
     solana_client.send_and_confirm_transaction(&tx).await?;
 
     Ok(())
+}
+
+pub async fn prepare_nft(
+    minter: Arc<Keypair>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(Pubkey, Pubkey, Arc<Keypair>, Pubkey), ClientError> {
+    let mint = Arc::new(Keypair::new());
+    let mint_pubkey = mint.pubkey();
+    let program_id = mpl_token_metadata::id();
+
+    let metadata_seeds = &[
+        "metadata".as_bytes(),
+        program_id.as_ref(),
+        mint_pubkey.as_ref(),
+    ];
+    let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
+    create_mint(
+        &minter.clone().pubkey(),
+        Some(&minter.clone().pubkey()),
+        0,
+        mint.clone(),
+        solana_client.clone(),
+        minter.clone(),
+    )
+    .await
+    .unwrap();
+    mint_to_wallets(
+        &mint.clone().pubkey(),
+        &minter.clone(),
+        vec![(minter.pubkey(), 1)],
+        minter.clone(),
+        solana_client.clone(),
+    )
+    .await
+    .unwrap();
+
+    let program_id = mpl_token_metadata::id();
+    // TODO put all the metadata/master edition stuff in related method
+
+    let master_edition_seeds = &[
+        "metadata".as_bytes(),
+        program_id.as_ref(),
+        mint_pubkey.as_ref(),
+        "edition".as_bytes(),
+    ];
+    let edition_pubkey =
+        Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
+
+    let token_account = get_associated_token_address(&minter.clone().pubkey(), &mint.pubkey());
+    Ok((edition_pubkey, metadata_pubkey, mint, token_account))
 }

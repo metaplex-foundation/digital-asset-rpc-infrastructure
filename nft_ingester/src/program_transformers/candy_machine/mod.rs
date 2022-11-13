@@ -8,13 +8,13 @@ mod candy_machine;
 mod collections;
 mod freeze;
 
-use crate::{BgTask, IngesterError};
+use crate::{tasks::TaskData, IngesterError};
 
 pub async fn handle_candy_machine_account_update(
     account_update: &AccountInfo<'_>,
     parsing_result: &CandyMachineAccountData,
     db: &DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
     let key = account_update.pubkey().unwrap().clone();

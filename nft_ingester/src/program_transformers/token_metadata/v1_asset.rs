@@ -1,4 +1,4 @@
-use crate::{program_transformers::common::task::DownloadMetadata, IngesterError};
+use crate::{IngesterError, TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
@@ -22,7 +22,9 @@ use sea_orm::{
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
+use chrono::Utc;
 
+use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
 use sea_orm::{FromQueryResult, JoinType};
 
 #[derive(FromQueryResult)]
@@ -39,7 +41,7 @@ pub async fn save_v1_asset(
     slot: u64,
     metadata: &Metadata,
     txn: &DatabaseTransaction,
-) -> Result<DownloadMetadata, IngesterError> {
+) -> Result<TaskData, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
     let meta_mint_pubkey = metadata.mint;
@@ -48,7 +50,10 @@ pub async fn save_v1_asset(
     let authority = metadata.update_authority.to_bytes().to_vec();
     let id = id.0;
     let slot_i = slot as i64;
-    let uri = data.uri.clone();
+    let uri = data.uri.trim().replace('\0', "");
+    if uri.is_empty() {
+        return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+    }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
@@ -114,7 +119,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
@@ -256,6 +261,22 @@ pub async fn save_v1_asset(
     if !creators.is_empty() {
         let mut db_creators = Vec::with_capacity(creators.len());
         let mut creators_set = HashSet::new();
+        let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+            .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
+            .all(txn)
+            .await?;
+        let existing_len = existing_creators.len();
+        let incoming_len = creators.len();
+        if existing_len > incoming_len {
+            let idx_to_delete = (existing_len - incoming_len) - 1;
+            asset_creators::Entity::delete_many()
+                .filter(Condition::all()
+                    .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+                    .add(asset_creators::Column::Position.gte(idx_to_delete as i8))
+                )
+                .exec(txn)
+                .await?;
+        }
         for (i, c) in creators.into_iter().enumerate() {
             if creators_set.contains(&c.address) {
                 continue;
@@ -270,25 +291,24 @@ pub async fn save_v1_asset(
                 position: Set(i as i16),
                 ..Default::default()
             });
-            creators_set.insert(c.address.clone());
+            creators_set.insert(c.address);
         }
 
-        // Do not attempt to modify any existing values:
-        // `ON CONFLICT ('asset_id') DO NOTHING`.
+
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
                     asset_creators::Column::Position,
                 ])
-                .update_columns([
-                    asset_creators::Column::Creator,
-                    asset_creators::Column::Share,
-                    asset_creators::Column::Verified,
-                    asset_creators::Column::Seq,
-                    asset_creators::Column::SlotUpdated,
-                ])
-                .to_owned(),
+                    .update_columns([
+                        asset_creators::Column::Creator,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::Seq,
+                        asset_creators::Column::SlotUpdated,
+                    ])
+                    .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
@@ -347,8 +367,11 @@ pub async fn save_v1_asset(
             }
         }
     }
-    Ok(DownloadMetadata {
+    let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
-    })
+        created_at: Some(Utc::now().naive_utc())
+    };
+    task.sanitize();
+    task.into_task_data()
 }

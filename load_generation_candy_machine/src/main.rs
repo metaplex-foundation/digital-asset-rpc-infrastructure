@@ -1,17 +1,18 @@
 mod candy_machine_constants;
 mod helpers;
 mod initialize;
+mod mint;
 
 use anchor_lang::{InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
-use helpers::{create_v3, create_v3_master_edition, find_authority_pda, find_collection_pda};
-use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
-use mpl_candy_machine::CandyMachineData;
-use mpl_candy_machine_core::CandyMachineData as CandyMachineDataV3;
-use mpl_token_metadata::{
-    pda::find_collection_authority_account,
-    state::{EDITION, PREFIX},
+use helpers::{
+    create_v3, create_v3_master_edition, find_candy_machine_creator_pda, find_master_edition_pda,
+    find_metadata_pda,
 };
+use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
+use mpl_candy_machine::{CandyMachineData, ConfigLine};
+use mpl_candy_machine_core::{CandyMachineData as CandyMachineDataV3, ConfigLine as ConfigLineV3};
+use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{instruction::Instruction, native_token::LAMPORTS_PER_SOL};
@@ -171,43 +172,79 @@ pub async fn check_balance(
     }
     Ok(())
 }
+pub async fn add_config_lines_v3(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    index: u32,
+    config_lines: Vec<ConfigLineV3>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_machine_core::accounts::AddConfigLines {
+        candy_machine: *candy_machine,
+        authority: authority.pubkey(),
+    }
+    .to_account_metas(None);
 
-// pub async fn add_config_lines(
-//     candy_machine: &Pubkey,
-//     authority: &Keypair,
-//     index: u32,
-//     config_lines: Vec<ConfigLine>,
-//     solana_client: Arc<RpcClient>,
-// ) -> Result<(), ClientError> {
-//     let accounts = mpl_candy_machine::accounts::AddConfigLines {
-//         candy_machine: *candy_machine,
-//         authority: authority.pubkey(),
-//     }
-//     .to_account_metas(None);
+    let data = mpl_candy_machine_core::instruction::AddConfigLines {
+        index,
+        config_lines,
+    }
+    .data();
 
-//     let data = mpl_candy_machine::instruction::AddConfigLines {
-//         index,
-//         config_lines,
-//     }
-//     .data();
+    let add_config_line_ix = Instruction {
+        program_id: mpl_candy_machine_core::id(),
+        data,
+        accounts,
+    };
 
-//     let add_config_line_ix = Instruction {
-//         program_id: mpl_candy_machine::id(),
-//         data,
-//         accounts,
-//     };
+    let tx = Transaction::new_signed_with_payer(
+        &[add_config_line_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        solana_client.get_latest_blockhash().await?,
+    );
 
-//     let tx = Transaction::new_signed_with_payer(
-//         &[add_config_line_ix],
-//         Some(&authority.pubkey()),
-//         &[authority],
-//         solana_client.get_latest_blockhash().await?,
-//     );
+    solana_client.send_and_confirm_transaction(&tx).await?;
 
-//     solana_client.send_and_confirm_transaction(&tx).await?;
+    Ok(())
+}
 
-//     Ok(())
-// }
+pub async fn add_config_lines(
+    candy_machine: &Pubkey,
+    authority: &Keypair,
+    index: u32,
+    config_lines: Vec<ConfigLine>,
+    solana_client: Arc<RpcClient>,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_machine::accounts::AddConfigLines {
+        candy_machine: *candy_machine,
+        authority: authority.pubkey(),
+    }
+    .to_account_metas(None);
+
+    let data = mpl_candy_machine::instruction::AddConfigLines {
+        index,
+        config_lines,
+    }
+    .data();
+
+    let add_config_line_ix = Instruction {
+        program_id: mpl_candy_machine::id(),
+        data,
+        accounts,
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[add_config_line_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        solana_client.get_latest_blockhash().await?,
+    );
+
+    solana_client.send_and_confirm_transaction(&tx).await?;
+
+    Ok(())
+}
 
 pub async fn initialize_candy_machine(
     candy_account: &Keypair,
@@ -281,7 +318,6 @@ pub async fn initialize_candy_machine_v3(
     // token_info: TokenInfo,
     solana_client: Arc<RpcClient>,
 ) -> Result<(), ClientError> {
-    let items_available = candy_data.items_available;
     let candy_account_size = candy_data.get_space_for_candy().unwrap();
 
     let mint = Arc::new(Keypair::new());
@@ -309,30 +345,26 @@ pub async fn initialize_candy_machine_v3(
     )
     .await?;
 
-    let master_edition_seeds = &[
-        PREFIX.as_bytes(),
-        program_id.as_ref(),
-        mint_pubkey.as_ref(),
-        EDITION.as_bytes(),
-    ];
-    let edition_pubkey =
-        Pubkey::find_program_address(master_edition_seeds, &mpl_token_metadata::id()).0;
-
-    let authority_pda = find_authority_pda(&candy_account.pubkey());
+    let master_edition_pda = find_master_edition_pda(&mint_pubkey, &mpl_token_metadata::id());
+    let authority_pda = find_candy_machine_creator_pda(
+        &candy_account.clone().pubkey(),
+        &mpl_candy_machine_core::id(),
+    );
 
     create_v3_master_edition(
         Some(0),
         solana_client.clone(),
         payer.clone(),
-        edition_pubkey,
+        master_edition_pda,
         mint_pubkey,
         metadata_account,
     )
     .await?;
 
-    let collection_pda = find_collection_pda(&candy_account.pubkey()).0;
     let collection_authority_record =
-        find_collection_authority_account(&mint_pubkey, &collection_pda).0;
+        find_collection_authority_account(&mint_pubkey, &authority_pda.0).0;
+
+    let metadata_pda = find_metadata_pda(&mint_pubkey, &mpl_token_metadata::id());
 
     let create_ix = system_instruction::create_account(
         &payer.as_ref().pubkey(),
@@ -350,9 +382,9 @@ pub async fn initialize_candy_machine_v3(
         authority_pda: authority_pda.0,
         authority: payer.pubkey(),
         payer: payer.pubkey(),
-        collection_metadata: metadata_account,
+        collection_metadata: metadata_pda,
         collection_mint: mint_pubkey,
-        collection_master_edition: edition_pubkey,
+        collection_master_edition: master_edition_pda,
         collection_update_authority: payer.pubkey(),
         collection_authority_record,
         token_metadata_program: mpl_token_metadata::id(),

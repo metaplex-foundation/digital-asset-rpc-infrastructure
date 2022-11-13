@@ -45,21 +45,20 @@ services:
     build:
       context: .
       dockerfile: Ingest.Dockerfile
-  # load:
-  #   depends_on:
-  #     - migrator
-  #     - ingester
-  #     - solana
-  #   restart: always
-  #   environment:
-  #     KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
-  #     NETWORK: "local"
-  #     AMOUNT_OF_CHAOS: 1
-  #     RPC_URL: "http://${COMPOSE_PROJECT_NAME}-solana-1:8899/"
-  #   build:
-  #     context: .
-  #     dockerfile: Load.Dockerfile
-  load_candy_machine:
+  load:
+    depends_on:
+      - ingester
+      - solana
+    restart: always
+    environment:
+      KEYPAIR_SEED: "caputure the diems and stuff and then prolly take a nap and stuff"
+      NETWORK: "local"
+      AMOUNT_OF_CHAOS: 1
+      RPC_URL: "http://${COMPOSE_PROJECT_NAME}-solana-1:8899/"
+    build:
+      context: .
+      dockerfile: Load.Dockerfile
+  load-candy-machine:
     depends_on:
       - migrator
       - ingester
@@ -108,10 +107,10 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro    
+      #      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro    /// UNCOMMENT IF YOU DONT WANT TO USE MIGRATIONS
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.3
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.2
     volumes:
       - ./programs:/so/:ro
       - ./ledger:/config:rw

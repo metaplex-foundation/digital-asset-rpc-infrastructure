@@ -11,10 +11,6 @@ pub struct DownloadMetadata {
 
 #[async_trait]
 impl BgTask for DownloadMetadata {
-    fn name(&self) -> &'static str {
-        "DownloadMetadata"
-    }
-
     async fn task(&self, db: &DatabaseConnection) -> Result<(), IngesterError> {
         let body: serde_json::Value = reqwest::get(self.uri.clone()) // Need to check for malicious sites ?
             .await?

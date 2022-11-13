@@ -1,10 +1,9 @@
-use std::env;
+use lazy_static::lazy_static;
+use log::info;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
+use regex::{Regex, RegexBuilder};
 use std::time::Duration;
-use lazy_static::lazy_static;
-use regex::Regex;
-use log::info;
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
@@ -23,13 +22,10 @@ impl RootContext for Root {
 
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
         let config = self.get_vm_configuration();
-        let opath = config.and_then(|c|
-            String::from_utf8(c).ok()
-        );
+        let opath = config.and_then(|c| String::from_utf8(c).ok());
         Some(Box::new(RpcProxy::new(opath)))
     }
 }
-
 
 #[derive(Debug)]
 struct RpcProxy {
@@ -39,7 +35,7 @@ struct RpcProxy {
 impl RpcProxy {
     fn new(path: Option<String>) -> Self {
         return Self {
-            rpc_url_path: path.unwrap_or("/".to_string())
+            rpc_url_path: path.unwrap_or("/".to_string()),
         };
     }
 }
@@ -65,10 +61,19 @@ fn upstream_rpc_call(proxy: &mut RpcProxy, body: Bytes) -> Result<u32, Status> {
 }
 
 impl Context for RpcProxy {
-    fn on_http_call_response(&mut self, _token_id: u32, _num_headers: usize, body_size: usize, _num_trailers: usize) {
+    fn on_http_call_response(
+        &mut self,
+        _token_id: u32,
+        _num_headers: usize,
+        body_size: usize,
+        _num_trailers: usize,
+    ) {
         info!("Response READ API: {}", body_size);
         let headers = self.get_http_call_response_headers();
-        let static_headers: Vec<(&str, &str)> = headers.iter().map(|(s, v)| (s.as_str(), v.as_str())).collect();
+        let static_headers: Vec<(&str, &str)> = headers
+            .iter()
+            .map(|(s, v)| (s.as_str(), v.as_str()))
+            .collect();
         info!("Response READ API: {:?}", static_headers);
         if let Some(resp_body) = self.get_http_call_response_body(0, body_size) {
             info!("Response READ API");
@@ -80,7 +85,10 @@ impl Context for RpcProxy {
 impl HttpContext for RpcProxy {
     fn on_http_request_body(&mut self, body_size: usize, end_of_stream: bool) -> Action {
         lazy_static! {
-            static ref FILTER: Regex = Regex::new(r"asset").unwrap();
+            static ref FILTER: Regex = RegexBuilder::new(r"asset")
+                .case_insensitive(true)
+                .build()
+                .unwrap();
         }
         if !end_of_stream {
             return Action::Pause;

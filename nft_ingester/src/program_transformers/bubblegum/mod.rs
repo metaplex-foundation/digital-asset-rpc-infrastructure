@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use sea_orm::{entity::*, DatabaseConnection, TransactionTrait};
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
@@ -17,13 +17,13 @@ mod transfer;
 
 pub use db::*;
 
-use crate::{BgTask, IngesterError};
+use crate::{IngesterError, TaskData};
 
 pub async fn handle_bubblegum_instruction<'c>(
     parsing_result: &'c BubblegumInstruction,
     bundle: &'c InstructionBundle<'c>,
     db: &DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+    task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let ix_type = &parsing_result.instruction;
     let txn = db.begin().await?;
@@ -90,7 +90,7 @@ pub async fn handle_bubblegum_instruction<'c>(
         InstructionName::MintV1 => {
             let task = mint_v1::mint_v1(parsing_result, bundle, &txn).await?;
             txn.commit().await?;
-            task_manager.send(Box::new(task))?;
+            task_manager.send(task)?;
         }
         InstructionName::Redeem => {
             redeem::redeem(parsing_result, bundle, &txn).await?;

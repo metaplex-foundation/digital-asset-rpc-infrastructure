@@ -17,5 +17,6 @@ pub mod candy_machine_data;
 pub mod cl_items;
 pub mod raw_txn;
 pub mod sea_orm_active_enums;
+pub mod tasks;
 pub mod token_accounts;
 pub mod tokens;

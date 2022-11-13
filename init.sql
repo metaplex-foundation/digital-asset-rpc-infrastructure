@@ -41,8 +41,7 @@ CREATE TABLE backfill_items
     seq        BIGINT   not null,
     slot       BIGINT   not null,
     force_chk  bool     not null,
-    backfilled bool     not null,
-    failed     bool     not null default false
+    backfilled bool     not null
 );
 -- @@@@@@
 
@@ -293,7 +292,7 @@ create unique index asset_creators_asset_id on asset_creators (asset_id);
 create index asset_creator on asset_creators (asset_id, creator);
 -- @@@@@@
 create index asset_verified_creator on asset_creators (asset_id, verified);
-
+-- @@@@@@
 create type whitelist_mint_mode AS ENUM ('burn_every_time', 'never_burn');
 create type end_setting_type AS ENUM ('date', 'amount');
 
@@ -320,8 +319,8 @@ create table candy_machine
     frozen_count             bigint,                                      
     mint_start               bigint,
     freeze_time              bigint,                                     
-    freeze_fee               bigint,              
-    version                  smallint             not null,         
+    freeze_fee               bigint,    
+    version                  smallint            not null,                   
     created_at               timestamp with time zone     default (now() at time zone 'utc'),      
     last_minted              timestamp with time zone         
 );

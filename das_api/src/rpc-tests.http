@@ -5,7 +5,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_owner",
   "params": [
-    "FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v",
+    "9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ",
     "created",
     50,
     1,
@@ -23,7 +23,7 @@ content-type: application/json
   "jsonrpc": "2.0",
   "method": "get_assets_by_creator",
   "params": [
-    ["FWXys3VXUQhAS7BkpBqnAYuJhz1dNUsexVGuJgaRio8v"],
+    ["9kzgnTCnGnjVyWzBeQb3Eqd1GZKdCKwnKCiZokVc3XKJ"],
     "created",
     50,
     1,
@@ -80,12 +80,34 @@ content-type: application/json
 ###
 POST http://localhost:9090 HTTP/1.1
 content-type: application/json
-
 {
   "jsonrpc": "2.0",
   "id": "0",
   "method": "get_candy_machine",
   "params": [
-    "G7AA5V4ocbqjfHhfmKjb2YhtpiQJXBRq5GHkrK6ekcrX"
+    "8FQrAsAPhcz3rdQuvLJGw9UZoyxFj4X4oiqoKPtkK7tm"
   ]
+}
+
+###
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+  "method": "search_assets",
+  "params": [
+    {
+      //"id": "A7ubV8hnDiJfryepfXV6pqT6o7NKsB5EuuhBAq7M8mj",
+      "specification_asset_class": "Nft",
+      "supply": 1,
+      "compresssed": false,
+      "royalty_target_type": "Creators",
+      //"created_at": "2022-11-02T15:46:07.510485+0000",
+      "burnt": false
+    },
+    "created",
+    50,
+    1,
+    "",
+    ""
+  ],
+  "id": 0
 }

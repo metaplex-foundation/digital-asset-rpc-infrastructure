@@ -1,20 +1,14 @@
-use crate::dao::{
-    full_asset::{FullAsset, FullAssetList},
-    generated::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        prelude::{Asset, AssetData},
-        sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions},
-    },
-};
-
+use crate::dao::full_asset::{ FullAssetList, FullAsset};
+use crate::dao::generated::prelude::{Asset, AssetData};
+use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::{
-    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Links,
-    MetadataItem, Ownership, Royalty, Scope, Uses,
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Royalty, Scope, Supply, Uses, MetadataMap
 };
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{QueryOrder,DbErr,ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -66,54 +60,30 @@ pub fn safe_select<'a>(
         .and_then(|v| v.pop())
 }
 
-fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr> {
+pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr> {
     // todo -> move this to the bg worker for pre processing
+    let json_uri = asset_data.metadata_url.clone();
     let metadata = &asset_data.metadata;
     let mut selector_fn = jsonpath_lib::selector(metadata);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&asset_data.chain_data);
     let selector = &mut selector_fn;
     let chain_data_selector = &mut chain_data_selector_fn;
-    println!("{}", metadata.to_string());
-    let mut meta: Vec<MetadataItem> = Vec::new();
-    /*
-     pub name: String,
-    /// The symbol for the asset
-    pub symbol: String,
-    /// URI pointing to JSON representing the asset
-    pub uri: String,
-    /// Royalty basis points that goes to creators in secondary sales (0-10000)
-    pub seller_fee_basis_points: u16,
-    // Immutable, once flipped, all sales of this metadata are considered secondary.
-    pub primary_sale_happened: bool,
-    // Whether or not the data struct is mutable, default is not
-    pub is_mutable: bool,
-    /// nonce for easy calculation of editions, if present
-    pub edition_nonce: Option<u8>,
-    /// Since we cannot easily change Metadata, we add the new DataV2 fields here at the end.
-    pub token_standard: Option<TokenStandard>,
-    /// Collection
-    pub collection: Option<Collection>,
-    /// Uses
-    pub uses: Option<Uses>,
-    pub token_program_version: TokenProgramVersion,
-    pub creators: Vec<Creator>,
-     */
-    let mut description_meta = MetadataItem::new("description");
-    let image = safe_select(selector, "$.image");
+    let mut meta: MetadataMap = MetadataMap::new();
     let name = safe_select(chain_data_selector, "$.name");
     if let Some(name) = name {
-        description_meta.set_item("name", name.clone());
+        meta.set_item("name", name.clone());
     }
     let desc = safe_select(selector, "$.description");
     if let Some(desc) = desc {
-        description_meta.set_item("description", desc.clone());
+        meta.set_item("description", desc.clone());
     }
-    meta.push(description_meta);
-    let description_meta = MetadataItem::new("description");
-    let symbol = safe_select(chain_data_selector, "$.symbol")
-        .map(|x| MetadataItem::single("symbol", "symbol", x.clone()));
+    let symbol = safe_select(chain_data_selector, "$.symbol");
     if let Some(symbol) = symbol {
-        meta.push(symbol);
+        meta.set_item("symbol", symbol.clone());
+    }
+    let symbol = safe_select(selector, "$.attributes");
+    if let Some(symbol) = symbol {
+        meta.set_item("attributes", symbol.clone());
     }
     let image = safe_select(selector, "$.image");
     let animation = safe_select(selector, "$.animation_url");
@@ -122,7 +92,7 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
         links.insert("external_url".to_string(), val[0].to_owned());
         links
     });
-    let metadata = safe_select(selector, "description");
+    let _metadata = safe_select(selector, "description");
     let mut actual_files: HashMap<String, File> = HashMap::new();
     selector("$.properties.files[*]")
         .ok()
@@ -165,8 +135,9 @@ fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, DbErr
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
+        json_uri,
         files: Some(files),
-        metadata: Some(meta),
+        metadata: meta,
         links: external_url,
     })
 }
@@ -236,14 +207,27 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     let rpc_groups = to_grouping(groups);
     let interface = get_interface(&asset);
     let content = get_content(&asset, &data)?;
+    let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
+    let chain_data_selector = &mut chain_data_selector_fn;
+    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     Ok(RpcAsset {
-        interface,
+        interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
         content: Some(content),
         authorities: Some(rpc_authorities),
+        mutable: data.chain_data_mutability.into(),
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
+            leaf_id: asset.nonce,
+            seq: asset.seq,
+            tree: asset.tree_id.map(|s| bs58::encode(s).into_string())
+                .unwrap_or_default(),
             asset_hash: asset
                 .leaf
                 .map(|s| bs58::encode(s).into_string())
@@ -262,6 +246,8 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             royalty_model: asset.royalty_target_type.into(),
             target: asset.royalty_target.map(|s| bs58::encode(s).into_string()),
             percent: (asset.royalty_amount as f64) * 0.0001,
+            basis_points: asset.royalty_amount as u32,
+            primary_sale_happened: basis_points,
             locked: false,
         }),
         creators: Some(rpc_creators),
@@ -274,6 +260,16 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
                 .owner
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
+        },
+        supply: match interface {
+            Interface::V1NFT => Some(
+                Supply {
+                    edition_nonce: edition_nonce,
+                    print_current_supply: 0,
+                    print_max_supply: 0,
+                }
+            ),
+            _ => None
         },
         uses: data.chain_data.get("uses").map(|u| Uses {
             use_method: u
@@ -383,83 +379,12 @@ pub async fn get_asset_list_data(
     let built_assets = asset_list_to_rpc(FullAssetList {
         list: assets_map.into_iter().map(|(_, v)| v).collect(),
     })
-    .into_iter()
-    .fold(Vec::with_capacity(len), |mut acc, i| {
-        if let Ok(a) = i {
-            acc.push(a);
-        }
-        acc
-    });
+        .into_iter()
+        .fold(Vec::with_capacity(len), |mut acc, i| {
+            if let Ok(a) = i {
+                acc.push(a);
+            }
+            acc
+        });
     Ok(built_assets)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        dao::generated::sea_orm_active_enums::{ChainMutability, Mutability},
-        json::ChainDataV1,
-    };
-    use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
-    use mpl_bubblegum::state::metaplex_adapter::{
-        MetadataArgs, TokenProgramVersion, TokenStandard,
-    };
-    use solana_sdk::{signature::Keypair, signer::Signer};
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
-
-    #[async_std::test]
-    async fn simple_v1_content() {
-        let metadata_1 = MetadataArgs {
-            name: String::from("Handalf"),
-            symbol: String::from(""),
-            uri: "https://arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
-            primary_sale_happened: true,
-            is_mutable: true,
-            edition_nonce: None,
-            token_standard: Some(TokenStandard::NonFungible),
-            collection: None,
-            uses: None,
-            token_program_version: TokenProgramVersion::Original,
-            creators: vec![].to_vec(),
-            seller_fee_basis_points: 0,
-        };
-
-        let body: serde_json::Value = reqwest::get(metadata_1.uri.clone())
-            .await
-            .unwrap()
-            .json()
-            .await
-            .unwrap();
-
-        let asset_data = asset_data::Model {
-            id: Keypair::new().pubkey().to_bytes().to_vec(),
-            chain_data_mutability: ChainMutability::Mutable,
-            chain_data: serde_json::to_value(ChainDataV1 {
-                name: String::from("Handalf"),
-                symbol: String::from(""),
-                edition_nonce: None,
-                primary_sale_happened: true,
-                token_standard: Some(TSBlockbuster::NonFungible),
-                uses: None,
-            })
-            .unwrap(),
-            metadata_url: metadata_1.uri,
-            metadata_mutability: Mutability::Mutable,
-            metadata: body,
-            slot_updated: 0,
-        };
-
-        let c: Content = v1_content_from_json(&asset_data).unwrap();
-        assert_eq!(
-            c.files,
-            Some(vec![File {
-                uri: Some(
-                    "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY".to_string()
-                ),
-                mime: None,
-                quality: None,
-                contexts: None,
-            },])
-        )
-    }
 }

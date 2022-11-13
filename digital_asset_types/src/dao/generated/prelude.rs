@@ -14,5 +14,6 @@ pub use super::candy_machine_creators::Entity as CandyMachineCreators;
 pub use super::candy_machine_data::Entity as CandyMachineData;
 pub use super::cl_items::Entity as ClItems;
 pub use super::raw_txn::Entity as RawTxn;
+pub use super::tasks::Entity as Tasks;
 pub use super::token_accounts::Entity as TokenAccounts;
 pub use super::tokens::Entity as Tokens;

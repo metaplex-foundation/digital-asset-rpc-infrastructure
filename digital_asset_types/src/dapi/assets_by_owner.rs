@@ -1,8 +1,11 @@
-use crate::dao::generated::{asset, asset_data, prelude::AssetData};
+use crate::dao::generated::prelude::AssetData;
+use crate::dao::generated::{asset,  asset_data};
 use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QueryOrder, QueryFilter, PaginatorTrait, ColumnTrait, CursorTrait, ModelTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryOrder, QueryFilter, CursorTrait, ModelTrait, PaginatorTrait};
+use sea_orm::DbErr;
+
 
 pub async fn get_assets_by_owner(
     db: &DatabaseConnection,

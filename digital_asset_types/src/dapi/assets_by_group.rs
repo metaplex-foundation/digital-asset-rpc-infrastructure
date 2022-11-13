@@ -1,5 +1,6 @@
 use crate::dao::generated::prelude::AssetData;
 use crate::dao::generated::{asset, asset_creators, asset_grouping};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use sea_orm::{query::*, DbErr};

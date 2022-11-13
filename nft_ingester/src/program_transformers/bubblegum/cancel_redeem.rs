@@ -1,5 +1,5 @@
 use crate::{
-    program_transformers::{bubblegum::db::update_asset, common::save_changelog_event},
+    program_transformers::bubblegum::db::update_asset, tasks::common::save_changelog_event,
     IngesterError,
 };
 use blockbuster::{

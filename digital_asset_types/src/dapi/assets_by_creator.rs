@@ -1,11 +1,10 @@
 use crate::dao::generated::prelude::AssetData;
 use crate::dao::generated::{asset, asset_creators, asset_data};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use sea_orm::{query::*, DbErr, EntityTrait, ModelTrait};
 use sea_orm::{ColumnTrait, DatabaseConnection};
-
-use super::asset::get_asset_list_data;
 
 pub async fn get_assets_by_creator(
     db: &DatabaseConnection,
