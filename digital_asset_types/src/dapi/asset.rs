@@ -1,15 +1,14 @@
-use crate::dao::prelude::{Asset, AssetData};
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{FullAsset, FullAssetList};
-
-
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, MetadataMap, Ownership, Royalty, Scope, Supply, Uses};
-
+use crate::dao::full_asset::{ FullAssetList, FullAsset};
+use crate::dao::generated::prelude::{Asset, AssetData};
+use crate::dao::generated::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::generated::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::rpc::{
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, Ownership,
+    Royalty, Scope, Supply, Uses, MetadataMap
+};
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{QueryOrder,DbErr,ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;

@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use cadence_macros::{statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
-use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
+use digital_asset_types::dao::generated::{sea_orm_active_enums::TaskStatus, tasks};
 use sea_orm::{
-    entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
+    entity::*, query::*, sea_query::Expr, ActiveValue::Set, DatabaseConnection,
     DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
 };
 
@@ -13,7 +13,7 @@ use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
-    task::{JoinError, JoinHandle},
+    task::JoinHandle,
     time,
 };
 
@@ -202,7 +202,8 @@ impl TaskManager {
             Err(e) => {
                 if e == IngesterError::UnrecoverableTaskError {
                     task.attempts = Set(task_def.max_attempts() + 1);
-                    task.locked_by = Set(Some("permanent failure".to_string())); // todo add new task status
+                    task.locked_by = Set(Some("permanent failure".to_string()));
+                // todo add new task status
                 } else {
                     task.locked_by = Set(None);
                 }

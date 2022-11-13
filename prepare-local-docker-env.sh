@@ -15,6 +15,16 @@ pushd metaplex_program_library/bubblegum/program
   mv ./here/mpl_bubblegum.so $CWD/programs/BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY.so
 popd
 
+pushd metaplex_program_library/candy-machine/program
+  cargo build-bpf --bpf-out-dir ./here
+  mv ./here/mpl_candy_machine.so $CWD/programs/cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ.so
+popd
+
+pushd metaplex_program_library/candy-machine-core/program
+  cargo build-bpf --bpf-out-dir ./here
+  mv ./here/mpl_candy_machine_core.so $CWD/programs/CndyV3LdqHUfDLmE5naZjVN8rBZz4tqhdefbAnjHG3JR.so
+popd
+
 mkdir solana_program_library || true
 curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarball | tar -xz --strip-components=1 -C ./solana_program_library
 tar -zxf -C /solana_program_library solana-program-library.tar.gz

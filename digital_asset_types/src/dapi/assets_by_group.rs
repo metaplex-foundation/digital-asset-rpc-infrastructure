@@ -1,12 +1,10 @@
-
-use crate::dao::prelude::AssetData;
-use crate::dao::{asset, asset_creators, asset_grouping};
-use crate::dapi::asset::{get_asset_list_data};
+use crate::dao::generated::prelude::AssetData;
+use crate::dao::generated::{asset, asset_creators, asset_grouping};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{query::*, DbErr};
+use crate::dapi::asset::get_asset_list_data;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_assets_by_group(
     db: &DatabaseConnection,

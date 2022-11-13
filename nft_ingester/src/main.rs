@@ -20,7 +20,6 @@ use figment::{
     value::{Value},
     Figment,
 };
-use futures_util::TryFutureExt;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
@@ -295,7 +294,7 @@ async fn handle_account(
             );
         });
         let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
+        let res = manager.handle_account_update(&account_update).await;
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {

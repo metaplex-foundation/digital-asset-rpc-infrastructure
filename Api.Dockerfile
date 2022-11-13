@@ -9,8 +9,6 @@ FROM chef AS builder
 RUN apt-get update -y && \
     apt-get install -y build-essential make git
 COPY digital_asset_types /rust/digital_asset_types
-WORKDIR /
-RUN git clone https://github.com/metaplex-foundation/blockbuster
 RUN mkdir -p /rust/das_api
 WORKDIR /rust/das_api
 COPY --from=planner /rust/das_api/recipe.json recipe.json
@@ -19,7 +17,7 @@ COPY das_api/Cargo.toml .
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY das_api .
 # Build application
-RUN cargo build --release
+RUN RUSTFLAGS=-Awarnings cargo build --release
 
 FROM rust:1.63-slim-bullseye
 ARG APP=/usr/src/app

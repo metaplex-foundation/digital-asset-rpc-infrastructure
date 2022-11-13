@@ -1,5 +1,5 @@
 use crate::{
-    dao::{
+    dao::generated::{
         asset, asset_creators, asset_data,
         prelude::AssetData,
         sea_orm_active_enums::{
@@ -9,7 +9,7 @@ use crate::{
     dapi::asset::get_asset_list_data,
     rpc::{filter::AssetSorting, response::AssetList},
 };
-use sea_orm::{entity::*, prelude::DateTimeWithTimeZone, query::*, DatabaseConnection, DbErr};
+use sea_orm::{ EntityTrait,prelude::DateTimeWithTimeZone, ModelTrait,query::*, DatabaseConnection, DbErr, ColumnTrait};
 use serde::Deserialize;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;

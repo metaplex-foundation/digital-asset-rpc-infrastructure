@@ -4,7 +4,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
-use digital_asset_types::dao::asset_data;
+use digital_asset_types::dao::generated::asset_data;
 use reqwest::{Client, ClientBuilder};
 use sea_orm::*;
 use serde::{Deserialize, Serialize};

@@ -14,9 +14,9 @@ use {
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     cadence_macros::set_global_default,
     jsonrpsee::http_server::{HttpServerBuilder, RpcModule},
-    jsonrpsee_core::middleware::{HttpMiddleware, Headers, MethodKind, Params},
+    jsonrpsee_core::middleware::{Headers, HttpMiddleware, MethodKind, Params},
     std::net::SocketAddr,
-    std::net::UdpSocket
+    std::net::UdpSocket,
 };
 
 use cadence_macros::{is_global_default_set, statsd_time};
@@ -26,7 +26,6 @@ pub fn safe_metric<F: Fn() -> ()>(f: F) {
         f()
     }
 }
-
 
 fn setup_metrics(config: &Config) {
     let uri = config.metrics_host.clone();
@@ -57,7 +56,10 @@ impl HttpMiddleware for MetricMiddleware {
     // Called once a single JSON-RPC method call is processed, it may be called multiple times
     // on batches.
     fn on_call(&self, method_name: &str, params: Params, kind: MethodKind) {
-        println!("Call to method: '{}' params: {:?}, kind: {}", method_name, params, kind);
+        println!(
+            "Call to method: '{}' params: {:?}, kind: {}",
+            method_name, params, kind
+        );
     }
 
     // Called once a single JSON-RPC call is completed, it may be called multiple times
@@ -72,7 +74,11 @@ impl HttpMiddleware for MetricMiddleware {
 
     // Called the entire JSON-RPC is completed, called on once for both single calls or batches.
     fn on_response(&self, result: &str, started_at: Instant) {
-        println!("complete JSON-RPC response: {}, took: {:?}", result, started_at.elapsed());
+        println!(
+            "complete JSON-RPC response: {}, took: {:?}",
+            result,
+            started_at.elapsed()
+        );
     }
 }
 

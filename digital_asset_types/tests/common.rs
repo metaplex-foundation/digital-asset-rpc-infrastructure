@@ -3,8 +3,11 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use blockbuster::token_metadata::state::*;
 use digital_asset_types::{
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, candy_machine,
+        candy_machine_data,
+        sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+        },
     },
     json::ChainDataV1,
 };
@@ -34,6 +37,120 @@ pub struct MockMetadataArgs {
     /// Uses
     pub uses: Option<Uses>,
     pub creators: Vec<Creator>,
+}
+
+pub fn create_candy_machine(
+    id: Vec<u8>,
+    features: Option<u64>,
+    authority: Vec<u8>,
+    mint_authority: Option<Vec<u8>>,
+    wallet: Option<Vec<u8>>,
+    token_mint: Option<Vec<u8>>,
+    items_redeemed: u64,
+    candy_guard_pda: Option<Vec<u8>>,
+    version: u8,
+    collection_mint: Option<Vec<u8>>,
+    allow_thaw: Option<bool>,
+) -> (candy_machine::ActiveModel, candy_machine::Model) {
+    (
+        candy_machine::ActiveModel {
+            id: Set(id),
+            features: Set(features),
+            authority: Set(authority),
+            mint_authority: Set(mint_authority),
+            wallet: Set(wallet),
+            token_mint: Set(token_mint),
+            items_redeemed: Set(items_redeemed),
+            candy_guard_pda: Set(candy_guard_pda),
+            version: Set(version),
+            collection_mint: Set(collection_mint),
+            allow_thaw: Set(allow_thaw),
+            frozen_count: Set(frozen_count),
+            mint_start: Set(mint_start),
+            freeze_time: Set(freeze_time),
+            freeze_fee: Set(freeze_fee),
+            created_at: Set(created_at),
+            last_minted: Set(last_minted),
+        },
+        candy_machine::Model {
+            id,
+            features,
+            authority,
+            mint_authority,
+            wallet,
+            token_mint,
+            items_redeemed,
+            candy_guard_pda,
+            version,
+            collection_mint,
+            allow_thaw,
+            frozen_count,
+            mint_start,
+            freeze_time,
+            freeze_fee,
+            created_at,
+            last_minted,
+        },
+    )
+}
+
+pub fn create_candy_machine_data(
+    row_num: i64,
+    uuid: Option<String>,
+    price: Option<u64>,
+    symbol: String,
+    seller_fee_basis_points: u16,
+    max_supply: u64,
+    is_mutable: bool,
+    retain_authority: Option<bool>,
+    go_live_date: Option<i64>,
+    items_available: u64,
+    candy_machine_id: Vec<u8>,
+) -> (candy_machine_data::ActiveModel, candy_machine_data::Model) {
+    (
+        candy_machine_data::ActiveModel {
+            uuid: Set(uuid.clone()),
+            price: Set(price),
+            symbol: Set(symbol.clone()),
+            seller_fee_basis_points: Set(seller_fee_basis_points),
+            max_supply: Set(max_supply),
+            is_mutable: Set(is_mutable),
+            retain_authority: Set(retain_authority),
+            go_live_date: Set(go_live_date),
+            items_available: Set(items_available),
+            candy_machine_id: Set(candy_machine_id.clone()),
+            ..Default::default()
+        },
+        candy_machine_data::Model {
+            id: row_num,
+            uuid,
+            price,
+            symbol,
+            seller_fee_basis_points,
+            max_supply,
+            is_mutable,
+            retain_authority,
+            go_live_date,
+            items_available,
+            candy_machine_id,
+            whitelist_mode: todo!(),
+            whitelist_mint: todo!(),
+            whitelist_presale: todo!(),
+            whitelist_discount_price: todo!(),
+            gatekeeper_network: todo!(),
+            gatekeeper_expire_on_use: todo!(),
+            config_line_settings_prefix_name: todo!(),
+            config_line_settings_name_length: todo!(),
+            config_line_settings_prefix_uri: todo!(),
+            config_line_settings_uri_length: todo!(),
+            config_line_settings_is_sequential: todo!(),
+            end_setting_number: todo!(),
+            end_setting_type: todo!(),
+            hidden_settings_name: todo!(),
+            hidden_settings_uri: todo!(),
+            hidden_settings_hash: todo!(),
+        },
+    )
 }
 
 pub fn create_asset_data(
@@ -80,7 +197,7 @@ pub fn create_asset_data(
             metadata_url: Keypair::new().pubkey().to_string(),
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -198,7 +315,7 @@ pub fn create_asset_authority(
             seq: 0,
             id: row_num,
             scopes: None,
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -221,7 +338,7 @@ pub fn create_asset_grouping(
             seq: 0,
             id: row_num,
             group_key: "collection".to_string(),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }

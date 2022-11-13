@@ -5,7 +5,7 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use digital_asset_types::{
-    dao::{
+    dao::generated::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         asset_v1_account_attachments,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
@@ -28,7 +28,7 @@ use blockbuster::token_metadata::{
 };
 use chrono::Utc;
 
-use digital_asset_types::dao::sea_orm_active_enums::{
+use digital_asset_types::dao::generated::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
 use mpl_bubblegum::{hash_creators, hash_metadata};

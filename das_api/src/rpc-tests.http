@@ -80,9 +80,18 @@ content-type: application/json
 ###
 POST http://localhost:9090 HTTP/1.1
 content-type: application/json
-
 {
   "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_candy_machine",
+  "params": [
+    "8FQrAsAPhcz3rdQuvLJGw9UZoyxFj4X4oiqoKPtkK7tm"
+  ]
+}
+
+###
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
   "method": "search_assets",
   "params": [
     {

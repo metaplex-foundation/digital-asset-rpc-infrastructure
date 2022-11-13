@@ -1,10 +1,10 @@
 use sea_orm::sea_query::Expr;
-use sea_orm::{DatabaseConnection, DbBackend};
+use sea_orm::{ColumnTrait, DatabaseConnection, DbBackend, EntityTrait};
 use {
-    crate::dao::asset,
-    crate::dao::cl_items,
+    crate::dao::generated::asset,
+    crate::dao::generated::cl_items,
     crate::rpc::AssetProof,
-    sea_orm::{entity::*, query::*, DbErr, FromQueryResult},
+    sea_orm::{query::*, DbErr, FromQueryResult},
     spl_concurrent_merkle_tree::node::empty_node,
 };
 
