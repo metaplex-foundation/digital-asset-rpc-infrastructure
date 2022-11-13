@@ -334,7 +334,7 @@ pub async fn initialize_candy_machine_v3(
         None,
         0,
         true,
-        None,
+        Some(&payer.clone().pubkey()),
         None,
         None,
         true,

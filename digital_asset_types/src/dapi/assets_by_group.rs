@@ -6,8 +6,6 @@ use crate::rpc::response::AssetList;
 use sea_orm::{query::*, DbErr};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
-use super::asset::get_asset_list_data;
-
 pub async fn get_assets_by_group(
     db: &DatabaseConnection,
     creator_expression: Vec<String>,
