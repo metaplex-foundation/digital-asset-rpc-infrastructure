@@ -1,5 +1,5 @@
 use anchor_lang::AccountDeserialize;
-use mpl_candy_guard::guards::{SolPayment, SolPayment, StartDate, ThirdPartySigner};
+use mpl_candy_guard::guards::{BotTax, SolPayment, StartDate, ThirdPartySigner};
 use mpl_candy_guard::state::{CandyGuardData, GuardSet};
 use mpl_candy_machine::{CandyMachine, CandyMachineData, ConfigLine, Creator};
 use mpl_candy_machine_core::{
@@ -8,6 +8,7 @@ use mpl_candy_machine_core::{
 };
 use solana_client::{client_error::ClientError, nonblocking::rpc_client::RpcClient};
 use solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use solana_sdk::bs58;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -16,7 +17,7 @@ use crate::{
     add_config_lines, add_config_lines_v3,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
     helpers::{find_candy_guard_pda, find_candy_machine_creator_pda, prepare_nft},
-    initialize_candy_machine, initialize_candy_machine_v3,
+    initialize_candy_guard, initialize_candy_machine, initialize_candy_machine_v3,
     mint::mint_nft,
 };
 
@@ -154,9 +155,9 @@ pub async fn make_a_candy_machine_v3(
 }
 
 pub async fn wrap_in_candy_guard(
-    payer: &Keypair,
+    payer: &Arc<Keypair>,
     solana_client: Arc<RpcClient>,
-) -> Result<(), ClientError> {
+) -> Result<Pubkey, ClientError> {
     let candy_guard_data = CandyGuardData {
         default: GuardSet {
             bot_tax: Some(BotTax {
@@ -191,17 +192,30 @@ pub async fn wrap_in_candy_guard(
     };
 
     let base_keypair = Arc::new(Keypair::new());
-    let pda = find_candy_guard_pda(base_keypair.clone().pubkey(), PROGRAM_ID);
+    solana_client
+        .clone()
+        .request_airdrop(&base_keypair.clone().pubkey(), LAMPORTS_PER_SOL * 3)
+        .await?;
 
-    let candy_guard_id = initialize_candy_guard(
+    let pda = find_candy_guard_pda(&base_keypair.clone().pubkey(), &mpl_candy_guard::id());
+
+    println!(
+        "candy guard created {:?}",
+        bs58::encode(pda.0).into_string()
+    );
+
+    initialize_candy_guard(
         solana_client.clone(),
         payer.clone(),
         base_keypair.clone(),
-        pda,
+        pda.0,
+        candy_guard_data,
     )
     .await?;
 
-    Ok(())
+    println!("candy guard created h {:?}", pda.0);
+
+    Ok(pda.0)
 }
 
 pub fn make_config_lines(start_index: u32, total: u8) -> Vec<ConfigLine> {

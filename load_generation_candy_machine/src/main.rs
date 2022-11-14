@@ -3,13 +3,14 @@ mod helpers;
 mod initialize;
 mod mint;
 
-use anchor_lang::{InstructionData, ToAccountMetas};
+use anchor_lang::{AccountSerialize, AnchorSerialize, InstructionData, ToAccountMetas};
 use candy_machine_constants::{CONFIG_ARRAY_START, CONFIG_LINE_SIZE};
 use helpers::{
     create_v3, create_v3_master_edition, find_candy_machine_creator_pda, find_master_edition_pda,
     find_metadata_pda,
 };
 use initialize::{make_a_candy_machine, make_a_candy_machine_v3};
+use mpl_candy_guard::state::CandyGuardData;
 use mpl_candy_machine::{CandyMachineData, ConfigLine};
 use mpl_candy_machine_core::{CandyMachineData as CandyMachineDataV3, ConfigLine as ConfigLineV3};
 use mpl_token_metadata::{pda::find_collection_authority_account, state::PREFIX};
@@ -408,6 +409,48 @@ pub async fn initialize_candy_machine_v3(
         &[create_ix, init_ix],
         Some(&payer.pubkey()),
         &[payer.as_ref(), candy_account],
+        solana_client.get_latest_blockhash().await?,
+    );
+
+    solana_client.send_and_confirm_transaction(&tx).await?;
+
+    Ok(())
+}
+
+pub async fn initialize_candy_guard(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    base: Arc<Keypair>,
+    pda: Pubkey,
+    candy_guard_data: CandyGuardData,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_guard::accounts::Initialize {
+        candy_guard: pda,
+        base: base.clone().pubkey(),
+        authority: payer.pubkey(),
+        payer: payer.pubkey(),
+        system_program: system_program::id(),
+    }
+    .to_account_metas(None);
+
+    let mut serialized_data = vec![0; candy_guard_data.size()];
+    candy_guard_data.save(&mut serialized_data).unwrap();
+
+    let data = mpl_candy_guard::instruction::Initialize {
+        data: serialized_data,
+    }
+    .data();
+
+    let init_ix = Instruction {
+        program_id: mpl_candy_guard::id(),
+        accounts,
+        data,
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&payer.pubkey()),
+        &[payer.as_ref(), base.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
 

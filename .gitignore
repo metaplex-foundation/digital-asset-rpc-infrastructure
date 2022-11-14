@@ -21,4 +21,3 @@ test-ledger
 programs
 *.iml
 skaffold-state.json
-test-programs

@@ -21,6 +21,7 @@ pub async fn candy_guard<'c>(
     db: &DatabaseConnection,
 ) -> Result<(), IngesterError> {
     let id_bytes = id.0.to_vec();
+    println!("ingester id {:?}", bs58::encode(id.0).into_string());
     let candy_guard_model = candy_guard::ActiveModel {
         id: Set(id_bytes.clone()),
         base: Set(candy_guard.base.to_bytes().to_vec()),
@@ -156,8 +157,8 @@ pub async fn candy_guard<'c>(
                     candy_guard_group::Column::TokenPaymentDestinationAta,
                     candy_guard_group::Column::TokenPaymentMint,
                     candy_guard_group::Column::FreezeTokenPaymentAmount,
-                    candy_guard_group::Column::FreezeSolPaymentDestination,
-                    candy_guard_group::Column::FreezeSolPaymentLamports,
+                    candy_guard_group::Column::FreezeTokenPaymentMint,
+                    candy_guard_group::Column::FreezeTokenPaymentDestinationAta,
                 ])
                 .to_owned(),
         )
@@ -242,8 +243,8 @@ pub async fn candy_guard<'c>(
                                 candy_guard_group::Column::TokenPaymentDestinationAta,
                                 candy_guard_group::Column::TokenPaymentMint,
                                 candy_guard_group::Column::FreezeTokenPaymentAmount,
-                                candy_guard_group::Column::FreezeSolPaymentDestination,
-                                candy_guard_group::Column::FreezeSolPaymentLamports,
+                                candy_guard_group::Column::FreezeTokenPaymentMint,
+                                candy_guard_group::Column::FreezeTokenPaymentDestinationAta,
                             ])
                             .to_owned(),
                     )

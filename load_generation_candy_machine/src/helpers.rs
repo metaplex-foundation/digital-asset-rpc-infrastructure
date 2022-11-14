@@ -23,7 +23,7 @@ pub fn find_candy_machine_creator_pda(
     Pubkey::find_program_address(creator_seeds, &program_id)
 }
 
-pub fn find_candy_guard_pda(base: &PublicKey, program_id: &Pubkey) -> (Pubkey, u8) {
+pub fn find_candy_guard_pda(base: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&["candy_guard".as_bytes(), base.as_ref()], &program_id)
 }
 
