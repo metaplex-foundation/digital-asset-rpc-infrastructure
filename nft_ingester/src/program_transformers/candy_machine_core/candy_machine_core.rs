@@ -43,7 +43,9 @@ pub async fn candy_machine_core(
         last_minted: Set(last_minted),
         ..Default::default()
     };
-
+//Hz2FMjrRZURsDQoRuyTnVhnoSBqi4bGisrjzvo7nx82Z
+//aBJLjK2pk7uQnLBFzW6ZiUehEAhLb9CTiacFMNayPv7
+//BdnyFzAWdecbvDiPzF2dh1ouqTifYTZZNmhgkJaJrjdf
     let query = candy_machine::Entity::insert(candy_machine_core_model)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])

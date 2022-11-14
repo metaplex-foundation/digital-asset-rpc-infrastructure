@@ -458,3 +458,38 @@ pub async fn initialize_candy_guard(
 
     Ok(())
 }
+
+pub async fn wrap_candy_guard(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    pda: Pubkey,
+    candy_machine_id: Pubkey,
+) -> Result<(), ClientError> {
+    let accounts = mpl_candy_guard::accounts::Wrap {
+        candy_guard: pda,
+        authority: payer.clone().pubkey(),
+        candy_machine: candy_machine_id,
+        candy_machine_program: mpl_candy_machine_core::id(),
+        candy_machine_authority: payer.clone().pubkey(),
+    }
+    .to_account_metas(None);
+
+    let data = mpl_candy_guard::instruction::Wrap {}.data();
+
+    let init_ix = Instruction {
+        program_id: mpl_candy_guard::id(),
+        accounts,
+        data,
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&payer.pubkey()),
+        &[payer.as_ref()],
+        solana_client.get_latest_blockhash().await?,
+    );
+
+    solana_client.send_and_confirm_transaction(&tx).await?;
+
+    Ok(())
+}

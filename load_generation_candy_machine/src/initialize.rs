@@ -13,6 +13,7 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use std::{sync::Arc, time::Duration};
 use tokio::time::sleep;
 
+use crate::wrap_candy_guard;
 use crate::{
     add_config_lines, add_config_lines_v3,
     candy_machine_constants::{DEFAULT_PRICE, DEFAULT_SYMBOL, DEFAULT_UUID},
@@ -149,7 +150,12 @@ pub async fn make_a_candy_machine_v3(
 
     sleep(Duration::from_millis(130000)).await;
 
-    wrap_in_candy_guard(&payer.clone(), solana_client.clone()).await?;
+    wrap_in_candy_guard(
+        &payer.clone(),
+        solana_client.clone(),
+        candy_machine.pubkey(),
+    )
+    .await?;
 
     Ok(candy_machine.pubkey())
 }
@@ -157,6 +163,7 @@ pub async fn make_a_candy_machine_v3(
 pub async fn wrap_in_candy_guard(
     payer: &Arc<Keypair>,
     solana_client: Arc<RpcClient>,
+    candy_machine_id: Pubkey,
 ) -> Result<Pubkey, ClientError> {
     let candy_guard_data = CandyGuardData {
         default: GuardSet {
@@ -199,11 +206,6 @@ pub async fn wrap_in_candy_guard(
 
     let pda = find_candy_guard_pda(&base_keypair.clone().pubkey(), &mpl_candy_guard::id());
 
-    println!(
-        "candy guard created {:?}",
-        bs58::encode(pda.0).into_string()
-    );
-
     initialize_candy_guard(
         solana_client.clone(),
         payer.clone(),
@@ -213,7 +215,16 @@ pub async fn wrap_in_candy_guard(
     )
     .await?;
 
-    println!("candy guard created h {:?}", pda.0);
+    println!("candy guard created {:?}", pda.0);
+    println!("candy guard base {:?}", base_keypair.pubkey());
+
+    wrap_candy_guard(
+        solana_client.clone(),
+        payer.clone(),
+        pda.0,
+        candy_machine_id,
+    )
+    .await?;
 
     Ok(pda.0)
 }

@@ -21,7 +21,7 @@ pub async fn candy_guard<'c>(
     db: &DatabaseConnection,
 ) -> Result<(), IngesterError> {
     let id_bytes = id.0.to_vec();
-    println!("ingester id {:?}", bs58::encode(id.0).into_string());
+
     let candy_guard_model = candy_guard::ActiveModel {
         id: Set(id_bytes.clone()),
         base: Set(candy_guard.base.to_bytes().to_vec()),
@@ -29,28 +29,66 @@ pub async fn candy_guard<'c>(
         authority: Set(candy_guard.authority.to_bytes().to_vec()),
     };
 
+    let query = candy_guard::Entity::insert(candy_guard_model)
+        .on_conflict(
+            OnConflict::columns([candy_guard::Column::Id])
+                .update_columns([candy_guard::Column::Authority])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    txn.execute(query)
+        .await
+        .map(|_| ())
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+
     // this is returning a vec because candy guards can wrap multiple candy machines
     // but a single candy machine can have just one guard
-    let candy_machines: Vec<candy_machine::Model> = CandyMachine::find()
-        .filter(
-            Condition::all()
-                .add(candy_machine::Column::MintAuthority.is_not_null())
-                .add(candy_machine::Column::MintAuthority.eq(id_bytes.clone()))
-                .add(candy_machine::Column::CandyGuardId.is_null()),
-        )
+    let candy_machines: Vec<candy_machine::Model> = candy_machine::Entity::find()
+        .filter(candy_machine::Column::Version.eq(3))
+        // TODO for whatever reason this does not work as a filter
+        .filter(candy_machine::Column::MintAuthority.eq(id_bytes.clone()))
         .all(db)
-        .await
-        .and_then(|o| match o {
-            o => Ok(o),
-            _ => Err(DbErr::RecordNotFound(
-                "Candy Machines Not Found".to_string(),
-            )),
-        })?;
+        .await?
+        .into_iter()
+        .filter(|x| {
+            println!(
+                " mint auth {:?}",
+                bs58::encode(x.clone().mint_authority.unwrap().to_vec()).into_string()
+            );
+            println!(" ingesterid  {:?}", bs58::encode(id.0).into_string());
+            x.clone().mint_authority.unwrap() == id_bytes.clone()
+        })
+        .collect::<Vec<candy_machine::Model>>();
 
+    // let candy_machines = candy_machine::Entity::find()
+    //     .from_raw_sql(Statement::from_sql_and_values(
+    //         DbBackend::Postgres,
+    //         r#"SELECT * FROM "candy_machine" WHERE "version" = $1"#,
+    //         vec![candy_guard_model.id.into(), 3.into()],
+    //     ))
+    //     .all(db)
+    //     .await?;
+
+    println!("candy machines  {:?}", candy_machines);
+    println!("cm len {:?}", candy_machines.len());
+    // TODO question: should we look for candy machines that have been wrapped and then unwrapped
+    // do a check to see if candy guard is present and if so that it matches current mint authority
+    // if they are different we can say that cm has been unwrapped by guard and set candy_guard_id back to null
+    // changes done in candy machine file
     if candy_machines.len() > 0 {
         for cm in candy_machines.iter() {
             let candy_machine_model = candy_machine::ActiveModel {
+                id: Unchanged(cm.clone().id),
+                features: Unchanged(cm.features),
+                authority: Unchanged(cm.clone().authority),
+                items_redeemed: Unchanged(cm.items_redeemed),
+                mint_authority: Unchanged(cm.clone().mint_authority),
                 candy_guard_id: Set(Some(id_bytes.clone())),
+                collection_mint: Unchanged(cm.clone().collection_mint),
+                version: Unchanged(3),
+                created_at: Unchanged(cm.created_at),
+                last_minted: Unchanged(cm.last_minted),
                 ..Default::default()
             };
 
@@ -68,23 +106,6 @@ pub async fn candy_guard<'c>(
                 .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
         }
     }
-
-    // TODO question: should we look for candy machines that have been wrapped and then unwrapped
-    // do a check to see if candy guard is present and if so that it matches current mint authority
-    // if they are different we can say that cm has been unwrapped by guard and set candy_guard_id back to null
-    // changes done in candy machine file
-    let query = candy_guard::Entity::insert(candy_guard_model)
-        .on_conflict(
-            OnConflict::columns([candy_guard::Column::Id])
-                .update_columns([candy_guard::Column::Authority])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    txn.execute(query)
-        .await
-        .map(|_| ())
-        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let default_guard = get_all_guards(candy_guard_data.clone().default);
 
