@@ -293,6 +293,7 @@ create index asset_creator on asset_creators (asset_id, creator);
 -- @@@@@@
 create index asset_verified_creator on asset_creators (asset_id, verified);
 -- @@@@@@
+
 create type whitelist_mint_mode AS ENUM ('burn_every_time', 'never_burn');
 create type end_setting_type AS ENUM ('date', 'amount');
 
