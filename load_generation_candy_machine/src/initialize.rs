@@ -215,9 +215,6 @@ pub async fn wrap_in_candy_guard(
     )
     .await?;
 
-    println!("candy guard created {:?}", pda.0);
-    println!("candy guard base {:?}", base_keypair.pubkey());
-
     wrap_candy_guard(
         solana_client.clone(),
         payer.clone(),

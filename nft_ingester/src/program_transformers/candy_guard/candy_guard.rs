@@ -47,31 +47,10 @@ pub async fn candy_guard<'c>(
     let candy_machines: Vec<candy_machine::Model> = candy_machine::Entity::find()
         .filter(candy_machine::Column::Version.eq(3))
         // TODO for whatever reason this does not work as a filter
-        .filter(candy_machine::Column::MintAuthority.eq(id_bytes.clone()))
+        // .filter(candy_machine::Column::MintAuthority.eq(id_bytes.clone()))
         .all(db)
-        .await?
-        .into_iter()
-        .filter(|x| {
-            println!(
-                " mint auth {:?}",
-                bs58::encode(x.clone().mint_authority.unwrap().to_vec()).into_string()
-            );
-            println!(" ingesterid  {:?}", bs58::encode(id.0).into_string());
-            x.clone().mint_authority.unwrap() == id_bytes.clone()
-        })
-        .collect::<Vec<candy_machine::Model>>();
+        .await?;
 
-    // let candy_machines = candy_machine::Entity::find()
-    //     .from_raw_sql(Statement::from_sql_and_values(
-    //         DbBackend::Postgres,
-    //         r#"SELECT * FROM "candy_machine" WHERE "version" = $1"#,
-    //         vec![candy_guard_model.id.into(), 3.into()],
-    //     ))
-    //     .all(db)
-    //     .await?;
-
-    println!("candy machines  {:?}", candy_machines);
-    println!("cm len {:?}", candy_machines.len());
     // TODO question: should we look for candy machines that have been wrapped and then unwrapped
     // do a check to see if candy guard is present and if so that it matches current mint authority
     // if they are different we can say that cm has been unwrapped by guard and set candy_guard_id back to null
