@@ -1,4 +1,4 @@
-use blockbuster::{self, programs::candy_machine::CandyMachineAccountData};
+use blockbuster::programs::candy_machine::CandyMachineAccountData;
 
 use plerkle_serialization::AccountInfo;
 use sea_orm::{DatabaseConnection, TransactionTrait};
@@ -7,14 +7,13 @@ use tokio::sync::mpsc::UnboundedSender;
 mod candy_machine;
 mod collections;
 mod freeze;
-mod state;
 
 use crate::{tasks::TaskData, IngesterError};
 
-pub async fn handle_candy_machine_account_update<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b CandyMachineAccountData,
-    db: &'c DatabaseConnection,
+pub async fn handle_candy_machine_account_update(
+    account_update: &AccountInfo<'_>,
+    parsing_result: &CandyMachineAccountData,
+    db: &DatabaseConnection,
     task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;

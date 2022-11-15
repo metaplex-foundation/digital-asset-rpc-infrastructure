@@ -25,6 +25,14 @@ pushd metaplex_program_library/candy-machine-core/program
   mv ./here/mpl_candy_machine_core.so $CWD/programs/CndyV3LdqHUfDLmE5naZjVN8rBZz4tqhdefbAnjHG3JR.so
 popd
 
+mkdir mpl_candy_guard || true
+curl -LkSs https://api.github.com/repos/metaplex-foundation/mpl-candy-guard/tarball | tar -xz --strip-components=1 -C ./mpl_candy_guard
+
+pushd mpl_candy_guard/program
+  cargo build-bpf --bpf-out-dir ./here
+  mv ./here/mpl_candy_guard.so $CWD/programs/Guard1JwRhJkVH6XZhzoYxeBVQe872VH6QggF4BWmS9g.so
+popd
+
 mkdir solana_program_library || true
 curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarball | tar -xz --strip-components=1 -C ./solana_program_library
 tar -zxf -C /solana_program_library solana-program-library.tar.gz
@@ -59,4 +67,5 @@ popd
 
 rm -rf solana_program_library
 rm -rf metaplex_program_library
+rm -rf mpl_candy_guard
 

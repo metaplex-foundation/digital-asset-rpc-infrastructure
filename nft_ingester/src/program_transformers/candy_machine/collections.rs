@@ -1,10 +1,12 @@
 use crate::IngesterError;
 
-use digital_asset_types::dao::candy_machine;
+use digital_asset_types::dao::generated::candy_machine;
 
 use blockbuster::programs::candy_machine::state::CollectionPDA;
 use plerkle_serialization::Pubkey as FBPubkey;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, DbErr};
+use sea_orm::{
+    entity::*, query::*, ConnectionTrait, DatabaseTransaction, DbBackend, DbErr, EntityTrait,
+};
 
 pub async fn collections(
     collections: &CollectionPDA,

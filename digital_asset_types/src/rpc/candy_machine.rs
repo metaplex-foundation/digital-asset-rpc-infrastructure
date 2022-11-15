@@ -56,7 +56,7 @@ impl From<EndSettingType> for EndSettingModel {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct EndSettings {
     pub end_setting_type: EndSettingType,
-    pub number: i64,
+    pub number: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -114,27 +114,24 @@ pub struct WhitelistMintSettings {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct BotTax {
-    pub lamports: i64,
+    pub lamports: u64,
     pub last_instruction: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Lamports {
-    pub amount: i64,
+pub struct SolPayment {
+    pub lamports: u64,
     pub destination: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct SplToken {
-    pub amount: i64,
-    pub token_mint: String,
-    pub destination_ata: String,
+pub struct StartDate {
+    pub date: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct LiveDate {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date: Option<i64>,
+pub struct EndDate {
+    pub date: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -160,6 +157,58 @@ pub struct NftPayment {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct AddressGate {
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RedeemedAmount {
+    pub maximum: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FreezeSolPayment {
+    pub lamports: u64,
+    pub destination: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenGate {
+    pub amount: u64,
+    pub mint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NftGate {
+    pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenBurn {
+    pub amount: u64,
+    pub mint: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NftBurn {
+    pub required_collection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct TokenPayment {
+    pub amount: u64,
+    pub mint: String,
+    pub destination_ata: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FreezeTokenPayment {
+    pub amount: u64,
+    pub mint: String,
+    pub destination_ata: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct GuardSet {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bot_tax: Option<BotTax>,
@@ -173,6 +222,30 @@ pub struct GuardSet {
     pub mint_limit: Option<MintLimit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nft_payment: Option<NftPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sol_payment: Option<SolPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<StartDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<EndDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address_gate: Option<AddressGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redeemed_amount: Option<RedeemedAmount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_sol_payment: Option<FreezeSolPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_gate: Option<TokenGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nft_gate: Option<NftGate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_burn: Option<TokenBurn>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nft_burn: Option<NftBurn>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_payment: Option<TokenPayment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_token_payment: Option<FreezeTokenPayment>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -191,6 +264,7 @@ pub struct CandyGuardData {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CandyGuard {
     pub id: String,
+    pub base: String,
     pub bump: u8,
     pub authority: String,
     pub candy_guard_data: CandyGuardData,

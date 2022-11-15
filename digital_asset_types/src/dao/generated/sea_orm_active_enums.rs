@@ -121,7 +121,6 @@ pub enum V1AccountAttachments {
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
-
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
@@ -138,8 +137,8 @@ pub enum WhitelistMintMode {
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "end_setting_type")]
 pub enum EndSettingType {
-    #[sea_orm(string_value = "date")]
-    Date,
     #[sea_orm(string_value = "amount")]
     Amount,
+    #[sea_orm(string_value = "date")]
+    Date,
 }

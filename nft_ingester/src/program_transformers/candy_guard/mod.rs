@@ -1,19 +1,19 @@
-use blockbuster::{self, programs::candy_guard::CandyGuardAccountData};
+use blockbuster::programs::candy_guard::CandyGuardAccountData;
 
 use plerkle_serialization::AccountInfo;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{BgTask, IngesterError};
+use crate::{tasks::TaskData, IngesterError};
 
 mod candy_guard;
 mod helpers;
 
-pub async fn handle_candy_guard_account_update<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b CandyGuardAccountData,
-    db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<Box<dyn BgTask>>,
+pub async fn handle_candy_guard_account_update(
+    account_update: &AccountInfo<'_>,
+    parsing_result: &CandyGuardAccountData,
+    db: &DatabaseConnection,
+    task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
     let key = account_update.pubkey().unwrap().clone();
@@ -26,7 +26,7 @@ pub async fn handle_candy_guard_account_update<'a, 'b, 'c>(
         //     mint_counter::mint_counter(mint_counter, acct, &txn).await?;
         //     txn.commit().await?;
         // }
-        // TODO mint counter :(
+        // TODO mint counter :( P-688
         _ => println!("Candy Machine Guard: Account update invalid."),
     }
 

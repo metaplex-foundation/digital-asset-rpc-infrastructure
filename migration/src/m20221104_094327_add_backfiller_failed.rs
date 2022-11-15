@@ -1,5 +1,5 @@
 use sea_orm_migration::prelude::*;
-use digital_asset_types::dao::backfill_items;
+use digital_asset_types::dao::generated::backfill_items;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

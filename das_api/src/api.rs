@@ -174,6 +174,18 @@ impl<'a> RpcApiBuilder {
                     .map_err(Into::into)
             },
         )?;
+
+        module.register_alias("getOffersByOwner", "get_offers_by_owner")?;
+        module.register_async_method("search_assets", |rpc_params, rpc_context| async move {
+            let (search_expression, sort_by, limit, page, before, after) =
+                rpc_params.parse().unwrap();
+            rpc_context
+                .search_assets(search_expression, sort_by, limit, page, before, after)
+                .await
+                .map_err(Into::into)
+        })?;
+        module.register_alias("searchAssets", "search_assets")?;
+
         module.register_async_method(
             "get_candy_machine",
             |rpc_params, rpc_context| async move {
@@ -223,16 +235,6 @@ impl<'a> RpcApiBuilder {
             },
         )?;
 
-        module.register_alias("getOffersByOwner", "get_offers_by_owner")?;
-        module.register_async_method("search_assets", |rpc_params, rpc_context| async move {
-            let (search_expression, sort_by, limit, page, before, after) =
-                rpc_params.parse().unwrap();
-            rpc_context
-                .search_assets(search_expression, sort_by, limit, page, before, after)
-                .await
-                .map_err(Into::into)
-        })?;
-        module.register_alias("searchAssets", "search_assets")?;
         Ok(module)
     }
 }

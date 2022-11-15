@@ -1,5 +1,5 @@
-use crate::dao::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
-use crate::dao::{
+use crate::dao::generated::prelude::{CandyGuard, CandyGuardGroup, CandyMachineData};
+use crate::dao::generated::{
     candy_guard, candy_guard_group, candy_machine, candy_machine_creators, candy_machine_data,
 };
 use crate::rpc::filter::CandyMachineSorting;
@@ -112,11 +112,11 @@ pub async fn get_candy_machines_by_size(
                         .await
                         .unwrap();
 
-                let candy_guard = if let Some(candy_guard_pda) = candy_machine.candy_guard_pda {
+                let candy_guard = if let Some(candy_guard_id) = candy_machine.candy_guard_id {
                     let (candy_guard, candy_guard_group): (
                         candy_guard::Model,
                         Vec<candy_guard_group::Model>,
-                    ) = CandyGuard::find_by_id(candy_guard_pda)
+                    ) = CandyGuard::find_by_id(candy_guard_id)
                         .find_with_related(CandyGuardGroup)
                         .all(db)
                         .await
@@ -158,9 +158,8 @@ pub async fn get_candy_machines_by_size(
 
                     Some(RpcCandyGuard {
                         id: bs58::encode(candy_guard.id).into_string(),
+                        base: bs58::encode(candy_guard.base).into_string(),
                         bump: candy_guard.bump as u8,
-                        // TODO fix this ^ type
-                        // bump: candy_guard.bump  showing as i32,
                         authority: bs58::encode(candy_guard.authority).into_string(),
                         candy_guard_data: CandyGuardData {
                             default: default_set,

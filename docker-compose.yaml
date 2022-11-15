@@ -71,7 +71,7 @@ services:
       RPC_URL: "http://${COMPOSE_PROJECT_NAME}-solana-1:8899/"
     build:
       context: .
-      dockerfile: Load.Dockerfile
+      dockerfile: LoadCandyMachine.Dockerfile
   proxy:
     build:
       context: .

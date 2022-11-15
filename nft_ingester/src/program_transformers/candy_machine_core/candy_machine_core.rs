@@ -1,7 +1,7 @@
 use crate::IngesterError;
 
-use chrono::Utc;
-use digital_asset_types::dao::{
+use chrono::{Utc, FixedOffset};
+use digital_asset_types::dao::generated::{
     candy_machine, candy_machine_creators, candy_machine_data, prelude::CandyMachine,
 };
 use mpl_candy_machine_core::CandyMachine as CandyMachineCore;
@@ -23,7 +23,7 @@ pub async fn candy_machine_core(
 
     let last_minted = if let Some(candy_machine_model) = candy_machine_model {
         if candy_machine_model.items_redeemed < candy_machine_core.items_redeemed as i64 {
-            Some(Utc::now())
+            Some(Utc::now().with_timezone(&FixedOffset::west(0)))
         } else {
             candy_machine_model.last_minted
         }
@@ -39,13 +39,13 @@ pub async fn candy_machine_core(
         mint_authority: Set(Some(candy_machine_core.mint_authority.to_bytes().to_vec())),
         collection_mint: Set(Some(candy_machine_core.collection_mint.to_bytes().to_vec())),
         version: Set(3),
-        created_at: Set(Some(Utc::now())),
+        created_at: Set(Some(Utc::now().with_timezone(&FixedOffset::west(0)))),
         last_minted: Set(last_minted),
         ..Default::default()
     };
-
-    // TODO add version back and in db schema as well
-
+//Hz2FMjrRZURsDQoRuyTnVhnoSBqi4bGisrjzvo7nx82Z
+//aBJLjK2pk7uQnLBFzW6ZiUehEAhLb9CTiacFMNayPv7
+//BdnyFzAWdecbvDiPzF2dh1ouqTifYTZZNmhgkJaJrjdf
     let query = candy_machine::Entity::insert(candy_machine_core_model)
         .on_conflict(
             OnConflict::columns([candy_machine::Column::Id])

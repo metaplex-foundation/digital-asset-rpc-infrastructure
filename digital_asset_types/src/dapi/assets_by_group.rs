@@ -1,9 +1,9 @@
 use crate::dao::generated::prelude::AssetData;
 use crate::dao::generated::{asset, asset_creators, asset_grouping};
+use crate::dapi::asset::get_asset_list_data;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use sea_orm::{query::*, DbErr};
-use crate::dapi::asset::get_asset_list_data;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait};
 
 pub async fn get_assets_by_group(
@@ -84,7 +84,7 @@ pub async fn get_assets_by_group(
         assets
     };
 
-    let built_assets = get_asset_list_data( db, assets).await?;
+    let built_assets = get_asset_list_data(db, assets).await?;
 
     let total = built_assets.len() as u32;
 
