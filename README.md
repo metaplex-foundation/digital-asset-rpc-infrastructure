@@ -1,6 +1,3 @@
-### This repo was originally built inside https://github.com/jarry-xiao/candyland as a join effort between Solana X Metaplex
-This repo is in transition, and we are factoring out components from CandyLand here.
-
 ## IMPORTANT: See Prerequisites below
 
 ## Digital Asset RPC API Infrastructure
