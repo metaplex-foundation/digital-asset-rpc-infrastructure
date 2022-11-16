@@ -21,6 +21,7 @@ pub struct Model {
     pub force_chk: bool,
     pub backfilled: bool,
     pub failed: bool,
+    pub locked: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -32,6 +33,7 @@ pub enum Column {
     ForceChk,
     Backfilled,
     Failed,
+    Locked,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -60,6 +62,7 @@ impl ColumnTrait for Column {
             Self::ForceChk => ColumnType::Boolean.def(),
             Self::Backfilled => ColumnType::Boolean.def(),
             Self::Failed => ColumnType::Boolean.def(),
+            Self::Locked => ColumnType::Boolean.def(),
         }
     }
 }

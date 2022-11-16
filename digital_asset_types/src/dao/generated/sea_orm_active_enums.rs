@@ -4,62 +4,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "specification_asset_class"
-)]
-pub enum SpecificationAssetClass {
-    #[sea_orm(string_value = "FUNGIBLE_ASSET")]
-    FungibleAsset,
-    #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
-    FungibleToken,
-    #[sea_orm(string_value = "IDENTITY_NFT")]
-    IdentityNft,
-    #[sea_orm(string_value = "NFT")]
-    Nft,
-    #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]
-    NonTransferableNft,
-    #[sea_orm(string_value = "PRINT")]
-    Print,
-    #[sea_orm(string_value = "PRINTABLE_NFT")]
-    PrintableNft,
-    #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
-    TransferRestrictedNft,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
@@ -118,6 +62,62 @@ pub enum V1AccountAttachments {
     MasterEditionV1,
     #[sea_orm(string_value = "master_edition_v2")]
     MasterEditionV2,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
+pub enum OwnerType {
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "token")]
+    Token,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
+pub enum Mutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "specification_asset_class"
+)]
+pub enum SpecificationAssetClass {
+    #[sea_orm(string_value = "FUNGIBLE_ASSET")]
+    FungibleAsset,
+    #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
+    FungibleToken,
+    #[sea_orm(string_value = "IDENTITY_NFT")]
+    IdentityNft,
+    #[sea_orm(string_value = "NFT")]
+    Nft,
+    #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]
+    NonTransferableNft,
+    #[sea_orm(string_value = "PRINT")]
+    Print,
+    #[sea_orm(string_value = "PRINTABLE_NFT")]
+    PrintableNft,
+    #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
+    TransferRestrictedNft,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
