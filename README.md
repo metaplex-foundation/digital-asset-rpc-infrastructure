@@ -13,6 +13,9 @@ super-fast querying and searching, as well as serves the merkle proofs needed to
 1. Ingester -> A background processing system that gets messages from a [Messenger](https://github.com/metaplex-foundation/digital-asset-validator-plugin), and uses [BlockBuster](https://github.com/metaplex-foundation/blockbuster) Parsers to store the canonical representation of Metaplex types in a storage system. This system also holds the re-articulated Merkle tree that supports the compressed NFTs system.
 2. Api -> A JSON Rpc api that serves Metaplex objects. This api allows filtering, pagination and searching over Metaplex data. This data includes serving the merkle proofs for the compressed NFTs system. It is intended to be run right alongside the Solana RPC and works in much the same way. Just like the solana RPC takes data from the validator and serves it in a new format, so this api takes data off the validator and serves it.
 
+The API specification is located here https://github.com/metaplex-foundation/api-specifications
+This spec is what providers of this api must implement against.
+
 ### Infrastructure and Deployment Examples
 Along with the above rust binaries, this repo also maintains examples and best practice settings for running the entire infrastructure. 
 The example infrastructure is as follows. 
