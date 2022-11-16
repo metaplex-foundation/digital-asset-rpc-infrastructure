@@ -8,6 +8,7 @@ mod m20221026_155220_add_bg_tasks;
 mod m20221104_094327_add_backfiller_failed;
 mod m20221114_173041_add_collection_info;
 mod m20221115_165700_add_backfiller_locked;
+mod m20221116_110500_add_backfiller_failed_and_locked_indeces;
 
 pub struct Migrator;
 
@@ -23,6 +24,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20221104_094327_add_backfiller_failed::Migration),
             Box::new(m20221114_173041_add_collection_info::Migration),
             Box::new(m20221115_165700_add_backfiller_locked::Migration),
+            Box::new(m20221116_110500_add_backfiller_failed_and_locked_indeces::Migration),
         ]
     }
 }
