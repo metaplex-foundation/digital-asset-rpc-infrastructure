@@ -1,21 +1,17 @@
 #[cfg(test)]
 mod common;
 
-use sea_orm::{
-    entity::prelude::*, DatabaseBackend, MockDatabase,
-};
+use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
 use solana_sdk::{signature::Keypair, signer::Signer};
 
-use digital_asset_types::{
-    dao::{
-        asset, asset_authority, asset_creators, asset_data,
-        prelude::AssetData,
-        sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
-    },
-};
-use common::*;
 use blockbuster::token_metadata::state::*;
+use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
+use digital_asset_types::dao::{
+    asset, asset_authority, asset_creators, asset_data,
+    prelude::AssetData,
+    sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
+};
 
 #[tokio::test]
 async fn get_assets_by_owner() -> Result<(), DbErr> {
@@ -50,7 +46,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
             share: 100,
             verified: true,
         }]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -103,7 +99,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
             share: 100,
             verified: true,
         }]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -163,7 +159,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
                 verified: true,
             },
         ]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -234,7 +230,6 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let insert_result = asset::Entity::insert(asset_1.0).exec(&db).await.unwrap();
     assert_eq!(insert_result.last_insert_id, id_1.to_bytes().to_vec());
 
@@ -243,18 +238,15 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let _insert_result = asset_authority::Entity::insert(asset_authority_1.0)
         .exec(&db)
         .await
         .unwrap();
 
-
     let _insert_result = asset_data::Entity::insert(asset_data_2.0)
         .exec(&db)
         .await
         .unwrap();
-
 
     let insert_result = asset::Entity::insert(asset_2.0).exec(&db).await.unwrap();
     assert_eq!(insert_result.last_insert_id, id_2.to_bytes().to_vec());
@@ -264,18 +256,15 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let _insert_result = asset_authority::Entity::insert(asset_authority_2.0)
         .exec(&db)
         .await
         .unwrap();
 
-
     let _insert_result = asset_data::Entity::insert(asset_data_3.0)
         .exec(&db)
         .await
         .unwrap();
-
 
     let insert_result = asset::Entity::insert(asset_3.0).exec(&db).await.unwrap();
     assert_eq!(insert_result.last_insert_id, id_3.to_bytes().to_vec());
@@ -285,18 +274,15 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let _insert_result = asset_creators::Entity::insert(asset_creator_3_2.0)
         .exec(&db)
         .await
         .unwrap();
 
-
     let _insert_result = asset_authority::Entity::insert(asset_authority_3.0)
         .exec(&db)
         .await
         .unwrap();
-
 
     assert_eq!(
         asset::Entity::find()
@@ -311,4 +297,3 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
     );
     Ok(())
 }
-

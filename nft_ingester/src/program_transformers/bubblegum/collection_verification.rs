@@ -14,10 +14,7 @@ pub async fn process<'c>(
     txn: &'c DatabaseTransaction,
     verify: bool,
 ) -> Result<(), IngesterError> {
-    if let (Some(le), Some(cl)) = (
-        &parsing_result.leaf_update,
-        &parsing_result.tree_update,
-    ) {
+    if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?
         let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
@@ -37,7 +34,8 @@ pub async fn process<'c>(
                     ..Default::default()
                 };
 
-                if let Some(Payload::SetAndVerifyCollection { collection}) = parsing_result.payload {
+                if let Some(Payload::SetAndVerifyCollection { collection }) = parsing_result.payload
+                {
                     let collection_bytes = collection.to_bytes().to_vec();
                     asset_to_update.collection = Set(Some(collection_bytes));
                 }
@@ -47,7 +45,7 @@ pub async fn process<'c>(
             }
             _ => return Err(IngesterError::NotImplemented),
         };
-        
+
         return Ok(());
     };
     Err(IngesterError::ParsingError(

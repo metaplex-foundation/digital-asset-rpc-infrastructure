@@ -202,7 +202,8 @@ impl TaskManager {
             Err(e) => {
                 if e == IngesterError::UnrecoverableTaskError {
                     task.attempts = Set(task_def.max_attempts() + 1);
-                    task.locked_by = Set(Some("permanent failure".to_string())); // todo add new task status
+                    task.locked_by = Set(Some("permanent failure".to_string()));
+                // todo add new task status
                 } else {
                     task.locked_by = Set(None);
                 }

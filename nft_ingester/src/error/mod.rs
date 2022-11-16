@@ -44,7 +44,7 @@ pub enum IngesterError {
     #[error("BG Task Manager Not Started")]
     TaskManagerNotStarted,
     #[error("Unrecoverable task error")]
-    UnrecoverableTaskError
+    UnrecoverableTaskError,
 }
 
 impl From<reqwest::Error> for IngesterError {
