@@ -1,0 +1,27 @@
+name: Deploy Devnet/Testnet
+on:
+  release:
+    types: [published]
+env:
+  RUST_TOOLCHAIN: stable
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ env.DEPLOY_ENV }}
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+
+            let params =  {
+              owner: "metaplex-foundation",
+              repository: "read-api-deployment"
+            };
+            await github.rest.repos.createDispatchEvent(Object.assign({
+              event_type: "deploy_trigger",
+              client_payload: {
+                DEPLOY_ENV:"mainnet",
+                DEPLOY_K8S_NAMESPACE: "mainnet-read-api",
+                DEPLOY_VERSION: ${{ github.sha }}
+              }
+            }, params));

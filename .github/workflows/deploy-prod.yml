@@ -1,0 +1,34 @@
+name: Deploy Mainnet
+on:
+  workflow_dispatch:
+    inputs: 
+      tag:
+        description: 'Tag'
+        required: true 
+        type: string 
+env:
+  RUST_TOOLCHAIN: stable
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ env.DEPLOY_ENV }}
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+
+            let params =  {
+              owner: "metaplex-foundation",
+              repository: "read-api-deployment"
+            };
+
+            let release = await github.rest.repos.getReleaseByTag(Object.assign({tag: "${{ inputs.tag }}" }, params));
+
+            await github.rest.repos.createDispatchEvent(Object.assign({
+              event_type: "deploy_trigger",
+              client_payload: {
+                DEPLOY_ENV:"devnet",
+                DEPLOY_K8S_NAMESPACE: "devnet-read-api",
+                DEPLOY_VERSION: release.tag_name
+              }
+            }, params));
