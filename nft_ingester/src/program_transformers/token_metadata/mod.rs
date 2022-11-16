@@ -5,7 +5,8 @@ use crate::{
     program_transformers::token_metadata::{
         master_edition::{save_v1_master_edition, save_v2_master_edition},
         v1_asset::save_v1_asset,
-    }, IngesterError, TaskData,
+    },
+    IngesterError, TaskData,
 };
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
 use plerkle_serialization::AccountInfo;

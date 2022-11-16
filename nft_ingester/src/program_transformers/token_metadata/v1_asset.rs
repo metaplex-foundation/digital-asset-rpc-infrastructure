@@ -3,6 +3,7 @@ use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
 };
+use chrono::Utc;
 use digital_asset_types::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
@@ -22,7 +23,6 @@ use sea_orm::{
     DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
-use chrono::Utc;
 
 use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
 use sea_orm::{FromQueryResult, JoinType};
@@ -52,7 +52,9 @@ pub async fn save_v1_asset(
     let slot_i = slot as i64;
     let uri = data.uri.trim().replace('\0', "");
     if uri.is_empty() {
-        return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+        return Err(IngesterError::DeserializationError(
+            "URI is empty".to_string(),
+        ));
     }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
@@ -119,7 +121,7 @@ pub async fn save_v1_asset(
             Ok(token.map(|t| (t, None)))
         }
     }
-        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
     let (supply, supply_mint) = match token_result.clone() {
         Some((token, token_account)) => {
@@ -270,9 +272,10 @@ pub async fn save_v1_asset(
         if existing_len > incoming_len {
             let idx_to_delete = (existing_len - incoming_len) - 1;
             asset_creators::Entity::delete_many()
-                .filter(Condition::all()
-                    .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                    .add(asset_creators::Column::Position.gte(idx_to_delete as i8))
+                .filter(
+                    Condition::all()
+                        .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+                        .add(asset_creators::Column::Position.gte(idx_to_delete as i8)),
                 )
                 .exec(txn)
                 .await?;
@@ -294,21 +297,20 @@ pub async fn save_v1_asset(
             creators_set.insert(c.address);
         }
 
-
         let query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
                     asset_creators::Column::Position,
                 ])
-                    .update_columns([
-                        asset_creators::Column::Creator,
-                        asset_creators::Column::Share,
-                        asset_creators::Column::Verified,
-                        asset_creators::Column::Seq,
-                        asset_creators::Column::SlotUpdated,
-                    ])
-                    .to_owned(),
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
@@ -370,7 +372,7 @@ pub async fn save_v1_asset(
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
-        created_at: Some(Utc::now().naive_utc())
+        created_at: Some(Utc::now().naive_utc()),
     };
     task.sanitize();
     task.into_task_data()

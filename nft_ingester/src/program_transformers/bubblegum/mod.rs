@@ -8,6 +8,8 @@ use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
 mod cancel_redeem;
+mod collection_verification;
+mod creator_verification;
 mod db;
 mod decompress;
 mod delegate;
@@ -103,6 +105,23 @@ pub async fn handle_bubblegum_instruction<'c>(
         InstructionName::DecompressV1 => {
             decompress::decompress(parsing_result, bundle, &txn).await?;
             txn.commit().await?;
+        }
+        InstructionName::VerifyCreator => {
+            creator_verification::process(parsing_result, bundle, &txn, true).await?;
+            txn.commit().await?;
+        }
+        InstructionName::UnverifyCreator => {
+            creator_verification::process(parsing_result, bundle, &txn, false).await?;
+            txn.commit().await?;
+        }
+        InstructionName::VerifyCollection => {
+            collection_verification::process(parsing_result, bundle, &txn, true).await?;
+        }
+        InstructionName::UnverifyCollection => {
+            collection_verification::process(parsing_result, bundle, &txn, false).await?;
+        }
+        InstructionName::SetAndVerifyCollection => {
+            collection_verification::process(parsing_result, bundle, &txn, true).await?;
         }
         _ => println!("Bubblegum: Not Implemented Instruction"),
     }

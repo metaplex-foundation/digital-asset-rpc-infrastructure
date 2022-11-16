@@ -1,6 +1,7 @@
-use sea_orm::{JsonValue, Set};
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use blockbuster::token_metadata::state::*;
+use digital_asset_types::dao::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions,
+};
 use digital_asset_types::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
@@ -8,8 +9,8 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
-use digital_asset_types::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
-
+use sea_orm::{JsonValue, Set};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
 #[derive(Clone)]
 pub struct MockMetadataArgs {
@@ -80,7 +81,7 @@ pub fn create_asset_data(
             metadata_url: Keypair::new().pubkey().to_string(),
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -148,7 +149,7 @@ pub fn create_asset(
             slot_updated: 0,
             data_hash: None,
             alt_id: None,
-            creator_hash: None
+            creator_hash: None,
         },
     )
 }
@@ -176,7 +177,7 @@ pub fn create_asset_creator(
             verified,
             seq: 0,
             slot_updated: 0,
-            position: 0
+            position: 0,
         },
     )
 }
@@ -198,7 +199,7 @@ pub fn create_asset_authority(
             seq: 0,
             id: row_num,
             scopes: None,
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }
@@ -221,7 +222,7 @@ pub fn create_asset_grouping(
             seq: 0,
             id: row_num,
             group_key: "collection".to_string(),
-            slot_updated: 0
+            slot_updated: 0,
         },
     )
 }

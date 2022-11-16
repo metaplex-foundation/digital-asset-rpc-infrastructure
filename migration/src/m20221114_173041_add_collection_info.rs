@@ -11,26 +11,25 @@ impl MigrationTrait for Migration {
             .alter_table(
                 sea_query::Table::alter()
                     .table(asset::Entity)
-                    .add_column(
-                        ColumnDef::new(Alias::new("data_hash"))
-                            .string()
-                            .char_len(50),
-                    )
+                    .add_column(ColumnDef::new(Alias::new("collection")).binary())
                     .to_owned(),
             )
             .await?;
+
         manager
             .alter_table(
                 sea_query::Table::alter()
                     .table(asset::Entity)
                     .add_column(
-                        ColumnDef::new(Alias::new("creator_hash"))
-                            .string()
-                            .char_len(50),
+                        ColumnDef::new(Alias::new("collection_verified"))
+                            .boolean()
+                            .default(false)
+                            .not_null(),
                     )
                     .to_owned(),
             )
             .await?;
+
         Ok(())
     }
 
@@ -39,7 +38,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 sea_query::Table::alter()
                     .table(asset::Entity)
-                    .drop_column(Alias::new("data_hash"))
+                    .drop_column(Alias::new("collection"))
                     .to_owned(),
             )
             .await?;
@@ -47,10 +46,11 @@ impl MigrationTrait for Migration {
             .alter_table(
                 sea_query::Table::alter()
                     .table(asset::Entity)
-                    .drop_column(Alias::new("creator_hash"))
+                    .drop_column(Alias::new("collection_verified"))
                     .to_owned(),
             )
             .await?;
+
         Ok(())
     }
 }

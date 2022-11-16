@@ -6,16 +6,14 @@ use sea_orm::{
 };
 use solana_sdk::{signature::Keypair, signer::Signer};
 
-use digital_asset_types::{
-    dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        prelude::AssetData,
-        sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
-    },
-};
-use common::*;
 use blockbuster::token_metadata::state::*;
+use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
+use digital_asset_types::dao::{
+    asset, asset_authority, asset_creators, asset_data, asset_grouping,
+    prelude::AssetData,
+    sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
+};
 
 #[tokio::test]
 async fn get_assets_by_group() -> Result<(), DbErr> {
@@ -53,7 +51,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
             share: 100,
             verified: true,
         }]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -106,7 +104,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
             share: 100,
             verified: true,
         }]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -144,8 +142,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         2,
     );
 
-    let asset_grouping_2 =
-        create_asset_grouping(id_2.to_bytes().to_vec(), collection.clone(), 1);
+    let asset_grouping_2 = create_asset_grouping(id_2.to_bytes().to_vec(), collection.clone(), 1);
 
     let metadata_3 = MockMetadataArgs {
         name: String::from("Test #3"),
@@ -169,7 +166,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
                 verified: true,
             },
         ]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -215,8 +212,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         3,
     );
 
-    let asset_grouping_3 =
-        create_asset_grouping(id_3.to_bytes().to_vec(), collection.clone(), 2);
+    let asset_grouping_3 = create_asset_grouping(id_3.to_bytes().to_vec(), collection.clone(), 2);
 
     let db = MockDatabase::new(DatabaseBackend::Postgres)
         .append_query_results(vec![vec![asset_data_1.1]])
@@ -314,9 +310,11 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
                 JoinType::LeftJoin,
                 asset::Entity::has_many(asset_grouping::Entity).into(),
             )
-            .filter(Condition::any().add(
-                asset_grouping::Column::GroupValue.eq(bs58::encode(collection).into_string()),
-            ))
+            .filter(
+                Condition::any().add(
+                    asset_grouping::Column::GroupValue.eq(bs58::encode(collection).into_string()),
+                )
+            )
             .find_also_related(AssetData)
             .all(&db)
             .await?,
@@ -328,4 +326,3 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
 
     Ok(())
 }
-

@@ -15,11 +15,7 @@ use blockbuster::instruction::{order_instructions, InstructionBundle, IxPair};
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use figment::{
-    providers::Env,
-    value::{Value},
-    Figment,
-};
+use figment::{providers::Env, value::Value, Figment};
 use futures_util::TryFutureExt;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
@@ -30,7 +26,7 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
 
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
-use std::{net::UdpSocket};
+use std::net::UdpSocket;
 use tokio::sync::mpsc::UnboundedSender;
 
 // Types and constants used for Figment configuration items.

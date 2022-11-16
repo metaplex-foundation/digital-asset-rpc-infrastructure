@@ -1,19 +1,16 @@
 #[cfg(test)]
 mod common;
 
+use blockbuster::token_metadata::state::*;
+use common::*;
+use digital_asset_types::dao::sea_orm_active_enums::*;
+use digital_asset_types::dao::{
+    asset, asset_authority, asset_creators, asset_data,
+    prelude::AssetData,
+    sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
+};
 use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
 use solana_sdk::{signature::Keypair, signer::Signer};
-use digital_asset_types::{
-    dao::{
-        asset, asset_authority, asset_creators, asset_data,
-        prelude::AssetData,
-        sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
-    },
-};
-use common::*;
-use blockbuster::token_metadata::state::*;
-use digital_asset_types::dao::sea_orm_active_enums::*;
-
 
 #[tokio::test]
 async fn get_asset_by_id() -> Result<(), DbErr> {
@@ -38,7 +35,7 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
             share: 100,
             verified: true,
         }]
-            .to_vec(),
+        .to_vec(),
         seller_fee_basis_points: 100,
     };
 
@@ -89,7 +86,6 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let insert_result = asset::Entity::insert(asset_1.0).exec(&db).await.unwrap();
     assert_eq!(insert_result.last_insert_id, id.to_bytes().to_vec());
 
@@ -98,12 +94,10 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
         .await
         .unwrap();
 
-
     let _insert_result = asset_authority::Entity::insert(asset_authority_1.0)
         .exec(&db)
         .await
         .unwrap();
-
 
     assert_eq!(
         asset::Entity::find_by_id(id.to_bytes().to_vec())
@@ -115,4 +109,3 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
 
     Ok(())
 }
-

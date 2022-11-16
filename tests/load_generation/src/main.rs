@@ -1,30 +1,40 @@
-use std::env;
-use std::sync::Arc;
-use std::time::Duration;
 use mpl_token_metadata::state::Creator;
 use solana_client::client_error::ClientError;
-use solana_sdk::signature::keypair_from_seed;
-use solana_sdk::signer::keypair::Keypair;
-use tokio::sync::Semaphore;
-use solana_sdk::signature::Signer;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_request::RpcError;
 use solana_client::rpc_request::RpcError::RpcRequestError;
 use solana_program::native_token::LAMPORTS_PER_SOL;
-use solana_sdk::system_instruction;
 use solana_program::pubkey::Pubkey;
+use solana_sdk::signature::keypair_from_seed;
+use solana_sdk::signature::Signer;
+use solana_sdk::signer::keypair::Keypair;
+use solana_sdk::system_instruction;
 use solana_sdk::transaction::Transaction;
 use spl_token::solana_program::program_pack::Pack;
+use std::env;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Semaphore;
 use tokio::time::{sleep, Duration as td};
 
 #[tokio::main]
 async fn main() {
-    let sow_thy_seed = env::var("KEYPAIR_SEED").unwrap_or_else(|_| "Cast your bread upon the waters, for you will find it after many days.".to_string());
-    let le_blockchain_url = env::var("RPC_URL").unwrap_or_else(|_| "http://solana:8899".to_string());
+    let sow_thy_seed = env::var("KEYPAIR_SEED").unwrap_or_else(|_| {
+        "Cast your bread upon the waters, for you will find it after many days.".to_string()
+    });
+    let le_blockchain_url =
+        env::var("RPC_URL").unwrap_or_else(|_| "http://solana:8899".to_string());
     let network = env::var("NETWORK").unwrap_or_else(|_| "local".to_string());
     let carnage = env::var("AMOUNT_OF_CHAOS").map(|chaos_str| chaos_str.parse::<usize>().expect("How can you mess that up? Okay okay, your AMOUNT OF CHAOS variable is super messed up.")).unwrap_or_else(|_| 64);
-    let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(le_blockchain_url, Duration::from_secs(45), solana_sdk::commitment_config::CommitmentConfig::confirmed()));
-    let kp = Arc::new(keypair_from_seed(sow_thy_seed.as_ref()).expect("Thy Keypair is not available, I humbly suggest you look for it."));
+    let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(
+        le_blockchain_url,
+        Duration::from_secs(45),
+        solana_sdk::commitment_config::CommitmentConfig::confirmed(),
+    ));
+    let kp = Arc::new(
+        keypair_from_seed(sow_thy_seed.as_ref())
+            .expect("Thy Keypair is not available, I humbly suggest you look for it."),
+    );
     let semaphore = Arc::new(Semaphore::new(carnage));
     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     loop {
@@ -35,7 +45,7 @@ async fn main() {
             let semaphore = semaphore.clone();
             tasks.push(tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
-                // MINT A MASTER EDITION:
+                                                                  // MINT A MASTER EDITION:
                 sleep(Duration::from_millis(1000)).await;
                 make_a_nft_thing(le_clone, kp).await
             }));
@@ -56,19 +66,31 @@ async fn main() {
     }
 }
 
-pub async fn check_balance(solana_client: Arc<RpcClient>, payer: Arc<Keypair>, airdrop: bool) -> Result<(), ClientError> {
+pub async fn check_balance(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    airdrop: bool,
+) -> Result<(), ClientError> {
     let sol = solana_client.get_balance(&payer.pubkey()).await?;
     if sol / LAMPORTS_PER_SOL < 1 {
         if airdrop {
-            solana_client.request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL).await?;
+            solana_client
+                .request_airdrop(&payer.pubkey(), LAMPORTS_PER_SOL)
+                .await?;
         } else {
-            return Err(ClientError::from(RpcRequestError("Not Enough Sol".to_string())));
+            return Err(ClientError::from(RpcRequestError(
+                "Not Enough Sol".to_string(),
+            )));
         }
     }
     Ok(())
 }
 
-pub async fn make_a_token_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypair>, mint_number: u64) -> Result<(Pubkey, Pubkey), ClientError> {
+pub async fn make_a_token_thing(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+    mint_number: u64,
+) -> Result<(Pubkey, Pubkey), ClientError> {
     let mint = Keypair::new();
     let ta_ix = spl_associated_token_account::instruction::create_associated_token_account(
         &payer.pubkey().into(),
@@ -82,7 +104,9 @@ pub async fn make_a_token_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypai
             system_instruction::create_account(
                 &payer.pubkey(),
                 &mint.pubkey(),
-                solana_client.get_minimum_balance_for_rent_exemption(spl_token::state::Mint::LEN).await?,
+                solana_client
+                    .get_minimum_balance_for_rent_exemption(spl_token::state::Mint::LEN)
+                    .await?,
                 spl_token::state::Mint::LEN as u64,
                 &spl_token::id(),
             ),
@@ -93,10 +117,17 @@ pub async fn make_a_token_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypai
                 Some(&payer.pubkey().into()),
                 0,
             )
-                .unwrap(),
+            .unwrap(),
             ta_ix,
-            spl_token::instruction::mint_to(&spl_token::id(), &mint.pubkey(), &ta, &payer.pubkey(), &[], mint_number)
-                .unwrap(),
+            spl_token::instruction::mint_to(
+                &spl_token::id(),
+                &mint.pubkey(),
+                &ta,
+                &payer.pubkey(),
+                &[],
+                mint_number,
+            )
+            .unwrap(),
         ],
         Some(&payer.pubkey()),
         &[&payer, &mint],
@@ -106,10 +137,17 @@ pub async fn make_a_token_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypai
     Ok((mint.pubkey(), ta))
 }
 
-pub async fn make_a_nft_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypair>) -> Result<(), ClientError> {
+pub async fn make_a_nft_thing(
+    solana_client: Arc<RpcClient>,
+    payer: Arc<Keypair>,
+) -> Result<(), ClientError> {
     let (mint, token_account) = make_a_token_thing(solana_client.clone(), payer.clone(), 1).await?;
     let prg_uid = mpl_token_metadata::id();
-    let metadata_seeds = &[mpl_token_metadata::state::PREFIX.as_bytes(), prg_uid.to_bytes().as_ref(), mint.as_ref()];
+    let metadata_seeds = &[
+        mpl_token_metadata::state::PREFIX.as_bytes(),
+        prg_uid.to_bytes().as_ref(),
+        mint.as_ref(),
+    ];
     let (pubkey, _) = mpl_token_metadata::pda::find_metadata_account(&mint);
     let (edition_pubkey, _) = mpl_token_metadata::pda::find_master_edition_account(&mint);
     let tx = Transaction::new_signed_with_payer(
@@ -153,7 +191,15 @@ pub async fn make_a_nft_thing(solana_client: Arc<RpcClient>, payer: Arc<Keypair>
     solana_client.send_and_confirm_transaction(&tx).await?;
     let tx = Transaction::new_signed_with_payer(
         &[
-            mpl_token_metadata::instruction::update_metadata_accounts_v2(prg_uid, pubkey, payer.pubkey(), None, None, None, Some(false)),
+            mpl_token_metadata::instruction::update_metadata_accounts_v2(
+                prg_uid,
+                pubkey,
+                payer.pubkey(),
+                None,
+                None,
+                None,
+                Some(false),
+            ),
         ],
         Some(&payer.pubkey()),
         &[payer.as_ref()],

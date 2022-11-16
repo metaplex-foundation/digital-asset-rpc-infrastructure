@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::{IngesterError, TaskData};
 use blockbuster::{
     instruction::InstructionBundle,
@@ -17,6 +16,7 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
     EntityTrait, JsonValue,
 };
+use std::collections::HashSet;
 
 use crate::tasks::{
     common::{save_changelog_event, task::DownloadMetadata},
@@ -79,7 +79,9 @@ pub async fn mint_v1<'c>(
                     false => ChainMutability::Immutable,
                 };
                 if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError("URI is empty".to_string()));
+                    return Err(IngesterError::DeserializationError(
+                        "URI is empty".to_string(),
+                    ));
                 }
                 let data = asset_data::ActiveModel {
                     id: Set(id_bytes.to_vec()),
@@ -91,8 +93,8 @@ pub async fn mint_v1<'c>(
                     slot_updated: Set(slot_i),
                     ..Default::default()
                 }
-                    .insert(txn)
-                    .await?;
+                .insert(txn)
+                .await?;
 
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
@@ -190,14 +192,14 @@ pub async fn mint_v1<'c>(
                                 asset_creators::Column::AssetId,
                                 asset_creators::Column::Position,
                             ])
-                                .update_columns([
-                                    asset_creators::Column::Creator,
-                                    asset_creators::Column::Share,
-                                    asset_creators::Column::Verified,
-                                    asset_creators::Column::Seq,
-                                    asset_creators::Column::SlotUpdated,
-                                ])
-                                .to_owned(),
+                            .update_columns([
+                                asset_creators::Column::Creator,
+                                asset_creators::Column::Share,
+                                asset_creators::Column::Verified,
+                                asset_creators::Column::Seq,
+                                asset_creators::Column::SlotUpdated,
+                            ])
+                            .to_owned(),
                         )
                         .build(DbBackend::Postgres);
                     txn.execute(query).await?;
