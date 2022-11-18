@@ -19,7 +19,7 @@ jobs:
 
             let params =  {
               owner: "metaplex-foundation",
-              repository: "read-api-deployment"
+              repo: "read-api-deployment"
             };
 
             let release = await github.rest.repos.getReleaseByTag(Object.assign({tag: "${{ inputs.tag }}" }, params));
