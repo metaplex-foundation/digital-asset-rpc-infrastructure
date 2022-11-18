@@ -2,6 +2,7 @@ name: Deploy Devnet/Testnet
 on:
   release:
     types: [published]
+  workflow_dispatch:
 env:
   RUST_TOOLCHAIN: stable
 jobs:
@@ -9,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: devnet
     steps:
+      - name: Print Event
+        run: |
+          echo "${{ github.event.action }}"
       - uses: actions/github-script@v6
         with:
           script: |
