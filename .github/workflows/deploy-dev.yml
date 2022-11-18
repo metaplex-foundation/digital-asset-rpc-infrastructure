@@ -13,7 +13,7 @@ jobs:
       - uses: actions/github-script@v6
         with:
           script: |
-            console.log(${{ github.event }});
+            console.log(${{ github.event.action }});
             let params =  {
               owner: "metaplex-foundation",
               repository: "read-api-deployment"
