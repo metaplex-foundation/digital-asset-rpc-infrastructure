@@ -13,7 +13,6 @@ jobs:
       - uses: actions/github-script@v6
         with:
           script: |
-            console.log(JSON.stringify(${{ github.event }}));
             let params =  {
               owner: "metaplex-foundation",
               repository: "read-api-deployment"
@@ -23,6 +22,6 @@ jobs:
               client_payload: {
                 DEPLOY_ENV:"devnet",
                 DEPLOY_K8S_NAMESPACE: "devnet-read-api",
-                DEPLOY_VERSION: ${{ github.sha }}
+                DEPLOY_VERSION: "${{ github.sha }}"
               }
             }, params));
