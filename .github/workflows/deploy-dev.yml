@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Print Event
         run: |
-          echo "${{ github.event.action }}"
+          echo "${{ github.event }}"
       - uses: actions/github-script@v6
         with:
           script: |
