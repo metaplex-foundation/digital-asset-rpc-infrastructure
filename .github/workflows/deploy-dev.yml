@@ -10,13 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: devnet
     steps:
-      - name: Print Event
-        run: |
-          echo "${{ github.event }}"
       - uses: actions/github-script@v6
         with:
           script: |
-
+            console.log(${{ github.event }});
             let params =  {
               owner: "metaplex-foundation",
               repository: "read-api-deployment"
