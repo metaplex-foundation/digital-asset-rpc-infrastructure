@@ -11,7 +11,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ env.DEPLOY_ENV }}
+    environment: mainnet
     steps:
       - uses: actions/github-script@v6
         with:
