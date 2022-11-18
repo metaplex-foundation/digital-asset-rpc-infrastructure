@@ -15,7 +15,7 @@ jobs:
           script: |
             let params =  {
               owner: "metaplex-foundation",
-              repository: "read-api-deployment"
+              repo: "read-api-deployment"
             };
             await github.rest.repos.createDispatchEvent(Object.assign({
               event_type: "deploy_trigger",
