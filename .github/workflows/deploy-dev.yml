@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.CROSSREPOTOKEN }}
           script: |
             let params =  {
               owner: "metaplex-foundation",
