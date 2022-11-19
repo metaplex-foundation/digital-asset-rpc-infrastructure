@@ -1,67 +1,72 @@
-apiVersion: skaffold/v2beta29
+apiVersion: skaffold/v4beta1
 kind: Config
 build:
   artifacts:
-    - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
-      docker:
-        dockerfile: Load.Dockerfile
-    - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
-      docker:
-        dockerfile: Api.Dockerfile
-    - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
-      docker:
-        dockerfile: Ingest.Dockerfile
-    - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
-      docker:
-        dockerfile: Migrator.Dockerfile
-    - context: .
-      image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
-      docker:
-          dockerfile: Proxy.Dockerfile
-deploy:
+  - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+    context: .
+    docker:
+      dockerfile: Load.Dockerfile
+  - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
+    context: .
+    docker:
+      dockerfile: Api.Dockerfile
+  - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
+    context: .
+    docker:
+      dockerfile: Ingest.Dockerfile
+  - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
+    context: .
+    docker:
+      dockerfile: Migrator.Dockerfile
+  - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
+    context: .
+    docker:
+      dockerfile: Proxy.Dockerfile
+manifests:
   helm:
-    releases:
-      - name: das-ingester
-        chartPath: helm/ingest
-        artifactOverrides:
-          image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
-          loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
-          migratorImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
-        setValueTemplates:
-          ingest.db_url: "{{.DATABASE_URL}}"
-          ingest.rpc_url: "{{.RPC_URL}}"
-          ingest.redis_url: "{{.REDIS_URL}}"
-          metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
-          load.seed: "{{.LOAD_SEED}}"
-          load.rpc_url: "{{.RPC_URL}}"
-        valuesFiles:
-          - ./helm/ingest/values.yaml
-      - name: das-api
-        chartPath: helm/api
-        artifactOverrides:
-          image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
-          proxy.image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
-        setValueTemplates:
-          api.db_url: "{{.DATABASE_URL}}"
-          api.redis_url: "{{.REDIS_URL}}"
-          metrics.data_dog_api_key: "{{.DATA_DOG_API}}"
-          proxy.host: "{{.PROXY_HOST}}"
-          proxy.auth: "{{.PROXY_AUTH}}"
-        valuesFiles:
-          - ./helm/api/values.yaml
     flags:
-      upgrade: [ "--timeout","900s" ]
-      install: [ "--timeout","900s" ]
+      install:
+      - --timeout
+      - 900s
+      upgrade:
+      - --timeout
+      - 900s
+    releases:
+    - name: das-ingester
+      chartPath: helm/ingest
+      valuesFiles:
+      - ./helm/ingest/values.yaml
+      setValues:
+        image: public.ecr.aws/k2z7t6t6/metaplex-rpc-ingest
+        loadImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
+        migratorImage: public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator
+      setValueTemplates:
+        ingest.db_url: '{{.DATABASE_URL}}'
+        ingest.redis_url: '{{.REDIS_URL}}'
+        ingest.rpc_url: '{{.RPC_URL}}'
+        load.rpc_url: '{{.RPC_URL}}'
+        load.seed: '{{.LOAD_SEED}}'
+        metrics.data_dog_api_key: '{{.DATA_DOG_API}}'
+    - name: das-api
+      chartPath: helm/api
+      valuesFiles:
+      - ./helm/api/values.yaml
+      setValues:
+        image: public.ecr.aws/k2z7t6t6/metaplex-rpc-api
+        proxy.image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
+      setValueTemplates:
+        api.db_url: '{{.DATABASE_URL}}'
+        api.redis_url: '{{.REDIS_URL}}'
+        metrics.data_dog_api_key: '{{.DATA_DOG_API}}'
+        proxy.auth: '{{.PROXY_AUTH}}'
+        proxy.host: '{{.PROXY_HOST}}'
+
 profiles:
-  - name: devnet
-    patches:
-      - op: add
-        path: "/deploy/helm/releases/0/valuesFiles/1"
-        value: "./helm/ingester-values-devnet.yaml"
-      - op: add
-        path: "/deploy/helm/releases/1/valuesFiles/1"
-        value: "./helm/api-values-devnet.yaml"
+- name: devnet
+  patches:
+  - op: add
+    path: /manifests/helm/releases/0/valuesFiles/1
+    value: ./helm/ingester-values-devnet.yaml
+  - op: add
+    path: /manifests/helm/releases/1/valuesFiles/1
+    value: ./helm/api-values-devnet.yaml
