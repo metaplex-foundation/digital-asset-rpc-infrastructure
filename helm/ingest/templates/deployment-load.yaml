@@ -22,7 +22,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: load-gen
-          image: {{.Values.loadImage}}
+          image: "{{.Values.load.image}}"
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           env:
             - name: SEED

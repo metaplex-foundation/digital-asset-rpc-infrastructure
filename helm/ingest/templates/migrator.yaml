@@ -1,30 +1,31 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "ingest.fullname" . }}-migrator
+  name: {{ include "ingest.fullname" . }}-migrate
   labels:
     {{- include "ingest.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
 spec:
   template:
     metadata:
       name: "{{.Release.Name}}"
       labels:
-        app.kubernetes.io/managed-by: {{.Release.Service | quote }}
-        app.kubernetes.io/instance: {{.Release.Name | quote }}
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
         helm.sh/chart: "{{.Chart.Name}}-{{.Chart.Version}}"
     spec:
       restartPolicy: Never
       containers:
         - name: migrator
+          image: "{{ .Values.migrator.image }}"
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "ingest.secret" . }}-migrator
                   key: DATABASE_URL
-          image: {{ .Values.migratorImage }}
+          
 

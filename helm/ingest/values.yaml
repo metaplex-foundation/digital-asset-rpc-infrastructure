@@ -1,7 +1,7 @@
 replicaCount: 1
 image: ""
-loadImage: ""
-migratorImage: ""
+migrator:
+  image: ""
 imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
@@ -10,6 +10,7 @@ backfiller:
   replicaCount: 1
 generateLoad: true
 load:
+  image: ""
   seed:
   network: "devnet"
   chaos: 1
@@ -43,10 +44,10 @@ securityContext: {}
 
 resources:
    limits:
-     cpu: 6
+     cpu: 10
      memory: 4096Mi
    requests:
-     cpu: 5
+     cpu: 8
      memory: 1024Mi
 
 # need to shard consumer groups first

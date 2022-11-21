@@ -1,5 +1,6 @@
-apiVersion: skaffold/v4beta1
+apiVersion: skaffold/v2beta29
 kind: Config
+
 build:
   artifacts:
   - image: public.ecr.aws/k2z7t6t6/metaplex-rpc-load-generator
@@ -22,15 +23,8 @@ build:
     context: .
     docker:
       dockerfile: Proxy.Dockerfile
-manifests:
+deploy:
   helm:
-    flags:
-      install:
-      - --timeout
-      - 900s
-      upgrade:
-      - --timeout
-      - 900s
     releases:
     - name: das-ingester
       chartPath: helm/ingest
@@ -47,6 +41,7 @@ manifests:
         load.rpc_url: '{{.RPC_URL}}'
         load.seed: '{{.LOAD_SEED}}'
         metrics.data_dog_api_key: '{{.DATA_DOG_API}}'
+        migrator.image: 'public.ecr.aws/k2z7t6t6/metaplex-rpc-migrator:{{.DEPLOY_VERSION}}'
     - name: das-api
       chartPath: helm/api
       valuesFiles:
@@ -62,11 +57,19 @@ manifests:
         proxy.host: '{{.PROXY_HOST}}'
 
 profiles:
+- name: ci
+  patches:
+    - op: add
+      path: /build/tagPolicy
+      value:
+        envTemplate:
+          template: '{{.DEPLOY_VERSION}}'
+
 - name: devnet
   patches:
   - op: add
-    path: /manifests/helm/releases/0/valuesFiles/1
+    path: /deploy/helm/releases/0/valuesFiles/1
     value: ./helm/ingester-values-devnet.yaml
   - op: add
-    path: /manifests/helm/releases/1/valuesFiles/1
+    path: /deploy/helm/releases/1/valuesFiles/1
     value: ./helm/api-values-devnet.yaml
