@@ -44,10 +44,10 @@ securityContext: {}
 
 resources:
    limits:
-     cpu: 10
+     cpu: 7
      memory: 4096Mi
    requests:
-     cpu: 8
+     cpu: 5
      memory: 1024Mi
 
 # need to shard consumer groups first
