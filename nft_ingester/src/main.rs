@@ -48,16 +48,7 @@ pub struct IngesterConfig {
     pub rpc_config: RpcConfig,
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
-    pub roles: Vec<IngesterRole>,
-}
-
-#[derive(Deserialize, PartialEq, Debug, Clone)]
-pub enum IngesterRole {
-    All,
-    Backfill,
-    Ingest,
-    BackgroundTask,
-    IngestOnly(String)
+    pub backfiller: Option<bool>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
@@ -113,25 +104,7 @@ async fn main() {
         .await
         .unwrap();
     let mut background_task_manager;
-
-
-
-        
-     match config
-
-
-
-
-
-
-
-
-
-
-
-
-
-    if config.roles.unwrap_or(false) {
+    if config.backfiller.unwrap_or(false) {
         tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
         safe_metric(|| {
             statsd_count!("ingester.backfiller.startup", 1);

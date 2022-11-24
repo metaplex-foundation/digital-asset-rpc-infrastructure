@@ -68,27 +68,6 @@ INGESTER_RPC_CONFIG: '{url="http://validator:8899", commitment="finalized"}' # y
 cargo run -p nft_ingester
 ```
 
-### Ingester Deployment Roles
-Locally its convenient to have the ingester pod be a mega pod of all the stuff ingester needs to do:
-Ingest
-Backfill
-BgTasks
-
-But in production this is not desireable as we want to be able to horizontally scale all of these parts.
-In previuse versions of ingester we only supported specififying if backfill was on or off. We now support a `INGESTER_ROLES` config variable.
-
-Roles will now be how you specify what components you want to run. 
-
-#### Example
-
-```
-INGESTER_ROLES=ingest,backfill,bgtasks  // this runs all the components in the same process space
-INGESTER_ROLES=All  // this runs all the components in the same process space
-
-INGESTER_ROLES=ingest  // only the ingester will run 
-```
-This way you can deploy many different scale sets or deployments (k8s) that have independant scalability.
-
 
 When making changes you will need to stop the cargo process and re-run. Someday we will have auto rebuild for local cargo stuff but for now you are on your own.
 
