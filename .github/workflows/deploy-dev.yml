@@ -22,7 +22,7 @@ jobs:
               event_type: "deploy_trigger",
               client_payload: {
                 DEPLOY_ENV: "devnet",
-                DEPLOY_K8S_NAMESPACE: "devnet-read-api",
+                DEPLOY_K8S_NAMESPACE: "dev-read-api",
                 DEPLOY_K8S_CLUSTER: "metaplex-dev-001",
                 DEPLOY_VERSION: "${{ github.sha }}"
               }
