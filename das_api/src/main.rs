@@ -30,13 +30,15 @@ pub fn safe_metric<F: Fn() -> ()>(f: F) {
 fn setup_metrics(config: &Config) {
     let uri = config.metrics_host.clone();
     let port = config.metrics_port.clone();
+    let env = config.env.clone().unwrap_or("dev".to_string());
     if uri.is_some() || port.is_some() {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket.set_nonblocking(true).unwrap();
         let host = (uri.unwrap(), port.unwrap());
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
-        let client = StatsdClient::from_sink("das_api", queuing_sink);
+        let builder = StatsdClient::builder("das_api", queuing_sink);
+        let client = builder.with_tag("env", env).build();
         set_global_default(client);
     }
 }

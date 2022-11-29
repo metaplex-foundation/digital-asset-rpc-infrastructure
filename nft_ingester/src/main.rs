@@ -39,28 +39,32 @@ pub type RpcConfig = figment::value::Dict;
 
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
-
 // Struct used for Figment configuration items.
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
     pub database_config: DatabaseConfig,
     pub messenger_config: MessengerConfig,
+    pub env: Option<String>,
     pub rpc_config: RpcConfig,
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
     pub backfiller: Option<bool>,
+    pub max_postgress_connections: Option<u32>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
     let uri = config.metrics_host.clone();
     let port = config.metrics_port;
+    let env = config.env.clone().unwrap_or("dev".to_string());
     if uri.is_some() || port.is_some() {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket.set_nonblocking(true).unwrap();
         let host = (uri.unwrap(), port.unwrap());
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
-        let client = StatsdClient::from_sink("das_ingester", queuing_sink);
+
+        let builder = StatsdClient::builder("das_ingester", queuing_sink);
+        let client = builder.with_tag("env", env).build();
         set_global_default(client);
     }
 }
@@ -99,7 +103,7 @@ async fn main() {
     // Setup Postgres.
     let mut tasks = vec![];
     let pool = PgPoolOptions::new()
-        .max_connections(100)
+        .max_connections(config.max_postgress_connections.unwrap_or(100))
         .connect(&url)
         .await
         .unwrap();

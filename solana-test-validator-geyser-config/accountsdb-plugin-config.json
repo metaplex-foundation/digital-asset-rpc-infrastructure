@@ -3,6 +3,7 @@
   "enable_metrics": true,
   "metrics_port": 8125,
   "metrics_uri": "graphite",
+  "env": "dev",
   "accounts_selector" : {
     "owners" : [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
