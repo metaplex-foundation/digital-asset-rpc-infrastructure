@@ -34,6 +34,13 @@ spec:
       containers:
         - name: datadog
           image: gcr.io/datadoghq/dogstatsd:latest
+          resources:
+            limits:
+              cpu: 1
+              memory: 2048Mi
+            requests:
+              cpu: 500m
+              memory: 1024Mi
           env:
           - name: "DD_API_KEY"
             value: "{{ .Values.metrics.data_dog_api_key }}"

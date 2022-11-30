@@ -30,6 +30,13 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: datadog
+          resources:
+            limits:
+              cpu: 1
+              memory: 2048Mi
+            requests:
+              cpu: 500m
+              memory: 1024Mi
           image: gcr.io/datadoghq/dogstatsd:latest
           env:
           - name: "DD_API_KEY"
