@@ -51,6 +51,8 @@ spec:
             value: "1"
           - name: RUST_LOG
             value: "info"
+          - name: INGESTER_ENV
+            value: "{{ .Values.env }}"
           - name: INGESTER_METRICS_HOST
             value: 127.0.0.1
           - name: INGESTER_METRICS_PORT

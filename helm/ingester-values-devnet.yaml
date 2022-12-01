@@ -1,8 +1,0 @@
-generateLoad: true
-load:
-  network: "devnet"
-replicaCount: 7
-backfiller:
-  replicaCount: 1
-bg:
-  replicaCount: 3
