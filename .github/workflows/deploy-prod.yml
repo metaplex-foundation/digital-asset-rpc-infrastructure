@@ -28,8 +28,9 @@ jobs:
             await github.rest.repos.createDispatchEvent(Object.assign({
               event_type: "deploy_trigger",
               client_payload: {
-                DEPLOY_ENV: "devnet",
-                DEPLOY_K8S_NAMESPACE: "devnet-read-api",
-                DEPLOY_VERSION: release.tag_name
+                DEPLOY_VERSION: release.tag_name,
+                DEPLOY_ENV: "mainnet",
+                DEPLOY_K8S_NAMESPACE: "mainnet-read-api",
+                DEPLOY_K8S_CLUSTER: "metaplex-prod-001",
               }
             }, params));
