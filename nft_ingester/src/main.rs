@@ -132,7 +132,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let backfiller = backfiller::<RedisMessenger>(pool.clone(), config.clone()).await;
+    let backfiller = backfiller::<RedisMessenger>(pool.clone(), config.clone());
 
     let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
     let mut background_task_manager =
@@ -157,14 +157,14 @@ async fn main() {
 
     match role {
         IngesterRole::All => {
-            tasks.spawn(backfiller);
+            tasks.spawn(backfiller.await);
             tasks.spawn(txn_stream.await);
             tasks.spawn(account_stream.await);
             tasks.spawn(background_task_manager_handle);
             tasks.spawn(background_task_manager.start_runner());
         }
         IngesterRole::Backfiller => {
-            tasks.spawn(backfiller);
+            tasks.spawn(backfiller.await);
         }
         IngesterRole::BackgroundTaskRunner => {
             tasks.spawn(background_task_manager.start_runner());
