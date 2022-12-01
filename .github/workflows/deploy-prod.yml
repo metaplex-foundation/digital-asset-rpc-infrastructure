@@ -18,7 +18,7 @@ jobs:
           github-token: ${{ secrets.CROSSREPOTRIGGER }}
           script: |
 
-            let params =  {
+            let params = {
               owner: "metaplex-foundation",
               repo: "read-api-deployment"
             };
