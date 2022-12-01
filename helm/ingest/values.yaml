@@ -6,8 +6,6 @@ imagePullPolicy: Always
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-backfiller:
-  replicaCount: 1
 generateLoad: true
 load:
   image: ""
@@ -49,6 +47,25 @@ resources:
    requests:
      cpu: 5
      memory: 1024Mi
+
+backfiller:
+  replicaCount: 1
+  resources:
+   limits:
+     cpu: 2
+     memory: 4096Mi
+   requests:
+     cpu: 2
+     memory: 1024Mi
+
+bg:
+  resources:
+    limits:
+      cpu: 4
+      memory: 4096Mi
+    requests:
+      cpu: 2
+      memory: 1024Mi     
 
 # need to shard consumer groups first
 autoscaling:

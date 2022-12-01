@@ -26,9 +26,9 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
 
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
+use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
-use tokio::sync::mpsc::UnboundedSender;
-
+use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -39,6 +39,26 @@ pub type RpcConfig = figment::value::Dict;
 
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub enum IngesterRole {
+    All,
+    Backfiller,
+    BackgroundTaskRunner,
+    Ingester,
+}
+
+impl Display for IngesterRole {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IngesterRole::All => write!(f, "all"),
+            IngesterRole::Backfiller => write!(f, "backfiller"),
+            IngesterRole::BackgroundTaskRunner => write!(f, "background_task_runner"),
+            IngesterRole::Ingester => write!(f, "ingester"),
+        }
+    }
+}
+
 // Struct used for Figment configuration items.
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
@@ -49,7 +69,8 @@ pub struct IngesterConfig {
     pub metrics_port: Option<u16>,
     pub metrics_host: Option<String>,
     pub backfiller: Option<bool>,
-    pub max_postgress_connections: Option<u32>,
+    pub role: Option<IngesterRole>,
+    pub max_postgres_connections: Option<u32>,
 }
 
 fn setup_metrics(config: &IngesterConfig) {
@@ -77,8 +98,10 @@ fn rand_string() -> String {
         .collect()
 }
 
+
 #[tokio::main]
 async fn main() {
+    console_subscriber::init();
     // Read config.
     println!("Starting DASgester");
     let mut config: IngesterConfig = Figment::new()
@@ -92,6 +115,9 @@ async fn main() {
         .messenger_config
         .connection_config
         .insert("consumer_id".to_string(), Value::from(rand_string()));
+
+    setup_metrics(&config);
+
     let url = config
         .database_config
         .get(DATABASE_URL_KEY)
@@ -100,73 +126,70 @@ async fn main() {
             msg: format!("Database connection string missing: {}", DATABASE_URL_KEY),
         })
         .unwrap();
-    // Setup Postgres.
-    let mut tasks = vec![];
+
     let pool = PgPoolOptions::new()
-        .max_connections(config.max_postgress_connections.unwrap_or(100))
+        .max_connections(config.max_postgres_connections.unwrap_or(100))
         .connect(&url)
         .await
         .unwrap();
-    let mut background_task_manager;
-    if config.backfiller.unwrap_or(false) {
-        tasks.push(backfiller::<RedisMessenger>(pool.clone(), config.clone()).await);
-        safe_metric(|| {
-            statsd_count!("ingester.backfiller.startup", 1);
-        });
-    } else {
-        let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
-        background_task_manager =
-            TaskManager::new(rand_string(), pool.clone(), bg_task_definitions);
-        let (schedule, listener) = background_task_manager.start();
-        println!("Setting up tasks");
-        tasks.push(schedule);
-        tasks.push(listener);
-        // Service streams as separate concurrent processes.
-        setup_metrics(&config);
-        let sender = background_task_manager.get_sender();
-        if sender.is_err() {
-            // fail the startup
-            panic!("Failed to get Background Task sender");
+
+    let backfiller = backfiller::<RedisMessenger>(pool.clone(), config.clone()).await;
+
+    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
+    let mut background_task_manager =
+        TaskManager::new(rand_string(), pool.clone(), bg_task_definitions);
+    let background_task_manager_handle = background_task_manager.start_listener();
+    let backgroun_task_sender = background_task_manager.get_sender().unwrap();
+
+    let txn_stream = service_transaction_stream::<RedisMessenger>(
+        pool.clone(),
+        backgroun_task_sender.clone(), // This is allowed because we must
+        config.messenger_config.clone(),
+    );
+    let account_stream = service_account_stream::<RedisMessenger>(
+        pool.clone(),
+        backgroun_task_sender,
+        config.messenger_config.clone(),
+    );
+
+    let mut tasks = JoinSet::new();
+
+    let role = config.role.unwrap_or(IngesterRole::All);
+
+    match role {
+        IngesterRole::All => {
+            tasks.build_task().name("fill").spawn(backfiller);
+            tasks.build_task().name("txn").spawn(txn_stream.await);
+            tasks.build_task().name("acct").spawn(account_stream.await);
+            tasks.build_task().name("bg_chan").spawn(background_task_manager_handle);
+            tasks.build_task().name("bg_run").spawn(background_task_manager.start_runner());
         }
-        tasks.push(
-            service_transaction_stream::<RedisMessenger>(
-                pool.clone(),
-                sender.unwrap(), // This is allowed because we must
-                config.messenger_config.clone(),
-            )
-            .await,
-        );
-        let sender = background_task_manager.get_sender();
-        if sender.is_err() {
-            // fail the startup
-            panic!("Failed to get Background Task sender");
+        IngesterRole::Backfiller => {
+            tasks.build_task().name("fill").spawn(backfiller);
         }
-        tasks.push(
-            service_account_stream::<RedisMessenger>(
-                pool.clone(),
-                sender.unwrap(),
-                config.messenger_config.clone(),
-            )
-            .await,
-        );
-        safe_metric(|| {
-            statsd_count!("ingester.startup", 1);
-        });
+        IngesterRole::BackgroundTaskRunner => {
+            tasks.build_task().name("bg_run").spawn(background_task_manager.start_runner());
+        }
+        IngesterRole::Ingester => {
+            tasks.build_task().name("bg_chan").spawn(background_task_manager_handle);
+            tasks.build_task().name("txn").spawn(txn_stream.await);
+            tasks.build_task().name("acct").spawn(account_stream.await);
+        }
     }
+    let roles_str = role.to_string();
+    safe_metric(|| {
+        statsd_count!("ingester.startup", 1, "role" => &roles_str);
+    });
 
     // Wait for ctrl-c.
     match tokio::signal::ctrl_c().await {
         Ok(()) => {}
         Err(err) => {
             println!("Unable to listen for shutdown signal: {}", err);
-            // We also shut down in case of error.
         }
     }
 
-    // Kill all tasks.
-    for task in tasks {
-        task.abort();
-    }
+    tasks.shutdown().await;
 }
 
 async fn service_transaction_stream<T: Messenger>(
@@ -185,17 +208,13 @@ async fn service_transaction_stream<T: Messenger>(
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up transaction listener");
 
-                let mut ids = Vec::new();
                 loop {
-                    ids.clear();
-
                     if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                        handle_transaction(&manager, data, &mut ids).await
-                    }
-
-                    if !ids.is_empty() {
-                        if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
-                            println!("Error ACK-ing messages {:?}", e);
+                        let mut ids = handle_transaction(&manager, data).await;
+                        if !ids.is_empty() {
+                            if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
+                                println!("Error ACK-ing messages {:?}", e);
+                            }
                         }
                     }
                 }
@@ -232,18 +251,13 @@ async fn service_account_stream<T: Messenger>(
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up account listener");
 
-                let mut ids = Vec::new();
-
                 loop {
-                    ids.clear();
-
                     if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                        handle_account(&manager, data, &mut ids).await
-                    }
-
-                    if !ids.is_empty() {
-                        if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
-                            println!("Error ACK-ing messages {:?}", e);
+                        let mut ids = handle_account(&manager, data).await;
+                        if !ids.is_empty() {
+                            if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                                println!("Error ACK-ing messages {:?}", e);
+                            }
                         }
                     }
                 }
@@ -264,15 +278,11 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(
-    manager: &ProgramTransformer,
-    data: Vec<RecvData<'_>>,
-    ids: &mut Vec<String>,
-) {
+async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
     statsd_gauge!("ingester.account_batch_size", data.len() as u64);
+    let mut ids = Vec::new();
     for item in data {
-        ids.push(item.id);
-
+        let id = item.id.to_string();
         let data = item.data;
         // Get root of account info flatbuffers object.
         let account_update = match root_as_account_info(data) {
@@ -308,6 +318,7 @@ async fn handle_account(
                 safe_metric(|| {
                     statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
                 });
+                ids.push(id);
             }
             Err(err) => {
                 println!("Error handling account update: {:?}", err);
@@ -315,8 +326,9 @@ async fn handle_account(
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
                 });
             }
-        }
+        };
     }
+    ids
 }
 
 async fn process_instruction<'i>(
@@ -355,15 +367,11 @@ async fn process_instruction<'i>(
     manager.handle_instruction(&bundle).await
 }
 
-async fn handle_transaction(
-    manager: &ProgramTransformer,
-    data: Vec<RecvData<'_>>,
-    ids: &mut Vec<String>,
-) {
+async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
     statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
+    let mut ids = Vec::new();
     for item in data {
-        ids.push(item.id);
-
+        let id = item.id.to_string();
         let tx_data = item.data;
         //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
         //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
@@ -406,6 +414,7 @@ async fn handle_transaction(
                         safe_metric(|| {
                             statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
                         });
+                        ids.push(id.clone());
                     }
                     Err(err) => {
                         println!("Error handling transaction: {:?}", err);
@@ -413,8 +422,9 @@ async fn handle_transaction(
                             statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
                         });
                     }
-                }
+                };
             }
         }
     }
+    ids
 }
