@@ -101,7 +101,6 @@ fn rand_string() -> String {
 
 #[tokio::main]
 async fn main() {
-    console_subscriber::init();
     // Read config.
     println!("Starting DASgester");
     let mut config: IngesterConfig = Figment::new()
@@ -158,22 +157,22 @@ async fn main() {
 
     match role {
         IngesterRole::All => {
-            tasks.build_task().name("fill").spawn(backfiller);
-            tasks.build_task().name("txn").spawn(txn_stream.await);
-            tasks.build_task().name("acct").spawn(account_stream.await);
-            tasks.build_task().name("bg_chan").spawn(background_task_manager_handle);
-            tasks.build_task().name("bg_run").spawn(background_task_manager.start_runner());
+            tasks.spawn(backfiller);
+            tasks.spawn(txn_stream.await);
+            tasks.spawn(account_stream.await);
+            tasks.spawn(background_task_manager_handle);
+            tasks.spawn(background_task_manager.start_runner());
         }
         IngesterRole::Backfiller => {
-            tasks.build_task().name("fill").spawn(backfiller);
+            tasks.spawn(backfiller);
         }
         IngesterRole::BackgroundTaskRunner => {
-            tasks.build_task().name("bg_run").spawn(background_task_manager.start_runner());
+            tasks.spawn(background_task_manager.start_runner());
         }
         IngesterRole::Ingester => {
-            tasks.build_task().name("bg_chan").spawn(background_task_manager_handle);
-            tasks.build_task().name("txn").spawn(txn_stream.await);
-            tasks.build_task().name("acct").spawn(account_stream.await);
+            tasks.spawn(background_task_manager_handle);
+            tasks.spawn(txn_stream.await);
+            tasks.spawn(account_stream.await);
         }
     }
     let roles_str = role.to_string();

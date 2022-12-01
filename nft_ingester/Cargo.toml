@@ -42,7 +42,7 @@ solana-transaction-status = "~1.10.3"
 rand = "0.8.5"
 rust-crypto = "0.2.36"
 url="2.3.1"
-console-subscriber="0.1.8"
+
 
 [dependencies.num-integer] 
 version = "0.1.44"
@@ -50,4 +50,3 @@ default-features = false
 
 [patch.crates-io]
 tokio = {git= "https://github.com/austbot/tokio", branch="my-own-1.14-2",  features = ["full", "tracing"]}
-console-subscriber = {git= "https://github.com/austbot/console"}
