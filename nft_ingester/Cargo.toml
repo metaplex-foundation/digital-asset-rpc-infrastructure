@@ -5,12 +5,14 @@ edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
+tracing = "0.1.26"
 redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams"] }
+futures = {version = "0.3.25"}
 futures-util = "0.3.0"
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
-tokio = { version = "1.14.1", features = ["full"] }
+tokio = { version = "1.14.1", features = ["full", "tracing"] }
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.27.1", features = ["postgres-array"] }
@@ -40,6 +42,10 @@ solana-transaction-status = "~1.10.3"
 rand = "0.8.5"
 rust-crypto = "0.2.36"
 url="2.3.1"
+
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false
+
+[patch.crates-io]
+tokio = {git= "https://github.com/austbot/tokio", branch="my-own-1.14-2",  features = ["full"]}
