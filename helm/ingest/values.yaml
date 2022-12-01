@@ -59,6 +59,7 @@ backfiller:
      memory: 1024Mi
 
 bg:
+  replicaCount: 1
   resources:
     limits:
       cpu: 4
