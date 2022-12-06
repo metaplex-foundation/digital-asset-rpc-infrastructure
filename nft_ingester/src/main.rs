@@ -417,7 +417,6 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>
                         statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
                     });
                     ids.push(id.clone());
-                    println!("SUCCESS:txn: {:?}", signature);
                 }
                 Err(err) => {
                     println!("ERROR:txn: {:?} {:?}", signature, err);
@@ -427,6 +426,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>
                 }
             };
         }
+        println!("SUCCESS:txn: {:?}", signature);
     }
     ids
 }
