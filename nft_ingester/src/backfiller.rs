@@ -767,8 +767,6 @@ impl<T: Messenger> Backfiller<T> {
                 let ui_raw_message = match &ui_transaction.message {
                     solana_transaction_status::UiMessage::Raw(ui_raw_message) => {
                         if ui_raw_message.account_keys.iter().any(|key| key == VOTE) {
-                            // Debug.
-                            println!("Skipping vote transaction");
                             continue;
                         } else {
                             ui_raw_message
@@ -780,7 +778,7 @@ impl<T: Messenger> Backfiller<T> {
                         ));
                     }
                 };
-
+                let sig = ui_transaction.signatures[0].to_string();
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tree = bs58::encode(tree).into_string();
@@ -791,13 +789,13 @@ impl<T: Messenger> Backfiller<T> {
                     .all(|pk| *pk != tree && *pk != bubblegum)
                 {
                     // Debug.
-                    println!("Skipping tx unrelated to tree or bubblegum PID");
+                    println!("Skipping tx unrelated to tree or bubblegum PID {:?}", sig);
                     continue;
                 }
                 
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                let sig = ui_transaction.signatures[0].to_string();
+                
                 println!("Serializing transaction in backfiller {}", sig);
                 let builder = serialize_transaction(
                     builder,
