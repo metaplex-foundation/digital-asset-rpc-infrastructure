@@ -19,9 +19,10 @@ use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
     SqlxPostgresConnector, TryGetableMany,
 };
+use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
-    rpc_config::{RpcBlockConfig, RpcProgramAccountsConfig, RpcAccountInfoConfig},
+    rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, MemcmpEncodedBytes, MemcmpEncoding, RpcFilterType},
 };
 use solana_sdk::{
@@ -31,9 +32,8 @@ use solana_sdk::{
 };
 use solana_transaction_status::{
     EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
-    UiTransactionStatusMeta
+    UiTransactionStatusMeta,
 };
-use solana_account_decoder::UiAccountEncoding;
 use spl_account_compression::state::{
     CompressionAccountType, ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData,
     ConcurrentMerkleTreeHeaderDataV1,
@@ -41,7 +41,10 @@ use spl_account_compression::state::{
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
-use tokio::{time::{self, sleep, Duration}, sync::Semaphore};
+use tokio::{
+    sync::Semaphore,
+    time::{self, sleep, Duration},
+};
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 30000;
@@ -260,10 +263,10 @@ impl<T: Messenger> Backfiller<T> {
 
     async fn run_finder(&mut self) {
         let mut interval = time::interval(tokio::time::Duration::from_millis(TREE_SYNC_INTERVAL));
-        let mut sem = Semaphore::new(1);
+        let sem = Semaphore::new(1);
         loop {
             interval.tick().await;
-            let permit = sem.acquire().await.unwrap();
+            let _permit = sem.acquire().await.unwrap();
             println!("Looking for missing trees...");
             match self.get_missing_trees().await {
                 Ok(missing_trees) => {
@@ -444,7 +447,9 @@ impl<T: Messenger> Backfiller<T> {
         let txn = self.db.begin().await?;
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
-            "SELECT DISTINCT tree FROM cl_items".to_string(),
+            "SELECT DISTINCT cl_items.tree FROM cl_items INNER JOIN\n\
+             backfill_items bi on cl_items.tree = bi.tree WHERE bi.failed = false\n\
+             AND bi.locked = false".to_string(),
         );
         let force_chk_trees = txn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {
@@ -637,7 +642,8 @@ impl<T: Messenger> Backfiller<T> {
             let (pubkey, account) = r;
             println!("found rpc tree pubkey: {}", pubkey);
             let mut sl = account.data.as_slice();
-            let tree_config: ConcurrentMerkleTreeHeader = ConcurrentMerkleTreeHeader::deserialize(&mut sl)
+            let tree_config: ConcurrentMerkleTreeHeader =
+                ConcurrentMerkleTreeHeader::deserialize(&mut sl)
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
             list.insert(pubkey, tree_config.get_creation_slot());
         }
@@ -788,14 +794,11 @@ impl<T: Messenger> Backfiller<T> {
                     .iter()
                     .all(|pk| *pk != tree && *pk != bubblegum)
                 {
-                    // Debug.
-                    println!("Skipping tx unrelated to tree or bubblegum PID {:?}", sig);
                     continue;
                 }
-                
+
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                
                 println!("Serializing transaction in backfiller {}", sig);
                 let builder = serialize_transaction(
                     builder,
@@ -804,9 +807,6 @@ impl<T: Messenger> Backfiller<T> {
                     ui_raw_message,
                     slot.try_into().unwrap(),
                 )?;
-
-                // Debug.
-                println!("Putting data into Redis");
                 // Put data into Redis.
                 self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())

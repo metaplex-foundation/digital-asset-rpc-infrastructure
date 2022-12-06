@@ -36,6 +36,9 @@ pub async fn handle_bubblegum_instruction<'c>(
         InstructionName::MintV1 => {
             println!("MintV1 instruction:");
         }
+        InstructionName::MintToCollectionV1 => {
+            println!("MintToCollectionV1 instruction:");
+        }
         InstructionName::Redeem => {
             println!("Redeem instruction:");
         }
@@ -89,7 +92,7 @@ pub async fn handle_bubblegum_instruction<'c>(
         InstructionName::Delegate => {
             delegate::delegate(parsing_result, bundle, &txn).await?;
         }
-        InstructionName::MintV1 => {
+        InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
             let task = mint_v1::mint_v1(parsing_result, bundle, &txn).await?;
             txn.commit().await?;
             task_manager.send(task)?;

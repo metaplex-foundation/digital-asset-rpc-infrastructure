@@ -10,7 +10,7 @@ json_types = ["serde", "serde_json"]
 sql_types = ["sea-orm"]
 
 [dependencies]
-spl-concurrent-merkle-tree = { version = "0.1.1" }
+spl-concurrent-merkle-tree = { version = "0.1.2" }
 sea-orm = { optional = true, version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.27.1", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
@@ -22,13 +22,13 @@ solana-sdk = { version = ">=1.10.29" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { version = "0.6.0" }
+blockbuster = { version = "0.6.1", path="../../blockbuster/blockbuster" }
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.2.2"
 futures = "0.3.21"
 tokio = { version = "1.14.1", features = ["rt", "macros"] }
-mpl-bubblegum = "0.3.0"
+mpl-bubblegum = "0.4.1"
 reqwest = "0.11.11"
 
 [dev-dependencies]

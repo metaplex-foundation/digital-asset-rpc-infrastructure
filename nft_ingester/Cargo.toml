@@ -27,12 +27,12 @@ flatbuffers = "22.10.26"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = "0.3.0"
+mpl-bubblegum = "0.4.1"
 spl-account-compression = {git= "https://github.com/austbot/solana-program-library",  features = ["no-entrypoint"] }
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.6.0" }
+blockbuster = { version = "0.6.1", path = "../../blockbuster/blockbuster" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
