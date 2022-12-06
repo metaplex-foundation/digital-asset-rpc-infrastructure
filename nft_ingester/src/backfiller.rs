@@ -41,7 +41,7 @@ use spl_account_compression::state::{
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
-use tokio::time::{self, sleep, Duration};
+use tokio::{time::{self, sleep, Duration}, sync::Semaphore};
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 30000;
@@ -260,8 +260,10 @@ impl<T: Messenger> Backfiller<T> {
 
     async fn run_finder(&mut self) {
         let mut interval = time::interval(tokio::time::Duration::from_millis(TREE_SYNC_INTERVAL));
+        let mut sem = Semaphore::new(1);
         loop {
             interval.tick().await;
+            let permit = sem.acquire().await.unwrap();
             println!("Looking for missing trees...");
             match self.get_missing_trees().await {
                 Ok(missing_trees) => {
