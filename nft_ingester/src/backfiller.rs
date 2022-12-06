@@ -445,11 +445,22 @@ impl<T: Messenger> Backfiller<T> {
     async fn get_missing_trees(&self) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
         let txn = self.db.begin().await?;
+        let get_locked_or_failed_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
+             OR locked = true".to_string(),
+        );
+        let locked_trees = txn.query_all(get_locked_or_failed_trees).await?;
+        for row in locked_trees.into_iter() {
+            let tree = UniqueTree::from_query_result(&row, "")?;
+            let key = &Pubkey::new(&tree.tree);
+            if all_trees.contains_key(key) {
+                all_trees.remove(key);
+            }
+        }
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
-            "SELECT DISTINCT cl_items.tree FROM cl_items INNER JOIN\n\
-             backfill_items bi on cl_items.tree = bi.tree WHERE bi.failed = false\n\
-             AND bi.locked = false".to_string(),
+            "SELECT DISTINCT cl_items.tree".to_string(),
         );
         let force_chk_trees = txn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {
