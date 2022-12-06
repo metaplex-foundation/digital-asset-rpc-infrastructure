@@ -16,6 +16,7 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
+use flatbuffers::{Vector, VectorIter};
 use futures_util::TryFutureExt;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
@@ -97,7 +98,6 @@ fn rand_string() -> String {
         .map(char::from)
         .collect()
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -209,7 +209,7 @@ async fn service_transaction_stream<T: Messenger>(
 
                 loop {
                     if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                        let mut ids = handle_transaction(&manager, data).await;
+                        let ids = handle_transaction(&manager, data).await;
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
                                 println!("Error ACK-ing messages {:?}", e);
@@ -252,7 +252,7 @@ async fn service_account_stream<T: Messenger>(
 
                 loop {
                     if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                        let mut ids = handle_account(&manager, data).await;
+                        let ids = handle_account(&manager, data).await;
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                                 println!("Error ACK-ing messages {:?}", e);
@@ -338,7 +338,7 @@ async fn process_instruction<'i>(
     inner_ix: Option<Vec<IxPair<'i>>>,
 ) -> Result<(), IngesterError> {
     let (program, instruction) = outer_ix;
-    let ix_accounts = instruction.accounts().unwrap_or(&[]);
+    let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
     let ix_account_len = ix_accounts.len();
     let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
     if keys.len() < max {
@@ -358,7 +358,7 @@ async fn process_instruction<'i>(
     let bundle = InstructionBundle {
         txn_id: "",
         program,
-        instruction,
+        instruction: Some(instruction),
         inner_ix,
         keys: ix_accounts.as_slice(),
         slot,
@@ -372,57 +372,61 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>
     for item in data {
         let id = item.id.to_string();
         let tx_data = item.data;
-        //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
-        //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
-        //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
-        //  1. only 1 ingest instance picks it up, two the stream coming out of the ingester can be considered deduped
-        //
-        // can we paralellize this : yes
+        let tx = match root_as_transaction_info(tx_data) {
+            Err(err) => {
+                println!("TransactionInfo deserialization error: {err}");
+                continue;
+            }
+            Ok(tx) => tx,
+        };
+        let instructions = manager.break_transaction(&tx);
+        let accounts = tx.account_keys().unwrap_or(Vector::default());
+        let mut va: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
+        for k in accounts.into_iter() {
+            va.push(*k);
+        }
 
-        // Get root of transaction info flatbuffers object.
-        if let Ok(tx) = root_as_transaction_info(tx_data) {
-            let instructions = manager.break_transaction(&tx);
-            let keys = tx.account_keys().unwrap_or(&[]);
-            if let Some(si) = tx.slot_index() {
-                let slt_idx = format!("{}-{}", tx.slot(), si);
-                safe_metric(|| {
-                    statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
-                });
-            }
-            let seen_at = Utc::now();
+        let signature = tx.signature().unwrap_or("NO SIG");
+        if let Some(si) = tx.slot_index() {
+            let slt_idx = format!("{}-{}", tx.slot(), si);
             safe_metric(|| {
-                statsd_time!(
-                    "ingester.bus_ingest_time",
-                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
-                );
+                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
             });
-            for (outer_ix, inner_ix) in instructions {
-                let (program, _) = &outer_ix;
-                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-                let begin_processing = Utc::now();
-                let res = process_instruction(manager, tx.slot(), keys, outer_ix, inner_ix).await;
-                let finish_processing = Utc::now();
-                match res {
-                    Ok(_) => {
-                        safe_metric(|| {
-                            let proc_time = (finish_processing.timestamp_millis()
-                                - begin_processing.timestamp_millis())
-                                as u64;
-                            statsd_time!("ingester.tx_proc_time", proc_time);
-                        });
-                        safe_metric(|| {
-                            statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
-                        });
-                        ids.push(id.clone());
-                    }
-                    Err(err) => {
-                        println!("Error handling transaction: {:?}", err);
-                        safe_metric(|| {
-                            statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
-                        });
-                    }
-                };
-            }
+        }
+        let seen_at = Utc::now();
+        safe_metric(|| {
+            statsd_time!(
+                "ingester.bus_ingest_time",
+                (seen_at.timestamp_millis() - tx.seen_at()) as u64
+            );
+        });
+        for (outer_ix, inner_ix) in instructions {
+            let (program, _) = &outer_ix;
+            let str_program_id = bs58::encode(program.0.as_slice()).into_string();
+            let begin_processing = Utc::now();
+            let res = process_instruction(manager, tx.slot(), &va, outer_ix, inner_ix).await;
+            let finish_processing = Utc::now();
+            match res {
+                Ok(_) => {
+                    safe_metric(|| {
+                        let proc_time = (finish_processing.timestamp_millis()
+                            - begin_processing.timestamp_millis())
+                            as u64;
+                        statsd_time!("ingester.tx_proc_time", proc_time);
+                    });
+                    safe_metric(|| {
+                        statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                    });
+                    ids.push(id.clone());
+                    println!("SUCCESS:txn: {:?}", signature);
+                }
+                Err(err) => {
+                    println!("ERROR:txn: {:?} {:?}", signature, err);
+                    safe_metric(|| {
+                        statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
+                    });
+                }
+            };
         }
     }
     ids

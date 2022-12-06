@@ -523,9 +523,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.5.9"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75daa2a18f66936b5e29dc43939de3944a9951d2626f92d11c260a15218ba8ab"
+checksum = "d0392d32a6aa126e8a7b371ab53f271b45faa921b709d93f1dd1d564bed78b42"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -1433,13 +1433,12 @@ dependencies = [
 
 [[package]]
 name = "flatbuffers"
-version = "2.1.2"
+version = "22.10.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b428b715fdbdd1c364b84573b5fdc0f84f8e423661b9f398735278bc7f2b6a"
+checksum = "d2ba319fc85cd1d8994d42c95b13cdf051786b35f9e401b1c03bff1c67efd899"
 dependencies = [
  "bitflags",
- "smallvec",
- "thiserror",
+ "rustc_version",
 ]
 
 [[package]]
@@ -2860,9 +2859,9 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "plerkle_messenger"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a8921fdc0e661ebbcb28263790dd56c4692ebac1c8e5e0b8364dc720e8a313b"
+checksum = "e672a05316ee8ee1cb8ddfa0c12b8bc3e2c575cc23e2130b4f005cdd12a88aa1"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -2876,9 +2875,9 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a799100ca2aa6c12ffaf2127eaf8d78aa7cd10f11b1c33d42be20fd814d45954"
+checksum = "85969b923cfd4c2b888e473e08ed92c54b63a17d19e7659f39a1e39f4bbe8690"
 dependencies = [
  "chrono",
  "flatbuffers",

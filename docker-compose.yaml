@@ -94,10 +94,9 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-#      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro    /// UNCOMMENT IF YOU DONT WANT TO USE MIGRATIONS
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.5.2
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.6.0
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

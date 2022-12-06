@@ -572,8 +572,9 @@ impl<T: Messenger> Backfiller<T> {
                 println!("Serializing transaction");
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
+                let sig = ui_transaction.signatures[0].to_string();
                 let builder =
-                    serialize_transaction(builder, meta, ui_raw_message, slot.try_into().unwrap())?;
+                    serialize_transaction(builder, sig,meta, ui_raw_message, slot.try_into().unwrap())?;
 
                 // Debug.
                 println!("Putting data into Redis");
@@ -664,6 +665,7 @@ impl<T: Messenger> Backfiller<T> {
 
 fn serialize_transaction<'a>(
     mut builder: FlatBufferBuilder<'a>,
+    signature: String,
     meta: &UiTransactionStatusMeta,
     ui_raw_message: &UiRawMessage,
     slot: u64,
@@ -763,6 +765,7 @@ fn serialize_transaction<'a>(
 
     // Serialize everything into Transaction Info table.
     let seen_at = Utc::now();
+    let sig_db = builder.create_string(&signature);
     let transaction_info = TransactionInfo::create(
         &mut builder,
         &TransactionInfoArgs {
@@ -774,6 +777,7 @@ fn serialize_transaction<'a>(
             slot,
             seen_at: seen_at.timestamp_millis(),
             slot_index: None,
+            signature: Some(sig_db)
         },
     );
 
