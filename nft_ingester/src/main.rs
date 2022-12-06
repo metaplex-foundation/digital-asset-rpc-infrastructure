@@ -17,7 +17,6 @@ use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
 use flatbuffers::{Vector, VectorIter};
-use futures_util::TryFutureExt;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
