@@ -230,8 +230,6 @@ impl<T: Messenger> Backfiller<T> {
                         // listener channel.
                         let _notification = self.listener.recv().await.unwrap();
                     } else {
-                        println!("New trees to backfill: {}", backfill_trees.len());
-
                         // First just check if we can talk to an RPC provider.
                         match self.rpc_client.get_version().await {
                             Ok(version) => println!("RPC client version {version}"),
@@ -278,7 +276,7 @@ impl<T: Messenger> Backfiller<T> {
                                 }
 
                                 if tries == NUM_TRIES {
-                                    if let Err(err) = self.mark_as_failed(tree).await {
+                                    if let Err(err) = self.mark_tree_as_failed(tree).await {
                                         println!("Error marking tree as failed to backfill: {err}");
                                     }
                                 } else {
@@ -320,7 +318,7 @@ impl<T: Messenger> Backfiller<T> {
                     }
                     Err(err) => {
                         println!("Error deleting rows and marking as backfilled: {err}");
-                        if let Err(err) = self.mark_as_failed(tree).await {
+                        if let Err(err) = self.mark_tree_as_failed(tree).await {
                             println!("Error marking tree as failed to backfill: {err}");
                         }
                     }
@@ -329,7 +327,7 @@ impl<T: Messenger> Backfiller<T> {
             None => {
                 // Debug.
                 println!("Unexpected error, tree was in list, but no rows found for {tree_string}");
-                if let Err(err) = self.mark_as_failed(tree).await {
+                if let Err(err) = self.mark_tree_as_failed(tree).await {
                     println!("Error marking tree as failed to backfill: {err}");
                 }
             }
@@ -351,35 +349,101 @@ impl<T: Messenger> Backfiller<T> {
     }
 
     async fn get_trees_to_backfill(&self) -> Result<Vec<BackfillTree>, DbErr> {
-        // Get trees with the `force_chk` flag set.
-        let force_chk_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
+        // Start a db transaction.
+        let txn = self.db.begin().await?;
+
+        // Lock the backfill_items table.
+        txn.execute(Statement::from_string(
             DbBackend::Postgres,
-            "SELECT DISTINCT backfill_items.tree FROM backfill_items\n\
-            WHERE backfill_items.force_chk = TRUE AND backfill_items.failed = FALSE",
-            vec![],
+            "LOCK TABLE backfill_items IN ACCESS EXCLUSIVE MODE".to_string(),
         ))
-        .all(&self.db)
         .await?;
 
-        // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
+        // Get trees with the `force_chk` flag set to true (that have not failed and are not locked).
+        let force_chk_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT DISTINCT backfill_items.tree FROM backfill_items\n\
+            WHERE backfill_items.force_chk = TRUE\n\
+            AND backfill_items.failed = FALSE\n\
+            AND backfill_items.locked = FALSE"
+                .to_string(),
+        );
+
+        let force_chk_trees: Vec<UniqueTree> = txn.query_all(force_chk_trees).await.map(|qr| {
+            qr.iter()
+                .map(|q| UniqueTree::from_query_result(q, "").unwrap())
+                .collect()
+        })?;
+
+        println!(
+            "Number of force check trees to backfill: {}",
+            force_chk_trees.len()
+        );
+
+        for tree in force_chk_trees.iter() {
+            let stmt = backfill_items::Entity::update_many()
+                .col_expr(backfill_items::Column::Locked, Expr::value(true))
+                .filter(backfill_items::Column::Tree.eq(&*tree.tree))
+                .build(DbBackend::Postgres);
+
+            if let Err(err) = txn.execute(stmt).await {
+                println!(
+                    "Error marking tree {} as locked: {}",
+                    bs58::encode(&tree.tree).into_string(),
+                    err
+                );
+                return Err(err);
+            }
+        }
+
+        // Get trees with multiple rows from `backfill_items` table (that have not failed and are not locked).
+        let multi_row_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT backfill_items.tree FROM backfill_items\n\
+            WHERE backfill_items.failed = FALSE
+            AND backfill_items.locked = FALSE\n\
+            GROUP BY backfill_items.tree\n\
+            HAVING COUNT(*) > 1"
+                .to_string(),
+        );
+
+        let multi_row_trees: Vec<UniqueTree> = txn.query_all(multi_row_trees).await.map(|qr| {
+            qr.iter()
+                .map(|q| UniqueTree::from_query_result(q, "").unwrap())
+                .collect()
+        })?;
+
+        println!(
+            "Number of multi-row trees to backfill {}",
+            multi_row_trees.len()
+        );
+
+        for tree in multi_row_trees.iter() {
+            let stmt = backfill_items::Entity::update_many()
+                .col_expr(backfill_items::Column::Locked, Expr::value(true))
+                .filter(backfill_items::Column::Tree.eq(&*tree.tree))
+                .build(DbBackend::Postgres);
+
+            if let Err(err) = txn.execute(stmt).await {
+                println!(
+                    "Error marking tree {} as locked: {}",
+                    bs58::encode(&tree.tree).into_string(),
+                    err
+                );
+                return Err(err);
+            }
+        }
+
+        // Close out transaction and relinqish the lock.
+        txn.commit().await?;
+
+        // Convert force check trees Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut trees: Vec<BackfillTree> = force_chk_trees
             .into_iter()
             .map(|tree| BackfillTree::new(tree, true))
             .collect();
 
-        // Get trees with multiple rows from `backfill_items` table.
-        let multi_row_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT backfill_items.tree FROM backfill_items\n\
-            WHERE backfill_items.failed = FALSE\n\
-            GROUP BY backfill_items.tree\n\
-            HAVING COUNT(*) > 1",
-            vec![],
-        ))
-        .all(&self.db)
-        .await?;
-
-        // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
+        // Convert multi-row trees Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut multi_row_trees: Vec<BackfillTree> = multi_row_trees
             .into_iter()
             .map(|tree| BackfillTree::new(tree, false))
@@ -407,14 +471,6 @@ impl<T: Messenger> Backfiller<T> {
         let start_seq_vec = MaxSeqItem::find_by_statement(query).all(&self.db).await?;
 
         Ok(start_seq_vec.last().map(|row| row.seq))
-    }
-
-    async fn clear_force_chk_flag(&self, tree: &[u8]) -> Result<UpdateResult, DbErr> {
-        backfill_items::Entity::update_many()
-            .col_expr(backfill_items::Column::ForceChk, Expr::value(false))
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .exec(&self.db)
-            .await
     }
 
     // Similar to `fetchAndPlugGaps()` in `backfiller.ts`.
@@ -629,14 +685,13 @@ impl<T: Messenger> Backfiller<T> {
         }
 
         // Mark remaining row as backfilled so future backfilling can start above this sequence number.
-        backfill_items::Entity::update_many()
-            .col_expr(backfill_items::Column::Backfilled, Expr::value(true))
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .exec(&self.db)
-            .await?;
+        self.mark_tree_as_backfilled(tree).await?;
 
         // Clear the `force_chk` flag if it was set.
         self.clear_force_chk_flag(tree).await?;
+
+        // Unlock tree.
+        self.unlock_tree(tree).await?;
 
         // Debug.
         let test_items = backfill_items::Entity::find()
@@ -651,10 +706,37 @@ impl<T: Messenger> Backfiller<T> {
         Ok(())
     }
 
-    async fn mark_as_failed(&self, tree: &[u8]) -> Result<(), DbErr> {
-        // Mark all rows for this tree as failed future backfilling can skip this tree.
+    async fn mark_tree_as_backfilled(&self, tree: &[u8]) -> Result<(), DbErr> {
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::Backfilled, Expr::value(true))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn clear_force_chk_flag(&self, tree: &[u8]) -> Result<UpdateResult, DbErr> {
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::ForceChk, Expr::value(false))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await
+    }
+
+    async fn mark_tree_as_failed(&self, tree: &[u8]) -> Result<(), DbErr> {
         backfill_items::Entity::update_many()
             .col_expr(backfill_items::Column::Failed, Expr::value(true))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn unlock_tree(&self, tree: &[u8]) -> Result<(), DbErr> {
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::Locked, Expr::value(false))
             .filter(backfill_items::Column::Tree.eq(tree))
             .exec(&self.db)
             .await?;

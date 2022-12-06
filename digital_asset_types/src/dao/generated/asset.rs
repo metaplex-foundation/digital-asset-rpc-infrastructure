@@ -41,10 +41,10 @@ pub struct Model {
     pub created_at: Option<DateTimeWithTimeZone>,
     pub burnt: bool,
     pub slot_updated: i64,
-    pub collection: Option<Vec<u8>>,
-    pub collection_verified: bool,
     pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
+    pub collection: Option<Vec<u8>>,
+    pub collection_verified: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -72,10 +72,10 @@ pub enum Column {
     CreatedAt,
     Burnt,
     SlotUpdated,
-    Collection,
-    CollectionVerified,
     DataHash,
     CreatorHash,
+    Collection,
+    CollectionVerified,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -126,10 +126,10 @@ impl ColumnTrait for Column {
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::Burnt => ColumnType::Boolean.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
-            Self::Collection => ColumnType::Binary.def().null(),
-            Self::CollectionVerified => ColumnType::Boolean.def(),
             Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::Collection => ColumnType::Binary.def().null(),
+            Self::CollectionVerified => ColumnType::Boolean.def(),
         }
     }
 }
