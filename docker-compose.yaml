@@ -96,7 +96,7 @@ services:
     volumes:
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v0.6.0
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.0.1
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

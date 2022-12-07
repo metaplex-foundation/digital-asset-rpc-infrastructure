@@ -18,7 +18,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     parsing_result: &'b TokenMetadataAccountState,
     db: &'c DatabaseConnection,
     task_manager: &UnboundedSender<TaskData>,
-) -> Result<(), IngesterError> { 
+) -> Result<(), IngesterError> {
     let txn = db.begin().await?;
     let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {

@@ -13,7 +13,7 @@ use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
-    task::{JoinError, JoinHandle},
+    task::{JoinHandle},
     time,
 };
 
@@ -123,7 +123,7 @@ impl TaskManager {
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
-                println!("Task Run Error: {}", e.to_string());
+                println!("Task Run Error: {}", e);
             }
         }
         Ok(task)
@@ -185,7 +185,7 @@ impl TaskManager {
     fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
-        name: String,
+        _name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
     ) -> JoinHandle<Result<(), IngesterError>> {
@@ -207,8 +207,8 @@ impl TaskManager {
                 };
                 let duration = Duration::seconds(task_executor.lock_duration());
                 TaskManager::lock_task(&mut model, duration, instance_name);
-                let model = model.insert(&conn).await?;
-                return Ok(());
+                let _model = model.insert(&conn).await?;
+                Ok(())
             } else {
                 Err(IngesterError::TaskManagerError(format!(
                     "{} not a valid task type",
@@ -244,7 +244,9 @@ impl TaskManager {
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
-        let listener_handle = tokio::task::spawn(async move {
+        
+
+        tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
                 if let Some(task_created_time) = task.created_at {
                     let bus_time =
@@ -275,9 +277,7 @@ impl TaskManager {
                     );
                 }
             }
-        });
-
-        listener_handle
+        })
     }
 
     pub fn start_runner(&self) -> JoinHandle<()> {
@@ -285,7 +285,8 @@ impl TaskManager {
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
-        let scheduler_handle = tokio::spawn(async move {
+        
+        tokio::spawn(async move {
             let mut interval = time::interval(tokio::time::Duration::from_millis(RETRY_INTERVAL));
             loop {
                 interval.tick().await; // ticks immediately
@@ -303,7 +304,7 @@ impl TaskManager {
                 match tasks_res {
                     Ok(tasks) => {
                         println!("tasks that need to be executed: {}", tasks.len());
-                        let task_map_clone = task_map.clone();
+                        let _task_map_clone = task_map.clone();
                         let instance_name = instance_name.clone();
                         for task in tasks {
                             let task_map_clone = task_map.clone();
@@ -346,7 +347,6 @@ impl TaskManager {
                     }
                 }
             }
-        });
-        scheduler_handle
+        })
     }
 }

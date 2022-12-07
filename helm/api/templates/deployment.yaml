@@ -73,7 +73,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: {{ include "api.secret" . }}
-                key: APP_DATABASE_URL
+                key: APP_READER_DATABASE_URL
                 optional: false
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

@@ -16,7 +16,7 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
-use flatbuffers::{Vector, VectorIter};
+
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
@@ -40,7 +40,7 @@ pub type RpcConfig = figment::value::Dict;
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
     All,
     Backfiller,
@@ -276,14 +276,14 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
+async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
     statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     let mut ids = Vec::new();
     for item in data {
         let id = item.id.to_string();
         let data = item.data;
         // Get root of account info flatbuffers object.
-        let account_update = match root_as_account_info(data) {
+        let account_update = match root_as_account_info(&data) {
             Err(err) => {
                 println!("Flatbuffers AccountInfo deserialization error: {err}");
                 continue;
@@ -365,13 +365,13 @@ async fn process_instruction<'i>(
     manager.handle_instruction(&bundle).await
 }
 
-async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
+async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
     statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
     let mut ids = Vec::new();
     for item in data {
         let id = item.id.to_string();
         let tx_data = item.data;
-        let tx = match root_as_transaction_info(tx_data) {
+        let tx = match root_as_transaction_info(&tx_data) {
             Err(err) => {
                 println!("TransactionInfo deserialization error: {err}");
                 continue;
@@ -379,7 +379,7 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>
             Ok(tx) => tx,
         };
         let instructions = manager.break_transaction(&tx);
-        let accounts = tx.account_keys().unwrap_or(Vector::default());
+        let accounts = tx.account_keys().unwrap_or_default();
         let mut va: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
         for k in accounts.into_iter() {
             va.push(*k);

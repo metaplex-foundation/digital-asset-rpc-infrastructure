@@ -32,7 +32,7 @@ impl DownloadMetadata {
 
 impl IntoTaskData for DownloadMetadata {
     fn into_task_data(self) -> Result<TaskData, IngesterError> {
-        let ts = self.created_at.clone();
+        let ts = self.created_at;
         let data =
             serde_json::to_value(self).map_err(<serde_json::Error as Into<IngesterError>>::into)?;
         Ok(TaskData {

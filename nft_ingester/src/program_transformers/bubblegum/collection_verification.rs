@@ -1,10 +1,10 @@
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
-use digital_asset_types::dao::{asset, asset_creators};
+use digital_asset_types::dao::{asset};
 use sea_orm::{DatabaseTransaction, Set, Unchanged};
-use solana_sdk::pubkey::Pubkey;
 
-use crate::program_transformers::bubblegum::{update_asset, update_creator};
+
+use crate::program_transformers::bubblegum::{update_asset};
 use crate::tasks::common::save_changelog_event;
 use crate::IngesterError;
 
@@ -17,7 +17,7 @@ pub async fn process<'c>(
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?
-        let seq = save_changelog_event(&cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         match le.schema {
             LeafSchema::V1 { id, .. } => {
                 let id_bytes = id.to_bytes().to_vec();

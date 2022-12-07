@@ -35,8 +35,7 @@ use solana_transaction_status::{
     UiTransactionStatusMeta,
 };
 use spl_account_compression::state::{
-    CompressionAccountType, ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData,
-    ConcurrentMerkleTreeHeaderDataV1,
+    ConcurrentMerkleTreeHeader,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::collections::HashMap;
@@ -48,6 +47,7 @@ use tokio::{
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 30000;
+const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
@@ -64,7 +64,7 @@ pub async fn backfiller<T: Messenger>(
         loop {
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
-            let mut tasks = FuturesUnordered::new();
+            let tasks = FuturesUnordered::new();
 
             tasks.push(tokio::spawn(async {
                 println!("Backfiller task running");
@@ -295,12 +295,19 @@ impl<T: Messenger> Backfiller<T> {
         // This is always looping, but if there are no trees to backfill, it will wait for a
         // notification on the db listener channel before continuing.
         loop {
+            let mut interval =
+                time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
                     if backfill_trees.is_empty() {
-                        // If there are no trees to backfill, wait for a notification on the db
-                        // listener channel.
-                        let _notification = self.listener.recv().await.unwrap();
+                        tokio::select! {
+                            _ = interval.tick() => {
+
+                            }
+                            _ = self.listener.recv() => {
+
+                            }
+                        }
                     } else {
                         // First just check if we can talk to an RPC provider.
                         match self.rpc_client.get_version().await {
@@ -448,7 +455,8 @@ impl<T: Messenger> Backfiller<T> {
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
-             OR locked = true".to_string(),
+             OR locked = true"
+                .to_string(),
         );
         let locked_trees = txn.query_all(get_locked_or_failed_trees).await?;
         for row in locked_trees.into_iter() {
@@ -460,7 +468,7 @@ impl<T: Messenger> Backfiller<T> {
         }
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
-            "SELECT DISTINCT cl_items.tree".to_string(),
+            "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
         );
         let force_chk_trees = txn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {

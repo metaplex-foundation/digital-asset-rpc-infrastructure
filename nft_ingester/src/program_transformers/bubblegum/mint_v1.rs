@@ -14,7 +14,7 @@ use digital_asset_types::{
 use num_traits::FromPrimitive;
 use sea_orm::{
     entity::*,
-    query::{self, *},
+    query::{*},
     sea_query::OnConflict,
     ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, JsonValue,
 };
@@ -188,7 +188,7 @@ pub async fn mint_v1<'c>(
                 if !creators.is_empty() {
                     let mut db_creators = Vec::with_capacity(creators.len());
                     let mut creators_set = HashSet::new();
-                    for (i, c) in creators.into_iter().enumerate() {
+                    for (i, c) in creators.iter().enumerate() {
                         if creators_set.contains(&c.address) {
                             continue;
                         }
