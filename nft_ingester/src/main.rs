@@ -280,6 +280,11 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData>) -> Ve
     statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     let mut ids = Vec::new();
     for item in data {
+        if item.tries > 0 {
+            safe_metric(|| {
+                statsd_count!("ingester.account_stream_redelivery", 1);
+            });
+        }
         let id = item.id.to_string();
         let data = item.data;
         // Get root of account info flatbuffers object.
@@ -307,14 +312,22 @@ async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData>) -> Ve
         let finish_processing = Utc::now();
         match res {
             Ok(_) => {
+                if item.tries == 0 {
+                    safe_metric(|| {
+                        let proc_time = (finish_processing.timestamp_millis()
+                            - begin_processing.timestamp_millis())
+                            as u64;
+                        statsd_time!("ingester.account_proc_time", proc_time);
+                    });
+                    safe_metric(|| {
+                        statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                    });
+                }
+                ids.push(id);
+            }
+            Err(err) if err == IngesterError::NotImplemented => {
                 safe_metric(|| {
-                    let proc_time = (finish_processing.timestamp_millis()
-                        - begin_processing.timestamp_millis())
-                        as u64;
-                    statsd_time!("ingester.account_proc_time", proc_time);
-                });
-                safe_metric(|| {
-                    statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                    statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id);
                 });
                 ids.push(id);
             }
@@ -369,6 +382,11 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -
     statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
     let mut ids = Vec::new();
     for item in data {
+        if item.tries > 0 {
+            safe_metric(|| {
+                statsd_count!("ingester.tx_stream_redelivery", 1);
+            });
+        }
         let id = item.id.to_string();
         let tx_data = item.data;
         let tx = match root_as_transaction_info(&tx_data) {
@@ -407,14 +425,26 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -
             let finish_processing = Utc::now();
             match res {
                 Ok(_) => {
+                    if item.tries == 0 {
+                        safe_metric(|| {
+                            let proc_time = (finish_processing.timestamp_millis()
+                                - begin_processing.timestamp_millis())
+                                as u64;
+                            statsd_time!("ingester.tx_proc_time", proc_time);
+                        });
+                        safe_metric(|| {
+                            statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                        });
+                    } else {
+                        safe_metric(|| {
+                            statsd_count!("ingester.tx_ingest_redeliver_success", 1, "owner" => &str_program_id);
+                        });
+                    }
+                    ids.push(id.clone());
+                }
+                Err(err) if err == IngesterError::NotImplemented => {
                     safe_metric(|| {
-                        let proc_time = (finish_processing.timestamp_millis()
-                            - begin_processing.timestamp_millis())
-                            as u64;
-                        statsd_time!("ingester.tx_proc_time", proc_time);
-                    });
-                    safe_metric(|| {
-                        statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                        statsd_count!("ingester.tx_not_implemented", 1, "owner" => &str_program_id);
                     });
                     ids.push(id.clone());
                 }
