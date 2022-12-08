@@ -40,14 +40,14 @@ use std::cmp;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use stretto::AsyncCache;
+use stretto::{AsyncCache, AsyncCacheBuilder};
 use tokio::{
     sync::Semaphore,
     time::{self, sleep, Duration},
 };
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
-const TREE_SYNC_INTERVAL: u64 = 30000;
+const TREE_SYNC_INTERVAL: u64 = 10;
 const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
@@ -68,9 +68,13 @@ pub async fn backfiller<T: Messenger>(
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
             let tasks = FuturesUnordered::new();
-            let block_cache =
-                Arc::new(AsyncCache::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST, tokio::spawn).unwrap());
-            let bc = block_cache.clone();
+            let block_cache = Arc::new(
+                AsyncCacheBuilder::new(BLOCK_CACHE_SIZE,MAX_CACHE_COST)
+                    .set_ignore_internal_cost(true)
+                    .finalize(tokio::spawn)
+                    .expect("failed to create cache"),
+            );
+            let bc = Arc::clone(&block_cache);
             tasks.push(tokio::spawn(async move {
                 println!("Backfiller task running");
 
@@ -80,7 +84,7 @@ pub async fn backfiller<T: Messenger>(
 
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
-            let bc = block_cache.clone();
+            let bc = Arc::clone(&block_cache);
             tasks.push(tokio::spawn(async move {
                 println!("Backfiller task running");
 
@@ -155,6 +159,7 @@ struct SimpleBackfillItem {
 }
 
 /// Struct used to store sequence number gap info for a given tree.
+#[derive(Debug)]
 struct GapInfo {
     prev: SimpleBackfillItem,
     curr: SimpleBackfillItem,
@@ -274,7 +279,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     }
 
     async fn run_finder(&mut self) {
-        let mut interval = time::interval(tokio::time::Duration::from_millis(TREE_SYNC_INTERVAL));
+        let mut interval = time::interval(tokio::time::Duration::from_secs(TREE_SYNC_INTERVAL));
         let sem = Semaphore::new(1);
         loop {
             interval.tick().await;
@@ -306,9 +311,9 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     async fn run_filler(&mut self) {
         // This is always looping, but if there are no trees to backfill, it will wait for a
         // notification on the db listener channel before continuing.
+        let mut interval =
+            time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
         loop {
-            let mut interval =
-                time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
                     if backfill_trees.is_empty() {
@@ -526,8 +531,9 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             })?;
 
         println!(
-            "Number of force check trees to backfill: {}",
-            force_chk_trees.len()
+            "Number of force check trees to backfill: {} {}",
+            force_chk_trees.len(),
+            Utc::now().to_string()
         );
 
         for tree in force_chk_trees.iter() {
@@ -756,15 +762,21 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
         let diff = gap.curr.slot - gap.prev.slot;
-        let num_iter = (diff + 250_000) / 500_000;
+        let mut num_iter = (diff + 250_000) / 500_000;
         let mut start_slot = gap.prev.slot;
         let mut end_slot = cmp::min(500_000, gap.curr.slot);
-        let mut get_confirmed_slot_tasks = FuturesUnordered::new();
+        let get_confirmed_slot_tasks = FuturesUnordered::new();
+        if num_iter == 0 {
+            num_iter = 1;
+        }
         for _ in 0..num_iter {
-            get_confirmed_slot_tasks.push(
-                self.rpc_client
-                    .get_blocks(start_slot as u64, Some(end_slot as u64)),
-            );
+            get_confirmed_slot_tasks.push(self.rpc_client.get_blocks_with_commitment(
+                start_slot as u64,
+                Some(end_slot as u64),
+                CommitmentConfig {
+                    commitment: CommitmentLevel::Confirmed,
+                },
+            ));
             start_slot = end_slot;
             end_slot = cmp::min(end_slot + 500_000, gap.curr.slot);
         }
@@ -778,14 +790,16 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             let key = format!("block{}", slot);
             let mut cached_block = self.cache.get(&key);
             if cached_block.is_none() {
+                println!("Fetching block {} from RPC", slot);
                 let block = EncodedConfirmedBlock::from(
                     self.rpc_client
                         .get_block_with_config(slot as u64, self.rpc_block_config)
                         .await
                         .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
                 );
+                println!("Fetched block {:?} from RPC", block);
                 let cost = cmp::min(32, block.transactions.len() as i64);
-                self.cache
+                let write = self.cache
                     .try_insert_with_ttl(
                         key.clone(),
                         block,
@@ -793,7 +807,14 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                         Duration::from_secs(BLOCK_CACHE_DURATION),
                     )
                     .await?;
-                self.cache.wait().await?;
+                
+                if !write {
+                    return Err(IngesterError::CacheStorageWriteError(format!(
+                        "Cache Write Failed on {} is missing.",
+                        &key
+                    )));
+                }
+                self.cache.wait().await?;   
                 cached_block = self.cache.get(&key);
             }
             if cached_block.is_none() {
