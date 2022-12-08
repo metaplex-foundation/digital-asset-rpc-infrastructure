@@ -9,7 +9,7 @@ use cadence_macros::statsd_count;
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
-use futures::stream::FuturesUnordered;
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::{
     CompiledInstruction, CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs,
@@ -34,12 +34,13 @@ use solana_transaction_status::{
     EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
     UiTransactionStatusMeta,
 };
-use spl_account_compression::state::{
-    ConcurrentMerkleTreeHeader,
-};
+use spl_account_compression::state::ConcurrentMerkleTreeHeader;
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
+use std::cmp;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
+use stretto::AsyncCache;
 use tokio::{
     sync::Semaphore,
     time::{self, sleep, Duration},
@@ -51,7 +52,9 @@ const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
-
+const BLOCK_CACHE_SIZE: usize = 300_000;
+const MAX_CACHE_COST: i64 = 32;
+const BLOCK_CACHE_DURATION: u64 = 172800;
 // Account key used to determine if transaction is a simple vote.
 const VOTE: &str = "Vote111111111111111111111111111111111111111";
 
@@ -65,21 +68,23 @@ pub async fn backfiller<T: Messenger>(
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
             let tasks = FuturesUnordered::new();
-
-            tasks.push(tokio::spawn(async {
+            let block_cache =
+                Arc::new(AsyncCache::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST, tokio::spawn).unwrap());
+            let bc = block_cache.clone();
+            tasks.push(tokio::spawn(async move {
                 println!("Backfiller task running");
 
-                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
                 backfiller.run_filler().await;
             }));
 
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
-
-            tasks.push(tokio::spawn(async {
+            let bc = block_cache.clone();
+            tasks.push(tokio::spawn(async move {
                 println!("Backfiller task running");
 
-                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
                 backfiller.run_finder().await;
             }));
 
@@ -162,18 +167,23 @@ impl GapInfo {
 }
 
 /// Main struct used for backfiller task.
-struct Backfiller<T: Messenger> {
+struct Backfiller<'a, T: Messenger> {
     db: DatabaseConnection,
     listener: PgListener,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
     messenger: T,
     failure_delay: u64,
+    cache: &'a AsyncCache<String, EncodedConfirmedBlock>,
 }
 
-impl<T: Messenger> Backfiller<T> {
+impl<'a, T: Messenger> Backfiller<'a, T> {
     /// Create a new `Backfiller` struct.
-    async fn new(pool: Pool<Postgres>, config: IngesterConfig) -> Self {
+    async fn new(
+        pool: Pool<Postgres>,
+        config: IngesterConfig,
+        cache: &'a AsyncCache<String, EncodedConfirmedBlock>,
+    ) -> Backfiller<'a, T> {
         // Create Sea ORM database connection used later for queries.
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
 
@@ -259,6 +269,7 @@ impl<T: Messenger> Backfiller<T> {
             rpc_block_config,
             messenger,
             failure_delay: INITIAL_FAILURE_DELAY,
+            cache,
         }
     }
 
@@ -744,27 +755,57 @@ impl<T: Messenger> Backfiller<T> {
         // TODO: This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
-        let _ = self
-            .rpc_client
-            .get_block(gap.curr.slot as u64)
-            .await
-            .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
-
-        for slot in gap.prev.slot..gap.curr.slot {
-            let block_data = EncodedConfirmedBlock::from(
+        let diff = gap.curr.slot - gap.prev.slot;
+        let num_iter = (diff + 250_000) / 500_000;
+        let mut start_slot = gap.prev.slot;
+        let mut end_slot = cmp::min(500_000, gap.curr.slot);
+        let mut get_confirmed_slot_tasks = FuturesUnordered::new();
+        for _ in 0..num_iter {
+            get_confirmed_slot_tasks.push(
                 self.rpc_client
-                    .get_block_with_config(slot as u64, self.rpc_block_config)
-                    .await
-                    .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
+                    .get_blocks(start_slot as u64, Some(end_slot as u64)),
             );
+            start_slot = end_slot;
+            end_slot = cmp::min(end_slot + 500_000, gap.curr.slot);
+        }
+        let result_slots = get_confirmed_slot_tasks
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .flatten();
+        for slot in result_slots.into_iter() {
+            let key = format!("block{}", slot);
+            let mut cached_block = self.cache.get(&key);
+            if cached_block.is_none() {
+                let block = EncodedConfirmedBlock::from(
+                    self.rpc_client
+                        .get_block_with_config(slot as u64, self.rpc_block_config)
+                        .await
+                        .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
+                );
+                let cost = cmp::min(32, block.transactions.len() as i64);
+                self.cache
+                    .try_insert_with_ttl(
+                        key.clone(),
+                        block,
+                        cost,
+                        Duration::from_secs(BLOCK_CACHE_DURATION),
+                    )
+                    .await?;
+                self.cache.wait().await?;
+                cached_block = self.cache.get(&key);
+            }
+            if cached_block.is_none() {
+                return Err(IngesterError::CacheStorageWriteError(format!(
+                    "Cache Procedure Failed {} is missing.",
+                    &key
+                )));
+            }
+            let block_ref = cached_block.unwrap();
+            let block_data = block_ref.value();
 
-            // Debug.
-            println!("num txs: {}", block_data.transactions.len());
-            for tx in block_data.transactions {
-                // Debug.
-                //println!("TX from RPC provider:");
-                //println!("{:#?}", tx);
-
+            for tx in block_data.transactions.iter() {
                 // See if transaction has an error.
                 let meta = if let Some(meta) = &tx.meta {
                     if let Some(err) = &meta.err {
@@ -832,6 +873,7 @@ impl<T: Messenger> Backfiller<T> {
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }
+            drop(block_ref);
         }
 
         Ok(())

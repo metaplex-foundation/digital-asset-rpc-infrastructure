@@ -29,6 +29,7 @@ use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
+
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -277,7 +278,9 @@ async fn service_account_stream<T: Messenger>(
 }
 
 async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
-    statsd_gauge!("ingester.account_batch_size", data.len() as u64);
+    safe_metric(|| {
+        statsd_gauge!("ingester.account_batch_size", data.len() as u64);
+    });
     let mut ids = Vec::new();
     for item in data {
         if item.tries > 0 {
@@ -379,7 +382,9 @@ async fn process_instruction<'i>(
 }
 
 async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
-    statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
+    safe_metric(|| {
+        statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
+    });
     let mut ids = Vec::new();
     for item in data {
         if item.tries > 0 {

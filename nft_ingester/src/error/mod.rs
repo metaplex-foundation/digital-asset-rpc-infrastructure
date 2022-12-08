@@ -45,11 +45,19 @@ pub enum IngesterError {
     TaskManagerNotStarted,
     #[error("Unrecoverable task error")]
     UnrecoverableTaskError,
+    #[error("Cache Storage Write Error {0}")]
+    CacheStorageWriteError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {
     fn from(_err: reqwest::Error) -> Self {
         IngesterError::BatchInitNetworkingError
+    }
+}
+
+impl From<stretto::CacheError> for IngesterError {
+    fn from(err: stretto::CacheError) -> Self {
+        IngesterError::CacheStorageWriteError(err.to_string())
     }
 }
 
