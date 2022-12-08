@@ -69,7 +69,7 @@ pub async fn backfiller<T: Messenger>(
             let config_cloned = config.clone();
             let tasks = FuturesUnordered::new();
             let block_cache = Arc::new(
-                AsyncCacheBuilder::new(BLOCK_CACHE_SIZE,MAX_CACHE_COST)
+                AsyncCacheBuilder::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST)
                     .set_ignore_internal_cost(true)
                     .finalize(tokio::spawn)
                     .expect("failed to create cache"),
@@ -285,25 +285,24 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             interval.tick().await;
             let _permit = sem.acquire().await.unwrap();
             println!("Looking for missing trees...");
-            match self.get_missing_trees().await {
-                Ok(missing_trees) => {
-                    let len = missing_trees.len();
-                    if len > 0 {
-                        statsd_count!("ingester.backfiller.missing_trees", len as i64);
-                        let res = self.force_backfill_missing_trees(missing_trees).await;
-                        if res.is_ok() {
-                            println!(
-                                "Missing Trees Found: {} trees scheduled for backfill from 0",
-                                len
-                            );
-                        } else {
-                            println!("Error finding missing trees: {}", res.unwrap_err());
-                        }
+            let txn = self.db.begin().await.unwrap();
+            if let Ok(missing_trees) = self.get_missing_trees(&txn).await {
+                let len = missing_trees.len();
+                statsd_count!("ingester.backfiller.missing_trees", len as i64);
+                let res = self
+                    .force_backfill_missing_trees(missing_trees, &txn)
+                    .await
+                    .map(|_| async move { txn.commit() });
+                match res {
+                    Ok(x) => {
+                        println!("Set {} trees to backfill from 0", len);
+                    } 
+                    Err(e) => {
+                        println!("Error setting trees to backfill from 0: {}", e);
                     }
                 }
-                Err(e) => {
-                    println!("Error getting missing trees: {}", e);
-                }
+            } else {
+                println!("Error getting missing trees");
             }
         }
     }
@@ -394,10 +393,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     async fn force_backfill_missing_trees(
         &mut self,
         missing_trees: Vec<MissingTree>,
+        cn: &impl ConnectionTrait,
     ) -> Result<(), IngesterError> {
-        let txn = self.db.begin().await?;
-        for tree in missing_trees.into_iter() {
-            let item = backfill_items::ActiveModel {
+        let trees = missing_trees
+            .into_iter()
+            .map(|tree| backfill_items::ActiveModel {
                 tree: Set(tree.tree.as_ref().to_vec()),
                 seq: Set(0),
                 slot: Set(tree.slot as i64),
@@ -405,11 +405,13 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 backfilled: Set(false),
                 failed: Set(false),
                 ..Default::default()
-            };
+            })
+            .collect::<Vec<_>>();
 
-            backfill_items::Entity::insert(item).exec(&txn).await?;
-        }
-        txn.commit().await?;
+        backfill_items::Entity::insert_many(trees)
+            .exec(cn)
+            .await?;
+
         Ok(())
     }
 
@@ -466,16 +468,19 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         self.failure_delay = INITIAL_FAILURE_DELAY;
     }
 
-    async fn get_missing_trees(&self) -> Result<Vec<MissingTree>, IngesterError> {
+    async fn get_missing_trees(
+        &self,
+        cn: &impl ConnectionTrait,
+    ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
-        let txn = self.db.begin().await?;
+
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
              OR locked = true"
                 .to_string(),
         );
-        let locked_trees = txn.query_all(get_locked_or_failed_trees).await?;
+        let locked_trees = cn.query_all(get_locked_or_failed_trees).await?;
         for row in locked_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
             let key = &Pubkey::new(&tree.tree);
@@ -487,7 +492,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             DbBackend::Postgres,
             "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
         );
-        let force_chk_trees = txn.query_all(get_all_local_trees).await?;
+        let force_chk_trees = cn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
             let key = &Pubkey::new(&tree.tree);
@@ -797,9 +802,9 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                         .await
                         .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
                 );
-                println!("Fetched block {:?} from RPC", block);
                 let cost = cmp::min(32, block.transactions.len() as i64);
-                let write = self.cache
+                let write = self
+                    .cache
                     .try_insert_with_ttl(
                         key.clone(),
                         block,
@@ -807,14 +812,14 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                         Duration::from_secs(BLOCK_CACHE_DURATION),
                     )
                     .await?;
-                
+
                 if !write {
                     return Err(IngesterError::CacheStorageWriteError(format!(
                         "Cache Write Failed on {} is missing.",
                         &key
                     )));
                 }
-                self.cache.wait().await?;   
+                self.cache.wait().await?;
                 cached_block = self.cache.get(&key);
             }
             if cached_block.is_none() {
