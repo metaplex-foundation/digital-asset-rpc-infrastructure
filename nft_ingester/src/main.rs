@@ -16,7 +16,8 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
-
+use std::sync::Arc;
+use futures::{stream::FuturesUnordered, StreamExt};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
@@ -203,7 +204,7 @@ async fn service_transaction_stream<T: Messenger>(
             let messenger_config_cloned = messenger_config.clone();
 
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up transaction listener");
 
@@ -244,9 +245,9 @@ async fn service_account_stream<T: Messenger>(
             let pool_cloned = pool.clone();
             let tasks_cloned = tasks.clone();
             let messenger_config_cloned = messenger_config.clone();
-
+            
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up account listener");
 
@@ -277,76 +278,85 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
+async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) -> Vec<String> {
     safe_metric(|| {
         statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     });
-    let mut ids = Vec::new();
-    for item in data {
-        if item.tries > 0 {
-            safe_metric(|| {
-                statsd_count!("ingester.account_stream_redelivery", 1);
-            });
-        }
-        let id = item.id.to_string();
-        let data = item.data;
-        // Get root of account info flatbuffers object.
-        let account_update = match root_as_account_info(&data) {
-            Err(err) => {
-                println!("Flatbuffers AccountInfo deserialization error: {err}");
-                continue;
+    
+    let tasks = FuturesUnordered::new();
+    for item in data.into_iter() {
+        let manager = Arc::clone(manager);
+        
+        tasks.push(async move {
+            let id = item.id;
+            let mut ids = Vec::new();
+            if item.tries > 0 {
+                safe_metric(|| {
+                    statsd_count!("ingester.account_stream_redelivery", 1);
+                });
             }
-            Ok(account_update) => account_update,
-        };
-        let seen_at = Utc::now();
-        let str_program_id =
-            bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
-        safe_metric(|| {
-            statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
-        });
-        safe_metric(|| {
-            statsd_time!(
-                "ingester.account_bus_ingest_time",
-                (seen_at.timestamp_millis() - account_update.seen_at()) as u64
-            );
-        });
-        let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
-        let finish_processing = Utc::now();
-        match res {
-            Ok(_) => {
-                if item.tries == 0 {
+            
+            let data = item.data;
+            // Get root of account info flatbuffers object.
+           if let Ok(account_update) = root_as_account_info(&data) {
+             
+            let seen_at = Utc::now();
+            let str_program_id =
+                bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
+            safe_metric(|| {
+                statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
+            });
+            safe_metric(|| {
+                statsd_time!(
+                    "ingester.account_bus_ingest_time",
+                    (seen_at.timestamp_millis() - account_update.seen_at()) as u64
+                );
+            });
+            let begin_processing = Utc::now();
+            let res = manager.handle_account_update(account_update).await;
+            let finish_processing = Utc::now();
+            match res {
+                Ok(_) => {
+                    if item.tries == 0 {
+                        safe_metric(|| {
+                            let proc_time = (finish_processing.timestamp_millis()
+                                - begin_processing.timestamp_millis())
+                                as u64;
+                            statsd_time!("ingester.account_proc_time", proc_time);
+                        });
+                        safe_metric(|| {
+                            statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                        });
+                    }
+                    ids.push(id);
+                }
+                Err(err) if err == IngesterError::NotImplemented => {
                     safe_metric(|| {
-                        let proc_time = (finish_processing.timestamp_millis()
-                            - begin_processing.timestamp_millis())
-                            as u64;
-                        statsd_time!("ingester.account_proc_time", proc_time);
+                        statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id);
                     });
+                    ids.push(id);
+                }
+                Err(err) => {
+                    println!("Error handling account update: {:?}", err);
                     safe_metric(|| {
-                        statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
                     });
                 }
-                ids.push(id);
+            
             }
-            Err(err) if err == IngesterError::NotImplemented => {
-                safe_metric(|| {
-                    statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id);
-                });
-                ids.push(id);
-            }
-            Err(err) => {
-                println!("Error handling account update: {:?}", err);
-                safe_metric(|| {
-                    statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
-                });
-            }
-        };
+        }
+            ids
+        });
     }
-    ids
+    tasks.collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 async fn process_instruction<'i>(
-    manager: &ProgramTransformer,
+    manager: Arc<ProgramTransformer>,
     slot: u64,
     keys: &[FBPubkey],
     outer_ix: IxPair<'i>,
@@ -381,12 +391,17 @@ async fn process_instruction<'i>(
     manager.handle_instruction(&bundle).await
 }
 
-async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -> Vec<String> {
+async fn handle_transaction(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) -> Vec<String> {
     safe_metric(|| {
         statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
     });
-    let mut ids = Vec::new();
+    
+    let tasks = FuturesUnordered::new();
     for item in data {
+        let manager = Arc::clone(manager);
+        
+        tasks.push(async move {
+        let mut ids = Vec::new();
         if item.tries > 0 {
             safe_metric(|| {
                 statsd_count!("ingester.tx_stream_redelivery", 1);
@@ -394,74 +409,76 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData>) -
         }
         let id = item.id.to_string();
         let tx_data = item.data;
-        let tx = match root_as_transaction_info(&tx_data) {
-            Err(err) => {
-                println!("TransactionInfo deserialization error: {err}");
-                continue;
+        if let Ok(tx) = root_as_transaction_info(&tx_data) {
+            let instructions = manager.break_transaction(&tx);
+            let accounts = tx.account_keys().unwrap_or_default();
+            let mut va: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
+            for k in accounts.into_iter() {
+                va.push(*k);
             }
-            Ok(tx) => tx,
-        };
-        let instructions = manager.break_transaction(&tx);
-        let accounts = tx.account_keys().unwrap_or_default();
-        let mut va: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
-        for k in accounts.into_iter() {
-            va.push(*k);
-        }
 
-        let signature = tx.signature().unwrap_or("NO SIG");
-        if let Some(si) = tx.slot_index() {
-            let slt_idx = format!("{}-{}", tx.slot(), si);
+            let signature = tx.signature().unwrap_or("NO SIG");
+            if let Some(si) = tx.slot_index() {
+                let slt_idx = format!("{}-{}", tx.slot(), si);
+                safe_metric(|| {
+                    statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+                });
+            }
+            let seen_at = Utc::now();
             safe_metric(|| {
-                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
+                statsd_time!(
+                    "ingester.bus_ingest_time",
+                    (seen_at.timestamp_millis() - tx.seen_at()) as u64
+                );
             });
-        }
-        let seen_at = Utc::now();
-        safe_metric(|| {
-            statsd_time!(
-                "ingester.bus_ingest_time",
-                (seen_at.timestamp_millis() - tx.seen_at()) as u64
-            );
-        });
-        for (outer_ix, inner_ix) in instructions {
-            let (program, _) = &outer_ix;
-            let str_program_id = bs58::encode(program.0.as_slice()).into_string();
-            let begin_processing = Utc::now();
-            let res = process_instruction(manager, tx.slot(), &va, outer_ix, inner_ix).await;
-            let finish_processing = Utc::now();
-            match res {
-                Ok(_) => {
-                    if item.tries == 0 {
+            for (outer_ix, inner_ix) in instructions {
+                let manager = Arc::clone(&manager);
+                let (program, _) = &outer_ix;
+                let str_program_id = bs58::encode(program.0.as_slice()).into_string();
+                let begin_processing = Utc::now();
+                let res = process_instruction(manager, tx.slot(), &va, outer_ix, inner_ix).await;
+                let finish_processing = Utc::now();
+                match res {
+                    Ok(_) => {
+                        if item.tries == 0 {
+                            safe_metric(|| {
+                                let proc_time = (finish_processing.timestamp_millis()
+                                    - begin_processing.timestamp_millis())
+                                    as u64;
+                                statsd_time!("ingester.tx_proc_time", proc_time);
+                            });
+                            safe_metric(|| {
+                                statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                            });
+                        } else {
+                            safe_metric(|| {
+                                statsd_count!("ingester.tx_ingest_redeliver_success", 1, "owner" => &str_program_id);
+                            });
+                        }
+                        ids.push(id.clone());
+                    }
+                    Err(err) if err == IngesterError::NotImplemented => {
                         safe_metric(|| {
-                            let proc_time = (finish_processing.timestamp_millis()
-                                - begin_processing.timestamp_millis())
-                                as u64;
-                            statsd_time!("ingester.tx_proc_time", proc_time);
+                            statsd_count!("ingester.tx_not_implemented", 1, "owner" => &str_program_id);
                         });
+                        ids.push(id.clone());
+                    }
+                    Err(err) => {
+                        println!("ERROR:txn: {:?} {:?}", signature, err);
                         safe_metric(|| {
-                            statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
-                        });
-                    } else {
-                        safe_metric(|| {
-                            statsd_count!("ingester.tx_ingest_redeliver_success", 1, "owner" => &str_program_id);
+                            statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
                         });
                     }
-                    ids.push(id.clone());
-                }
-                Err(err) if err == IngesterError::NotImplemented => {
-                    safe_metric(|| {
-                        statsd_count!("ingester.tx_not_implemented", 1, "owner" => &str_program_id);
-                    });
-                    ids.push(id.clone());
-                }
-                Err(err) => {
-                    println!("ERROR:txn: {:?} {:?}", signature, err);
-                    safe_metric(|| {
-                        statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
-                    });
-                }
-            };
+                };
+            }
+            println!("SUCCESS:txn: {:?}", signature);
         }
-        println!("SUCCESS:txn: {:?}", signature);
+        ids
+        });
     }
-    ids
+    tasks.collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }

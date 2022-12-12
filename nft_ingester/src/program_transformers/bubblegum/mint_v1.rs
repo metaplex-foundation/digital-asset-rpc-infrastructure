@@ -13,10 +13,8 @@ use digital_asset_types::{
 };
 use num_traits::FromPrimitive;
 use sea_orm::{
-    entity::*,
-    query::{*},
-    sea_query::OnConflict,
-    ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait, JsonValue,
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DatabaseTransaction, DbBackend,
+    EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
 

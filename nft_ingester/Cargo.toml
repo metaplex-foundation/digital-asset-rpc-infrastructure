@@ -12,7 +12,7 @@ futures-util = "0.3.0"
 base64 = "0.13.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
-tokio = { version = "1.14.1", features = ["full", "tracing"] }
+tokio = { version = "1.23.0", features = ["full", "tracing"] }
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.27.1", features = ["postgres-array"] }
@@ -21,26 +21,27 @@ tokio-postgres = "0.7.5"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "1.0.1", features = ['redis'] }
-plerkle_serialization = { version = "1.0.1" }
+plerkle_messenger = { version = "1.1.0", features = ['redis'] }
+plerkle_serialization = { version = "1.1.0" }
 flatbuffers = "22.10.26"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = "0.4.1"
+mpl-bubblegum = "0.7.0"
 spl-account-compression = {git= "https://github.com/austbot/solana-program-library",  features = ["no-entrypoint"] }
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.6.2" }
+blockbuster = { version = "0.7.0" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-sdk = "~1.10"
-solana-client = "~1.10.3"
-spl-token = { version = "~3.3.1", features = ["no-entrypoint"] }
-solana-transaction-status = "~1.10.3"
-solana-account-decoder = "~1.10.3"
+solana-sdk = "1.14.10"
+solana-client = "1.14.10"
+spl-token = { version = "3.5.0", features = ["no-entrypoint"] }
+solana-transaction-status = "1.14.10"
+solana-account-decoder = "1.14.10"
+solana-geyser-plugin-interface = { version = "1.14.10" }
 rand = "0.8.5"
 rust-crypto = "0.2.36"
 url="2.3.1"
@@ -53,5 +54,13 @@ stretto = { version = "0.7", features = ["async"] }
 version = "0.1.44"
 default-features = false
 
+# [patch.crates-io]
+# tokio = {git= "https://github.com/austbot/tokio", branch="my-own-1.14-2",  features = ["full", "tracing"]}
+
 [patch.crates-io]
-tokio = {git= "https://github.com/austbot/tokio", branch="my-own-1.14-2",  features = ["full", "tracing"]}
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
+anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
+mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}

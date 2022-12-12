@@ -171,7 +171,7 @@ pub async fn save_v1_asset(
         slot_updated: Set(slot_i),
         id: Set(id.to_vec()),
     };
-    let query = asset_data::Entity::insert(asset_data_model)
+    let mut query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -185,6 +185,10 @@ pub async fn save_v1_asset(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset_data.slot_updated",
+        query.sql
+    );
     let _res = txn.execute(query).await?;
 
     // Insert into `asset` table.
@@ -213,7 +217,7 @@ pub async fn save_v1_asset(
         ..Default::default()
     };
 
-    let query = asset::Entity::insert(model)
+    let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
@@ -241,6 +245,10 @@ pub async fn save_v1_asset(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset.slot_updated",
+        query.sql
+    );
     txn.execute(query).await?;
 
     let attachment = asset_v1_account_attachments::ActiveModel {
@@ -250,7 +258,7 @@ pub async fn save_v1_asset(
         ..Default::default()
     };
 
-    let query = asset_v1_account_attachments::Entity::insert(attachment)
+    let mut query = asset_v1_account_attachments::Entity::insert(attachment)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .do_nothing()
@@ -265,6 +273,7 @@ pub async fn save_v1_asset(
         let mut creators_set = HashSet::new();
         let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
             .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
+            .filter(asset_creators::Column::SlotUpdated.lt(slot_i))
             .all(txn)
             .await?;
         let existing_len = existing_creators.len();
@@ -275,7 +284,8 @@ pub async fn save_v1_asset(
                 .filter(
                     Condition::all()
                         .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::Position.gte(idx_to_delete as i8)),
+                        .add(asset_creators::Column::Position.gte(idx_to_delete as i8))
+                        .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
                 )
                 .exec(txn)
                 .await?;
@@ -297,7 +307,7 @@ pub async fn save_v1_asset(
             creators_set.insert(c.address);
         }
 
-        let query = asset_creators::Entity::insert_many(db_creators)
+        let mut query = asset_creators::Entity::insert_many(db_creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
@@ -313,6 +323,10 @@ pub async fn save_v1_asset(
                 .to_owned(),
             )
             .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+            query.sql
+        );
         txn.execute(query).await?;
 
         // Insert into `asset_authority` table.
@@ -323,10 +337,7 @@ pub async fn save_v1_asset(
             slot_updated: Set(slot_i),
             ..Default::default()
         };
-
-        // Do not attempt to modify any existing values:
-        // `ON CONFLICT ('asset_id') DO NOTHING`.
-        let query = asset_authority::Entity::insert(model)
+        let mut query = asset_authority::Entity::insert(model)
             .on_conflict(
                 OnConflict::columns([asset_authority::Column::AssetId])
                     .update_columns([
@@ -337,6 +348,10 @@ pub async fn save_v1_asset(
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE excluded.slot_updated > asset_authority.slot_updated",
+            query.sql
+        );
         txn.execute(query).await?;
 
         // Insert into `asset_grouping` table.
@@ -351,9 +366,7 @@ pub async fn save_v1_asset(
                     ..Default::default()
                 };
 
-                // Do not attempt to modify any existing values:
-                // `ON CONFLICT ('asset_id') DO NOTHING`.
-                let query = asset_grouping::Entity::insert(model)
+                let mut query = asset_grouping::Entity::insert(model)
                     .on_conflict(
                         OnConflict::columns([asset_grouping::Column::AssetId])
                             .update_columns([
@@ -365,6 +378,10 @@ pub async fn save_v1_asset(
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
+                query.sql = format!(
+                    "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
+                    query.sql
+                );
                 txn.execute(query).await?;
             }
         }

@@ -13,7 +13,7 @@ use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
-    task::{JoinHandle},
+    task::JoinHandle,
     time,
 };
 
@@ -244,8 +244,6 @@ impl TaskManager {
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
-        
-
         tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
                 if let Some(task_created_time) = task.created_at {
@@ -285,7 +283,6 @@ impl TaskManager {
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
-        
         tokio::spawn(async move {
             let mut interval = time::interval(tokio::time::Duration::from_millis(RETRY_INTERVAL));
             loop {

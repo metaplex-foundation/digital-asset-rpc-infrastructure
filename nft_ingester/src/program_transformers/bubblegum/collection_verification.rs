@@ -1,10 +1,9 @@
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
-use digital_asset_types::dao::{asset};
+use digital_asset_types::dao::asset;
 use sea_orm::{DatabaseTransaction, Set, Unchanged};
 
-
-use crate::program_transformers::bubblegum::{update_asset};
+use crate::program_transformers::bubblegum::update_asset;
 use crate::tasks::common::save_changelog_event;
 use crate::IngesterError;
 

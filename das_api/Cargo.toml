@@ -9,20 +9,28 @@ edition = "2021"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
 jsonrpsee = {version = "0.15.1", features = ["server", "macros"]}
 jsonrpsee-core = {version = "0.15.1", features =["server"]}
-hyper = "0.14.19"
+hyper = "0.14.23"
 tracing = "0.1.35"
 metrics = "0.19.0"
 figment = { version = "0.10.6", features = ["env"] }
 serde = "1.0.137"
 thiserror = "1.0.31"
-tokio = {version="^1.14.1"}
+tokio = {version="1.23.0"}
 async-trait = "0.1.56"
 serde_json = "1.0.81"
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
-tokio-postgres = "0.7.5"
-solana-sdk = { version = ">=1.10.29" }
+tokio-postgres = "0.7.7"
+solana-sdk = { version = ">=1.10.41" }
 bs58 = "0.4.0"
 log = "0.4.17"
+
+[patch.crates-io]
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
+anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
+mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}

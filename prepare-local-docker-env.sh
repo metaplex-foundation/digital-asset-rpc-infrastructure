@@ -3,7 +3,7 @@
 CWD=$(pwd)
 mkdir programs
 mkdir metaplex_program_library || true
-curl -LkSs https://api.github.com/repos/metaplex-foundation/metaplex-program-library/tarball | tar -xz --strip-components=1 -C ./metaplex_program_library
+curl -LkSs https://api.github.com/repos/metaplex-foundation/metaplex-program-library/tarball/update-deps | tar -xz --strip-components=1 -C ./metaplex_program_library
 
 pushd metaplex_program_library/token-metadata/program
   cargo build-bpf --bpf-out-dir ./here

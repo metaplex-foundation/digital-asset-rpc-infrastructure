@@ -31,8 +31,8 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use solana_transaction_status::{
-    EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
-    UiTransactionStatusMeta,
+    option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
+    UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
 };
 use spl_account_compression::state::ConcurrentMerkleTreeHeader;
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
@@ -289,16 +289,17 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             if let Ok(missing_trees) = self.get_missing_trees(&txn).await {
                 let len = missing_trees.len();
                 statsd_count!("ingester.backfiller.missing_trees", len as i64);
-                let res = self
-                    .force_backfill_missing_trees(missing_trees, &txn)
-                    .await
-                    .map(|_| async move { txn.commit() });
-                match res {
-                    Ok(x) => {
-                        println!("Set {} trees to backfill from 0", len);
-                    } 
-                    Err(e) => {
-                        println!("Error setting trees to backfill from 0: {}", e);
+                if len > 0 {
+                    let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
+
+                    txn.commit().await;
+                    match res {
+                        Ok(x) => {
+                            println!("Set {} trees to backfill from 0", len);
+                        }
+                        Err(e) => {
+                            println!("Error setting trees to backfill from 0: {}", e);
+                        }
                     }
                 }
             } else {
@@ -408,9 +409,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             })
             .collect::<Vec<_>>();
 
-        backfill_items::Entity::insert_many(trees)
-            .exec(cn)
-            .await?;
+        backfill_items::Entity::insert_many(trees).exec(cn).await?;
 
         Ok(())
     }
@@ -663,11 +662,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
     async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, u64>, IngesterError> {
         let config = RpcProgramAccountsConfig {
-            filters: Some(vec![RpcFilterType::Memcmp(Memcmp {
-                encoding: Some(MemcmpEncoding::Binary),
-                offset: 0,
-                bytes: MemcmpEncodedBytes::Bytes(vec![1u8]),
-            })]),
+            filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                0,
+                vec![1u8],
+            ))]),
             account_config: RpcAccountInfoConfig {
                 encoding: Some(UiAccountEncoding::Base64),
                 ..RpcAccountInfoConfig::default()
@@ -1022,18 +1020,12 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize log messages.
-    let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
-        let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
-        for message in log_messages {
-            log_messages_fb_vec.push(builder.create_string(message));
-        }
-        Some(builder.create_vector(&log_messages_fb_vec))
-    } else {
-        None
-    };
+    // We dont use them for now.
+    let log_messages = None;
 
     // Serialize inner instructions.
-    let inner_instructions = if let Some(inner_instructions_vec) = meta.inner_instructions.as_ref()
+    let inner_instructions = if let OptionSerializer::Some(inner_instructions_vec) =
+        meta.inner_instructions.as_ref()
     {
         let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
         for inner_instructions in inner_instructions_vec.iter() {

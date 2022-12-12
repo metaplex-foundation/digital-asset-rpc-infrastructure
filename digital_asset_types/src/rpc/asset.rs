@@ -1,8 +1,8 @@
+use crate::dao::sea_orm_active_enums::{
+    OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
+};
 #[cfg(feature = "sql_types")]
 use std::collections::BTreeMap;
-use crate::dao::sea_orm_active_enums::{OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions};
-use blockbuster::token_metadata::state::TokenStandard;
-use mpl_bubblegum::state::metaplex_adapter::MetadataArgs;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
 use {
@@ -82,7 +82,6 @@ pub type Files = Vec<File>;
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
-
 impl MetadataMap {
     pub fn new() -> Self {
         Self(BTreeMap::new())
@@ -151,7 +150,7 @@ pub struct Compression {
     pub asset_hash: String,
     pub tree: String,
     pub seq: i64,
-    pub leaf_id: i64
+    pub leaf_id: i64,
 }
 
 pub type GroupKey = String;

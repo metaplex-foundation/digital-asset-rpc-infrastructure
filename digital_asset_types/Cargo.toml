@@ -18,18 +18,21 @@ serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] 
 bs58 = "0.4.0"
 borsh = { version = "0.9.3", optional = true }
 borsh-derive = { version = "0.9.3", optional = true }
-solana-sdk = { version = ">=1.10.29" }
+solana-sdk = { version = "1.14.10" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { version = "0.6.1"}
+blockbuster = { version = "0.7.0"}
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
-url = "2.2.2"
-futures = "0.3.21"
-tokio = { version = "1.14.1", features = ["rt", "macros"] }
-mpl-bubblegum = "0.4.1"
-reqwest = "0.11.11"
+url = "2.3.1"
+futures = "0.3.25"
+reqwest = "0.11.13"
 
-[dev-dependencies]
-async-std = { version = "^1", features = ["attributes", "tokio1"] }
+[patch.crates-io]
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
+anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
+mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
+mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}
