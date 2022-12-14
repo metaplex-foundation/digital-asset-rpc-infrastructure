@@ -553,8 +553,8 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.7.0"
-source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#ac0d0781fd490e2947ce0ec318b908b7171e7ea0"
+version = "0.7.1"
+source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#3cd482ba81745f2d47d3204cdd9212175e30d23b"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -2810,7 +2810,7 @@ checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
 dependencies = [
  "instant",
  "lock_api",
- "parking_lot_core 0.8.5",
+ "parking_lot_core 0.8.6",
 ]
 
 [[package]]
@@ -2825,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d76e8e1493bcac0d2766c42737f34458f1c8c50c0d23bcb24ea953affb273216"
+checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
 dependencies = [
  "cfg-if",
  "instant",
@@ -2852,9 +2852,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
+checksum = "cf1c2c742266c2f1041c914ba65355a83ae8747b05f208319784083583494b4b"
 
 [[package]]
 name = "pbkdf2"
@@ -2970,9 +2970,9 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "plerkle_messenger"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc17f5656c95b1c9499beb661b67f206eb3c99e5336c4c5c79838dcad38270f0"
+checksum = "9226f0fab5e414de690e7ae476e2d6ec6733660044909c7becf43991cadbb595"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -2986,9 +2986,9 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368c9f7561c4de50faf9652513abf3cde4f6e4b63a05de3b41a58c937ddda9e1"
+checksum = "c275cbc142157beecb6b332d9fd5dcef2b69c7355a48e168fed1f19dd9932f91"
 dependencies = [
  "chrono",
  "flatbuffers",
@@ -2999,9 +2999,9 @@ dependencies = [
 
 [[package]]
 name = "polling"
-version = "2.5.1"
+version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "166ca89eb77fd403230b9c156612965a81e094ec6ec3aa13663d4c8b113fa748"
+checksum = "22122d5ec4f9fe1b3916419b76be1e80bcb93f618d071d2edf841b137b2a2bd6"
 dependencies = [
  "autocfg",
  "cfg-if",
