@@ -471,7 +471,7 @@ async fn handle_transaction(manager: &Arc<ProgramTransformer>, data: Vec<RecvDat
                     }
                 };
             }
-            println!("SUCCESS:txn: {:?}", signature);
+            println!("SUCCESS:txn: {:?} yay", signature);
         }
         ids
         });
