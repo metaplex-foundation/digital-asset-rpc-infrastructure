@@ -16,7 +16,6 @@ WORKDIR /rust/nft_ingester
 COPY --from=planner /rust/nft_ingester/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
 COPY nft_ingester/Cargo.toml .
-RUN cargo chef cook --release --recipe-path recipe.json
 COPY nft_ingester .
 # Build application
 RUN cargo build --release
