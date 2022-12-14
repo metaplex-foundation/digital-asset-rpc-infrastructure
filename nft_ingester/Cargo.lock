@@ -553,12 +553,13 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.7.1"
-source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#3cd482ba81745f2d47d3204cdd9212175e30d23b"
+version = "0.7.2"
+source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#af2433d9aff2c2e7e58eced6f9c8975256ccea31"
 dependencies = [
  "anchor-lang",
  "async-trait",
  "borsh",
+ "bs58 0.4.0",
  "flatbuffers",
  "lazy_static",
  "mpl-bubblegum",
@@ -2494,7 +2495,7 @@ dependencies = [
 
 [[package]]
 name = "nft_ingester"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-lang",
  "async-trait",

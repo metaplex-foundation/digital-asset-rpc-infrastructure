@@ -1,6 +1,6 @@
 [package]
 name = "nft_ingester"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -32,7 +32,7 @@ spl-account-compression = {git= "https://github.com/austbot/solana-program-libra
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.7.1" }
+blockbuster = { version = "0.7.2" }
 figment = { version = "0.10.6", features = ["env"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
