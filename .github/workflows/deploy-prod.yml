@@ -18,18 +18,19 @@ jobs:
           github-token: ${{ secrets.CROSSREPOTRIGGER }}
           script: |
 
-            let params =  {
+            let params = {
               owner: "metaplex-foundation",
               repo: "read-api-deployment"
             };
 
-            let release = await github.rest.repos.getReleaseByTag(Object.assign({tag: "${{ inputs.tag }}" }, params));
+            let release = await github.rest.repos.getReleaseByTag({owner: "metaplex-foundation", repo: "digital-asset-rpc-infrastructure", tag: "${{ inputs.tag }}"});
 
             await github.rest.repos.createDispatchEvent(Object.assign({
               event_type: "deploy_trigger",
               client_payload: {
-                DEPLOY_ENV: "devnet",
-                DEPLOY_K8S_NAMESPACE: "devnet-read-api",
-                DEPLOY_VERSION: release.tag_name
+                DEPLOY_VERSION: "${{ inputs.tag }}",
+                DEPLOY_ENV: "mainnet",
+                DEPLOY_K8S_NAMESPACE: "mainnet-read-api",
+                DEPLOY_K8S_CLUSTER: "metaplex-prod-001",
               }
             }, params));

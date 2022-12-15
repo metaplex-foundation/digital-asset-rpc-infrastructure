@@ -4,10 +4,12 @@ use crate::{
     error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
     RPC_URL_KEY,
 };
+use borsh::BorshDeserialize;
 use cadence_macros::statsd_count;
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::{
     CompiledInstruction, CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs,
@@ -17,26 +19,42 @@ use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
     SqlxPostgresConnector, TryGetableMany,
 };
-use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcBlockConfig};
+use solana_account_decoder::UiAccountEncoding;
+use solana_client::{
+    nonblocking::rpc_client::RpcClient,
+    rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
+    rpc_filter::{Memcmp, MemcmpEncodedBytes, MemcmpEncoding, RpcFilterType},
+};
 use solana_sdk::{
+    account::Account,
     commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
 };
 use solana_transaction_status::{
-    EncodedConfirmedBlock, UiInstruction::Compiled, UiRawMessage, UiTransactionEncoding,
-    UiTransactionStatusMeta,
+    option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
+    UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
 };
+use spl_account_compression::state::ConcurrentMerkleTreeHeader;
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
+use std::cmp;
+use std::collections::HashMap;
 use std::str::FromStr;
-use tokio::time::{sleep, Duration};
-
+use std::sync::Arc;
+use stretto::{AsyncCache, AsyncCacheBuilder};
+use tokio::{
+    sync::Semaphore,
+    time::{self, sleep, Duration},
+};
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
-
+const TREE_SYNC_INTERVAL: u64 = 10;
+const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
-
+const BLOCK_CACHE_SIZE: usize = 300_000;
+const MAX_CACHE_COST: i64 = 32;
+const BLOCK_CACHE_DURATION: u64 = 172800;
 // Account key used to determine if transaction is a simple vote.
 const VOTE: &str = "Vote111111111111111111111111111111111111111";
 
@@ -49,23 +67,42 @@ pub async fn backfiller<T: Messenger>(
         loop {
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
-
-            let result = tokio::spawn(async {
+            let tasks = FuturesUnordered::new();
+            let block_cache = Arc::new(
+                AsyncCacheBuilder::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST)
+                    .set_ignore_internal_cost(true)
+                    .finalize(tokio::spawn)
+                    .expect("failed to create cache"),
+            );
+            let bc = Arc::clone(&block_cache);
+            tasks.push(tokio::spawn(async move {
                 println!("Backfiller task running");
 
-                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned).await;
-                backfiller.run().await;
-            })
-            .await;
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
+                backfiller.run_filler().await;
+            }));
 
-            match result {
-                Ok(_) => break,
-                Err(err) if err.is_panic() => {
-                    statsd_count!("ingester.backfiller.task_panic", 1);
-                }
-                Err(err) => {
-                    let err = err.to_string();
-                    statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
+            let pool_cloned = pool.clone();
+            let config_cloned = config.clone();
+            let bc = Arc::clone(&block_cache);
+            tasks.push(tokio::spawn(async move {
+                println!("Backfiller task running");
+
+                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
+                backfiller.run_finder().await;
+            }));
+
+            for task in tasks {
+                let res = task.await;
+                match res {
+                    Ok(_) => break,
+                    Err(err) if err.is_panic() => {
+                        statsd_count!("ingester.backfiller.task_panic", 1);
+                    }
+                    Err(err) => {
+                        let err = err.to_string();
+                        statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
+                    }
                 }
             }
         }
@@ -78,17 +115,32 @@ struct UniqueTree {
     tree: Vec<u8>,
 }
 
+/// Struct used when querying for unique trees.
+#[derive(Debug, FromQueryResult)]
+struct TreeWithSlot {
+    tree: Vec<u8>,
+    slot: i64,
+}
+
+#[derive(Debug, Default, Clone)]
+struct MissingTree {
+    tree: Pubkey,
+    slot: u64,
+}
+
 /// Struct used when storing trees to backfill.
 struct BackfillTree {
     unique_tree: UniqueTree,
     backfill_from_seq_1: bool,
+    slot: u64,
 }
 
 impl BackfillTree {
-    fn new(unique_tree: UniqueTree, backfill_from_seq_1: bool) -> Self {
+    fn new(unique_tree: UniqueTree, backfill_from_seq_1: bool, slot: u64) -> Self {
         Self {
             unique_tree,
             backfill_from_seq_1,
+            slot,
         }
     }
 }
@@ -107,6 +159,7 @@ struct SimpleBackfillItem {
 }
 
 /// Struct used to store sequence number gap info for a given tree.
+#[derive(Debug)]
 struct GapInfo {
     prev: SimpleBackfillItem,
     curr: SimpleBackfillItem,
@@ -119,18 +172,23 @@ impl GapInfo {
 }
 
 /// Main struct used for backfiller task.
-struct Backfiller<T: Messenger> {
+struct Backfiller<'a, T: Messenger> {
     db: DatabaseConnection,
     listener: PgListener,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
     messenger: T,
     failure_delay: u64,
+    cache: &'a AsyncCache<String, EncodedConfirmedBlock>,
 }
 
-impl<T: Messenger> Backfiller<T> {
+impl<'a, T: Messenger> Backfiller<'a, T> {
     /// Create a new `Backfiller` struct.
-    async fn new(pool: Pool<Postgres>, config: IngesterConfig) -> Self {
+    async fn new(
+        pool: Pool<Postgres>,
+        config: IngesterConfig,
+        cache: &'a AsyncCache<String, EncodedConfirmedBlock>,
+    ) -> Backfiller<'a, T> {
         // Create Sea ORM database connection used later for queries.
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
 
@@ -197,6 +255,7 @@ impl<T: Messenger> Backfiller<T> {
         let rpc_block_config = RpcBlockConfig {
             encoding: Some(UiTransactionEncoding::Json),
             commitment: Some(rpc_commitment),
+            max_supported_transaction_version: Some(0),
             ..RpcBlockConfig::default()
         };
 
@@ -215,23 +274,58 @@ impl<T: Messenger> Backfiller<T> {
             rpc_block_config,
             messenger,
             failure_delay: INITIAL_FAILURE_DELAY,
+            cache,
         }
     }
 
+    async fn run_finder(&mut self) {
+        let mut interval = time::interval(tokio::time::Duration::from_secs(TREE_SYNC_INTERVAL));
+        let sem = Semaphore::new(1);
+        loop {
+            interval.tick().await;
+            let _permit = sem.acquire().await.unwrap();
+            println!("Looking for missing trees...");
+            let txn = self.db.begin().await.unwrap();
+            if let Ok(missing_trees) = self.get_missing_trees(&txn).await {
+                let len = missing_trees.len();
+                statsd_count!("ingester.backfiller.missing_trees", len as i64);
+                if len > 0 {
+                    let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
+
+                    txn.commit().await;
+                    match res {
+                        Ok(x) => {
+                            println!("Set {} trees to backfill from 0", len);
+                        }
+                        Err(e) => {
+                            println!("Error setting trees to backfill from 0: {}", e);
+                        }
+                    }
+                }
+            } else {
+                println!("Error getting missing trees");
+            }
+        }
+    }
     /// Run the backfiller task.
-    async fn run(&mut self) {
+    async fn run_filler(&mut self) {
         // This is always looping, but if there are no trees to backfill, it will wait for a
         // notification on the db listener channel before continuing.
+        let mut interval =
+            time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
         loop {
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
                     if backfill_trees.is_empty() {
-                        // If there are no trees to backfill, wait for a notification on the db
-                        // listener channel.
-                        let _notification = self.listener.recv().await.unwrap();
-                    } else {
-                        println!("New trees to backfill: {}", backfill_trees.len());
+                        tokio::select! {
+                            _ = interval.tick() => {
 
+                            }
+                            _ = self.listener.recv() => {
+
+                            }
+                        }
+                    } else {
                         // First just check if we can talk to an RPC provider.
                         match self.rpc_client.get_version().await {
                             Ok(version) => println!("RPC client version {version}"),
@@ -253,7 +347,7 @@ impl<T: Messenger> Backfiller<T> {
                                 // completely from seq number 1 or just have any gaps in seq number
                                 // filled.
                                 let result = if backfill_tree.backfill_from_seq_1 {
-                                    self.backfill_tree_from_seq_1(tree).await
+                                    self.backfill_tree_from_seq_1(&backfill_tree).await
                                 } else {
                                     self.fetch_and_plug_gaps(tree).await
                                 };
@@ -278,7 +372,7 @@ impl<T: Messenger> Backfiller<T> {
                                 }
 
                                 if tries == NUM_TRIES {
-                                    if let Err(err) = self.mark_as_failed(tree).await {
+                                    if let Err(err) = self.mark_tree_as_failed(tree).await {
                                         println!("Error marking tree as failed to backfill: {err}");
                                     }
                                 } else {
@@ -295,6 +389,29 @@ impl<T: Messenger> Backfiller<T> {
                 }
             }
         }
+    }
+
+    async fn force_backfill_missing_trees(
+        &mut self,
+        missing_trees: Vec<MissingTree>,
+        cn: &impl ConnectionTrait,
+    ) -> Result<(), IngesterError> {
+        let trees = missing_trees
+            .into_iter()
+            .map(|tree| backfill_items::ActiveModel {
+                tree: Set(tree.tree.as_ref().to_vec()),
+                seq: Set(0),
+                slot: Set(tree.slot as i64),
+                force_chk: Set(true),
+                backfilled: Set(false),
+                failed: Set(false),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+
+        backfill_items::Entity::insert_many(trees).exec(cn).await?;
+
+        Ok(())
     }
 
     async fn clean_up_backfilled_tree(
@@ -320,7 +437,7 @@ impl<T: Messenger> Backfiller<T> {
                     }
                     Err(err) => {
                         println!("Error deleting rows and marking as backfilled: {err}");
-                        if let Err(err) = self.mark_as_failed(tree).await {
+                        if let Err(err) = self.mark_tree_as_failed(tree).await {
                             println!("Error marking tree as failed to backfill: {err}");
                         }
                     }
@@ -329,7 +446,7 @@ impl<T: Messenger> Backfiller<T> {
             None => {
                 // Debug.
                 println!("Unexpected error, tree was in list, but no rows found for {tree_string}");
-                if let Err(err) = self.mark_as_failed(tree).await {
+                if let Err(err) = self.mark_tree_as_failed(tree).await {
                     println!("Error marking tree as failed to backfill: {err}");
                 }
             }
@@ -350,39 +467,147 @@ impl<T: Messenger> Backfiller<T> {
         self.failure_delay = INITIAL_FAILURE_DELAY;
     }
 
-    async fn get_trees_to_backfill(&self) -> Result<Vec<BackfillTree>, DbErr> {
-        // Get trees with the `force_chk` flag set.
-        let force_chk_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
+    async fn get_missing_trees(
+        &self,
+        cn: &impl ConnectionTrait,
+    ) -> Result<Vec<MissingTree>, IngesterError> {
+        let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
+
+        let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
-            "SELECT DISTINCT backfill_items.tree FROM backfill_items\n\
-            WHERE backfill_items.force_chk = TRUE AND backfill_items.failed = FALSE",
-            vec![],
+            "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
+             OR locked = true"
+                .to_string(),
+        );
+        let locked_trees = cn.query_all(get_locked_or_failed_trees).await?;
+        for row in locked_trees.into_iter() {
+            let tree = UniqueTree::from_query_result(&row, "")?;
+            let key = &Pubkey::new(&tree.tree);
+            if all_trees.contains_key(key) {
+                all_trees.remove(key);
+            }
+        }
+        let get_all_local_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
+        );
+        let force_chk_trees = cn.query_all(get_all_local_trees).await?;
+        for row in force_chk_trees.into_iter() {
+            let tree = UniqueTree::from_query_result(&row, "")?;
+            let key = &Pubkey::new(&tree.tree);
+            if all_trees.contains_key(key) {
+                all_trees.remove(key);
+            }
+        }
+        let missing_trees = all_trees
+            .into_iter()
+            .map(|(k, s)| MissingTree { tree: k, slot: s })
+            .collect();
+        Ok(missing_trees)
+    }
+
+    async fn get_trees_to_backfill(&self) -> Result<Vec<BackfillTree>, DbErr> {
+        // Start a db transaction.
+        let txn = self.db.begin().await?;
+
+        // Lock the backfill_items table.
+        txn.execute(Statement::from_string(
+            DbBackend::Postgres,
+            "LOCK TABLE backfill_items IN ACCESS EXCLUSIVE MODE".to_string(),
         ))
-        .all(&self.db)
         .await?;
 
-        // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
+        // Get trees with the `force_chk` flag set to true (that have not failed and are not locked).
+        let force_chk_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT DISTINCT backfill_items.tree, backfill_items.slot FROM backfill_items\n\
+            WHERE backfill_items.force_chk = TRUE\n\
+            AND backfill_items.failed = FALSE\n\
+            AND backfill_items.locked = FALSE"
+                .to_string(),
+        );
+
+        let force_chk_trees: Vec<TreeWithSlot> =
+            txn.query_all(force_chk_trees).await.map(|qr| {
+                qr.iter()
+                    .map(|q| TreeWithSlot::from_query_result(q, "").unwrap())
+                    .collect()
+            })?;
+
+        println!(
+            "Number of force check trees to backfill: {} {}",
+            force_chk_trees.len(),
+            Utc::now().to_string()
+        );
+
+        for tree in force_chk_trees.iter() {
+            let stmt = backfill_items::Entity::update_many()
+                .col_expr(backfill_items::Column::Locked, Expr::value(true))
+                .filter(backfill_items::Column::Tree.eq(&*tree.tree))
+                .build(DbBackend::Postgres);
+
+            if let Err(err) = txn.execute(stmt).await {
+                println!(
+                    "Error marking tree {} as locked: {}",
+                    bs58::encode(&tree.tree).into_string(),
+                    err
+                );
+                return Err(err);
+            }
+        }
+
+        // Get trees with multiple rows from `backfill_items` table (that have not failed and are not locked).
+        let multi_row_trees = Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT backfill_items.tree, max(backfill_items.slot) as slot FROM backfill_items\n\
+            WHERE backfill_items.failed = FALSE
+            AND backfill_items.locked = FALSE\n\
+            GROUP BY backfill_items.tree\n\
+            HAVING COUNT(*) > 1"
+                .to_string(),
+        );
+
+        let multi_row_trees: Vec<TreeWithSlot> =
+            txn.query_all(multi_row_trees).await.map(|qr| {
+                qr.iter()
+                    .map(|q| TreeWithSlot::from_query_result(q, "").unwrap())
+                    .collect()
+            })?;
+
+        println!(
+            "Number of multi-row trees to backfill {}",
+            multi_row_trees.len()
+        );
+
+        for tree in multi_row_trees.iter() {
+            let stmt = backfill_items::Entity::update_many()
+                .col_expr(backfill_items::Column::Locked, Expr::value(true))
+                .filter(backfill_items::Column::Tree.eq(&*tree.tree))
+                .build(DbBackend::Postgres);
+
+            if let Err(err) = txn.execute(stmt).await {
+                println!(
+                    "Error marking tree {} as locked: {}",
+                    bs58::encode(&tree.tree).into_string(),
+                    err
+                );
+                return Err(err);
+            }
+        }
+
+        // Close out transaction and relinqish the lock.
+        txn.commit().await?;
+
+        // Convert force check trees Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut trees: Vec<BackfillTree> = force_chk_trees
             .into_iter()
-            .map(|tree| BackfillTree::new(tree, true))
+            .map(|tree| BackfillTree::new(UniqueTree { tree: tree.tree }, true, tree.slot as u64))
             .collect();
 
-        // Get trees with multiple rows from `backfill_items` table.
-        let multi_row_trees = UniqueTree::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT backfill_items.tree FROM backfill_items\n\
-            WHERE backfill_items.failed = FALSE\n\
-            GROUP BY backfill_items.tree\n\
-            HAVING COUNT(*) > 1",
-            vec![],
-        ))
-        .all(&self.db)
-        .await?;
-
-        // Convert this Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
+        // Convert multi-row trees Vec of `UniqueTree` to a Vec of `BackfillTree` (which contain extra info).
         let mut multi_row_trees: Vec<BackfillTree> = multi_row_trees
             .into_iter()
-            .map(|tree| BackfillTree::new(tree, false))
+            .map(|tree| BackfillTree::new(UniqueTree { tree: tree.tree }, false, tree.slot as u64))
             .collect();
 
         trees.append(&mut multi_row_trees);
@@ -390,9 +615,27 @@ impl<T: Messenger> Backfiller<T> {
         Ok(trees)
     }
 
-    async fn backfill_tree_from_seq_1(&self, tree: &[u8]) -> Result<Option<i64>, IngesterError> {
-        //TODO implement gap filler that gap fills from sequence number 1.
-        Err(IngesterError::NotImplemented)
+    async fn backfill_tree_from_seq_1(
+        &mut self,
+        btree: &BackfillTree,
+    ) -> Result<Option<i64>, IngesterError> {
+        let slot =
+            self.rpc_client.get_slot().await.map_err(|e| {
+                IngesterError::RpcGetDataError(format!("Failed to get slot: {:?}", e))
+            })?;
+        let gap = GapInfo::new(
+            SimpleBackfillItem {
+                seq: 0,
+                slot: btree.slot as i64,
+            },
+            SimpleBackfillItem {
+                seq: 0,
+                slot: slot as i64,
+            },
+        );
+        println!("start slot {:?}, end slot {:?}", btree.slot, slot);
+        self.plug_gap(&gap, &btree.unique_tree.tree).await?;
+        Ok(Some(0))
     }
 
     async fn get_max_seq(&self, tree: &[u8]) -> Result<Option<i64>, DbErr> {
@@ -415,6 +658,36 @@ impl<T: Messenger> Backfiller<T> {
             .filter(backfill_items::Column::Tree.eq(tree))
             .exec(&self.db)
             .await
+    }
+
+    async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, u64>, IngesterError> {
+        let config = RpcProgramAccountsConfig {
+            filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                0,
+                vec![1u8],
+            ))]),
+            account_config: RpcAccountInfoConfig {
+                encoding: Some(UiAccountEncoding::Base64),
+                ..RpcAccountInfoConfig::default()
+            },
+            ..RpcProgramAccountsConfig::default()
+        };
+        let results: Vec<(Pubkey, Account)> = self
+            .rpc_client
+            .get_program_accounts_with_config(&spl_account_compression::id(), config)
+            .await
+            .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+        let mut list = HashMap::with_capacity(results.len());
+        for r in results.into_iter() {
+            let (pubkey, account) = r;
+            println!("found rpc tree pubkey: {}", pubkey);
+            let mut sl = account.data.as_slice();
+            let tree_config: ConcurrentMerkleTreeHeader =
+                ConcurrentMerkleTreeHeader::deserialize(&mut sl)
+                    .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            list.insert(pubkey, tree_config.get_creation_slot());
+        }
+        Ok(list)
     }
 
     // Similar to `fetchAndPlugGaps()` in `backfiller.ts`.
@@ -491,27 +764,72 @@ impl<T: Messenger> Backfiller<T> {
         // TODO: This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
-        let _ = self
-            .rpc_client
-            .get_block(gap.curr.slot as u64)
+        let diff = gap.curr.slot - gap.prev.slot;
+        let mut num_iter = (diff + 250_000) / 500_000;
+        let mut start_slot = gap.prev.slot;
+        let mut end_slot = cmp::min(500_000, gap.curr.slot);
+        let get_confirmed_slot_tasks = FuturesUnordered::new();
+        if num_iter == 0 {
+            num_iter = 1;
+        }
+        for _ in 0..num_iter {
+            get_confirmed_slot_tasks.push(self.rpc_client.get_blocks_with_commitment(
+                start_slot as u64,
+                Some(end_slot as u64),
+                CommitmentConfig {
+                    commitment: CommitmentLevel::Confirmed,
+                },
+            ));
+            start_slot = end_slot;
+            end_slot = cmp::min(end_slot + 500_000, gap.curr.slot);
+        }
+        let result_slots = get_confirmed_slot_tasks
+            .collect::<Vec<_>>()
             .await
-            .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .flatten();
+        for slot in result_slots.into_iter() {
+            let key = format!("block{}", slot);
+            let mut cached_block = self.cache.get(&key);
+            if cached_block.is_none() {
+                println!("Fetching block {} from RPC", slot);
+                let block = EncodedConfirmedBlock::from(
+                    self.rpc_client
+                        .get_block_with_config(slot as u64, self.rpc_block_config)
+                        .await
+                        .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
+                );
+                let cost = cmp::min(32, block.transactions.len() as i64);
+                let write = self
+                    .cache
+                    .try_insert_with_ttl(
+                        key.clone(),
+                        block,
+                        cost,
+                        Duration::from_secs(BLOCK_CACHE_DURATION),
+                    )
+                    .await?;
 
-        for slot in gap.prev.slot..gap.curr.slot {
-            let block_data = EncodedConfirmedBlock::from(
-                self.rpc_client
-                    .get_block_with_config(slot as u64, self.rpc_block_config)
-                    .await
-                    .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
-            );
+                if !write {
+                    return Err(IngesterError::CacheStorageWriteError(format!(
+                        "Cache Write Failed on {} is missing.",
+                        &key
+                    )));
+                }
+                self.cache.wait().await?;
+                cached_block = self.cache.get(&key);
+            }
+            if cached_block.is_none() {
+                return Err(IngesterError::CacheStorageWriteError(format!(
+                    "Cache Procedure Failed {} is missing.",
+                    &key
+                )));
+            }
+            let block_ref = cached_block.unwrap();
+            let block_data = block_ref.value();
 
-            // Debug.
-            println!("num txs: {}", block_data.transactions.len());
-            for tx in block_data.transactions {
-                // Debug.
-                //println!("TX from RPC provider:");
-                //println!("{:#?}", tx);
-
+            for tx in block_data.transactions.iter() {
                 // See if transaction has an error.
                 let meta = if let Some(meta) = &tx.meta {
                     if let Some(err) = &meta.err {
@@ -540,8 +858,6 @@ impl<T: Messenger> Backfiller<T> {
                 let ui_raw_message = match &ui_transaction.message {
                     solana_transaction_status::UiMessage::Raw(ui_raw_message) => {
                         if ui_raw_message.account_keys.iter().any(|key| key == VOTE) {
-                            // Debug.
-                            println!("Skipping vote transaction");
                             continue;
                         } else {
                             ui_raw_message
@@ -553,7 +869,7 @@ impl<T: Messenger> Backfiller<T> {
                         ));
                     }
                 };
-
+                let sig = ui_transaction.signatures[0].to_string();
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tree = bs58::encode(tree).into_string();
@@ -563,25 +879,25 @@ impl<T: Messenger> Backfiller<T> {
                     .iter()
                     .all(|pk| *pk != tree && *pk != bubblegum)
                 {
-                    // Debug.
-                    println!("Skipping tx unrelated to tree or bubblegum PID");
                     continue;
                 }
 
-                // Debug.
-                println!("Serializing transaction");
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
-                let builder =
-                    serialize_transaction(builder, meta, ui_raw_message, slot.try_into().unwrap())?;
-
-                // Debug.
-                println!("Putting data into Redis");
+                println!("Serializing transaction in backfiller {}", sig);
+                let builder = serialize_transaction(
+                    builder,
+                    sig,
+                    meta,
+                    ui_raw_message,
+                    slot.try_into().unwrap(),
+                )?;
                 // Put data into Redis.
                 self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }
+            drop(block_ref);
         }
 
         Ok(())
@@ -628,14 +944,13 @@ impl<T: Messenger> Backfiller<T> {
         }
 
         // Mark remaining row as backfilled so future backfilling can start above this sequence number.
-        backfill_items::Entity::update_many()
-            .col_expr(backfill_items::Column::Backfilled, Expr::value(true))
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .exec(&self.db)
-            .await?;
+        self.mark_tree_as_backfilled(tree).await?;
 
         // Clear the `force_chk` flag if it was set.
         self.clear_force_chk_flag(tree).await?;
+
+        // Unlock tree.
+        self.unlock_tree(tree).await?;
 
         // Debug.
         let test_items = backfill_items::Entity::find()
@@ -650,10 +965,29 @@ impl<T: Messenger> Backfiller<T> {
         Ok(())
     }
 
-    async fn mark_as_failed(&self, tree: &[u8]) -> Result<(), DbErr> {
-        // Mark all rows for this tree as failed future backfilling can skip this tree.
+    async fn mark_tree_as_backfilled(&self, tree: &[u8]) -> Result<(), DbErr> {
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::Backfilled, Expr::value(true))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn mark_tree_as_failed(&self, tree: &[u8]) -> Result<(), DbErr> {
         backfill_items::Entity::update_many()
             .col_expr(backfill_items::Column::Failed, Expr::value(true))
+            .filter(backfill_items::Column::Tree.eq(tree))
+            .exec(&self.db)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn unlock_tree(&self, tree: &[u8]) -> Result<(), DbErr> {
+        backfill_items::Entity::update_many()
+            .col_expr(backfill_items::Column::Locked, Expr::value(false))
             .filter(backfill_items::Column::Tree.eq(tree))
             .exec(&self.db)
             .await?;
@@ -664,6 +998,7 @@ impl<T: Messenger> Backfiller<T> {
 
 fn serialize_transaction<'a>(
     mut builder: FlatBufferBuilder<'a>,
+    signature: String,
     meta: &UiTransactionStatusMeta,
     ui_raw_message: &UiRawMessage,
     slot: u64,
@@ -685,18 +1020,12 @@ fn serialize_transaction<'a>(
     };
 
     // Serialize log messages.
-    let log_messages = if let Some(log_messages) = meta.log_messages.as_ref() {
-        let mut log_messages_fb_vec = Vec::with_capacity(log_messages.len());
-        for message in log_messages {
-            log_messages_fb_vec.push(builder.create_string(message));
-        }
-        Some(builder.create_vector(&log_messages_fb_vec))
-    } else {
-        None
-    };
+    // We dont use them for now.
+    let log_messages = None;
 
     // Serialize inner instructions.
-    let inner_instructions = if let Some(inner_instructions_vec) = meta.inner_instructions.as_ref()
+    let inner_instructions = if let OptionSerializer::Some(inner_instructions_vec) =
+        meta.inner_instructions.as_ref()
     {
         let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
         for inner_instructions in inner_instructions_vec.iter() {
@@ -763,6 +1092,7 @@ fn serialize_transaction<'a>(
 
     // Serialize everything into Transaction Info table.
     let seen_at = Utc::now();
+    let sig_db = builder.create_string(&signature);
     let transaction_info = TransactionInfo::create(
         &mut builder,
         &TransactionInfoArgs {
@@ -774,6 +1104,7 @@ fn serialize_transaction<'a>(
             slot,
             seen_at: seen_at.timestamp_millis(),
             slot_index: None,
+            signature: Some(sig_db),
         },
     );
 

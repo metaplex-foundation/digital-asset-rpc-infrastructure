@@ -51,6 +51,7 @@ deploy:
         proxy.image: public.ecr.aws/k2z7t6t6/metaplex-rpc-proxy
       setValueTemplates:
         api.db_url: '{{.DATABASE_URL}}'
+        api.reader_db_url: '{{.READER_DATABASE_URL}}'
         api.redis_url: '{{.REDIS_URL}}'
         metrics.data_dog_api_key: '{{.DATA_DOG_API}}'
         proxy.auth: '{{.PROXY_AUTH}}'

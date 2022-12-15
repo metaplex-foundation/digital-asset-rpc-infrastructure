@@ -71,6 +71,19 @@ cargo run -p nft_ingester
 
 When making changes you will need to stop the cargo process and re-run. Someday we will have auto rebuild for local cargo stuff but for now you are on your own.
 
+#### NOTE
+```
+INGESTER_ROLE 
+```
+This environment variable can be used to split the work load.
+
+All for a combined setup
+Ingester for just the Listeners to txn and acct
+Backfiller for just the backfiller scheduler and notifyer
+Background for just the background tasks.
+
+For production you should split the coponents up.
+
 ### Developing With Docker
 Developing with Docker is much easier, but has some nuances to it. This test docker compose system relies on a programs folder being accessible, this folder needs to have the shared object files for the following programs
 * Token Metadata

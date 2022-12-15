@@ -16,7 +16,8 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
-use futures_util::TryFutureExt;
+use std::sync::Arc;
+use futures::{stream::FuturesUnordered, StreamExt};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
@@ -29,6 +30,7 @@ use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
+
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -40,7 +42,7 @@ pub type RpcConfig = figment::value::Dict;
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
     All,
     Backfiller,
@@ -97,7 +99,6 @@ fn rand_string() -> String {
         .map(char::from)
         .collect()
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -203,13 +204,13 @@ async fn service_transaction_stream<T: Messenger>(
             let messenger_config_cloned = messenger_config.clone();
 
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up transaction listener");
 
                 loop {
                     if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
-                        let mut ids = handle_transaction(&manager, data).await;
+                        let ids = handle_transaction(&manager, data).await;
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
                                 println!("Error ACK-ing messages {:?}", e);
@@ -244,15 +245,15 @@ async fn service_account_stream<T: Messenger>(
             let pool_cloned = pool.clone();
             let tasks_cloned = tasks.clone();
             let messenger_config_cloned = messenger_config.clone();
-
+            
             let result = tokio::spawn(async {
-                let manager = ProgramTransformer::new(pool_cloned, tasks_cloned);
+                let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up account listener");
 
                 loop {
                     if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                        let mut ids = handle_account(&manager, data).await;
+                        let ids = handle_account(&manager, data).await;
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                                 println!("Error ACK-ing messages {:?}", e);
@@ -277,68 +278,92 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
-    statsd_gauge!("ingester.account_batch_size", data.len() as u64);
-    let mut ids = Vec::new();
-    for item in data {
-        let id = item.id.to_string();
-        let data = item.data;
-        // Get root of account info flatbuffers object.
-        let account_update = match root_as_account_info(data) {
-            Err(err) => {
-                println!("Flatbuffers AccountInfo deserialization error: {err}");
-                continue;
+async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) -> Vec<String> {
+    safe_metric(|| {
+        statsd_gauge!("ingester.account_batch_size", data.len() as u64);
+    });
+    
+    let tasks = FuturesUnordered::new();
+    for item in data.into_iter() {
+        let manager = Arc::clone(manager);
+        
+        tasks.push(async move {
+            let id = item.id;
+            let mut ids = Vec::new();
+            if item.tries > 0 {
+                safe_metric(|| {
+                    statsd_count!("ingester.account_stream_redelivery", 1);
+                });
             }
-            Ok(account_update) => account_update,
-        };
-        let seen_at = Utc::now();
-        let str_program_id =
-            bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
-        safe_metric(|| {
-            statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
+            
+            let data = item.data;
+            // Get root of account info flatbuffers object.
+           if let Ok(account_update) = root_as_account_info(&data) {
+             
+            let seen_at = Utc::now();
+            let str_program_id =
+                bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
+            safe_metric(|| {
+                statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
+            });
+            safe_metric(|| {
+                statsd_time!(
+                    "ingester.account_bus_ingest_time",
+                    (seen_at.timestamp_millis() - account_update.seen_at()) as u64
+                );
+            });
+            let begin_processing = Utc::now();
+            let res = manager.handle_account_update(account_update).await;
+            let finish_processing = Utc::now();
+            match res {
+                Ok(_) => {
+                    if item.tries == 0 {
+                        safe_metric(|| {
+                            let proc_time = (finish_processing.timestamp_millis()
+                                - begin_processing.timestamp_millis())
+                                as u64;
+                            statsd_time!("ingester.account_proc_time", proc_time);
+                        });
+                        safe_metric(|| {
+                            statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
+                        });
+                    }
+                    ids.push(id);
+                }
+                Err(err) if err == IngesterError::NotImplemented => {
+                    safe_metric(|| {
+                        statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id);
+                    });
+                    ids.push(id);
+                }
+                Err(err) => {
+                    println!("Error handling account update: {:?}", err);
+                    safe_metric(|| {
+                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
+                    });
+                }
+            
+            }
+        }
+            ids
         });
-        safe_metric(|| {
-            statsd_time!(
-                "ingester.account_bus_ingest_time",
-                (seen_at.timestamp_millis() - account_update.seen_at()) as u64
-            );
-        });
-        let begin_processing = Utc::now();
-        let res = manager.handle_account_update(account_update).await;
-        let finish_processing = Utc::now();
-        match res {
-            Ok(_) => {
-                safe_metric(|| {
-                    let proc_time = (finish_processing.timestamp_millis()
-                        - begin_processing.timestamp_millis())
-                        as u64;
-                    statsd_time!("ingester.account_proc_time", proc_time);
-                });
-                safe_metric(|| {
-                    statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
-                });
-                ids.push(id);
-            }
-            Err(err) => {
-                println!("Error handling account update: {:?}", err);
-                safe_metric(|| {
-                    statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
-                });
-            }
-        };
     }
-    ids
+    tasks.collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 async fn process_instruction<'i>(
-    manager: &ProgramTransformer,
+    manager: Arc<ProgramTransformer>,
     slot: u64,
     keys: &[FBPubkey],
     outer_ix: IxPair<'i>,
     inner_ix: Option<Vec<IxPair<'i>>>,
 ) -> Result<(), IngesterError> {
     let (program, instruction) = outer_ix;
-    let ix_accounts = instruction.accounts().unwrap_or(&[]);
+    let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
     let ix_account_len = ix_accounts.len();
     let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
     if keys.len() < max {
@@ -358,7 +383,7 @@ async fn process_instruction<'i>(
     let bundle = InstructionBundle {
         txn_id: "",
         program,
-        instruction,
+        instruction: Some(instruction),
         inner_ix,
         keys: ix_accounts.as_slice(),
         slot,
@@ -366,23 +391,33 @@ async fn process_instruction<'i>(
     manager.handle_instruction(&bundle).await
 }
 
-async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>>) -> Vec<String> {
-    statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
-    let mut ids = Vec::new();
+async fn handle_transaction(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) -> Vec<String> {
+    safe_metric(|| {
+        statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
+    });
+    
+    let tasks = FuturesUnordered::new();
     for item in data {
+        let manager = Arc::clone(manager);
+        
+        tasks.push(async move {
+        let mut ids = Vec::new();
+        if item.tries > 0 {
+            safe_metric(|| {
+                statsd_count!("ingester.tx_stream_redelivery", 1);
+            });
+        }
         let id = item.id.to_string();
         let tx_data = item.data;
-        //TODO -> Dedupe the stream, the stream could have duplicates as a way of ensuring fault tolerance if one validator node goes down.
-        //  Possible solution is dedup on the plerkle side but this doesnt follow our principle of getting messages out of the validator asd fast as possible.
-        //  Consider a Messenger Implementation detail the deduping of whats in this stream so that
-        //  1. only 1 ingest instance picks it up, two the stream coming out of the ingester can be considered deduped
-        //
-        // can we paralellize this : yes
-
-        // Get root of transaction info flatbuffers object.
-        if let Ok(tx) = root_as_transaction_info(tx_data) {
+        if let Ok(tx) = root_as_transaction_info(&tx_data) {
             let instructions = manager.break_transaction(&tx);
-            let keys = tx.account_keys().unwrap_or(&[]);
+            let accounts = tx.account_keys().unwrap_or_default();
+            let mut va: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
+            for k in accounts.into_iter() {
+                va.push(*k);
+            }
+
+            let signature = tx.signature().unwrap_or("NO SIG");
             if let Some(si) = tx.slot_index() {
                 let slt_idx = format!("{}-{}", tx.slot(), si);
                 safe_metric(|| {
@@ -397,33 +432,53 @@ async fn handle_transaction(manager: &ProgramTransformer, data: Vec<RecvData<'_>
                 );
             });
             for (outer_ix, inner_ix) in instructions {
+                let manager = Arc::clone(&manager);
                 let (program, _) = &outer_ix;
                 let str_program_id = bs58::encode(program.0.as_slice()).into_string();
                 let begin_processing = Utc::now();
-                let res = process_instruction(manager, tx.slot(), keys, outer_ix, inner_ix).await;
+                let res = process_instruction(manager, tx.slot(), &va, outer_ix, inner_ix).await;
                 let finish_processing = Utc::now();
                 match res {
                     Ok(_) => {
+                        if item.tries == 0 {
+                            safe_metric(|| {
+                                let proc_time = (finish_processing.timestamp_millis()
+                                    - begin_processing.timestamp_millis())
+                                    as u64;
+                                statsd_time!("ingester.tx_proc_time", proc_time);
+                            });
+                            safe_metric(|| {
+                                statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                            });
+                        } else {
+                            safe_metric(|| {
+                                statsd_count!("ingester.tx_ingest_redeliver_success", 1, "owner" => &str_program_id);
+                            });
+                        }
+                        ids.push(id.clone());
+                    }
+                    Err(err) if err == IngesterError::NotImplemented => {
                         safe_metric(|| {
-                            let proc_time = (finish_processing.timestamp_millis()
-                                - begin_processing.timestamp_millis())
-                                as u64;
-                            statsd_time!("ingester.tx_proc_time", proc_time);
-                        });
-                        safe_metric(|| {
-                            statsd_count!("ingester.tx_ingest_success", 1, "owner" => &str_program_id);
+                            statsd_count!("ingester.tx_not_implemented", 1, "owner" => &str_program_id);
                         });
                         ids.push(id.clone());
                     }
                     Err(err) => {
-                        println!("Error handling transaction: {:?}", err);
+                        println!("ERROR:txn: {:?} {:?}", signature, err);
                         safe_metric(|| {
                             statsd_count!("ingester.tx_ingest_error", 1, "owner" => &str_program_id);
                         });
                     }
                 };
             }
+            println!("SUCCESS:txn: {:?} yay", signature);
         }
+        ids
+        });
     }
-    ids
+    tasks.collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }

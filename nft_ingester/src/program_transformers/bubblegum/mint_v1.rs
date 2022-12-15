@@ -92,10 +92,27 @@ pub async fn mint_v1<'c>(
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),
                     ..Default::default()
-                }
-                .insert(txn)
-                .await?;
+                };
 
+                let mut query = asset_data::Entity::insert(data)
+                    .on_conflict(
+                        OnConflict::columns([asset_data::Column::Id])
+                            .update_columns([
+                                asset_data::Column::ChainDataMutability,
+                                asset_data::Column::ChainData,
+                                asset_data::Column::MetadataUrl,
+                                asset_data::Column::Metadata,
+                                asset_data::Column::MetadataMutability,
+                                asset_data::Column::SlotUpdated,
+                            ])
+                            .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                query.sql = format!(
+                    "{} WHERE excluded.slot_updated > asset_data.slot_updated",
+                    query.sql
+                );
+                txn.execute(query).await?;
                 // Insert into `asset` table.
                 let delegate = if owner == delegate {
                     None
@@ -129,7 +146,7 @@ pub async fn mint_v1<'c>(
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
-                    asset_data: Set(Some(data.id)),
+                    asset_data: Set(Some(id_bytes.to_vec())),
                     seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(slot_i),
                     data_hash: Set(Some(data_hash)),
@@ -169,7 +186,7 @@ pub async fn mint_v1<'c>(
                 if !creators.is_empty() {
                     let mut db_creators = Vec::with_capacity(creators.len());
                     let mut creators_set = HashSet::new();
-                    for (i, c) in creators.into_iter().enumerate() {
+                    for (i, c) in creators.iter().enumerate() {
                         if creators_set.contains(&c.address) {
                             continue;
                         }
