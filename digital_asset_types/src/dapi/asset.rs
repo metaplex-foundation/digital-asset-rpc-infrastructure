@@ -1,15 +1,22 @@
-use crate::dao::prelude::{Asset, AssetData};
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::{
+    prelude::{Asset, AssetData},
+    Pagination,
+};
 use crate::dao::{FullAsset, FullAssetList};
 
-
-use crate::rpc::{Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface, MetadataMap, Ownership, Royalty, Scope, Supply, Uses};
+use crate::rpc::filter::{AssetSorting, AssetSortDirection, AssetSortBy};
+use crate::rpc::response::{AssetList, AssetError};
+use crate::rpc::{
+    Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
+    MetadataMap, Ownership, Royalty, Scope, Supply, Uses,
+};
 
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{entity::*, query::*, DbErr };
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -34,6 +41,60 @@ pub fn file_from_str(str: String) -> File {
         mime,
         quality: None,
         contexts: None,
+    }
+}
+
+pub fn build_asset_response(assets: Vec<FullAsset>,limit: u64,  pagination: &Pagination) -> AssetList {
+    let total = assets.len() as u32;
+    let (page, before, after) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x|String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x|String::from_utf8(x).ok());
+            (None, bef, aft)
+        },
+        Pagination::Page { page } => (
+            Some(*page),
+            None,
+            None,
+        ),
+    };
+    let (items, errors) = asset_list_to_rpc(assets);
+    AssetList {
+        total,
+        limit: limit as u32,
+        page: page.map(|x| x as u32),
+        before,
+        after,
+        items,
+        errors
+    }
+}
+
+pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, asset::Column) {
+    let sort_column = match sorting.sort_by {
+        AssetSortBy::Created => asset::Column::CreatedAt,
+        AssetSortBy::Updated => asset::Column::SlotUpdated,
+        AssetSortBy::RecentAction => asset::Column::SlotUpdated,
+    };
+    let sort_direction = match sorting.sort_direction {
+        AssetSortDirection::Desc => sea_orm::query::Order::Desc,
+        AssetSortDirection::Asc => sea_orm::query::Order::Asc,
+    };
+    (sort_direction, sort_column)
+}
+
+pub fn create_pagination(
+    before: Option<Vec<u8>>,
+    after: Option<Vec<u8>>,
+    page: Option<u64>,
+) -> Result<Pagination, DbErr> {
+    match (&before, &after, &page) {
+        (_, _, None) => Ok(Pagination::Keyset {
+            before: before.map(|x| x.into()),
+            after: after.map(|x| x.into()),
+        }),
+        (None, None, Some(p)) => Ok(Pagination::Page { page: *p }),
+        _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
     }
 }
 
@@ -227,7 +288,9 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             compressed: asset.compressed,
             leaf_id: asset.nonce,
             seq: asset.seq,
-            tree: asset.tree_id.map(|s| bs58::encode(s).into_string())
+            tree: asset
+                .tree_id
+                .map(|s| bs58::encode(s).into_string())
                 .unwrap_or_default(),
             asset_hash: asset
                 .leaf
@@ -263,14 +326,12 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
                 .unwrap_or("".to_string()),
         },
         supply: match interface {
-            Interface::V1NFT => Some(
-                Supply {
-                    edition_nonce: edition_nonce,
-                    print_current_supply: 0,
-                    print_max_supply: 0,
-                }
-            ),
-            _ => None
+            Interface::V1NFT => Some(Supply {
+                edition_nonce: edition_nonce,
+                print_current_supply: 0,
+                print_max_supply: 0,
+            }),
+            _ => None,
         },
         uses: data.chain_data.get("uses").map(|u| Uses {
             use_method: u
@@ -285,8 +346,20 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     })
 }
 
-pub fn asset_list_to_rpc(asset_list: FullAssetList) -> Vec<Result<RpcAsset, DbErr>> {
-    asset_list.list.into_iter().map(asset_to_rpc).collect()
+pub fn asset_list_to_rpc(asset_list: Vec<FullAsset>) -> (Vec<RpcAsset>, Vec<AssetError>) {
+    asset_list
+        .into_iter()
+        .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
+           let id = bs58::encode(asset.asset.id.clone()).into_string();
+            match asset_to_rpc(asset) {
+                Ok(rpc_asset) => assets.push(rpc_asset),
+                Err(e) => errors.push(AssetError {
+                    id,
+                    error: e.to_string(),
+                }),
+            }
+            (assets, errors)
+        })
 }
 
 pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<RpcAsset, DbErr> {
@@ -319,73 +392,4 @@ pub async fn get_asset(db: &DatabaseConnection, asset_id: Vec<u8>) -> Result<Rpc
         creators,
         groups: grouping,
     })
-}
-
-pub async fn get_asset_list_data(
-    db: &DatabaseConnection,
-    assets: Vec<(asset::Model, Option<asset_data::Model>)>,
-) -> Result<Vec<RpcAsset>, DbErr> {
-    let mut ids = Vec::with_capacity(assets.len());
-    // Using BTreeMap to preserve order.
-    let mut assets_map = assets.into_iter().fold(BTreeMap::new(), |mut x, asset| {
-        if let Some(ad) = asset.1 {
-            let id = asset.0.id.clone();
-            let fa = FullAsset {
-                asset: asset.0,
-                data: ad,
-                authorities: vec![],
-                creators: vec![],
-                groups: vec![],
-            };
-
-            x.insert(id.clone(), fa);
-            ids.push(id);
-        }
-        x
-    });
-
-    let authorities = asset_authority::Entity::find()
-        .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
-        .all(db)
-        .await?;
-    for a in authorities.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&a.asset_id) {
-            asset.authorities.push(a);
-        }
-    }
-
-    let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_creators::Column::AssetId)
-        .all(db)
-        .await?;
-    for c in creators.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
-            asset.creators.push(c);
-        }
-    }
-
-    let grouping = asset_grouping::Entity::find()
-        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(db)
-        .await?;
-    for g in grouping.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
-            asset.groups.push(g);
-        }
-    }
-    let len = assets_map.len();
-    let built_assets = asset_list_to_rpc(FullAssetList {
-        list: assets_map.into_iter().map(|(_, v)| v).collect(),
-    })
-        .into_iter()
-        .fold(Vec::with_capacity(len), |mut acc, i| {
-            if let Ok(a) = i {
-                acc.push(a);
-            }
-            acc
-        });
-    Ok(built_assets)
 }

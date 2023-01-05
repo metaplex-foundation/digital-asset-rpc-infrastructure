@@ -11,8 +11,8 @@ sql_types = ["sea-orm"]
 
 [dependencies]
 spl-concurrent-merkle-tree = { version = "0.1.2" }
-sea-orm = { optional = true, version = "0.9.3", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
-sea-query = { version = "0.27.1", features = ["postgres-array"] }
+sea-orm = { optional = true, version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-query = { version = "0.28.1", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
 serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] }
 bs58 = "0.4.0"
@@ -28,6 +28,7 @@ mime_guess = "2.0.4"
 url = "2.3.1"
 futures = "0.3.25"
 reqwest = "0.11.13"
+async-trait = "0.1.60"
 
 [patch.crates-io]
 blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }

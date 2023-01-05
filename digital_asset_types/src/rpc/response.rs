@@ -32,6 +32,14 @@ pub struct OfferList {
     pub items: Vec<Offer>,
 }
 
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct AssetError {
+    pub id: String,
+    pub error: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct AssetList {
@@ -44,4 +52,6 @@ pub struct AssetList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
     pub items: Vec<Asset>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<AssetError>,
 }

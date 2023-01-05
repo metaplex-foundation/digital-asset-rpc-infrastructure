@@ -106,18 +106,14 @@ pub enum SpecificationAssetClass {
     FungibleAsset,
     #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
     FungibleToken,
-    #[sea_orm(string_value = "IDENTITY_NFT")]
-    IdentityNft,
     #[sea_orm(string_value = "NFT")]
     Nft,
-    #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]
-    NonTransferableNft,
     #[sea_orm(string_value = "PRINT")]
     Print,
     #[sea_orm(string_value = "PRINTABLE_NFT")]
     PrintableNft,
-    #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
-    TransferRestrictedNft,
+    #[sea_orm(string_value = "PROGRAMMABLE_NFT")]
+    ProgrammableNFT,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
