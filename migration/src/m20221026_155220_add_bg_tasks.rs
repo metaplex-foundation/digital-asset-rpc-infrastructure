@@ -33,9 +33,9 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Tasks::Status)
                             .enumeration(
-                                "task_status",
+                                Tasks::TaskStatus,
                                 all::<TaskStatus>()
-                                    .map(|e| e.to_string())
+                                    .map(|e| e)
                                     .collect::<Vec<_>>(),
                             )
                             .not_null(),

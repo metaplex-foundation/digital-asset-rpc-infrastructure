@@ -8,11 +8,12 @@ use crate::{
     rpc::{filter::AssetSorting, response::AssetList},
 };
 use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
-use serde::Deserialize;
+use serde::{Deserialize,Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
+use super::common::{create_pagination, create_sorting, build_asset_response};
 
-use super::asset::{create_pagination, create_sorting, build_asset_response};
+
 
 pub async fn search_assets(
     db: &DatabaseConnection,
@@ -38,7 +39,7 @@ pub async fn search_assets(
     Ok(build_asset_response(assets, limit, &pagination))
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchAssetsQuery {
     // Conditions
     negate: Option<bool>,
@@ -60,7 +61,7 @@ pub struct SearchAssetsQuery {
     burnt: Option<bool>
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 enum ConditionType {
     Any,
     All,

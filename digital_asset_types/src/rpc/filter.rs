@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AssetSorting {
-pub sort_by: AssetSortBy,
-pub sort_direction: AssetSortDirection,
+    pub sort_by: AssetSortBy,
+    pub sort_direction: AssetSortDirection,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssetSortBy {
     #[serde(rename = "created")]
     Created,
@@ -16,7 +16,7 @@ pub enum AssetSortBy {
     RecentAction,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssetSortDirection {
     Asc,
     Desc,

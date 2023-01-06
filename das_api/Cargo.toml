@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-jsonrpsee = {version = "0.16.2", features = ["server", "macros"]}
-jsonrpsee-core = {version = "0.16.2", features =["server"]}
+jsonrpsee = {version = "0.15.1", features = ["server", "macros"]}
+jsonrpsee-core = {version = "0.15.1", features =["server"]}
 hyper = "0.14.23"
 tracing = "0.1.35"
 metrics = "0.20.1"

@@ -22,7 +22,7 @@ pub enum DasApiError {
 
 impl Into<RpcError> for DasApiError {
     fn into(self) -> RpcError {
-        println!("{}", self.to_string());
+        println!("{}", self);
         RpcError::Call(CallError::from_std_error(self))
     }
 }

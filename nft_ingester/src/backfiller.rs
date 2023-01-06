@@ -624,23 +624,19 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     ) -> Result<Option<i64>, IngesterError> {
         let address = Pubkey::new(btree.unique_tree.tree.as_slice());
         let slots = self.find_slots_via_address(&address).await?;
-        let tasks = FuturesUnordered::new();
         let address = btree.unique_tree.tree.clone();
         for slot in slots {
-            let client = self.rpc_client.clone();
-            tasks.push(tokio::spawn(async move {
-                let gap = GapInfo {
-                    prev: SimpleBackfillItem {
-                        seq: 0,
-                        slot: slot as i64,
-                    },
-                    curr: SimpleBackfillItem {
-                        seq: 0,
-                        slot: slot as i64,
-                    },
-                };
-                Backfiller::plug_gap(&self.rpc_client.clone() & gap, &address);
-            }));
+            let gap = GapInfo {
+                prev: SimpleBackfillItem {
+                    seq: 0,
+                    slot: slot as i64,
+                },
+                curr: SimpleBackfillItem {
+                    seq: 0,
+                    slot: slot as i64,
+                },
+            };
+            self.plug_gap(&gap, &address).await?;
         }
         Ok(Some(0))
     }
@@ -812,13 +808,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         Ok((opt_max_seq, gaps))
     }
 
-    // Similar to `plugGaps()` in `backfiller.ts`.
-    async fn plug_gap(
-        rpc_client: &RpcClient,
-        messenger: T,
-        gap: &GapInfo,
-        tree: &[u8],
-    ) -> Result<(), IngesterError> {
+    async fn plug_gap(&mut self, gap: &GapInfo, tree: &[u8]) -> Result<(), IngesterError> {
         // TODO: This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
         // looping as a quick workaround.
@@ -831,7 +821,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             num_iter = 1;
         }
         for _ in 0..num_iter {
-            get_confirmed_slot_tasks.push(rpc_client.get_blocks_with_commitment(
+            get_confirmed_slot_tasks.push(self.rpc_client.get_blocks_with_commitment(
                 start_slot as u64,
                 Some(end_slot as u64),
                 CommitmentConfig {
@@ -950,8 +940,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     ui_raw_message,
                     slot.try_into().unwrap(),
                 )?;
-                // Put data into Redis.
-                messenger
+                self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
             }

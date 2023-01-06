@@ -21,7 +21,7 @@ use {
 
 use cadence_macros::{is_global_default_set, statsd_time};
 
-pub fn safe_metric<F: Fn() -> ()>(f: F) {
+pub fn safe_metric<F: Fn()>(f: F) {
     if is_global_default_set() {
         f()
     }
@@ -29,8 +29,8 @@ pub fn safe_metric<F: Fn() -> ()>(f: F) {
 
 fn setup_metrics(config: &Config) {
     let uri = config.metrics_host.clone();
-    let port = config.metrics_port.clone();
-    let env = config.env.clone().unwrap_or("dev".to_string());
+    let port = config.metrics_port;
+    let env = config.env.clone().unwrap_or_else(|| "dev".to_string());
     if uri.is_some() || port.is_some() {
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket.set_nonblocking(true).unwrap();

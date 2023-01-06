@@ -1,22 +1,15 @@
+use digital_asset_types::dapi::{
+    get_asset, get_assets_by_creators, get_assets_by_group, get_assets_by_owner,
+    get_proof_for_asset, search_assets, SearchAssetsQuery,
+};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
-use tokio_postgres::types::ToSql;
 use {
     crate::api::ApiContract,
     crate::config::Config,
     crate::validation::validate_pubkey,
     crate::DasApiError,
     async_trait::async_trait,
-    digital_asset_types::{
-        dapi::{
-            asset::*, assets_by_creator::*, assets_by_group::*, assets_by_owner::*, change_logs::*,
-            listed_assets_by_owner::*, offers_by_owner::*, search_assets::*,
-        },
-        rpc::{
-            filter::{AssetSorting, ListingSorting, OfferSorting},
-            response::{AssetList, ListingsList, OfferList},
-            Asset, AssetProof,
-        },
-    },
+    digital_asset_types::rpc::{filter::AssetSorting, response::AssetList, Asset, AssetProof},
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
@@ -29,13 +22,49 @@ impl DasApi {
     pub async fn from_config(config: Config) -> Result<Self, DasApiError> {
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect(&*config.database_url)
+            .connect(&config.database_url)
             .await?;
 
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
         Ok(DasApi {
             db_connection: conn,
         })
+    }
+
+    fn validate_pagination(
+        &self,
+        limit: &Option<u32>,
+        page: &Option<u32>,
+        before: &Option<String>,
+        after: &Option<String>,
+    ) -> Result<(), DasApiError> {
+        if page.is_none() && before.is_none() && after.is_none() {
+            return Err(DasApiError::PaginationError);
+        }
+
+        if let Some(limit) = limit {
+            // make config item
+            if *limit > 1000 {
+                return Err(DasApiError::PaginationError);
+            }
+        }
+
+        if let Some(_page) = page {
+            // make config item
+            if before.is_some() || after.is_some() {
+                return Err(DasApiError::PaginationError);
+            }
+        }
+
+        if let Some(before) = before {
+            validate_pubkey(before.clone())?;
+        }
+
+        if let Some(after) = after {
+            validate_pubkey(after.clone())?;
+        }
+
+        Ok(())
     }
 }
 
@@ -46,8 +75,7 @@ pub fn not_found(asset_id: &String) -> DbErr {
 #[async_trait]
 impl ApiContract for DasApi {
     async fn check_health(self: &DasApi) -> Result<(), DasApiError> {
-        &self
-            .db_connection
+        self.db_connection
             .execute(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT 1".to_string(),
@@ -63,7 +91,7 @@ impl ApiContract for DasApi {
             .await
             .and_then(|p| {
                 println!("Proof: {:?}", p);
-                if p.proof.len() == 0 {
+                if p.proof.is_empty() {
                     return Err(not_found(&asset_id));
                 }
                 Ok(p)
@@ -83,129 +111,23 @@ impl ApiContract for DasApi {
         self: &DasApi,
         owner_address: String,
         sort_by: AssetSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
+        limit: Option<u32>,
+        page: Option<u32>,
+        before: Option<String>,
+        after: Option<String>,
     ) -> Result<AssetList, DasApiError> {
         let owner_address = validate_pubkey(owner_address.clone())?;
         let owner_address_bytes = owner_address.to_bytes().to_vec();
-        if page > 0 && (!before.is_empty() || !after.is_empty()) {
-            return Err(DasApiError::PaginationError);
-        };
-
-        if !before.is_empty() || !after.is_empty() {
-            return Err(DasApiError::PaginationError);
-        };
-
-        let before = if !before.is_empty() {
-            validate_pubkey(before.clone())?.to_bytes().to_vec()
-        } else {
-            before.as_bytes().to_vec()
-        };
-
-        let after = if !after.is_empty() {
-            validate_pubkey(after.clone())?.to_bytes().to_vec()
-        } else {
-            after.as_bytes().to_vec()
-        };
+        self.validate_pagination(&limit, &page, &before, &after)?;
 
         get_assets_by_owner(
             &self.db_connection,
             owner_address_bytes,
             sort_by,
-            limit,
-            page,
-            before,
-            after,
-        )
-        .await
-        .map_err(Into::into)
-    }
-
-    async fn get_listed_assets_by_owner(
-        self: &DasApi,
-        owner_address: String,
-        sort_by: ListingSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
-    ) -> Result<ListingsList, DasApiError> {
-        let owner_address = validate_pubkey(owner_address.clone())?;
-        let owner_address_bytes = owner_address.to_bytes().to_vec();
-        if page > 0 && (!before.is_empty() || !after.is_empty()) {
-            return Err(DasApiError::PaginationError);
-        };
-
-        if !before.is_empty() || !after.is_empty() {
-            return Err(DasApiError::PaginationError);
-        };
-
-        let before = if !before.is_empty() {
-            validate_pubkey(before.clone())?.to_bytes().to_vec()
-        } else {
-            before.as_bytes().to_vec()
-        };
-
-        let after = if !after.is_empty() {
-            validate_pubkey(after.clone())?.to_bytes().to_vec()
-        } else {
-            after.as_bytes().to_vec()
-        };
-
-        get_listed_assets_by_owner(
-            &self.db_connection,
-            owner_address_bytes,
-            sort_by,
-            limit,
-            page,
-            before,
-            after,
-        )
-        .await
-        .map_err(Into::into)
-    }
-
-    async fn get_offers_by_owner(
-        self: &DasApi,
-        owner_address: String,
-        sort_by: OfferSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
-    ) -> Result<OfferList, DasApiError> {
-        let owner_address = validate_pubkey(owner_address.clone())?;
-        let owner_address_bytes = owner_address.to_bytes().to_vec();
-        if page > 0 && (!before.is_empty() || !after.is_empty()) {
-            return Err(DasApiError::PaginationError);
-        };
-
-        if !before.is_empty() || !after.is_empty() {
-            return Err(DasApiError::PaginationError);
-        };
-
-        let before = if !before.is_empty() {
-            validate_pubkey(before.clone())?.to_bytes().to_vec()
-        } else {
-            before.as_bytes().to_vec()
-        };
-
-        let after = if !after.is_empty() {
-            validate_pubkey(after.clone())?.to_bytes().to_vec()
-        } else {
-            after.as_bytes().to_vec()
-        };
-
-        get_offers_by_owner(
-            &self.db_connection,
-            owner_address_bytes,
-            sort_by,
-            limit,
-            page,
-            before,
-            after,
+            limit.map(|x| x as u64).unwrap_or(1000),
+            page.map(|x| x as u64),
+            before.map(|x| x.as_bytes().to_vec()),
+            after.map(|x| x.as_bytes().to_vec()),
         )
         .await
         .map_err(Into::into)
@@ -213,46 +135,23 @@ impl ApiContract for DasApi {
 
     async fn get_assets_by_group(
         self: &DasApi,
-        group_expression: Vec<String>,
+        group_key: String,
+        group_value: String,
         sort_by: AssetSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
+        limit: Option<u32>,
+        page: Option<u32>,
+        before: Option<String>,
+        after: Option<String>,
     ) -> Result<AssetList, DasApiError> {
-        let group_values = group_expression
-            .into_iter()
-            .map(|x| validate_pubkey(x).unwrap().to_string())
-            .collect::<Vec<String>>();
-
-        if page > 0 && (!before.is_empty() || !after.is_empty()) {
-            return Err(DasApiError::PaginationError);
-        };
-
-        if !before.is_empty() || !after.is_empty() {
-            return Err(DasApiError::PaginationError);
-        };
-
-        let before = if !before.is_empty() {
-            validate_pubkey(before.clone())?.to_bytes().to_vec()
-        } else {
-            before.as_bytes().to_vec()
-        };
-
-        let after = if !after.is_empty() {
-            validate_pubkey(after.clone())?.to_bytes().to_vec()
-        } else {
-            after.as_bytes().to_vec()
-        };
-
         get_assets_by_group(
             &self.db_connection,
-            group_values,
+            group_key,
+            group_value,
             sort_by,
-            limit,
-            page,
-            before,
-            after,
+            limit.map(|x| x as u64).unwrap_or(1000),
+            page.map(|x| x as u64),
+            before.map(|x| x.as_bytes().to_vec()),
+            after.map(|x| x.as_bytes().to_vec()),
         )
         .await
         .map_err(Into::into)
@@ -262,43 +161,26 @@ impl ApiContract for DasApi {
         self: &DasApi,
         creator_expression: Vec<String>,
         sort_by: AssetSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
+        limit: Option<u32>,
+        page: Option<u32>,
+        before: Option<String>,
+        after: Option<String>,
     ) -> Result<AssetList, DasApiError> {
         let creator_addresses = creator_expression
             .into_iter()
             .map(|x| validate_pubkey(x).unwrap().to_bytes().to_vec())
             .collect::<Vec<_>>();
 
-        if page > 0 && (!before.is_empty() || !after.is_empty()) {
-            return Err(DasApiError::PaginationError);
-        };
+        self.validate_pagination(&limit, &page, &before, &after)?;
 
-        if !before.is_empty() || !after.is_empty() {
-            return Err(DasApiError::PaginationError);
-        };
-        let before = if !before.is_empty() {
-            validate_pubkey(before.clone())?.to_bytes().to_vec()
-        } else {
-            before.as_bytes().to_vec()
-        };
-
-        let after = if !after.is_empty() {
-            validate_pubkey(after.clone())?.to_bytes().to_vec()
-        } else {
-            after.as_bytes().to_vec()
-        };
-
-        get_assets_by_creator(
+        get_assets_by_creators(
             &self.db_connection,
             creator_addresses,
             sort_by,
-            limit,
-            page,
-            before,
-            after,
+            limit.map(|x| x as u64).unwrap_or(1000),
+            page.map(|x| x as u64),
+            before.map(|x| x.as_bytes().to_vec()),
+            after.map(|x| x.as_bytes().to_vec()),
         )
         .await
         .map_err(Into::into)
@@ -308,23 +190,23 @@ impl ApiContract for DasApi {
         &self,
         search_expression: serde_json::Value,
         sort_by: AssetSorting,
-        limit: u32,
-        page: u32,
-        before: String,
-        after: String,
+        limit: Option<u32>,
+        page: Option<u32>,
+        before: Option<String>,
+        after: Option<String>,
     ) -> Result<AssetList, DasApiError> {
         // Deserialize search assets query
         let search_assets_query: SearchAssetsQuery = serde_json::from_value(search_expression)?;
-
+        self.validate_pagination(&limit, &page, &before, &after)?;
         // Execute query
         search_assets(
             &self.db_connection,
             search_assets_query,
             sort_by,
-            limit,
-            page,
-            before.as_bytes().to_vec(),
-            after.as_bytes().to_vec(),
+            limit.map(|x| x as u64).unwrap_or(1000),
+            page.map(|x| x as u64),
+            before.map(|x| x.as_bytes().to_vec()),
+            after.map(|x| x.as_bytes().to_vec()),
         )
         .await
         .map_err(Into::into)

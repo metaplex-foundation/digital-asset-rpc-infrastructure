@@ -1,4 +1,4 @@
-FROM rust:1.63-bullseye
+FROM rust:1.65-bullseye
 COPY init.sql /init.sql
 COPY migration /migration
 ENV INIT_FILE_PATH=/init.sql

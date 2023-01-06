@@ -1,13 +1,11 @@
 
-use crate::dao::{prelude::AssetData, scopes, Pagination};
-use crate::dao::{asset, asset_creators, asset_data};
+use crate::dao::{scopes};
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
-
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::{DbErr};
 
-use super::asset::{create_pagination, create_sorting, build_asset_response};
+use super::common::{create_pagination, create_sorting, build_asset_response};
 
 
 
