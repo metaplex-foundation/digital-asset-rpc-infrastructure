@@ -16,13 +16,15 @@ pub enum DasApiError {
     DatabaseError(#[from] sea_orm::DbErr),
     #[error("Pagination Error. Only one pagination parameter supported per query.")]
     PaginationError,
+    #[error("Pagination Error. No Pagination Method Selected")]
+    PaginationEmptyError,
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] serde_json::Error),
 }
 
 impl Into<RpcError> for DasApiError {
     fn into(self) -> RpcError {
-        println!("{}", self.to_string());
+        println!("{}", self);
         RpcError::Call(CallError::from_std_error(self))
     }
 }

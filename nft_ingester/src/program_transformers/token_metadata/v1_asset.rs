@@ -368,7 +368,10 @@ pub async fn save_v1_asset(
 
                 let mut query = asset_grouping::Entity::insert(model)
                     .on_conflict(
-                        OnConflict::columns([asset_grouping::Column::AssetId])
+                        OnConflict::columns([
+                            asset_grouping::Column::AssetId,
+                            asset_grouping::Column::GroupKey,
+                            ])
                             .update_columns([
                                 asset_grouping::Column::GroupKey,
                                 asset_grouping::Column::GroupValue,
@@ -379,7 +382,7 @@ pub async fn save_v1_asset(
                     )
                     .build(DbBackend::Postgres);
                 query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
+                    "{} WHERE excluded.slot_updated > asset_grouping.slot_updated AND excluded.seq >= asset_grouping.seq",
                     query.sql
                 );
                 txn.execute(query).await?;

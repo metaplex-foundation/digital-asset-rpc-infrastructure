@@ -43,8 +43,6 @@ pub struct Model {
     pub slot_updated: i64,
     pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
-    pub collection: Option<Vec<u8>>,
-    pub collection_verified: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -74,8 +72,6 @@ pub enum Column {
     SlotUpdated,
     DataHash,
     CreatorHash,
-    Collection,
-    CollectionVerified,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -128,8 +124,6 @@ impl ColumnTrait for Column {
             Self::SlotUpdated => ColumnType::BigInteger.def(),
             Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
-            Self::Collection => ColumnType::Binary.def().null(),
-            Self::CollectionVerified => ColumnType::Boolean.def(),
         }
     }
 }

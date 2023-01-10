@@ -1,4 +1,4 @@
-FROM rust:1.64-bullseye AS chef
+FROM rust:1.65-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
 COPY nft_ingester /rust/nft_ingester/
@@ -20,7 +20,7 @@ COPY nft_ingester .
 # Build application
 RUN cargo build --release
 
-FROM rust:1.64-slim-bullseye
+FROM rust:1.65-slim-bullseye
 ARG APP=/usr/src/app
 RUN apt update \
     && apt install -y curl ca-certificates tzdata \

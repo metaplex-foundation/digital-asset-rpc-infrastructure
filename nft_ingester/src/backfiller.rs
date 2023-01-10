@@ -22,6 +22,7 @@ use sea_orm::{
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
+    rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, MemcmpEncodedBytes, MemcmpEncoding, RpcFilterType},
 };
@@ -29,6 +30,8 @@ use solana_sdk::{
     account::Account,
     commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
+    signature::Signature,
+    slot_history::Slot,
 };
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
@@ -37,7 +40,7 @@ use solana_transaction_status::{
 use spl_account_compression::state::ConcurrentMerkleTreeHeader;
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use stretto::{AsyncCache, AsyncCacheBuilder};
@@ -619,23 +622,69 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &mut self,
         btree: &BackfillTree,
     ) -> Result<Option<i64>, IngesterError> {
-        let slot =
-            self.rpc_client.get_slot().await.map_err(|e| {
-                IngesterError::RpcGetDataError(format!("Failed to get slot: {:?}", e))
-            })?;
-        let gap = GapInfo::new(
-            SimpleBackfillItem {
-                seq: 0,
-                slot: btree.slot as i64,
-            },
-            SimpleBackfillItem {
-                seq: 0,
-                slot: slot as i64,
-            },
-        );
-        println!("start slot {:?}, end slot {:?}", btree.slot, slot);
-        self.plug_gap(&gap, &btree.unique_tree.tree).await?;
+        let address = Pubkey::new(btree.unique_tree.tree.as_slice());
+        let slots = self.find_slots_via_address(&address).await?;
+        let address = btree.unique_tree.tree.clone();
+        for slot in slots {
+            let gap = GapInfo {
+                prev: SimpleBackfillItem {
+                    seq: 0,
+                    slot: slot as i64,
+                },
+                curr: SimpleBackfillItem {
+                    seq: 0,
+                    slot: slot as i64,
+                },
+            };
+            self.plug_gap(&gap, &address).await?;
+        }
         Ok(Some(0))
+    }
+
+    async fn find_slots_via_address(&self, address: &Pubkey) -> Result<Vec<Slot>, IngesterError> {
+        let mut last_sig = None;
+        let mut slots = HashSet::new();
+        // TODO: Any log running function like this should actually be run in a way that supports re-entry,
+        // usually we woudl break the tasks into smaller parralel tasks and we woudl not worry about it, but in this we have several linearally dpendent async tasks
+        // and if they fail, it causes a chain reaction of failures since the dependant nature of it affects the next task. Right now you are just naivley looping and
+        // hoping for the best what needs to happen is to start saving the state opf each task with the last signature that was retuned iun durable storage.
+        // Then if the task fails, you can restart it from the last signature that was returned.
+        loop {
+            let before = last_sig;
+            let sigs = self
+                .rpc_client
+                .get_signatures_for_address_with_config(
+                    address,
+                    GetConfirmedSignaturesForAddress2Config {
+                        before,
+                        until: None,
+                        ..GetConfirmedSignaturesForAddress2Config::default()
+                    },
+                )
+                .await
+                .map_err(|e| {
+                    IngesterError::RpcGetDataError(format!(
+                        "GetSignaturesForAddressWithConfig failed {}",
+                        e
+                    ))
+                })?;
+            for sig in sigs.iter() {
+                let slot = sig.slot;
+                let sig = Signature::from_str(&sig.signature).map_err(|e| {
+                    IngesterError::RpcDataUnsupportedFormat(format!(
+                        "Failed to parse signature {}",
+                        e
+                    ))
+                })?;
+
+                slots.insert(slot);
+                last_sig = Some(sig);
+            }
+            if sigs.is_empty() || sigs.len() < 1000 {
+                break;
+            }
+        }
+        Ok(Vec::from_iter(slots))
     }
 
     async fn get_max_seq(&self, tree: &[u8]) -> Result<Option<i64>, DbErr> {
@@ -759,7 +808,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         Ok((opt_max_seq, gaps))
     }
 
-    // Similar to `plugGaps()` in `backfiller.ts`.
     async fn plug_gap(&mut self, gap: &GapInfo, tree: &[u8]) -> Result<(), IngesterError> {
         // TODO: This needs to make sure all slots are available otherwise it will partially
         // fail and redo the whole backfill process.  So for now checking the max block before
@@ -789,7 +837,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .into_iter()
             .filter_map(|x| x.ok())
             .flatten();
-        for slot in result_slots.into_iter() {
+        for slot in result_slots {
             let key = format!("block{}", slot);
             let mut cached_block = self.cache.get(&key);
             if cached_block.is_none() {
@@ -892,7 +940,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     ui_raw_message,
                     slot.try_into().unwrap(),
                 )?;
-                // Put data into Redis.
                 self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
