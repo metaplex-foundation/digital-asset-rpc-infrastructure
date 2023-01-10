@@ -77,8 +77,7 @@ impl HttpMiddleware for MetricMiddleware {
     // Called the entire JSON-RPC is completed, called on once for both single calls or batches.
     fn on_response(&self, result: &str, started_at: Instant) {
         println!(
-            "complete JSON-RPC response: {}, took: {:?}",
-            result,
+            "JSON-RPC response: took: {:?}",
             started_at.elapsed()
         );
     }

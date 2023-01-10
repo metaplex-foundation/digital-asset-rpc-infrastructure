@@ -1,6 +1,6 @@
 use digital_asset_types::dapi::{
-    get_asset, get_assets_by_creators, get_assets_by_group, get_assets_by_owner,
-    get_proof_for_asset, search_assets, SearchAssetsQuery,
+    get_asset, get_assets_by_authority, get_assets_by_creators, get_assets_by_group,
+    get_assets_by_owner, get_proof_for_asset, search_assets, SearchAssetsQuery,
 };
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use {
@@ -39,7 +39,7 @@ impl DasApi {
         after: &Option<String>,
     ) -> Result<(), DasApiError> {
         if page.is_none() && before.is_none() && after.is_none() {
-            return Err(DasApiError::PaginationError);
+            return Err(DasApiError::PaginationEmptyError);
         }
 
         if let Some(limit) = limit {
@@ -186,9 +186,38 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    async fn get_assets_by_authority(
+        self: &DasApi,
+        authority_address: String,
+        sort_by: AssetSorting,
+        limit: Option<u32>,
+        page: Option<u32>,
+        before: Option<String>,
+        after: Option<String>,
+    ) -> Result<AssetList, DasApiError> {
+        let authority_address = validate_pubkey(authority_address)
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+
+        self.validate_pagination(&limit, &page, &before, &after)?;
+
+        get_assets_by_authority(
+            &self.db_connection,
+            authority_address,
+            sort_by,
+            limit.map(|x| x as u64).unwrap_or(1000),
+            page.map(|x| x as u64),
+            before.map(|x| x.as_bytes().to_vec()),
+            after.map(|x| x.as_bytes().to_vec()),
+        )
+        .await
+        .map_err(Into::into)
+    }
+
     async fn search_assets(
         &self,
-        search_expression: serde_json::Value,
+        search_expression: SearchAssetsQuery,
         sort_by: AssetSorting,
         limit: Option<u32>,
         page: Option<u32>,
@@ -196,12 +225,11 @@ impl ApiContract for DasApi {
         after: Option<String>,
     ) -> Result<AssetList, DasApiError> {
         // Deserialize search assets query
-        let search_assets_query: SearchAssetsQuery = serde_json::from_value(search_expression)?;
         self.validate_pagination(&limit, &page, &before, &after)?;
         // Execute query
         search_assets(
             &self.db_connection,
-            search_assets_query,
+            search_expression,
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),

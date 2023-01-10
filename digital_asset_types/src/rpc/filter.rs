@@ -1,12 +1,21 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+
 pub struct AssetSorting {
     pub sort_by: AssetSortBy,
     pub sort_direction: AssetSortDirection,
 }
 
+impl Default for AssetSorting {
+    fn default() -> AssetSorting {
+        AssetSorting { sort_by: AssetSortBy::Created, sort_direction: AssetSortDirection::Desc }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+
 pub enum AssetSortBy {
     #[serde(rename = "created")]
     Created,
@@ -18,7 +27,9 @@ pub enum AssetSortBy {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssetSortDirection {
+    #[serde(rename = "asc")]
     Asc,
+    #[serde(rename = "desc")]
     Desc,
 }
 

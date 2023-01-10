@@ -18,7 +18,11 @@ where
                 stmt = stmt.filter(asset::Column::Id.gt(a.clone()));
             }
         }
-        Pagination::Page { page } => stmt = stmt.offset((page - 1) * limit),
+        Pagination::Page { page } => {
+            if *page > 0 {
+                stmt = stmt.offset((page - 1) * limit)
+            }
+        }
     }
     stmt.limit(limit)
 }
@@ -133,10 +137,11 @@ where
         .find_also_related(asset_data::Entity)
         .filter(condition)
         .join(JoinType::LeftJoin, relation.def())
-        .distinct_on([asset::Column::Id])
-        .order_by(sort_by, sort_direction)
-        .order_by(asset::Column::Id, Order::Desc);
-    stmt = paginate(&pagination, limit, stmt);
+        .distinct_on([(asset::Entity, asset::Column::Id)])
+        .order_by(asset::Column::Id, Order::Desc)
+        .order_by(sort_by, sort_direction);
+
+    stmt = paginate(pagination, limit, stmt);
 
     let assets = stmt.all(conn).await?;
 
@@ -166,16 +171,6 @@ pub async fn get_related_for_assets(
         x
     });
 
-    let data = asset_data::Entity::find()
-        .filter(asset_data::Column::Id.is_in(ids.clone()))
-        .order_by_asc(asset_data::Column::Id)
-        .all(conn)
-        .await?;
-    for d in data.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&d.id) {
-            asset.data = d;
-        }
-    }
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -241,12 +236,13 @@ pub async fn get_assets_by_condition(
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find()
-        .distinct_on([asset::Column::Id])
         .find_also_related(asset_data::Entity)
+        .distinct_on([(asset::Entity, asset::Column::Id)])
         .filter(condition)
-        .order_by(sort_by, sort_direction)
-        .order_by(asset::Column::Id, Order::Desc);
-    stmt = paginate(&pagination, limit, stmt);
+        .order_by(asset::Column::Id, Order::Desc)
+        .order_by(sort_by, sort_direction);
+
+    stmt = paginate(pagination, limit, stmt);
     let asset_list = stmt.all(conn).await?;
     get_related_for_assets(conn, asset_list).await
 }
