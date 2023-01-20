@@ -150,7 +150,6 @@ pub fn create_asset(
             data_hash: None,
             alt_id: None,
             creator_hash: None,
-            
         },
     )
 }

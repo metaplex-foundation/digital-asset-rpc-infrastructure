@@ -9,7 +9,6 @@ use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data,
-    prelude::AssetData,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
 };
 
@@ -287,7 +286,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
     assert_eq!(
         asset::Entity::find()
             .filter(asset::Column::Owner.eq(owner_2.to_bytes().to_vec()))
-            .find_also_related(AssetData)
+            .find_also_related(asset_data::Entity)
             .all(&db)
             .await?,
         vec![

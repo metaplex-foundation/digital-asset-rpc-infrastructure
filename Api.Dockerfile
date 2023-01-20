@@ -10,7 +10,7 @@ RUN apt-get update -y && \
     apt-get install -y build-essential make git
 COPY digital_asset_types /rust/digital_asset_types
 WORKDIR /
-RUN git clone --branch 1.14 https://github.com/metaplex-foundation/blockbuster
+RUN git clone --quiet --branch 1.14 https://github.com/metaplex-foundation/blockbuster --depth=1
 RUN mkdir -p /rust/das_api
 WORKDIR /rust/das_api
 COPY --from=planner /rust/das_api/recipe.json recipe.json

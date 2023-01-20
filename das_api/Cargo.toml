@@ -26,6 +26,10 @@ tokio-postgres = "0.7.7"
 solana-sdk = { version = ">=1.10.41" }
 bs58 = "0.4.0"
 log = "0.4.17"
+schemars = "0.8.6"
+schemars_derive = "0.8.6"
+open-rpc-derive = {version = "0.0.3"}
+open-rpc-schema = {version = "0.0.3"}
 
 [patch.crates-io]
 blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }

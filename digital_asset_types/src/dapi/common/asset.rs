@@ -1,13 +1,10 @@
 use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{
-    prelude::{Asset, AssetData},
-    Pagination,
-};
 use crate::dao::{FullAsset, FullAssetList};
 
-use crate::rpc::filter::{AssetSorting, AssetSortDirection, AssetSortBy};
-use crate::rpc::response::{AssetList, AssetError};
+use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
+use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, Ownership, Royalty, Scope, Supply, Uses,
@@ -16,7 +13,7 @@ use crate::rpc::{
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr };
+use sea_orm::{entity::*, query::*, DbErr};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -44,19 +41,19 @@ pub fn file_from_str(str: String) -> File {
     }
 }
 
-pub fn build_asset_response(assets: Vec<FullAsset>,limit: u64,  pagination: &Pagination) -> AssetList {
+pub fn build_asset_response(
+    assets: Vec<FullAsset>,
+    limit: u64,
+    pagination: &Pagination,
+) -> AssetList {
     let total = assets.len() as u32;
     let (page, before, after) = match pagination {
         Pagination::Keyset { before, after } => {
-            let bef = before.clone().and_then(|x|String::from_utf8(x).ok());
-            let aft = after.clone().and_then(|x|String::from_utf8(x).ok());
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
             (None, bef, aft)
-        },
-        Pagination::Page { page } => (
-            Some(*page),
-            None,
-            None,
-        ),
+        }
+        Pagination::Page { page } => (Some(*page), None, None),
     };
     let (items, errors) = asset_list_to_rpc(assets);
     AssetList {
@@ -66,7 +63,7 @@ pub fn build_asset_response(assets: Vec<FullAsset>,limit: u64,  pagination: &Pag
         before,
         after,
         items,
-        errors
+        errors,
     }
 }
 
@@ -244,15 +241,10 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
 }
 
 pub fn get_interface(asset: &asset::Model) -> Interface {
-    match (
+    Interface::from((
         &asset.specification_version,
         &asset.specification_asset_class,
-    ) {
-        (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
-        (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
-        (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
-        _ => Interface::V1NFT,
-    }
+    ))
 }
 
 //TODO -> impl custom erro type
@@ -350,7 +342,7 @@ pub fn asset_list_to_rpc(asset_list: Vec<FullAsset>) -> (Vec<RpcAsset>, Vec<Asse
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
-           let id = bs58::encode(asset.asset.id.clone()).into_string();
+            let id = bs58::encode(asset.asset.id.clone()).into_string();
             match asset_to_rpc(asset) {
                 Ok(rpc_asset) => assets.push(rpc_asset),
                 Err(e) => errors.push(AssetError {

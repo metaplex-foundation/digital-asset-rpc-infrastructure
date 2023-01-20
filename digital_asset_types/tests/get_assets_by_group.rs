@@ -11,7 +11,6 @@ use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping,
-    prelude::AssetData,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
 };
 
@@ -315,7 +314,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
                     asset_grouping::Column::GroupValue.eq(bs58::encode(collection).into_string()),
                 )
             )
-            .find_also_related(AssetData)
+            .find_also_related(asset_data::Entity)
             .all(&db)
             .await?,
         vec![

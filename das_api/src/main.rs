@@ -1,13 +1,13 @@
-mod api;
-mod api_impl;
+pub mod api;
+mod builder;
 mod config;
 mod error;
 mod validation;
 
 use std::time::Instant;
 use {
-    crate::api::RpcApiBuilder,
-    crate::api_impl::DasApi,
+    crate::builder::RpcApiBuilder,
+    crate::api::DasApi,
     crate::config::load_config,
     crate::config::Config,
     crate::error::DasApiError,
@@ -75,11 +75,8 @@ impl HttpMiddleware for MetricMiddleware {
     }
 
     // Called the entire JSON-RPC is completed, called on once for both single calls or batches.
-    fn on_response(&self, result: &str, started_at: Instant) {
-        println!(
-            "JSON-RPC response: took: {:?}",
-            started_at.elapsed()
-        );
+    fn on_response(&self, _result: &str, started_at: Instant) {
+        println!("JSON-RPC response: took: {:?}", started_at.elapsed());
     }
 }
 

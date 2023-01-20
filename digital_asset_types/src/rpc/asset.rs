@@ -5,12 +5,13 @@ use crate::dao::sea_orm_active_enums::{
 use std::collections::BTreeMap;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
+use schemars::JsonSchema;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AssetProof {
     pub root: String,
     pub proof: Vec<String>,
@@ -19,7 +20,7 @@ pub struct AssetProof {
     pub tree_id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub enum Interface {
     #[serde(rename = "V1_NFT")]
     V1NFT,
@@ -37,15 +38,50 @@ pub enum Interface {
     Identity,
     #[serde(rename = "Executable")]
     Executable,
+    #[serde(rename = "ProgrammableNFT")]
+    ProgrammableNFT,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
+    fn from(i: (&SpecificationVersions, &SpecificationAssetClass)) -> Self {
+        match i {
+            (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
+            (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
+            (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
+            (SpecificationVersions::V1, SpecificationAssetClass::ProgrammableNft) => {
+                Interface::ProgrammableNFT
+            }
+            _ => Interface::Custom,
+        }
+    }
+}
+
+impl Into<(SpecificationVersions, SpecificationAssetClass)> for Interface {
+    fn into(self) -> (SpecificationVersions, SpecificationAssetClass) {
+        match self {
+            Interface::V1NFT => (SpecificationVersions::V1, SpecificationAssetClass::Nft),
+            Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
+            Interface::ProgrammableNFT => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::ProgrammableNft,
+            ),
+            Interface::V1PRINT => (SpecificationVersions::V1, SpecificationAssetClass::Print),
+            Interface::FungibleAsset => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::FungibleAsset,
+            ),
+            _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Quality {
     #[serde(rename = "$$schema")]
     pub schema: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub enum Context {
     #[serde(rename = "wallet-default")]
     WalletDefault,
@@ -65,7 +101,7 @@ pub enum Context {
 
 pub type Contexts = Vec<Context>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct File {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
@@ -79,7 +115,7 @@ pub struct File {
 
 pub type Files = Vec<File>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
 impl MetadataMap {
@@ -100,7 +136,7 @@ impl MetadataMap {
 // TODO sub schema support
 pub type Links = HashMap<String, serde_json::Value>;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Content {
     #[serde(rename = "$schema")]
     pub schema: String,
@@ -112,7 +148,7 @@ pub struct Content {
     pub links: Option<Links>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum Scope {
     #[serde(rename = "full")]
     Full,
@@ -135,13 +171,13 @@ impl From<String> for Scope {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Authority {
     pub address: String,
     pub scopes: Vec<Scope>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Compression {
     pub eligible: bool,
     pub compressed: bool,
@@ -156,13 +192,13 @@ pub struct Compression {
 pub type GroupKey = String;
 pub type GroupValue = String;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Group {
     pub group_key: String,
     pub group_value: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub enum RoyaltyModel {
     #[serde(rename = "creators")]
     Creators,
@@ -195,7 +231,7 @@ impl From<RoyaltyTargetType> for RoyaltyModel {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Royalty {
     pub royalty_model: RoyaltyModel,
     pub target: Option<String>,
@@ -209,14 +245,14 @@ pub type Address = String;
 pub type Share = String;
 pub type Verified = bool;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Creator {
     pub address: String,
     pub share: i32,
     pub verified: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub enum OwnershipModel {
     #[serde(rename = "single")]
     Single,
@@ -245,7 +281,7 @@ impl From<OwnerType> for OwnershipModel {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Ownership {
     pub frozen: bool,
     pub delegated: bool,
@@ -254,7 +290,7 @@ pub struct Ownership {
     pub owner: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum UseMethod {
     Burn,
     Multiple,
@@ -284,21 +320,21 @@ impl From<ChainMutability> for Mutability {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Uses {
     pub use_method: UseMethod,
     pub remaining: u64,
     pub total: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Supply {
     pub print_max_supply: u64,
     pub print_current_supply: u64,
     pub edition_nonce: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,

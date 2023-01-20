@@ -1,7 +1,12 @@
 use crate::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, Pagination,
 };
-use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order, Value};
+use sea_orm::{
+    entity::*,
+    query::*,
+    sea_query::{ColumnRef, IntoColumnRef, TableRef},
+    ConnectionTrait, DbErr, Order, Value, DbBackend,
+};
 use std::collections::BTreeMap;
 
 pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
@@ -30,6 +35,7 @@ where
 pub async fn get_by_creator(
     conn: &impl ConnectionTrait,
     creators: Vec<Vec<u8>>,
+    only_verified: bool,
     sort_by: asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
@@ -44,6 +50,11 @@ pub async fn get_by_creator(
     let mut condition = Condition::any();
     for creator in creators {
         condition = condition.add(asset_creators::Column::Creator.eq(creator));
+    }
+    if only_verified {
+        condition = Condition::all()
+            .add(condition)
+            .add(asset_creators::Column::Verified.eq(true));
     }
     get_by_related_condition(
         conn,
@@ -219,6 +230,7 @@ pub async fn get_assets_by_column(
     get_assets_by_condition(
         conn,
         Condition::all().add(target_column.eq(target_value)),
+        vec![],
         sort_by,
         sort_direction,
         pagination,
@@ -230,20 +242,30 @@ pub async fn get_assets_by_column(
 pub async fn get_assets_by_condition(
     conn: &impl ConnectionTrait,
     condition: Condition,
+    joins: Vec<RelationDef>,
     sort_by: asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find()
-        .find_also_related(asset_data::Entity)
-        .distinct_on([(asset::Entity, asset::Column::Id)])
+        
+        .distinct_on([(asset::Entity, asset::Column::Id)]);
+    for def in joins {
+        stmt = stmt.join(JoinType::LeftJoin, def);
+    }
+    println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
+    stmt = stmt
         .filter(condition)
         .order_by(asset::Column::Id, Order::Desc)
         .order_by(sort_by, sort_direction);
 
+        println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
+
     stmt = paginate(pagination, limit, stmt);
-    let asset_list = stmt.all(conn).await?;
+
+    println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
+    let asset_list = stmt.find_also_related(asset_data::Entity).all(conn).await?;
     get_related_for_assets(conn, asset_list).await
 }
 

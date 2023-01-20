@@ -35,9 +35,12 @@ async fn main() {
         keypair_from_seed(sow_thy_seed.as_ref())
             .expect("Thy Keypair is not available, I humbly suggest you look for it."),
     );
+    let kp_new = Arc::new(
+       Keypair::new()
+    );
     let semaphore = Arc::new(Semaphore::new(carnage));
     check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    let nft_collection_thing = make_a_nft_thing(le_blockchain.clone(), kp.clone(), None)
+    let nft_collection_thing = make_a_nft_thing(le_blockchain.clone(), kp.clone(), kp.clone(), None)
         .await
         .unwrap();
     println!("NFT Collection Thing: {:?}", nft_collection_thing);
@@ -45,13 +48,14 @@ async fn main() {
         let mut tasks = vec![];
         for _ in (0..carnage) {
             let kp = kp.clone();
+            let kp_new = kp_new.clone();
             let le_clone = le_blockchain.clone();
             let semaphore = semaphore.clone();
             tasks.push(tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
                                                                   // MINT A MASTER EDITION:
                 sleep(Duration::from_millis(1000)).await;
-                make_a_nft_thing(le_clone, kp, Some(nft_collection_thing.clone())).await
+                make_a_nft_thing(le_clone, kp, kp_new, Some(nft_collection_thing.clone())).await
             }));
         }
         for task in tasks {
@@ -93,12 +97,13 @@ pub async fn check_balance(
 pub async fn make_a_token_thing(
     solana_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
+    owner: Arc<Keypair>,
     mint_number: u64,
 ) -> Result<(Pubkey, Pubkey), ClientError> {
     let mint = Keypair::new();
     let ta_ix = spl_associated_token_account::instruction::create_associated_token_account(
         &payer.pubkey().into(),
-        &payer.pubkey().into(),
+        &owner.pubkey().into(),
         &mint.pubkey().into(),
         &spl_token::id(),
     );
@@ -144,9 +149,10 @@ pub async fn make_a_token_thing(
 pub async fn make_a_nft_thing(
     solana_client: Arc<RpcClient>,
     payer: Arc<Keypair>,
+    owner: Arc<Keypair>,
     collection_mint: Option<Pubkey>,
 ) -> Result<Pubkey, ClientError> {
-    let (mint, token_account) = make_a_token_thing(solana_client.clone(), payer.clone(), 1).await?;
+    let (mint, token_account) = make_a_token_thing(solana_client.clone(), payer.clone(), owner.clone(), 1).await?;
     let prg_uid = mpl_token_metadata::id();
     let metadata_seeds = &[
         mpl_token_metadata::state::PREFIX.as_bytes(),
@@ -168,7 +174,7 @@ pub async fn make_a_nft_thing(
             "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
             Some(vec![Creator {
                 address: payer.pubkey(),
-                verified: false,
+                verified: true,
                 share: 100,
             }]),
             0,

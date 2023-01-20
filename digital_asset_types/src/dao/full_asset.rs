@@ -1,7 +1,6 @@
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use sea_orm::FromQueryResult;
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct FullAsset {
     pub asset: asset::Model,

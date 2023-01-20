@@ -87,6 +87,7 @@ services:
       - "6379:6379"
   db:
     image: 'postgres:latest'
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
     ports:
       - 5432:5432
     environment:

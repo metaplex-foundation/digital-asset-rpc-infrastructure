@@ -1,9 +1,8 @@
 use blockbuster::token_metadata::state::{TokenStandard, Uses};
 use serde::{Deserialize, Serialize};
 
-
 pub enum ChainData {
-    V1(ChainDataV1)
+    V1(ChainDataV1),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,7 +20,7 @@ pub struct ChainDataV1 {
 
 impl ChainDataV1 {
     pub fn sanitize(&mut self) {
-        self.name = self.name.trim().replace("\0","").to_string();
-        self.symbol = self.symbol.trim().replace("\0","").to_string();
+        self.name = self.name.trim().replace("\0", "").to_string();
+        self.symbol = self.symbol.trim().replace("\0", "").to_string();
     }
 }

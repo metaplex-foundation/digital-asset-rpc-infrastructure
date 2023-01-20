@@ -37,9 +37,7 @@ pub async fn get_proof_for_asset(
         .filter(cl_items::Column::Level.eq(0i64));
     let sql = sel.clone().build(DbBackend::Postgres);
     println!("find leaf sql {} ", sql.sql);
-    let leaf: Option<cl_items::Model> =
-        sel.one(db)
-            .await?;
+    let leaf: Option<cl_items::Model> = sel.one(db).await?;
     if leaf.is_none() {
         return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
     }
@@ -99,7 +97,7 @@ pub async fn get_proof_for_asset(
             .map(|model| bs58::encode(&model.hash).into_string())
             .collect(),
         node_index: leaf.node_idx,
-        tree_id: bs58::encode(&leaf.tree).into_string()
+        tree_id: bs58::encode(&leaf.tree).into_string(),
     })
 }
 

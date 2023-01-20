@@ -6,7 +6,6 @@ use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data,
-    prelude::AssetData,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
 };
 use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
@@ -101,7 +100,7 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
 
     assert_eq!(
         asset::Entity::find_by_id(id.to_bytes().to_vec())
-            .find_also_related(AssetData)
+            .find_also_related(asset_data::Entity)
             .one(&db)
             .await?,
         Some((asset_1.1.clone(), Some(asset_data_1.1.clone())))
