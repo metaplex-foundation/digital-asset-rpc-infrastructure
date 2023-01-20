@@ -113,6 +113,8 @@ impl SearchAssetsQuery {
     }
 
     pub fn conditions(&self) -> Result<(Condition, Vec<RelationDef>), DbErr> {
+
+        
         let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
             None | Some(ConditionType::All) => Condition::all(),

@@ -254,17 +254,12 @@ pub async fn get_assets_by_condition(
     for def in joins {
         stmt = stmt.join(JoinType::LeftJoin, def);
     }
-    println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
     stmt = stmt
         .filter(condition)
         .order_by(asset::Column::Id, Order::Desc)
         .order_by(sort_by, sort_direction);
 
-        println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
-
     stmt = paginate(pagination, limit, stmt);
-
-    println!("SLQL::{} " , stmt.build(DbBackend::Postgres).sql);
     let asset_list = stmt.find_also_related(asset_data::Entity).all(conn).await?;
     get_related_for_assets(conn, asset_list).await
 }
