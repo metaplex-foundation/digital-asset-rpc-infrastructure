@@ -1,12 +1,12 @@
 [package]
 name = "nft_ingester"
-version = "0.2.0"
+version = "0.5.0"
 edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
 tracing = "0.1.26"
-redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams", "tls"] }
+redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams", "tokio-native-tls-comp"] }
 futures = {version = "0.3.25"}
 futures-util = "0.3.0"
 base64 = "0.20.0"

@@ -1259,7 +1259,7 @@ dependencies = [
 
 [[package]]
 name = "digital_asset_types"
-version = "0.0.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "blockbuster",
@@ -2534,7 +2534,7 @@ dependencies = [
 
 [[package]]
 name = "nft_ingester"
-version = "0.2.0"
+version = "0.5.0"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -3451,6 +3451,7 @@ dependencies = [
  "ryu",
  "sha1 0.6.1",
  "tokio",
+ "tokio-native-tls",
  "tokio-util",
  "url",
 ]
