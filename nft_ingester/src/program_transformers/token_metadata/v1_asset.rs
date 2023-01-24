@@ -55,6 +55,7 @@ pub async fn save_v1_asset(
         return Err(IngesterError::DeserializationError(
             "URI is empty".to_string(),
         ));
+        
     }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
