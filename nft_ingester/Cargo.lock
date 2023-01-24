@@ -3445,6 +3445,7 @@ dependencies = [
  "combine",
  "futures-util",
  "itoa",
+ "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "ryu",
