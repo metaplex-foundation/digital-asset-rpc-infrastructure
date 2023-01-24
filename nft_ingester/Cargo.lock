@@ -3010,9 +3010,9 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "plerkle_messenger"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9226f0fab5e414de690e7ae476e2d6ec6733660044909c7becf43991cadbb595"
+checksum = "a870f2b3e6455b91409edc74cd5d958ce4ba93889e582a82dabaad347a552cdc"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -3026,9 +3026,9 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c275cbc142157beecb6b332d9fd5dcef2b69c7355a48e168fed1f19dd9932f91"
+checksum = "93b026926e4b015b2f22e82570000423df274fff91bfa706457e7b30140d7a53"
 dependencies = [
  "chrono",
  "flatbuffers",
@@ -3467,11 +3467,13 @@ dependencies = [
  "combine",
  "futures-util",
  "itoa",
+ "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "ryu",
  "sha1_smol",
  "tokio",
+ "tokio-native-tls",
  "tokio-util",
  "url",
 ]
