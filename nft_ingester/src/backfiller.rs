@@ -50,7 +50,7 @@ use tokio::{
 };
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
-const TREE_SYNC_INTERVAL: u64 = 10;
+const TREE_SYNC_INTERVAL: u64 = 60;
 const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
@@ -292,6 +292,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             if let Ok(missing_trees) = self.get_missing_trees(&txn).await {
                 let len = missing_trees.len();
                 statsd_count!("ingester.backfiller.missing_trees", len as i64);
+                println!("Found {} missing trees", len);
                 if len > 0 {
                     let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
 
@@ -729,7 +730,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let mut list = HashMap::with_capacity(results.len());
         for r in results.into_iter() {
             let (pubkey, account) = r;
-            println!("found rpc tree pubkey: {}", pubkey);
             let mut sl = account.data.as_slice();
             let tree_config: ConcurrentMerkleTreeHeader =
                 ConcurrentMerkleTreeHeader::deserialize(&mut sl)
@@ -881,7 +881,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // See if transaction has an error.
                 let meta = if let Some(meta) = &tx.meta {
                     if let Some(err) = &meta.err {
-                        println!("Transaction has error: {err}");
                         continue;
                     }
                     meta
