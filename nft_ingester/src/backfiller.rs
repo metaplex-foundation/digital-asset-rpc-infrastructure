@@ -815,7 +815,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let diff = gap.curr.slot - gap.prev.slot;
         let mut num_iter = (diff + 250_000) / 500_000;
         let mut start_slot = gap.prev.slot;
-        let mut end_slot = cmp::min(500_000, gap.curr.slot);
+        let mut end_slot = gap.prev.slot + cmp::min(500_000, diff);
         let get_confirmed_slot_tasks = FuturesUnordered::new();
         if num_iter == 0 {
             num_iter = 1;
