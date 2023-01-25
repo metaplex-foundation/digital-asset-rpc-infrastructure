@@ -20,6 +20,7 @@ use {
 };
 
 use cadence_macros::{is_global_default_set, statsd_time};
+use jsonrpsee::http_server::AccessControlBuilder;
 
 pub fn safe_metric<F: Fn()>(f: F) {
     if is_global_default_set() {
@@ -84,7 +85,9 @@ impl HttpMiddleware for MetricMiddleware {
 async fn main() -> Result<(), DasApiError> {
     let config = load_config()?;
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
+    let acl = AccessControlBuilder::new().allow_all_headers().allow_all_origins().allow_all_hosts().build();
     let server = HttpServerBuilder::default()
+        .set_access_control(acl)
         .health_api("/healthz", "healthz")?
         .set_middleware(MetricMiddleware)
         .build(addr)

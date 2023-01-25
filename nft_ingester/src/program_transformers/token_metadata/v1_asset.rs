@@ -285,7 +285,7 @@ pub async fn save_v1_asset(
                 .filter(
                     Condition::all()
                         .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::Position.gte(idx_to_delete as i8))
+                        .add(asset_creators::Column::Position.gte(idx_to_delete as i16))
                         .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
                 )
                 .exec(txn)
