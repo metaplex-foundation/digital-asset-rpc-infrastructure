@@ -18,6 +18,7 @@ use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 
 use crate::validation::validate_opt_pubkey;
+use open_rpc_schema::document::OpenrpcDocument;
 use {
     crate::api::*,
     crate::config::Config,
@@ -28,7 +29,6 @@ use {
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
-use open_rpc_schema::document::OpenrpcDocument;
 
 pub struct DasApi {
     db_connection: DatabaseConnection,
@@ -87,7 +87,6 @@ impl DasApi {
 pub fn not_found(asset_id: &String) -> DbErr {
     DbErr::RecordNotFound(format!("Asset Proof for {} Not Found", asset_id))
 }
-
 
 #[document_rpc]
 #[async_trait]
@@ -344,5 +343,4 @@ impl ApiContract for DasApi {
         .await
         .map_err(Into::into)
     }
-
 }

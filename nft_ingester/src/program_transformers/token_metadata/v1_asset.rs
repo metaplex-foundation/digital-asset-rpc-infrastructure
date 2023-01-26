@@ -55,7 +55,6 @@ pub async fn save_v1_asset(
         return Err(IngesterError::DeserializationError(
             "URI is empty".to_string(),
         ));
-        
     }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
@@ -259,7 +258,7 @@ pub async fn save_v1_asset(
         ..Default::default()
     };
 
-    let mut query = asset_v1_account_attachments::Entity::insert(attachment)
+    let query = asset_v1_account_attachments::Entity::insert(attachment)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .do_nothing()
@@ -372,14 +371,14 @@ pub async fn save_v1_asset(
                         OnConflict::columns([
                             asset_grouping::Column::AssetId,
                             asset_grouping::Column::GroupKey,
-                            ])
-                            .update_columns([
-                                asset_grouping::Column::GroupKey,
-                                asset_grouping::Column::GroupValue,
-                                asset_grouping::Column::Seq,
-                                asset_grouping::Column::SlotUpdated,
-                            ])
-                            .to_owned(),
+                        ])
+                        .update_columns([
+                            asset_grouping::Column::GroupKey,
+                            asset_grouping::Column::GroupValue,
+                            asset_grouping::Column::Seq,
+                            asset_grouping::Column::SlotUpdated,
+                        ])
+                        .to_owned(),
                     )
                     .build(DbBackend::Postgres);
                 query.sql = format!(

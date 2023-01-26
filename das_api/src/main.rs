@@ -4,23 +4,31 @@ mod config;
 mod error;
 mod validation;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use {
-    crate::builder::RpcApiBuilder,
     crate::api::DasApi,
+    crate::builder::RpcApiBuilder,
     crate::config::load_config,
     crate::config::Config,
     crate::error::DasApiError,
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     cadence_macros::set_global_default,
-    jsonrpsee::http_server::{HttpServerBuilder, RpcModule},
-    jsonrpsee_core::middleware::{Headers, HttpMiddleware, MethodKind, Params},
     std::net::SocketAddr,
     std::net::UdpSocket,
 };
 
+use hyper::{http, Method};
+use log::{debug, info};
+use tower::ServiceBuilder;
+use tower_http::cors::{Any, CorsLayer};
+
+use jsonrpsee::server::{
+    logger::{Logger, TransportProtocol},
+    middleware::proxy_get_request::ProxyGetRequestLayer,
+    RpcModule, ServerBuilder,
+};
+
 use cadence_macros::{is_global_default_set, statsd_time};
-use jsonrpsee::http_server::AccessControlBuilder;
 
 pub fn safe_metric<F: Fn()>(f: F) {
     if is_global_default_set() {
@@ -47,56 +55,100 @@ fn setup_metrics(config: &Config) {
 #[derive(Clone)]
 struct MetricMiddleware;
 
-impl HttpMiddleware for MetricMiddleware {
+impl Logger for MetricMiddleware {
     type Instant = Instant;
 
-    // Called once the HTTP request is received, it may be a single JSON-RPC call
-    // or batch.
-    fn on_request(&self, _remote_addr: SocketAddr, _headers: &Headers) -> Instant {
+    fn on_request(&self, _t: TransportProtocol) -> Self::Instant {
         Instant::now()
     }
 
-    // Called once a single JSON-RPC method call is processed, it may be called multiple times
-    // on batches.
-    fn on_call(&self, method_name: &str, params: Params, kind: MethodKind) {
-        println!(
-            "Call to method: '{}' params: {:?}, kind: {}",
-            method_name, params, kind
+    fn on_result(
+        &self,
+        name: &str,
+        success: bool,
+        started_at: Self::Instant,
+        _t: TransportProtocol,
+    ) {
+        let stat = match success {
+            true => "success",
+            false => "failure",
+        };
+        info!(
+            "Call to '{}' {} took {:?}",
+            name,
+            stat,
+            started_at.elapsed()
         );
-    }
-
-    // Called once a single JSON-RPC call is completed, it may be called multiple times
-    // on batches.
-    fn on_result(&self, method_name: &str, success: bool, started_at: Instant) {
-        println!("Call to '{}' took {:?}", method_name, started_at.elapsed());
         safe_metric(|| {
             let success = success.to_string();
-            statsd_time!("api_call", started_at.elapsed(), "method" => method_name, "success" => &success);
+            statsd_time!("api_call", started_at.elapsed(), "method" => name, "success" => &success);
         });
     }
 
-    // Called the entire JSON-RPC is completed, called on once for both single calls or batches.
-    fn on_response(&self, _result: &str, started_at: Instant) {
-        println!("JSON-RPC response: took: {:?}", started_at.elapsed());
+    fn on_connect(
+        &self,
+        remote_addr: SocketAddr,
+        _request: &jsonrpsee::server::logger::HttpRequest,
+        _t: TransportProtocol,
+    ) {
+        debug!("Connecting from {}", remote_addr)
+    }
+
+    fn on_call(
+        &self,
+        method_name: &str,
+        params: jsonrpsee::types::Params,
+        kind: jsonrpsee::server::logger::MethodKind,
+        transport: TransportProtocol,
+    ) {
+        debug!("Call: {} {:?}", method_name, params);
+    }
+
+    fn on_response(&self, result: &str, started_at: Self::Instant, transport: TransportProtocol) {
+        debug!("Response: {}", result);
+    }
+
+    fn on_disconnect(&self, remote_addr: SocketAddr, transport: TransportProtocol) {
+        debug!("Disconnecting from {}", remote_addr);
     }
 }
+
+fn cors() {}
 
 #[tokio::main]
 async fn main() -> Result<(), DasApiError> {
     let config = load_config()?;
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
-    let acl = AccessControlBuilder::new().allow_all_headers().allow_all_origins().allow_all_hosts().build();
-    let server = HttpServerBuilder::default()
-        .set_access_control(acl)
-        .health_api("/healthz", "healthz")?
-        .set_middleware(MetricMiddleware)
+    let cors = CorsLayer::new()
+        .allow_methods([Method::POST, Method::GET])
+        .allow_origin(Any)
+        .allow_headers([hyper::header::CONTENT_TYPE]);
+    let middleware = tower::ServiceBuilder::new()
+    .layer(cors)
+    .layer(ProxyGetRequestLayer::new("/health", "healthz")?);
+
+    let server = ServerBuilder::default()
+        .set_middleware(middleware)
         .build(addr)
         .await?;
+
     setup_metrics(&config);
     let api = DasApi::from_config(config).await?;
     let rpc = RpcApiBuilder::build(Box::new(api))?;
     println!("Server Started");
-    server.start(rpc)?.await;
+    let server_handle = server.start(rpc)?;
+
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => {
+            println!("Shutting down server");
+            server_handle.stop()?;
+        }
+
+        Err(err) => {
+            println!("Unable to listen for shutdown signal: {}", err);
+        }
+    }
+    tokio::spawn(server_handle.stopped());
     println!("Server ended");
     Ok(())
 }

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 mod api_impl;
 pub use api_impl::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAssetsByGroup {
     pub group_key: String,
@@ -34,12 +34,12 @@ pub struct GetAssetsByOwner {
     pub after: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 
 pub struct GetAssetsByCreator {
@@ -52,7 +52,7 @@ pub struct GetAssetsByCreator {
     pub after: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchAssets {
     pub negate: Option<bool>,
@@ -81,7 +81,7 @@ pub struct SearchAssets {
     pub after: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 
 pub struct GetAssetsByAuthority {
@@ -133,6 +133,6 @@ pub trait ApiContract: Send + Sync + 'static {
         &self,
         paylload: GetAssetsByAuthority,
     ) -> Result<AssetList, DasApiError>;
-    #[rpc]   
+    #[rpc]
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError>;
 }

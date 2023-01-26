@@ -95,7 +95,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 freeze_authority: Set(freeze_auth),
             };
 
-            let query = tokens::Entity::insert(model)
+            let mut query = tokens::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([tokens::Column::Mint])
                         .update_columns([
@@ -111,6 +111,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                         .to_owned(),
                 )
                 .build(DbBackend::Postgres);
+            query.sql = format!(
+                "{} WHERE excluded.slot_updated > tokens.slot_updated",
+                query.sql
+            );
             txn.execute(query).await?;
             Ok(())
         }

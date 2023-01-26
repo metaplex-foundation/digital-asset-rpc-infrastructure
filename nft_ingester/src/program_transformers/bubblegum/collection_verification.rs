@@ -22,7 +22,7 @@ pub async fn process<'c>(
             LeafSchema::V1 { id, .. } => {
                 let id_bytes = id.to_bytes().to_vec();
 
-                let mut asset_to_update = asset::ActiveModel {
+                let asset_to_update = asset::ActiveModel {
                     id: Unchanged(id_bytes.clone()),
                     leaf: Set(Some(le.leaf_hash.to_vec())),
                     seq: Set(seq as i64),

@@ -86,7 +86,7 @@ impl BgTask for DownloadMetadataTask {
         data: serde_json::Value,
     ) -> Result<(), IngesterError> {
         let download_metadata: DownloadMetadata = serde_json::from_value(data)?;
-        let meta_url = Url::parse(&*download_metadata.uri);
+        let meta_url = Url::parse(&download_metadata.uri);
         let body = match meta_url {
             Ok(_) => DownloadMetadataTask::request_metadata(download_metadata.uri).await?,
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.

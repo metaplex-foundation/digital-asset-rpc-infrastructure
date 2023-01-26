@@ -83,7 +83,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "metaplex-rpc-proxy"
-version = "0.5.0"
+version = "0.5.6"
 dependencies = [
  "lazy_static",
  "log",

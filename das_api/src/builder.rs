@@ -1,5 +1,4 @@
-
-use crate::{DasApiError, RpcModule, api::*};
+use crate::{api::*, DasApiError, RpcModule};
 pub struct RpcApiBuilder;
 
 impl RpcApiBuilder {

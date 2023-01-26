@@ -24,7 +24,7 @@ use solana_client::{
     nonblocking::rpc_client::RpcClient,
     rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
-    rpc_filter::{Memcmp, MemcmpEncodedBytes, MemcmpEncoding, RpcFilterType},
+    rpc_filter::{Memcmp, RpcFilterType},
 };
 use solana_sdk::{
     account::Account,
@@ -298,7 +298,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
                     txn.commit().await;
                     match res {
-                        Ok(x) => {
+                        Ok(_x) => {
                             println!("Set {} trees to backfill from 0", len);
                         }
                         Err(e) => {
@@ -541,7 +541,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         println!(
             "Number of force check trees to backfill: {} {}",
             force_chk_trees.len(),
-            Utc::now().to_string()
+            Utc::now()
         );
 
         for tree in force_chk_trees.iter() {
@@ -880,7 +880,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             for tx in block_data.transactions.iter() {
                 // See if transaction has an error.
                 let meta = if let Some(meta) = &tx.meta {
-                    if let Some(err) = &meta.err {
+                    if let Some(_err) = &meta.err {
                         continue;
                     }
                     meta

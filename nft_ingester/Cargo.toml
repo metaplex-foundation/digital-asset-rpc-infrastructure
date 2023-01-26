@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 hex = "0.4.3"
 tracing = "0.1.26"
-redis = { version = "0.21.5", features = ["aio", "tokio-comp", "streams", "tls", "tokio-native-tls-comp"] }
+redis = { version = "0.22.3", features = ["aio", "tokio-comp", "streams", "tokio-native-tls-comp"] }
 futures = {version = "0.3.25"}
 futures-util = "0.3.0"
 base64 = "0.20.0"

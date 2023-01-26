@@ -5,7 +5,7 @@ use sea_orm::{
     entity::*,
     query::*,
     sea_query::{ColumnRef, IntoColumnRef, TableRef},
-    ConnectionTrait, DbErr, Order, Value, DbBackend,
+    ConnectionTrait, DbBackend, DbErr, Order, Value,
 };
 use std::collections::BTreeMap;
 
@@ -248,9 +248,7 @@ pub async fn get_assets_by_condition(
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let mut stmt = asset::Entity::find()
-        
-        .distinct_on([(asset::Entity, asset::Column::Id)]);
+    let mut stmt = asset::Entity::find().distinct_on([(asset::Entity, asset::Column::Id)]);
     for def in joins {
         stmt = stmt.join(JoinType::LeftJoin, def);
     }

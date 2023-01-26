@@ -16,7 +16,6 @@ use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{set_global_default, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::{providers::Env, value::Value, Figment};
-use std::sync::Arc;
 use futures::{stream::FuturesUnordered, StreamExt};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
@@ -25,6 +24,7 @@ use plerkle_messenger::{
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
+use std::sync::Arc;
 
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
@@ -245,7 +245,7 @@ async fn service_account_stream<T: Messenger>(
             let pool_cloned = pool.clone();
             let tasks_cloned = tasks.clone();
             let messenger_config_cloned = messenger_config.clone();
-            
+
             let result = tokio::spawn(async {
                 let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
@@ -282,11 +282,11 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
     safe_metric(|| {
         statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     });
-    
+
     let tasks = FuturesUnordered::new();
     for item in data.into_iter() {
         let manager = Arc::clone(manager);
-        
+
         tasks.push(async move {
             let id = item.id;
             let mut ids = Vec::new();
@@ -348,11 +348,12 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
             ids
         });
     }
-    tasks.collect::<Vec<_>>()
-    .await
-    .into_iter()
-    .flatten()
-    .collect()
+    tasks
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 async fn process_instruction<'i>(
@@ -395,11 +396,11 @@ async fn handle_transaction(manager: &Arc<ProgramTransformer>, data: Vec<RecvDat
     safe_metric(|| {
         statsd_gauge!("ingester.txn_batch_size", data.len() as u64);
     });
-    
+
     let tasks = FuturesUnordered::new();
     for item in data {
         let manager = Arc::clone(manager);
-        
+
         tasks.push(async move {
         let mut ids = Vec::new();
         if item.tries > 0 {
@@ -476,9 +477,10 @@ async fn handle_transaction(manager: &Arc<ProgramTransformer>, data: Vec<RecvDat
         ids
         });
     }
-    tasks.collect::<Vec<_>>()
-    .await
-    .into_iter()
-    .flatten()
-    .collect()
+    tasks
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
 }
