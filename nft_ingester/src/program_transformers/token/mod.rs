@@ -107,6 +107,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                             tokens::Column::SlotUpdated,
                             tokens::Column::Decimals,
                             tokens::Column::FreezeAuthority,
+                            tokens::Column::SlotUpdated,
                         ])
                         .to_owned(),
                 )
