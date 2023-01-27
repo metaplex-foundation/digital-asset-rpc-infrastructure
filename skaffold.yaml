@@ -25,6 +25,9 @@ build:
       dockerfile: Proxy.Dockerfile
 deploy:
   helm:
+    flags:
+      upgrade: ["--timeout", "60m"]
+      install: ["--timeout", "60m"]
     releases:
     - name: das-ingester
       chartPath: helm/ingest

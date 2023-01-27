@@ -67,6 +67,7 @@ spec:
             value: 127.0.0.1
           - name: APP_METRICS_PORT
             value: "8125"
+            
           - name: APP_SERVER_PORT
             value: "{{ .Values.app.server_port }}"
           - name: APP_DATABASE_URL
