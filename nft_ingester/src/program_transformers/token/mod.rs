@@ -45,7 +45,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 close_authority: Set(None),
             };
 
-            let query = token_accounts::Entity::insert(model)
+            let mut query = token_accounts::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([token_accounts::Column::Pubkey])
                         .update_columns([
@@ -62,7 +62,12 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                         .to_owned(),
                 )
                 .build(DbBackend::Postgres);
+            query.sql = format!(
+                "{} WHERE excluded.slot_updated > token_accounts.slot_updated",
+                query.sql
+            );
             txn.execute(query).await?;
+
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
                 .filter(asset::Column::OwnerType.eq("single"))
                 .one(&txn)
@@ -107,7 +112,6 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                             tokens::Column::SlotUpdated,
                             tokens::Column::Decimals,
                             tokens::Column::FreezeAuthority,
-                            tokens::Column::SlotUpdated,
                         ])
                         .to_owned(),
                 )

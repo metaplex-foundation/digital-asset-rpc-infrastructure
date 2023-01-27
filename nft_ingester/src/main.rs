@@ -158,9 +158,11 @@ async fn main() {
 
     let stream_size_timer = async move {
         let mut interval = time::interval(tokio::time::Duration::from_secs(10));
-        let mut messenger = RedisMessenger::new(config.messenger_config.clone()).await.unwrap();
+        let mut messenger = RedisMessenger::new(config.messenger_config.clone())
+            .await
+            .unwrap();
         loop {
-            interval.tick().await; 
+            interval.tick().await;
 
             let tx_size = messenger.stream_size(TRANSACTION_STREAM).await;
             let acc_size = messenger.stream_size(ACCOUNT_STREAM).await;
