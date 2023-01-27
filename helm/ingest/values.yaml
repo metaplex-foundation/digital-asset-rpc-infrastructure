@@ -17,6 +17,9 @@ ingest:
   db_url:
   redis_url:
   rpc_url:
+  message_wait_timeout: 10
+  batch_size: 100
+  idle_timeout: 5000
 
 serviceAccount:
   # Specifies whether a service account should be created

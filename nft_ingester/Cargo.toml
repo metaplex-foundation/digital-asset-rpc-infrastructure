@@ -64,3 +64,4 @@ mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-prog
 mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
 mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
 mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}
+plerkle_messenger = { git="https://github.com/metaplex-foundation/digital-asset-validator-plugin", branch="speed-exp"}

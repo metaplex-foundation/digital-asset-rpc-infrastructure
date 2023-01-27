@@ -29,7 +29,7 @@ use std::sync::Arc;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
-use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
+use tokio::{sync::mpsc::UnboundedSender, task::JoinSet, time};
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -156,6 +156,33 @@ async fn main() {
 
     let role = config.role.unwrap_or(IngesterRole::All);
 
+    let stream_size_timer = async move {
+        let mut interval = time::interval(tokio::time::Duration::from_secs(10));
+        let mut messenger = RedisMessenger::new(config.messenger_config.clone()).await.unwrap();
+        loop {
+            interval.tick().await; 
+
+            let tx_size = messenger.stream_size(TRANSACTION_STREAM).await;
+            let acc_size = messenger.stream_size(ACCOUNT_STREAM).await;
+            if tx_size.is_err() {
+                safe_metric(|| {
+                    statsd_count!("ingester.transaction_stream_size_error", 1);
+                });
+            }
+            if acc_size.is_err() {
+                safe_metric(|| {
+                    statsd_count!("ingester.account_stream_size_error", 1);
+                });
+            }
+            let tx_size = tx_size.unwrap_or(0);
+            let acc_size = acc_size.unwrap_or(0);
+            safe_metric(move || {
+                statsd_gauge!("ingester.transaction_stream_size", tx_size);
+                statsd_gauge!("ingester.account_stream_size", acc_size);
+            })
+        }
+    };
+
     match role {
         IngesterRole::All => {
             tasks.spawn(backfiller.await);
@@ -163,6 +190,7 @@ async fn main() {
             tasks.spawn(account_stream.await);
             tasks.spawn(background_task_manager_handle);
             tasks.spawn(background_task_manager.start_runner());
+            tasks.spawn(stream_size_timer);
         }
         IngesterRole::Backfiller => {
             tasks.spawn(backfiller.await);
@@ -309,7 +337,8 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
             safe_metric(|| {
                 statsd_time!(
                     "ingester.account_bus_ingest_time",
-                    (seen_at.timestamp_millis() - account_update.seen_at()) as u64
+                    (seen_at.timestamp_millis() - account_update.seen_at()) as u64,
+                    "owner" => &str_program_id
                 );
             });
             let begin_processing = Utc::now();
@@ -322,7 +351,7 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
                             let proc_time = (finish_processing.timestamp_millis()
                                 - begin_processing.timestamp_millis())
                                 as u64;
-                            statsd_time!("ingester.account_proc_time", proc_time);
+                            statsd_time!("ingester.account_proc_time", proc_time, "owner" => &str_program_id);
                         });
                         safe_metric(|| {
                             statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
