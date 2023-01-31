@@ -16,7 +16,6 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
     db: &'c DatabaseConnection,
     _task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
-    let txn = db.begin().await?;
     let key = *account_update.pubkey().unwrap();
     let key_bytes = key.0.to_vec();
     let spl_token_program = account_update.owner().unwrap().0.to_vec();
@@ -66,16 +65,16 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 "{} WHERE excluded.slot_updated > token_accounts.slot_updated",
                 query.sql
             );
-            txn.execute(query).await?;
+            db.execute(query).await?;
 
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
                 .filter(asset::Column::OwnerType.eq("single"))
-                .one(&txn)
+                .one(db)
                 .await?;
             if let Some(asset) = asset_update {
                 let mut active: asset::ActiveModel = asset.into();
                 active.owner = Set(Some(owner));
-                active.save(&txn).await?;
+                active.save(db).await?;
             }
             Ok(())
         }
