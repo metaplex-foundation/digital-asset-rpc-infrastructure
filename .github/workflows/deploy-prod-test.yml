@@ -1,0 +1,29 @@
+name: Deploy Mainnet Testing
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+env:
+  RUST_TOOLCHAIN: stable
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: mainnet
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.CROSSREPOTRIGGER }}
+          script: |
+            let params =  {
+              owner: "metaplex-foundation",
+              repo: "read-api-deployment"
+            };
+            await github.rest.repos.createDispatchEvent(Object.assign({
+              event_type: "deploy_trigger",
+              client_payload: {
+                DEPLOY_ENV: "mainnet",
+                DEPLOY_K8S_NAMESPACE: "mainnet-read-api",
+                DEPLOY_K8S_CLUSTER: "metaplex-prod-001",
+                DEPLOY_VERSION: "${{ github.sha }}"
+              }
+            }, params));
