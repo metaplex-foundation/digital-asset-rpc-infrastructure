@@ -119,11 +119,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 "{} WHERE excluded.slot_updated > tokens.slot_updated",
                 query.sql
             );
-            txn.execute(query).await?;
+            db.execute(query).await?;
             Ok(())
         }
         _ => Err(IngesterError::NotImplemented),
     }?;
-    txn.commit().await?;
     Ok(())
 }

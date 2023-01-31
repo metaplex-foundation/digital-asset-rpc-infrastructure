@@ -3,7 +3,6 @@ mod error;
 mod metrics;
 mod program_transformers;
 mod tasks;
-mod program_debouncer;
 use crate::{
     backfiller::backfiller,
     error::IngesterError,
