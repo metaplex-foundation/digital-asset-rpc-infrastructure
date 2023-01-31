@@ -3,7 +3,7 @@ mod error;
 mod metrics;
 mod program_transformers;
 mod tasks;
-
+mod program_debouncer;
 use crate::{
     backfiller::backfiller,
     error::IngesterError,
@@ -204,6 +204,8 @@ async fn main() {
             tasks.spawn(background_task_manager_handle);
             tasks.spawn(txn_stream.await);
             tasks.spawn(account_stream.await);
+            tasks.spawn(background_task_manager.start_runner());
+            tasks.spawn(stream_size_timer);
         }
     }
     let roles_str = role.to_string();
