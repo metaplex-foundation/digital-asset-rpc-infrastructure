@@ -100,9 +100,10 @@ pub fn track_top_level_file(
     top_level_file: Option<&serde_json::Value>,
 ) {
     if top_level_file.is_some() {
-        let img = top_level_file.and_then(|x| x.as_str()).unwrap();
-        let entry = file_map.get(img);
-        if entry.is_none() {
+        let img = top_level_file.and_then(|x| x.as_str());
+        let entry = img.map(|i| file_map.get(i));
+        if entry.is_none() && img.is_some() {
+            let img = img.unwrap();
             file_map.insert(img.to_string(), file_from_str(img.to_string()));
         }
     }
