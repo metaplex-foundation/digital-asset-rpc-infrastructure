@@ -2412,9 +2412,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "open-rpc-derive"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50793db8405db83c8478d90c1e8c171a70f812d4dadbf7c2a3de6853bf48819"
+checksum = "ae3de03a56750973a83c76a40fb4b81969d42fad152cd0e787e25c79dcf54e3f"
 dependencies = [
  "open-rpc-schema",
  "proc-macro2",
@@ -2424,9 +2424,9 @@ dependencies = [
 
 [[package]]
 name = "open-rpc-schema"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4be413a142d80e2418650d7f600739f244b4ae9d17f7cacdd37a13046d71709b"
+checksum = "e6919654a78166b8d8f266f702ce763c0880c11a2e75e1de9cc3e51704abf620"
 dependencies = [
  "schemars",
  "schemars_derive",

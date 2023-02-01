@@ -203,7 +203,6 @@ async fn main() {
             tasks.spawn(background_task_manager_handle);
             tasks.spawn(txn_stream.await);
             tasks.spawn(account_stream.await);
-            tasks.spawn(background_task_manager.start_runner());
             tasks.spawn(stream_size_timer);
         }
     }

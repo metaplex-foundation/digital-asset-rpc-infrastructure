@@ -6,6 +6,7 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
+use stretto::AsyncCache;
 
 use crate::{error::IngesterError, TaskData};
 use blockbuster::instruction::IxPair;
@@ -32,7 +33,8 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>
+    key_set: HashSet<Pubkey>,
+    cache: AsyncCache<>
 }
 
 impl ProgramTransformer {
