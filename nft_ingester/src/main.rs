@@ -198,12 +198,12 @@ async fn main() {
         }
         IngesterRole::BackgroundTaskRunner => {
             tasks.spawn(background_task_manager.start_runner());
+            tasks.spawn(stream_size_timer);
         }
         IngesterRole::Ingester => {
             tasks.spawn(background_task_manager_handle);
             tasks.spawn(txn_stream.await);
             tasks.spawn(account_stream.await);
-            tasks.spawn(stream_size_timer);
         }
     }
     let roles_str = role.to_string();

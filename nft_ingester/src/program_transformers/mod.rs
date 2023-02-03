@@ -33,8 +33,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>,
-    cache: AsyncCache<>
+    key_set: HashSet<Pubkey>
 }
 
 impl ProgramTransformer {
