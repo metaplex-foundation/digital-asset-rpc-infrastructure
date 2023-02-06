@@ -82,7 +82,7 @@ impl BgTask for DownloadMetadataTask {
 
     async fn task(
         &self,
-        db: &DatabaseTransaction,
+        db: &DatabaseConnection,
         data: serde_json::Value,
     ) -> Result<(), IngesterError> {
         let download_metadata: DownloadMetadata = serde_json::from_value(data)?;

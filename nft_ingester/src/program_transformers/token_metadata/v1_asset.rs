@@ -318,6 +318,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 asset_creators::Column::Position,
             ])
             .update_columns([
+                asset_creators::Column::AssetId,
                 asset_creators::Column::Creator,
                 asset_creators::Column::Share,
                 asset_creators::Column::Verified,

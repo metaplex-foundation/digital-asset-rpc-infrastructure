@@ -26,7 +26,7 @@ pub trait BgTask: Send + Sync {
     fn max_attempts(&self) -> i16;
     async fn task(
         &self,
-        db: &DatabaseTransaction,
+        db: &DatabaseConnection,
         data: serde_json::Value,
     ) -> Result<(), IngesterError>;
 }
@@ -71,7 +71,7 @@ pub struct TaskManager {
 
 impl TaskManager {
     async fn execute_task(
-        txn: &DatabaseTransaction,
+        db: &DatabaseConnection,
         task_def: &Box<dyn BgTask>,
         mut task: tasks::ActiveModel,
     ) -> Result<tasks::ActiveModel, IngesterError> {
@@ -91,7 +91,7 @@ impl TaskManager {
         }?;
 
         let start = Utc::now();
-        let res = task_def.task(txn, *data_json).await;
+        let res = task_def.task(&db, *data_json).await;
         let end = Utc::now();
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
@@ -321,14 +321,12 @@ impl TaskManager {
                                     // can ignore as txn will bubble up errors
                                     let active_model =
                                         TaskManager::save_task(&conn, active_model).await?;
-                                    let txn = conn.begin().await?;
                                     let model = TaskManager::execute_task(
-                                        &txn,
+                                        &conn,
                                         task_executor,
                                         active_model,
                                     )
                                     .await?;
-                                    txn.commit().await?;
                                     TaskManager::save_task(&conn, model).await?;
                                     return Ok(());
                                 }

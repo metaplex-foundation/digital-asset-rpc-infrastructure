@@ -283,27 +283,35 @@ async fn service_account_stream<T: Messenger>(
                 println!("Setting up account listener");
                 loop {
                     let mc = manager.clone();
-                    if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                        let dl = data.len();
-                        safe_metric(|| {
-                            statsd_count!("ingester.account_entries_claimed", dl as i64);
-                        });
-                        let s = Instant::now();
-                        let ids = handle_account(&mc, data).await;
-                        safe_metric(|| {
-                            statsd_time!("ingester.wall_batch_time", s.elapsed());
-                        });
-                        if !ids.is_empty() {
-                            if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
-                                println!("Error ACK-ing messages {:?}", e);
-                            } else {
-                                println!("ACK-ed messages {:?}", ids);
-                                safe_metric(|| {
-                                    statsd_count!("ingester.account_entries_acked", ids.len() as i64);
-                                });
+                    let rc = messenger.recv(ACCOUNT_STREAM).await;
+
+                    match rc {
+                        Ok(data) => {
+                            let dl = data.len();
+                            safe_metric(|| {
+                                statsd_count!("ingester.account_entries_claimed", dl as i64);
+                            });
+                            let s = Instant::now();
+    
+                            let ids = handle_account(&mc, data).await;
+                            safe_metric(|| {
+                                statsd_time!("ingester.wall_batch_time", s.elapsed());
+                            });
+                            if !ids.is_empty() {
+                                if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                                    println!("Error ACK-ing messages {:?}", e);
+                                } else {
+                                    println!("ACK-ed messages {:?}", ids);
+                                    safe_metric(|| {
+                                        statsd_count!("ingester.account_entries_acked", ids.len() as i64);
+                                    });
+                                }
                             }
                         }
-                    }
+                        Err(e) => {
+                            println!("Error receiving messages {:?}", e);
+                        }
+                    } 
                 }
             })
             .await;
@@ -355,17 +363,13 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
                     "owner" => &str_program_id
                 );
             });
-            let begin_processing = Utc::now();
+            let begin_processing = Instant::now();
             let res = manager.handle_account_update(account_update).await;
-            let finish_processing = Utc::now();
             match res {
                 Ok(_) => {
                     if item.tries == 0 {
                         safe_metric(|| {
-                            let proc_time = (finish_processing.timestamp_millis()
-                                - begin_processing.timestamp_millis())
-                                as u64;
-                            statsd_time!("ingester.account_proc_time", proc_time, "owner" => &str_program_id);
+                            statsd_time!("ingester.account_proc_time", begin_processing.elapsed().as_millis() as u64, "owner" => &str_program_id);
                         });
                         safe_metric(|| {
                             statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
