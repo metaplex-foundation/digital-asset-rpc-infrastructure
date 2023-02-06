@@ -32,35 +32,6 @@ spec:
         configMap:
           name: {{ include "api.fullname" . }}-proxy-config
       containers:
-        - name: datadog
-          image: gcr.io/datadoghq/dogstatsd:latest
-          resources:
-            limits:
-              cpu: 1
-              memory: 2048Mi
-            requests:
-              cpu: 500m
-              memory: 1024Mi
-          env:
-          - name: "DD_API_KEY"
-            value: "{{ .Values.metrics.data_dog_api_key }}"
-          ports:
-          - containerPort: 8125
-            name: dogstatsdport
-            protocol: UDP
-        - name: proxy
-          image: "{{ .Values.proxy.image }}"
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          volumeMounts:
-            - name: config-volume
-              mountPath: /etc/envoy.yaml
-              subPath: envoy.yaml
-          ports:
-            - name: proxy
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          resources:
-            {{- toYaml .Values.proxy.resources | nindent 12 }}
         - name: {{ .Chart.Name }}
           env:
           - name: APP_METRICS_HOST
@@ -94,7 +65,37 @@ spec:
               path: /health
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}     
+        - name: datadog
+          image: gcr.io/datadoghq/dogstatsd:latest
+          resources:
+            limits:
+              cpu: 1
+              memory: 2048Mi
+            requests:
+              cpu: 500m
+              memory: 1024Mi
+          env:
+          - name: "DD_API_KEY"
+            value: "{{ .Values.metrics.data_dog_api_key }}"
+          ports:
+          - containerPort: 8125
+            name: dogstatsdport
+            protocol: UDP
+        - name: proxy
+          image: "{{ .Values.proxy.image }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.proxy.resources | nindent 12 }}
+        
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
