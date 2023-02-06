@@ -19,23 +19,24 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     db: &'c DatabaseConnection,
     task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
-    let txn = db.begin().await?;
+    
     let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
         // TokenMetadataAccountData::EditionV1(e) => {}
         TokenMetadataAccountData::MasterEditionV1(m) => {
+            let txn = db.begin().await?;
             save_v1_master_edition(key, account_update.slot(), m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
             let task =
-                save_v1_asset(m.mint.as_ref().into(), account_update.slot(), m, &txn).await?;
-            txn.commit().await?;
+                save_v1_asset(db, m.mint.as_ref().into(), account_update.slot(), m).await?;
             task_manager.send(task)?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {
+            let txn = db.begin().await?;
             save_v2_master_edition(key, account_update.slot(), m, &txn).await?;
             txn.commit().await?;
             Ok(())

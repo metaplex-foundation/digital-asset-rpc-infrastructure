@@ -36,12 +36,13 @@ struct OwnershipTokenModel {
     token_account_amount: i64,
 }
 
-pub async fn save_v1_asset(
+pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
     id: FBPubkey,
     slot: u64,
     metadata: &Metadata,
-    txn: &DatabaseTransaction,
-) -> Result<TaskData, IngesterError> {
+)-> Result<TaskData, IngesterError>
+ {
     let metadata = metadata.clone();
     let data = metadata.data;
     let meta_mint_pubkey = metadata.mint;
@@ -84,7 +85,7 @@ pub async fn save_v1_asset(
                         .into(),
                 )
                 .into_model::<OwnershipTokenModel>()
-                .one(txn)
+                .one(conn)
                 .await?;
 
             Ok(result.map(|t| {
@@ -117,7 +118,7 @@ pub async fn save_v1_asset(
             }))
         }
         _ => {
-            let token = tokens::Entity::find_by_id(mint.clone()).one(txn).await?;
+            let token = tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
             Ok(token.map(|t| (t, None)))
         }
     }
@@ -171,6 +172,8 @@ pub async fn save_v1_asset(
         slot_updated: Set(slot_i),
         id: Set(id.to_vec()),
     };
+
+    let txn = conn.begin().await?;
     let mut query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
@@ -274,7 +277,7 @@ pub async fn save_v1_asset(
         let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
             .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
             .filter(asset_creators::Column::SlotUpdated.lt(slot_i))
-            .all(txn)
+            .all(&txn)
             .await?;
         let existing_len = existing_creators.len();
         let incoming_len = creators.len();
@@ -287,7 +290,7 @@ pub async fn save_v1_asset(
                         .add(asset_creators::Column::Position.gte(idx_to_delete as i16))
                         .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
                 )
-                .exec(txn)
+                .exec(&txn)
                 .await?;
         }
         for (i, c) in creators.into_iter().enumerate() {
@@ -389,6 +392,7 @@ pub async fn save_v1_asset(
             }
         }
     }
+    txn.commit().await?;
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
