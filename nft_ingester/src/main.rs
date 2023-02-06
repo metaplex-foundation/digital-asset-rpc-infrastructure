@@ -379,14 +379,26 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
                 }
                 Err(err) if err == IngesterError::NotImplemented => {
                     safe_metric(|| {
-                        statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id);
+                        statsd_count!("ingester.account_not_implemented", 1, "owner" => &str_program_id, "error" => "ni");
+                    });
+                    ids.push(id);
+                }
+                Err(IngesterError::DeserializationError(_)) => {
+                    safe_metric(|| {
+                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "de");
+                    });
+                    ids.push(id);
+                }
+                Err(IngesterError::ParsingError(_)) => {
+                    safe_metric(|| {
+                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "parse");
                     });
                     ids.push(id);
                 }
                 Err(err) => {
                     println!("Error handling account update: {:?}", err);
                     safe_metric(|| {
-                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id);
+                        statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "u");
                     });
                 }
             
