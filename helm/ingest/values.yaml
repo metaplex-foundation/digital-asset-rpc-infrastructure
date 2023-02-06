@@ -20,6 +20,7 @@ ingest:
   message_wait_timeout: 10
   batch_size: 100
   idle_timeout: 5000
+  max_postgres_connections: 100
 
 serviceAccount:
   # Specifies whether a service account should be created

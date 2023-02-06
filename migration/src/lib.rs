@@ -13,6 +13,7 @@ mod m20230105_160722_drop_collection_info;
 mod m20230106_051135_unique_groupings;
 mod m20230131_140613_change_token_account_indexes;
 mod m20230203_205959_improve_upsert_perf;
+// mod m20230206_093340_raw_update_table;
 
 pub struct Migrator;
 
@@ -32,7 +33,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230105_160722_drop_collection_info::Migration),
             Box::new(m20230106_051135_unique_groupings::Migration),
             Box::new(m20230131_140613_change_token_account_indexes::Migration),
-            Box::new(m20230203_205959_improve_upsert_perf::Migration)
+            Box::new(m20230203_205959_improve_upsert_perf::Migration),
+            // Box::new(m20230206_093340_raw_update_table::Migration),
         ]
     }
 }
