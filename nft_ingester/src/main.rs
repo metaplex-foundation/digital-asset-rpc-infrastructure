@@ -27,7 +27,7 @@ use std::{sync::Arc};
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
-use tokio::{sync::{mpsc::UnboundedSender, Semaphore}, task::JoinSet, time};
+use tokio::{sync::{mpsc::UnboundedSender, Semaphore}, task::JoinSet, time::{self, Instant}};
 
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
@@ -282,11 +282,25 @@ async fn service_account_stream<T: Messenger>(
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
                 println!("Setting up account listener");
                 loop {
+                    let mc = manager.clone();
                     if let Ok(data) = messenger.recv(ACCOUNT_STREAM).await {
-                        let ids = handle_account(&manager, data).await;
+                        let dl = data.len();
+                        safe_metric(|| {
+                            statsd_count!("ingester.account_entries_claimed", dl as i64);
+                        });
+                        let s = Instant::now();
+                        let ids = handle_account(&mc, data).await;
+                        safe_metric(|| {
+                            statsd_time!("ingester.wall_batch_time", s.elapsed());
+                        });
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                                 println!("Error ACK-ing messages {:?}", e);
+                            } else {
+                                println!("ACK-ed messages {:?}", ids);
+                                safe_metric(|| {
+                                    statsd_count!("ingester.account_entries_acked", ids.len() as i64);
+                                });
                             }
                         }
                     }
