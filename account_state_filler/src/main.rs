@@ -1,5 +1,5 @@
 use blockbuster::program_handler::ProgramParser;
-use blockbuster::programs::token_account::TokenAccountParser;
+use blockbuster::programs::token_account::{TokenAccountParser, TokenProgramAccount};
 use blockbuster::programs::token_metadata::TokenMetadataParser;
 use blockbuster::programs::ProgramParseResult;
 use blockbuster::token_metadata::solana_program::pubkey::Pubkey;
@@ -9,23 +9,24 @@ use plerkle_serialization::root_as_account_info;
 use reqwest;
 use solana_snapshot_etl::append_vec::{AppendVec, StoredAccountMeta};
 use solana_snapshot_etl::archived::ArchiveSnapshotExtractor;
-use solana_snapshot_etl::SnapshotExtractor;
+use solana_snapshot_etl::{SnapshotExtractor, append_vec_iter};
+use solana_snapshot_etl::parallel::{AppendVecConsumer, GenericResult};
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::env;
+use std::rc::Rc;
 use std::sync::Arc;
 
 struct Worker<'a> {
     db: &'a Pool<Postgres>,
-    progress: Arc<Progress>,
+    progress: Arc<ProgressBar>,
+    conn: 
 }
 
 impl<'a> AppendVecConsumer for Worker<'a> {
     fn on_append_vec(&mut self, append_vec: AppendVec) -> GenericResult<()> {
         for acc in append_vec_iter(Rc::new(append_vec)) {
             let meta: &StoredAccountMeta = &acc.access().unwrap();
-            self.progress.accounts_counter.inc();
-
-            let conn = self.db.acquire().await?;
+            self.progress.inc(1);
             let c =
                 plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2 {
                     pubkey: meta.account_meta.pubkey,
@@ -47,7 +48,14 @@ impl<'a> AppendVecConsumer for Worker<'a> {
             let key = Pubkey::new(c.pubkey);
             if token.key_match(&key) {
                 if let ProgramParseResult::TokenProgramAccount(pr) = token.handle_account(&acct)? {
-                    match 
+                    match pr {
+                        TokenProgramAccount::Mint(mint) => {
+
+                        }
+                        TokenProgramAccount::Account(account) => {
+
+                        }
+                    }
                     
                 }
             }
@@ -60,21 +68,12 @@ impl<'a> AppendVecConsumer for Worker<'a> {
         Ok(())
     }
 }
-
-fn main() {
-    //let url = env::var("SNAPSHOT_URL").unwrap();
-    let url = config
-        .database_config
-        .get(DATABASE_URL_KEY)
-        .and_then(|u| u.clone().into_string())
-        .ok_or(IngesterError::ConfigurationError {
-            msg: format!("Database connection string missing: {}", DATABASE_URL_KEY),
-        })
-        .unwrap();
-
+#[tokio::main]
+async fn main() {
+    
     let pool = PgPoolOptions::new()
-        .max_connections(config.max_postgres_connections.unwrap_or(100))
-        .connect(&url)
+        .max_connections(1000)
+        .connect("postgres://postgres:postgres@localhost:5432/solana")
         .await
         .unwrap();
 
