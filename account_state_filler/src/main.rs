@@ -4,6 +4,7 @@ use blockbuster::programs::token_metadata::TokenMetadataParser;
 use blockbuster::programs::ProgramParseResult;
 use blockbuster::token_metadata::solana_program::pubkey::Pubkey;
 use figment::{providers::Env, value::Value, Figment};
+use flatbuffers::FlatBufferBuilder;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use plerkle_serialization::root_as_account_info;
 use reqwest;
@@ -11,6 +12,7 @@ use solana_snapshot_etl::append_vec::{AppendVec, StoredAccountMeta};
 use solana_snapshot_etl::archived::ArchiveSnapshotExtractor;
 use solana_snapshot_etl::{SnapshotExtractor, append_vec_iter};
 use solana_snapshot_etl::parallel::{AppendVecConsumer, GenericResult};
+use sqlx::pool::PoolConnection;
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::env;
 use std::rc::Rc;
@@ -18,8 +20,7 @@ use std::sync::Arc;
 
 struct Worker<'a> {
     db: &'a Pool<Postgres>,
-    progress: Arc<ProgressBar>,
-    conn: 
+    progress: Arc<ProgressBar>
 }
 
 impl<'a> AppendVecConsumer for Worker<'a> {
@@ -27,11 +28,12 @@ impl<'a> AppendVecConsumer for Worker<'a> {
         for acc in append_vec_iter(Rc::new(append_vec)) {
             let meta: &StoredAccountMeta = &acc.access().unwrap();
             self.progress.inc(1);
+            
             let c =
                 plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2 {
-                    pubkey: meta.account_meta.pubkey,
+                    pubkey: meta.meta.pubkey.as_ref(),
                     lamports: meta.account_meta.lamports,
-                    owner: meta.account_meta.owner,
+                    owner: meta.account_meta.owner.as_ref(),
                     executable: meta.account_meta.executable,
                     rent_epoch: 0,
                     data: meta.data,
@@ -40,28 +42,29 @@ impl<'a> AppendVecConsumer for Worker<'a> {
                 };
             let mut builder = FlatBufferBuilder::new();
             let sera =
-                plerkle_serialization::serializer::serialize_account(&mut builder, &c, 0, false);
+                plerkle_serialization::serializer::serialize_account(builder, &c, 0, false);
             let buf = sera.finished_data();
             let obj = root_as_account_info(buf).unwrap();
             let token_metadata = TokenMetadataParser {};
             let token = TokenAccountParser {};
             let key = Pubkey::new(c.pubkey);
+            let result = token.handle_account(&obj)?;
+            let concrete = result.result_type();
             if token.key_match(&key) {
-                if let ProgramParseResult::TokenProgramAccount(pr) = token.handle_account(&acct)? {
+                if let ProgramParseResult::TokenProgramAccount(pr) = concrete {
                     match pr {
                         TokenProgramAccount::Mint(mint) => {
 
                         }
-                        TokenProgramAccount::Account(account) => {
+                        TokenProgramAccount::TokenAccount(account) => {
 
                         }
                     }
                     
                 }
-            }
-            if token_metadata.key_match(&key) {
+            } else if token_metadata.key_match(&key) {
                 if let ProgramParseResult::TokenMetadata(pr) =
-                    token_metadata.handle_account(&acct)?
+                concrete
                 {}
             }
         }
@@ -88,6 +91,6 @@ async fn main() {
     let ai = loader.iter();
 
     for append_vec in ai {
-        worker.on_append_vec(append_vec?)?;
+        worker.on_append_vec(append_vec)?;
     }
 }
