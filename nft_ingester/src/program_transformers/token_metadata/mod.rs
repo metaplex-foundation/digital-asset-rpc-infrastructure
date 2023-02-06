@@ -4,7 +4,7 @@ mod v1_asset;
 use crate::{
     program_transformers::token_metadata::{
         master_edition::{save_v1_master_edition, save_v2_master_edition},
-        v1_asset::save_v1_asset,
+        v1_asset::{save_v1_asset, burn_v1_asset},
     },
     IngesterError, TaskData,
 };
@@ -22,7 +22,10 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     
     let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
-        // TokenMetadataAccountData::EditionV1(e) => {}
+        TokenMetadataAccountData::EmptyAccount => {
+            burn_v1_asset(db, key, account_update.slot()).await?;
+            Ok(())
+        }
         TokenMetadataAccountData::MasterEditionV1(m) => {
             let txn = db.begin().await?;
             save_v1_master_edition(key, account_update.slot(), m, &txn).await?;

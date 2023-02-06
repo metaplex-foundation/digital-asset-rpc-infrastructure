@@ -36,6 +36,35 @@ struct OwnershipTokenModel {
     token_account_amount: i64,
 }
 
+pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    id: FBPubkey,
+    slot: u64,
+) -> Result<(), IngesterError> {
+    let id = id.0;
+    let slot_i = slot as i64;
+    let model = asset::ActiveModel {
+        id: Set(id.to_vec()),
+        slot_updated: Set(slot_i),
+        burnt: Set(true),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([asset::Column::SlotUpdated, asset::Column::Burnt])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset.slot_updated",
+        query.sql
+    );
+    conn.execute(query).await?;
+    Ok(())
+}
+
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     id: FBPubkey,

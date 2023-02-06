@@ -571,8 +571,8 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.7.2"
-source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#e3ffaa9b1953f172e34794dab616f488f1f2328f"
+version = "0.7.3"
+source = "git+https://github.com/metaplex-foundation/blockbuster?branch=1.14#91c96fde6511641f0150c57934ea5b88be578520"
 dependencies = [
  "anchor-lang",
  "async-trait",
