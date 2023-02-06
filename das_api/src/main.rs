@@ -19,7 +19,6 @@ use {
 
 use hyper::{http, Method};
 use log::{debug, info};
-use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
 use jsonrpsee::server::{
