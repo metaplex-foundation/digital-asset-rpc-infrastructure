@@ -83,9 +83,9 @@ fn setup_metrics(config: &IngesterConfig) {
         let host = (uri.unwrap(), port.unwrap());
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
-
+        let cons = config.messenger_config.connection_config.get("consumer_id").unwrap().as_str().unwrap();
         let builder = StatsdClient::builder("das_ingester", queuing_sink);
-        let client = builder.with_tag("env", env).build();
+        let client = builder.with_tag("env", env).with_tag("consumer_id", cons).build();
         set_global_default(client);
     }
 }
@@ -114,16 +114,18 @@ async fn main() {
         .connection_config
         .insert("consumer_id".to_string(), Value::from(rand_string()));
 
+    let url = config
+    .database_config
+    .get(DATABASE_URL_KEY)
+    .and_then(|u| u.clone().into_string())
+    .ok_or(IngesterError::ConfigurationError {
+        msg: format!("Database connection string missing: {}", DATABASE_URL_KEY),
+    })
+    .unwrap();
+
     setup_metrics(&config);
 
-    let url = config
-        .database_config
-        .get(DATABASE_URL_KEY)
-        .and_then(|u| u.clone().into_string())
-        .ok_or(IngesterError::ConfigurationError {
-            msg: format!("Database connection string missing: {}", DATABASE_URL_KEY),
-        })
-        .unwrap();
+   
 
     let pool = PgPoolOptions::new()
         .max_connections(config.max_postgres_connections.unwrap_or(100))
@@ -333,8 +335,6 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) 
                 bs58::encode(account_update.owner().unwrap().0.as_slice()).into_string();
             safe_metric(|| {
                 statsd_count!("ingester.account_update_seen", 1, "owner" => &str_program_id);
-            });
-            safe_metric(|| {
                 statsd_time!(
                     "ingester.account_bus_ingest_time",
                     (seen_at.timestamp_millis() - account_update.seen_at()) as u64,
