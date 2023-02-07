@@ -170,7 +170,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         },
         None => (NotSet, NotSet),
     };
-
     let mut chain_data = ChainDataV1 {
         name: data.name,
         symbol: data.symbol,
@@ -190,7 +189,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         true => ChainMutability::Mutable,
         false => ChainMutability::Immutable,
     };
-
     let asset_data_model = asset_data::ActiveModel {
         chain_data_mutability: Set(chain_mutability),
         chain_data: Set(chain_data_json),
@@ -220,8 +218,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         query.sql
     );
     let _res = txn.execute(query).await?;
-
-    // Insert into `asset` table.
     let model = asset::ActiveModel {
         id: Set(id.to_vec()),
         owner,
@@ -246,7 +242,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         burnt: Set(false),
         ..Default::default()
     };
-
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
@@ -294,7 +289,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         )
         .build(DbBackend::Postgres);
     txn.execute(query).await?;
-    // Insert into `asset_authority` table.
     let model = asset_authority::ActiveModel {
         asset_id: Set(id.to_vec()),
         authority: Set(authority),
@@ -318,7 +312,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         query.sql
     );
     txn.execute(query).await?;
-    // Insert into `asset_grouping` table.
     if let Some(c) = &metadata.collection {
         if c.verified {
             let model = asset_grouping::ActiveModel {
@@ -329,7 +322,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 slot_updated: Set(slot_i),
                 ..Default::default()
             };
-
             let mut query = asset_grouping::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([
@@ -353,7 +345,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         }
     }
     txn.commit().await?;
-    // Insert into `asset_creators` table.
     let creators = data.creators.unwrap_or_default();
     let mut db_creators = Vec::with_capacity(creators.len());
     if !creators.is_empty() {
@@ -394,33 +385,34 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             creators_set.insert(c.address);
         }
     }
+    if db_creators.len() > 0 {
+        let mut query = asset_creators::Entity::insert_many(db_creators)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+            query.sql
+        );
+        conn.execute(query).await?;
+    }
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
         created_at: Some(Utc::now().naive_utc()),
     };
-    let mut query = asset_creators::Entity::insert_many(db_creators)
-        .on_conflict(
-            OnConflict::columns([
-                asset_creators::Column::AssetId,
-                asset_creators::Column::Position,
-            ])
-            .update_columns([
-                asset_creators::Column::AssetId,
-                asset_creators::Column::Creator,
-                asset_creators::Column::Share,
-                asset_creators::Column::Verified,
-                asset_creators::Column::Seq,
-                asset_creators::Column::SlotUpdated,
-            ])
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
-        query.sql
-    );
-    conn.execute(query).await?;
     task.sanitize();
     task.into_task_data()
 }
