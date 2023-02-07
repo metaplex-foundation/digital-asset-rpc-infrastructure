@@ -301,7 +301,6 @@ async fn service_account_stream<T: Messenger>(
                                 if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
                                     println!("Error ACK-ing messages {:?}", e);
                                 } else {
-                                    println!("ACK-ed messages {:?}", ids);
                                     safe_metric(|| {
                                         statsd_count!("ingester.account_entries_acked", ids.len() as i64);
                                     });
