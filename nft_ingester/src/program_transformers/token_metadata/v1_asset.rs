@@ -19,8 +19,8 @@ use digital_asset_types::{
 use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseTransaction, DbBackend, DbErr, EntityTrait, JsonValue,
+    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
+    DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
 
@@ -346,7 +346,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
     txn.commit().await?;
     let creators = data.creators.unwrap_or_default();
-    let mut db_creators = Vec::with_capacity(creators.len());
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
         let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
@@ -354,59 +353,59 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .filter(asset_creators::Column::SlotUpdated.lt(slot_i))
             .all(conn)
             .await?;
-        let existing_len = existing_creators.len();
-        let incoming_len = creators.len();
-        if existing_len > incoming_len {
-            let idx_to_delete = (existing_len - incoming_len) - 1;
+        if existing_creators.len() > 0 {
+            let mut db_creators = Vec::with_capacity(creators.len());
+            let txn = conn.begin().await?;
             asset_creators::Entity::delete_many()
                 .filter(
                     Condition::all()
                         .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::Position.gte(idx_to_delete as i16))
                         .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
                 )
-                .exec(conn)
+                .exec(&txn)
                 .await?;
-        }
-        for (i, c) in creators.into_iter().enumerate() {
-            if creators_set.contains(&c.address) {
-                continue;
+
+            for (i, c) in creators.into_iter().enumerate() {
+                if creators_set.contains(&c.address) {
+                    continue;
+                }
+                db_creators.push(asset_creators::ActiveModel {
+                    asset_id: Set(id.to_vec()),
+                    creator: Set(c.address.to_bytes().to_vec()),
+                    share: Set(c.share as i32),
+                    verified: Set(c.verified),
+                    seq: Set(0), // do we need this here @micheal-danenberg?
+                    slot_updated: Set(slot_i),
+                    position: Set(i as i16),
+                    ..Default::default()
+                });
+                creators_set.insert(c.address);
             }
-            db_creators.push(asset_creators::ActiveModel {
-                asset_id: Set(id.to_vec()),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                seq: Set(0), // do we need this here @micheal-danenberg?
-                slot_updated: Set(slot_i),
-                position: Set(i as i16),
-                ..Default::default()
-            });
-            creators_set.insert(c.address);
+            if db_creators.len() > 0 {
+                let mut query = asset_creators::Entity::insert_many(db_creators)
+                    .on_conflict(
+                        OnConflict::columns([
+                            asset_creators::Column::AssetId,
+                            asset_creators::Column::Position,
+                        ])
+                        .update_columns([
+                            asset_creators::Column::Creator,
+                            asset_creators::Column::Share,
+                            asset_creators::Column::Verified,
+                            asset_creators::Column::Seq,
+                            asset_creators::Column::SlotUpdated,
+                        ])
+                        .to_owned(),
+                    )
+                    .build(DbBackend::Postgres);
+                query.sql = format!(
+                    "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+                    query.sql
+                );
+                txn.execute(query).await?;
+                txn.commit().await?;
+            }
         }
-    }
-    if db_creators.len() > 0 {
-        let mut query = asset_creators::Entity::insert_many(db_creators)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_creators::Column::AssetId,
-                    asset_creators::Column::Position,
-                ])
-                .update_columns([
-                    asset_creators::Column::Creator,
-                    asset_creators::Column::Share,
-                    asset_creators::Column::Verified,
-                    asset_creators::Column::Seq,
-                    asset_creators::Column::SlotUpdated,
-                ])
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-            "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
-            query.sql
-        );
-        conn.execute(query).await?;
     }
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),

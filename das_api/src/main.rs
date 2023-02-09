@@ -127,6 +127,7 @@ async fn main() -> Result<(), DasApiError> {
 
     let server = ServerBuilder::default()
         .set_middleware(middleware)
+        .set_logger(MetricMiddleware)
         .build(addr)
         .await?;
 
