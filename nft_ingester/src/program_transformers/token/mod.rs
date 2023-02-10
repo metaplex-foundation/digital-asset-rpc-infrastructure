@@ -88,7 +88,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::None => None,
             };
             let model = tokens::ActiveModel {
-                mint: Set(key_bytes),
+                mint: Set(key_bytes.clone()),
                 token_program: Set(spl_token_program),
                 slot_updated: Set(account_update.slot() as i64),
                 supply: Set(m.supply as i64),
@@ -120,6 +120,15 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 query.sql
             );
             db.execute(query).await?;
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes)
+                .filter(asset::Column::OwnerType.eq("single"))
+                .one(db)
+                .await?;
+            if let Some(asset) = asset_update {
+                let mut active: asset::ActiveModel = asset.into();
+                active.supply = Set(m.supply as i64);
+                active.save(db).await?;
+            }
             Ok(())
         }
         _ => Err(IngesterError::NotImplemented),

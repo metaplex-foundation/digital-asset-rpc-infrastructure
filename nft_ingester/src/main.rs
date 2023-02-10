@@ -20,6 +20,7 @@ use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM,
     TRANSACTION_STREAM,
 };
+use plerkle_messenger::ConsumptionType;
 use plerkle_serialization::{root_as_account_info, root_as_transaction_info, Pubkey as FBPubkey, solana_geyser_plugin_interface_shims::SlotStatus};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
@@ -27,8 +28,7 @@ use std::{sync::Arc};
 use sqlx::{self, postgres::PgPoolOptions, Pool, Postgres};
 use std::fmt::{Display, Formatter};
 use std::net::UdpSocket;
-use tokio::{sync::{mpsc::UnboundedSender, Semaphore}, task::JoinSet, time::{self, Instant}};
-
+use tokio::{sync::{mpsc::UnboundedSender}, task::JoinSet, time::{self, Instant}};
 // Types and constants used for Figment configuration items.
 pub type DatabaseConfig = figment::value::Dict;
 
@@ -241,7 +241,7 @@ async fn service_transaction_stream<T: Messenger>(
                 println!("Setting up transaction listener");
 
                 loop {
-                    if let Ok(data) = messenger.recv(TRANSACTION_STREAM).await {
+                    if let Ok(data) = messenger.recv(TRANSACTION_STREAM, ConsumptionType::All).await {
                         let ids = handle_transaction(&manager, data).await;
                         if !ids.is_empty() {
                             if let Err(e) = messenger.ack_msg(TRANSACTION_STREAM, &ids).await {
@@ -283,8 +283,7 @@ async fn service_account_stream<T: Messenger>(
                 println!("Setting up account listener");
                 loop {
                     let mc = manager.clone();
-                    let rc = messenger.recv(ACCOUNT_STREAM).await;
-
+                    let rc = messenger.recv(ACCOUNT_STREAM, ConsumptionType::All).await;
                     match rc {
                         Ok(data) => {
                             let dl = data.len();
@@ -292,7 +291,7 @@ async fn service_account_stream<T: Messenger>(
                                 statsd_count!("ingester.account_entries_claimed", dl as i64);
                             });
                             let s = Instant::now();
-    
+
                             let ids = handle_account(&mc, data).await;
                             safe_metric(|| {
                                 statsd_time!("ingester.wall_batch_time", s.elapsed());
