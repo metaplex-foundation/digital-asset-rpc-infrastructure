@@ -1,4 +1,4 @@
-use crate::{error::IngesterError, safe_metric};
+use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
 use cadence_macros::{statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
@@ -8,7 +8,7 @@ use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
 };
-
+use cadence_macros::is_global_default_set;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -96,14 +96,14 @@ impl TaskManager {
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
         ));
-        safe_metric(|| {
+        metric! {
             statsd_histogram!("ingester.bgtask.proc_time", (end.timestamp_millis() - start.timestamp_millis()) as u64, "type" => task_name);
-        });
+        }
         match res {
             Ok(_) => {
-                safe_metric(|| {
+                metric! {
                     statsd_count!("ingester.bgtask.success", 1, "type" => task_name);
-                });
+                }
                 task.status = Set(TaskStatus::Success);
                 task.errors = Set(None);
                 task.locked_until = Set(None);
@@ -117,9 +117,9 @@ impl TaskManager {
                 } else {
                     task.locked_by = Set(None);
                 }
-                safe_metric(|| {
+                metric! {
                     statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
-                });
+                }
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
@@ -249,9 +249,9 @@ impl TaskManager {
                 if let Some(task_created_time) = task.created_at {
                     let bus_time =
                         Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
-                    safe_metric(|| {
+                    metric! {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
-                    });
+                    }
                 }
                 let name = instance_name.clone();
                 if let Ok(hash) = task.hash() {
@@ -261,9 +261,9 @@ impl TaskManager {
                         .one(&conn)
                         .await;
                     if let Ok(Some(e)) = task_entry {
-                        safe_metric(|| {
+                        metric! {
                             statsd_count!("ingester.bgtask.identical", 1, "type" => &e.task_type);
-                        });
+                        }
                         continue;
                     }
                     TaskManager::new_task_handler(

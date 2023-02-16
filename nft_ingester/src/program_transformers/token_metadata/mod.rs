@@ -4,7 +4,7 @@ mod v1_asset;
 use crate::{
     program_transformers::token_metadata::{
         master_edition::{save_v1_master_edition, save_v2_master_edition},
-        v1_asset::{save_v1_asset, burn_v1_asset},
+        v1_asset::{burn_v1_asset, save_v1_asset},
     },
     IngesterError, TaskData,
 };
@@ -19,7 +19,6 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     db: &'c DatabaseConnection,
     task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
-    
     let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
         TokenMetadataAccountData::EmptyAccount => {
@@ -33,8 +32,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            let task =
-                save_v1_asset(db, m.mint.as_ref().into(), account_update.slot(), m).await?;
+            let task = save_v1_asset(db, m.mint.as_ref().into(), account_update.slot(), m).await?;
             task_manager.send(task)?;
             Ok(())
         }

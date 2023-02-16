@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use sea_orm::{DatabaseConnection, TransactionTrait, ConnectionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
@@ -21,12 +21,15 @@ pub use db::*;
 
 use crate::{IngesterError, TaskData};
 
-pub async fn handle_bubblegum_instruction<'c>(
+pub async fn handle_bubblegum_instruction<'c, T>(
     parsing_result: &'c BubblegumInstruction,
     bundle: &'c InstructionBundle<'c>,
-    db: &DatabaseConnection,
+    db: &T,
     task_manager: &UnboundedSender<TaskData>,
-) -> Result<(), IngesterError> {
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     let ix_type = &parsing_result.instruction;
     let txn = db.begin().await?;
     match ix_type {

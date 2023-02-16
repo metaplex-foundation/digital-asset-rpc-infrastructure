@@ -4,8 +4,9 @@ use crate::{
     error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
     RPC_URL_KEY,
 };
+use anchor_lang::Discriminator;
 use borsh::BorshDeserialize;
-use cadence_macros::statsd_count;
+use cadence_macros::{statsd_count, statsd_gauge};
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
@@ -288,26 +289,31 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             interval.tick().await;
             let _permit = sem.acquire().await.unwrap();
             println!("Looking for missing trees...");
-            let txn = self.db.begin().await.unwrap();
-            if let Ok(missing_trees) = self.get_missing_trees(&txn).await {
-                let len = missing_trees.len();
-                statsd_count!("ingester.backfiller.missing_trees", len as i64);
-                println!("Found {} missing trees", len);
-                if len > 0 {
-                    let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
+            let missing = self.get_missing_trees(&self.db).await;
 
-                    txn.commit().await;
-                    match res {
-                        Ok(_x) => {
-                            println!("Set {} trees to backfill from 0", len);
-                        }
-                        Err(e) => {
-                            println!("Error setting trees to backfill from 0: {}", e);
+            match missing {
+                Ok(missing_trees) => {
+                    let txn = self.db.begin().await.unwrap();
+                    let len = missing_trees.len();
+                    statsd_gauge!("ingester.backfiller.missing_trees", len as f64);
+                    println!("Found {} missing trees", len);
+                    if len > 0 {
+                        let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
+
+                        txn.commit().await;
+                        match res {
+                            Ok(_x) => {
+                                println!("Set {} trees to backfill from 0", len);
+                            }
+                            Err(e) => {
+                                println!("Error setting trees to backfill from 0: {}", e);
+                            }
                         }
                     }
                 }
-            } else {
-                println!("Error getting missing trees");
+                Err(e) => {
+                    println!("Error getting missing trees: {}", e);
+                }
             }
         }
     }
@@ -346,7 +352,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                                 let tree = &backfill_tree.unique_tree.tree;
                                 let tree_string = bs58::encode(&tree).into_string();
                                 println!("Backfilling tree: {tree_string}");
-
                                 // Call different methods based on whether tree needs to be backfilled
                                 // completely from seq number 1 or just have any gaps in seq number
                                 // filled.
@@ -476,7 +481,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         cn: &impl ConnectionTrait,
     ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
-
+        println!("number of trees: {}", all_trees.len());
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
@@ -712,10 +717,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
     async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, u64>, IngesterError> {
         let config = RpcProgramAccountsConfig {
-            filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                0,
-                vec![1u8],
-            ))]),
+            filters: Some(vec![RpcFilterType::DataSize(mpl_bubblegum::state::TREE_AUTHORITY_SIZE as u64)]),
             account_config: RpcAccountInfoConfig {
                 encoding: Some(UiAccountEncoding::Base64),
                 ..RpcAccountInfoConfig::default()
@@ -724,7 +726,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         };
         let results: Vec<(Pubkey, Account)> = self
             .rpc_client
-            .get_program_accounts_with_config(&spl_account_compression::id(), config)
+            .get_program_accounts_with_config(&mpl_bubblegum::id(), config)
             .await
             .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
         let mut list = HashMap::with_capacity(results.len());

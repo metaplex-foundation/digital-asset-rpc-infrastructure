@@ -48,6 +48,7 @@ url="2.3.1"
 anchor-lang = ">=0.19.0"
 borsh = "0.9.1"
 stretto = { version = "0.7", features = ["async"] }
+crossbeam = "0.8.2"
 
 [dependencies.num-integer] 
 version = "0.1.44"
