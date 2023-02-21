@@ -43,7 +43,7 @@ services:
       INGESTER_METRICS_HOST: graphite
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
-      INGESTER_RPC_CONFIG: '{url="https://liquid.devnet.rpcpool.com/5ebea512d12be102f53d319dafc8", commitment="confirmed"}'
+      INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
     build:
       context: .
