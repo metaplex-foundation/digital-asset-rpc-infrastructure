@@ -2,12 +2,15 @@ use crate::IngesterError;
 use digital_asset_types::dao::{asset, asset_creators};
 use sea_orm::{entity::*, query::*, ColumnTrait, DatabaseTransaction, DbErr, EntityTrait};
 
-pub async fn update_asset(
-    txn: &DatabaseTransaction,
+pub async fn update_asset<T>(
+    txn: &T,
     id: Vec<u8>,
     seq: Option<u64>,
     model: asset::ActiveModel,
-) -> Result<(), IngesterError> {
+) -> Result<(), IngesterError> 
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     let update_one = if let Some(seq) = seq {
         asset::Entity::update(model)
             .filter(asset::Column::Id.eq(id))
@@ -31,13 +34,16 @@ pub async fn update_asset(
     }
 }
 
-pub async fn update_creator(
-    txn: &DatabaseTransaction,
+pub async fn update_creator<T>(
+    txn: &T,
     asset_id: Vec<u8>,
     creator: Vec<u8>,
     seq: u64,
     model: asset_creators::ActiveModel,
-) -> Result<(), IngesterError> {
+) -> Result<(), IngesterError> 
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     // Using `update_many` to avoid having to supply the primary key as well within `model`.
     // We still effectively end up updating a single row at most, which is uniquely identified
     // by the `(asset_id, creator)` pair. Is there any reason why we should not use

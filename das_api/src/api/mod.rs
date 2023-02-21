@@ -109,30 +109,30 @@ pub struct GetGrouping {
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
     async fn check_health(&self) -> Result<(), DasApiError>;
-    #[rpc]
-    async fn get_asset_proof(&self, asset_id: String) -> Result<AssetProof, DasApiError>;
-    #[rpc]
-    async fn get_asset(&self, asset_id: String) -> Result<Asset, DasApiError>;
-    #[rpc]
+    #[rpc(name="getAssetProof", params="named", summary="Get a merkle proof for a compressed asset by its ID")]
+    async fn get_asset_proof(&self, payload: GetAsset) -> Result<AssetProof, DasApiError>;
+    #[rpc(name="getAsset",params="named", summary="Get an asset by its ID")]
+    async fn get_asset(&self, payload: GetAsset) -> Result<Asset, DasApiError>;
+    #[rpc(name="getAssetsByOwner",params="named", summary="Get a list of assets owned by an address")]
     async fn get_assets_by_owner(
         &self,
         payload: GetAssetsByOwner,
     ) -> Result<AssetList, DasApiError>;
-    #[rpc]
+    #[rpc(name="getAssetsByGroup", params="named", summary="Get a list of assets by a group key and value")]
     async fn get_assets_by_group(
         &self,
         payload: GetAssetsByGroup,
     ) -> Result<AssetList, DasApiError>;
-    #[rpc]
+    #[rpc(name="getAssetsByCreator",params="named", summary="Get a list of assets created by an address")]
     async fn get_assets_by_creator(
         &self,
         payload: GetAssetsByCreator,
     ) -> Result<AssetList, DasApiError>;
-    #[rpc]
+    #[rpc(name="getAssetsByAuthority",params="named", summary="Get a list of assets with a specific authority")]
     async fn get_assets_by_authority(
         &self,
-        paylload: GetAssetsByAuthority,
+        payload: GetAssetsByAuthority,
     ) -> Result<AssetList, DasApiError>;
-    #[rpc]
+    #[rpc(name="searchAssets",params="named", summary="Search for assets by a variety of parameters")]
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError>;
 }

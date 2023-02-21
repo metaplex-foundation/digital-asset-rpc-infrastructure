@@ -1,18 +1,21 @@
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
 use digital_asset_types::dao::{asset, asset_creators};
-use sea_orm::{DatabaseTransaction, Set, Unchanged};
+use sea_orm::{Set, Unchanged, ConnectionTrait, TransactionTrait};
 
 use crate::program_transformers::bubblegum::{update_asset, update_creator};
 use crate::tasks::common::save_changelog_event;
 use crate::IngesterError;
 
-pub async fn process<'c>(
-    parsing_result: &'c BubblegumInstruction,
-    bundle: &'c InstructionBundle<'c>,
-    txn: &'c DatabaseTransaction,
-    value: bool,
-) -> Result<(), IngesterError> {
+pub async fn process<'c, T>(
+    parsing_result: &BubblegumInstruction,
+    bundle: &InstructionBundle<'c>,
+    txn: &'c T,
+    value: bool
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     let maybe_creator = match parsing_result.payload {
         Some(Payload::VerifyCreator { creator }) => Some(creator),
         Some(Payload::UnverifyCreator { creator }) => Some(creator),

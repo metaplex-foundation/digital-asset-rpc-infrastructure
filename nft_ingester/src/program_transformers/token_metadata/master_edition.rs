@@ -46,7 +46,6 @@ pub async fn save_v1_master_edition(
     )
     .await
 }
-
 pub async fn save_master_edition(
     _version: V1AccountAttachments,
     id: FBPubkey,

@@ -13,6 +13,7 @@ async-std = { version = "^1", features = ["attributes", "tokio1", ] }
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
+
 [dependencies.sea-orm-migration]
 version = "0.10.6"
 features = [

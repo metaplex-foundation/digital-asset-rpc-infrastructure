@@ -29,22 +29,6 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: datadog
-          resources:
-            limits:
-              cpu: 1
-              memory: 2048Mi
-            requests:
-              cpu: 500m
-              memory: 1024Mi
-          image: gcr.io/datadoghq/dogstatsd:latest
-          env:
-          - name: "DD_API_KEY"
-            value: "{{ .Values.metrics.data_dog_api_key }}"
-          ports:
-          - containerPort: 8125
-            name: dogstatsdport
-            protocol: UDP
         - name: {{ .Chart.Name }}
           env:
           - name: RUST_BACKTRACE
@@ -92,7 +76,24 @@ spec:
                 - echo
                 - "true"
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}      
+        - name: datadog
+          resources:
+            limits:
+              cpu: 1
+              memory: 2048Mi
+            requests:
+              cpu: 500m
+              memory: 1024Mi
+          image: gcr.io/datadoghq/dogstatsd:latest
+          env:
+          - name: "DD_API_KEY"
+            value: "{{ .Values.metrics.data_dog_api_key }}"
+          ports:
+          - containerPort: 8125
+            name: dogstatsdport
+            protocol: UDP
+        
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

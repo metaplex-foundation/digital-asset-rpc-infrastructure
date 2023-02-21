@@ -22,7 +22,7 @@ solana-sdk = { version = "1.14.10" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { version = "0.7.2"}
+blockbuster = { version = "0.7.3"}
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.3.1"
@@ -32,11 +32,3 @@ async-trait = "0.1.60"
 tokio = { version = "1.22.0", features = ["full"] }
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
-
-[patch.crates-io]
-blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
-anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
-mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}

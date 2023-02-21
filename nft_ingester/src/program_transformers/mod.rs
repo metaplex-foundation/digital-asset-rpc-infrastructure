@@ -1,3 +1,5 @@
+use crate::{error::IngesterError, TaskData};
+use blockbuster::instruction::IxPair;
 use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
@@ -6,11 +8,8 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
-
-use crate::{error::IngesterError, TaskData};
-use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
-use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -32,7 +31,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>
+    key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
@@ -69,27 +68,81 @@ impl ProgramTransformer {
         self.matchers.get(&Pubkey::new(key.0.as_slice()))
     }
 
-    pub async fn handle_instruction<'a>(
+    pub async fn handle_transaction<'a>(
         &self,
-        ix: &'a InstructionBundle<'a>,
+        tx: &'a TransactionInfo<'a>,
     ) -> Result<(), IngesterError> {
-        if let Some(program) = self.match_program(&ix.program) {
-            let result = program.handle_instruction(ix)?;
-            let concrete = result.result_type();
+        println!("Handling Transaction: {:?}", tx.signature());
+        let instructions = self.break_transaction(&tx);
+        let accounts = tx.account_keys().unwrap_or_default();
+        let slot = tx.slot();
+        let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
+        for k in accounts.into_iter() {
+            keys.push(*k);
+        }
+        let mut not_impl = 0;
+        let ixlen = instructions.len();
+        println!("Instructions: {}", ixlen);
+        let contains = instructions
+            .iter()
+            .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
+        println!("Instructions bgum: {}", contains.count());
+        let txn = self.storage.begin().await?;
+        for (outer_ix, inner_ix) in instructions {
+            let (program, instruction) = outer_ix;
+            let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
+            let ix_account_len = ix_accounts.len();
+            let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
+            if keys.len() < max {
+                return Err(IngesterError::DeserializationError(
+                    "Missing Accounts in Serialized Ixn/Txn".to_string(),
+                ));
+            }
+            let ix_accounts =
+                ix_accounts
+                    .iter()
+                    .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
+                        if let Some(key) = keys.get(*a as usize) {
+                            acc.push(*key);
+                        }
+                        acc
+                    });
+            let ix = InstructionBundle {
+                txn_id: "",
+                program,
+                instruction: Some(instruction),
+                inner_ix,
+                keys: ix_accounts.as_slice(),
+                slot,
+            };
 
-            match concrete {
-                ProgramParseResult::Bubblegum(parsing_result) => {
-                    handle_bubblegum_instruction(
-                        parsing_result,
-                        ix,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await
-                }
-
-                _ => Err(IngesterError::NotImplemented),
-            }?;
+            if let Some(program) = self.match_program(&ix.program) {
+                println!("Found a ix for program: {:?}", program.key());
+                let result = program.handle_instruction(&ix)?;
+                let concrete = result.result_type();
+                match concrete {
+                    ProgramParseResult::Bubblegum(parsing_result) => {
+                        handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
+                            .await?;
+                    }
+                    _ => {
+                        not_impl += 1;
+                    }
+                };
+            }
+        }
+        match txn.commit().await {
+            Ok(_) => {
+                println!("Committed compressed transaction");
+            }
+            Err(e) => {
+                println!("Error committing transaction: {:?}", e);
+                return Err(IngesterError::DatabaseError(e.to_string()));
+            }
+        }
+        if not_impl == ixlen {
+            println!("Not imple");
+            return Err(IngesterError::NotImplemented);
         }
         Ok(())
     }

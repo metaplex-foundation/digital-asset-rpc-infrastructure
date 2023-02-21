@@ -56,6 +56,7 @@ pub async fn get_by_creator(
             .add(condition)
             .add(asset_creators::Column::Verified.eq(true));
     }
+    condition = condition.add(asset::Column::Supply.gt(0));
     get_by_related_condition(
         conn,
         condition,
@@ -82,7 +83,9 @@ pub async fn get_by_grouping(
         .and(asset_grouping::Column::GroupValue.eq(group_value));
     get_by_related_condition(
         conn,
-        Condition::all().add(condition),
+        Condition::all()
+            .add(condition)
+            .add(asset::Column::Supply.gt(0)),
         asset::Relation::AssetGrouping,
         sort_by,
         sort_direction,
@@ -100,10 +103,13 @@ pub async fn get_assets_by_owner(
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    get_assets_by_column(
+    let cond = Condition::all()
+        .add(asset::Column::Owner.eq(owner))
+        .add(asset::Column::Supply.gt(0));
+    get_assets_by_condition(
         conn,
-        owner,
-        asset::Column::Owner,
+        cond,
+        vec![],
         sort_by,
         sort_direction,
         pagination,
@@ -120,9 +126,12 @@ pub async fn get_by_authority(
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
+    let cond = Condition::all()
+        .add(asset_authority::Column::Authority.eq(authority))
+        .add(asset::Column::Supply.gt(0));
     get_by_related_condition(
         conn,
-        Condition::all().add(asset_authority::Column::Authority.eq(authority)),
+        cond,
         asset::Relation::AssetAuthority,
         sort_by,
         sort_direction,
@@ -218,27 +227,6 @@ pub async fn get_related_for_assets(
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
 
-pub async fn get_assets_by_column(
-    conn: &impl ConnectionTrait,
-    target_value: impl Into<Value>,
-    target_column: asset::Column,
-    sort_by: asset::Column,
-    sort_direction: Order,
-    pagination: &Pagination,
-    limit: u64,
-) -> Result<Vec<FullAsset>, DbErr> {
-    get_assets_by_condition(
-        conn,
-        Condition::all().add(target_column.eq(target_value)),
-        vec![],
-        sort_by,
-        sort_direction,
-        pagination,
-        limit,
-    )
-    .await
-}
-
 pub async fn get_assets_by_condition(
     conn: &impl ConnectionTrait,
     condition: Condition,
@@ -262,12 +250,18 @@ pub async fn get_assets_by_condition(
     get_related_for_assets(conn, asset_list).await
 }
 
-pub async fn get_by_id(conn: &impl ConnectionTrait, asset_id: Vec<u8>) -> Result<FullAsset, DbErr> {
-    let asset_data: (asset::Model, asset_data::Model) = asset::Entity::find_by_id(asset_id)
-        .find_also_related(asset_data::Entity)
-        .one(conn)
-        .await
-        .and_then(|o| match o {
+pub async fn get_by_id(
+    conn: &impl ConnectionTrait,
+    asset_id: Vec<u8>,
+    include_no_supply: bool,
+) -> Result<FullAsset, DbErr> {
+    let mut asset_data = asset::Entity::find_by_id(asset_id).find_also_related(asset_data::Entity);
+    if !include_no_supply {
+        asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
+    }
+
+    let asset_data: (asset::Model, asset_data::Model) =
+        asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })?;

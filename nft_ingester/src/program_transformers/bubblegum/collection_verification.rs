@@ -2,18 +2,21 @@ use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload};
 use digital_asset_types::dao::{asset, asset_grouping};
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, DbBackend, Set, Unchanged,
+    entity::*, query::*, sea_query::OnConflict, DbBackend, Set, Unchanged,
 };
 
 use crate::program_transformers::bubblegum::update_asset;
 use crate::tasks::common::save_changelog_event;
 use crate::IngesterError;
-pub async fn process<'c>(
-    parsing_result: &'c BubblegumInstruction,
-    bundle: &'c InstructionBundle<'c>,
-    txn: &'c DatabaseTransaction,
-    verify: bool,
-) -> Result<(), IngesterError> {
+pub async fn process<'c, T>(
+    parsing_result: &BubblegumInstruction,
+    bundle: &InstructionBundle<'c>,
+    txn: &'c T,
+    verify: bool
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?

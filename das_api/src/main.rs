@@ -19,7 +19,6 @@ use {
 
 use hyper::{http, Method};
 use log::{debug, info};
-use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
 use jsonrpsee::server::{
@@ -113,8 +112,6 @@ impl Logger for MetricMiddleware {
     }
 }
 
-fn cors() {}
-
 #[tokio::main]
 async fn main() -> Result<(), DasApiError> {
     let config = load_config()?;
@@ -123,16 +120,17 @@ async fn main() -> Result<(), DasApiError> {
         .allow_methods([Method::POST, Method::GET])
         .allow_origin(Any)
         .allow_headers([hyper::header::CONTENT_TYPE]);
+    setup_metrics(&config);
     let middleware = tower::ServiceBuilder::new()
-    .layer(cors)
-    .layer(ProxyGetRequestLayer::new("/health", "healthz")?);
+        .layer(cors)
+        .layer(ProxyGetRequestLayer::new("/health", "healthz")?);
 
     let server = ServerBuilder::default()
         .set_middleware(middleware)
+        .set_logger(MetricMiddleware)
         .build(addr)
         .await?;
 
-    setup_metrics(&config);
     let api = DasApi::from_config(config).await?;
     let rpc = RpcApiBuilder::build(Box::new(api))?;
     println!("Server Started");

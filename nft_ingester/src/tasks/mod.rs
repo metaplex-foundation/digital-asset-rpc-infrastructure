@@ -1,5 +1,6 @@
-use crate::{error::IngesterError, safe_metric};
+use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
+use cadence_macros::is_global_default_set;
 use cadence_macros::{statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
@@ -8,7 +9,6 @@ use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
 };
-
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -26,7 +26,7 @@ pub trait BgTask: Send + Sync {
     fn max_attempts(&self) -> i16;
     async fn task(
         &self,
-        db: &DatabaseTransaction,
+        db: &DatabaseConnection,
         data: serde_json::Value,
     ) -> Result<(), IngesterError>;
 }
@@ -71,7 +71,7 @@ pub struct TaskManager {
 
 impl TaskManager {
     async fn execute_task(
-        txn: &DatabaseTransaction,
+        db: &DatabaseConnection,
         task_def: &Box<dyn BgTask>,
         mut task: tasks::ActiveModel,
     ) -> Result<tasks::ActiveModel, IngesterError> {
@@ -91,19 +91,19 @@ impl TaskManager {
         }?;
 
         let start = Utc::now();
-        let res = task_def.task(txn, *data_json).await;
+        let res = task_def.task(&db, *data_json).await;
         let end = Utc::now();
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
         ));
-        safe_metric(|| {
+        metric! {
             statsd_histogram!("ingester.bgtask.proc_time", (end.timestamp_millis() - start.timestamp_millis()) as u64, "type" => task_name);
-        });
+        }
         match res {
             Ok(_) => {
-                safe_metric(|| {
+                metric! {
                     statsd_count!("ingester.bgtask.success", 1, "type" => task_name);
-                });
+                }
                 task.status = Set(TaskStatus::Success);
                 task.errors = Set(None);
                 task.locked_until = Set(None);
@@ -117,9 +117,9 @@ impl TaskManager {
                 } else {
                     task.locked_by = Set(None);
                 }
-                safe_metric(|| {
+                metric! {
                     statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
-                });
+                }
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
@@ -188,6 +188,7 @@ impl TaskManager {
         _name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
+        process_now: bool,
     ) -> JoinHandle<Result<(), IngesterError>> {
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
         tokio::task::spawn(async move {
@@ -206,7 +207,9 @@ impl TaskManager {
                     errors: Set(None),
                 };
                 let duration = Duration::seconds(task_executor.lock_duration());
-                TaskManager::lock_task(&mut model, duration, instance_name);
+                if process_now {
+                    TaskManager::lock_task(&mut model, duration, instance_name);
+                }
                 let _model = model.insert(&conn).await?;
                 Ok(())
             } else {
@@ -237,7 +240,7 @@ impl TaskManager {
         let act: tasks::ActiveModel = task;
         act.save(txn).await.map_err(|e| e.into())
     }
-    pub fn start_listener(&mut self) -> JoinHandle<()> {
+    pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
         let task_map = self.registered_task_types.clone();
@@ -249,9 +252,9 @@ impl TaskManager {
                 if let Some(task_created_time) = task.created_at {
                     let bus_time =
                         Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
-                    safe_metric(|| {
+                    metric! {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
-                    });
+                    }
                 }
                 let name = instance_name.clone();
                 if let Ok(hash) = task.hash() {
@@ -261,9 +264,9 @@ impl TaskManager {
                         .one(&conn)
                         .await;
                     if let Ok(Some(e)) = task_entry {
-                        safe_metric(|| {
+                        metric! {
                             statsd_count!("ingester.bgtask.identical", 1, "type" => &e.task_type);
-                        });
+                        }
                         continue;
                     }
                     TaskManager::new_task_handler(
@@ -272,6 +275,7 @@ impl TaskManager {
                         name,
                         task,
                         task_map.clone(),
+                        process_on_receive
                     );
                 }
             }
@@ -321,14 +325,12 @@ impl TaskManager {
                                     // can ignore as txn will bubble up errors
                                     let active_model =
                                         TaskManager::save_task(&conn, active_model).await?;
-                                    let txn = conn.begin().await?;
                                     let model = TaskManager::execute_task(
-                                        &txn,
+                                        &conn,
                                         task_executor,
                                         active_model,
                                     )
                                     .await?;
-                                    txn.commit().await?;
                                     TaskManager::save_task(&conn, model).await?;
                                     return Ok(());
                                 }

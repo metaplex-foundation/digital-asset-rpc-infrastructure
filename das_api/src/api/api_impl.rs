@@ -37,7 +37,7 @@ pub struct DasApi {
 impl DasApi {
     pub async fn from_config(config: Config) -> Result<Self, DasApiError> {
         let pool = PgPoolOptions::new()
-            .max_connections(5)
+            .max_connections(250)
             .connect(&config.database_url)
             .await?;
 
@@ -101,23 +101,22 @@ impl ApiContract for DasApi {
         Ok(())
     }
 
-    async fn get_asset_proof(self: &DasApi, asset_id: String) -> Result<AssetProof, DasApiError> {
-        let id = validate_pubkey(asset_id.clone())?;
+    async fn get_asset_proof(self: &DasApi, payload: GetAsset) -> Result<AssetProof, DasApiError> {
+        let id = validate_pubkey(payload.id.clone())?;
         let id_bytes = id.to_bytes().to_vec();
         get_proof_for_asset(&self.db_connection, id_bytes)
             .await
             .and_then(|p| {
-                println!("Proof: {:?}", p);
                 if p.proof.is_empty() {
-                    return Err(not_found(&asset_id));
+                    return Err(not_found(&payload.id));
                 }
                 Ok(p)
             })
             .map_err(Into::into)
     }
 
-    async fn get_asset(self: &DasApi, asset_id: String) -> Result<Asset, DasApiError> {
-        let id = validate_pubkey(asset_id.clone())?;
+    async fn get_asset(self: &DasApi, payload: GetAsset) -> Result<Asset, DasApiError> {
+        let id = validate_pubkey(payload.id.clone())?;
         let id_bytes = id.to_bytes().to_vec();
         get_asset(&self.db_connection, id_bytes)
             .await

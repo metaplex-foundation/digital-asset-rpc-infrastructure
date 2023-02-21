@@ -34,13 +34,16 @@ services:
     depends_on:
       - migrator
       - redis
+      - db
+      - graphite
+      - solana
     restart: always
     environment:
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
       INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
-      INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="finalized"}'
+      INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
     build:
       context: .
@@ -82,7 +85,7 @@ services:
     ports:
       - 9090:9090
   redis:
-    image: "redis:6.2.5"
+    image: "redis:7.0.0"
     ports:
       - "6379:6379"
   db:
@@ -97,7 +100,7 @@ services:
     volumes:
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.1.1
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.5.0-1.64.0-v1.14.15
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

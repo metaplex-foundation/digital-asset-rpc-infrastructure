@@ -10,7 +10,6 @@ RUN apt-get update -y && \
     apt-get install -y build-essential make git
 COPY digital_asset_types /rust/digital_asset_types
 WORKDIR /
-RUN git clone --quiet --branch 1.14 https://github.com/metaplex-foundation/blockbuster --depth 1
 RUN mkdir -p /rust/nft_ingester
 WORKDIR /rust/nft_ingester
 COPY --from=planner /rust/nft_ingester/recipe.json recipe.json
