@@ -18,6 +18,9 @@ pub enum DasApiError {
     PaginationError,
     #[error("Pagination Error. No Pagination Method Selected")]
     PaginationEmptyError,
+    // TODO change `1000` to a dynamic parameter provided by a config
+    #[error("Pagination Error. Limit must be less than or equal to 1000.")]
+    PaginationLimitError,
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] serde_json::Error),
 }

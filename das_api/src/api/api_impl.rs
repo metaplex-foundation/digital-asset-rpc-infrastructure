@@ -61,7 +61,7 @@ impl DasApi {
         if let Some(limit) = limit {
             // make config item
             if *limit > 1000 {
-                return Err(DasApiError::PaginationError);
+                return Err(DasApiError::PaginationLimitError);
             }
         }
 
