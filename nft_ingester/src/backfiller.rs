@@ -5,6 +5,7 @@ use crate::{
     RPC_URL_KEY,
 };
 use anchor_lang::Discriminator;
+use blockbuster::programs::bubblegum;
 use borsh::BorshDeserialize;
 use cadence_macros::{statsd_count, statsd_gauge};
 use chrono::Utc;
@@ -13,8 +14,9 @@ use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::{
-    CompiledInstruction, CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs,
-    Pubkey as FBPubkey, TransactionInfo, TransactionInfoArgs,
+    serializer::seralize_encoded_transaction_with_status, CompiledInstruction,
+    CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs, Pubkey as FBPubkey,
+    TransactionInfo, TransactionInfoArgs,
 };
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
@@ -25,7 +27,7 @@ use solana_client::{
     nonblocking::rpc_client::RpcClient,
     rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
-    rpc_filter::{Memcmp, RpcFilterType},
+    rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType},
 };
 use solana_sdk::{
     account::Account,
@@ -34,11 +36,13 @@ use solana_sdk::{
     signature::Signature,
     slot_history::Slot,
 };
+use solana_sdk_macro::pubkey;
 use solana_transaction_status::{
-    option_serializer::OptionSerializer, EncodedConfirmedBlock, UiInstruction::Compiled,
-    UiRawMessage, UiTransactionEncoding, UiTransactionStatusMeta,
+    option_serializer::OptionSerializer, EncodedConfirmedBlock,
+    EncodedConfirmedTransactionWithStatusMeta, UiInstruction::Compiled, UiRawMessage,
+    UiTransactionEncoding, UiTransactionStatusMeta,
 };
-use spl_account_compression::state::ConcurrentMerkleTreeHeader;
+use spl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData};
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::cmp;
 use std::collections::{HashMap, HashSet};
@@ -61,7 +65,7 @@ const MAX_CACHE_COST: i64 = 32;
 const BLOCK_CACHE_DURATION: u64 = 172800;
 // Account key used to determine if transaction is a simple vote.
 const VOTE: &str = "Vote111111111111111111111111111111111111111";
-
+pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
 /// Main public entry point for backfiller task.
 pub async fn backfiller<T: Messenger>(
     pool: Pool<Postgres>,
@@ -257,7 +261,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         // Create `RpcBlockConfig` used when getting blocks from RPC provider.
         let rpc_block_config = RpcBlockConfig {
-            encoding: Some(UiTransactionEncoding::Json),
+            encoding: Some(UiTransactionEncoding::Base64),
             commitment: Some(rpc_commitment),
             max_supported_transaction_version: Some(0),
             ..RpcBlockConfig::default()
@@ -481,7 +485,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         cn: &impl ConnectionTrait,
     ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
-        println!("number of trees: {}", all_trees.len());
+        println!("number of total trees: {}", all_trees.len());
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
@@ -511,7 +515,8 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let missing_trees = all_trees
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s })
-            .collect();
+            .collect::<Vec<MissingTree>>();
+        println!("number of missing trees: {}", missing_trees.len());
         Ok(missing_trees)
     }
 
@@ -717,7 +722,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
     async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, u64>, IngesterError> {
         let config = RpcProgramAccountsConfig {
-            filters: Some(vec![RpcFilterType::DataSize(mpl_bubblegum::state::TREE_AUTHORITY_SIZE as u64)]),
+            filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                0,
+                vec![1u8],
+            ))]),
             account_config: RpcAccountInfoConfig {
                 encoding: Some(UiAccountEncoding::Base64),
                 ..RpcAccountInfoConfig::default()
@@ -726,17 +734,21 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         };
         let results: Vec<(Pubkey, Account)> = self
             .rpc_client
-            .get_program_accounts_with_config(&mpl_bubblegum::id(), config)
+            .get_program_accounts_with_config(&spl_account_compression::id(), config)
             .await
             .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
         let mut list = HashMap::with_capacity(results.len());
         for r in results.into_iter() {
             let (pubkey, account) = r;
             let mut sl = account.data.as_slice();
-            let tree_config: ConcurrentMerkleTreeHeader =
+            let header: ConcurrentMerkleTreeHeader =
                 ConcurrentMerkleTreeHeader::deserialize(&mut sl)
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
-            list.insert(pubkey, tree_config.get_creation_slot());
+            let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::id()).0;
+            if header.assert_valid_authority(&auth).is_err() {
+                continue;
+            }
+            list.insert(pubkey, header.get_creation_slot());
         }
         Ok(list)
     }
@@ -890,43 +902,52 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     println!("Unexpected, EncodedTransactionWithStatusMeta struct has no metadata");
                     continue;
                 };
-
-                // Get `UiTransaction` out of `EncodedTransactionWithStatusMeta`.
-                let ui_transaction = match tx.transaction {
-                    solana_transaction_status::EncodedTransaction::Json(ref ui_transaction) => {
-                        ui_transaction
-                    }
-                    _ => {
-                        return Err(IngesterError::RpcDataUnsupportedFormat(
-                            "EncodedTransaction".to_string(),
-                        ));
-                    }
+                let decoded_tx = if let Some(decoded_tx) = tx.transaction.decode() {
+                    decoded_tx
+                } else {
+                    println!("Unable to decode transaction");
+                    continue;
                 };
+                let sig = decoded_tx.signatures[0].to_string();
+                let msg = decoded_tx.message;
+                let atl_keys = msg.address_table_lookups();
+                let tree = Pubkey::try_from(tree)
+                    .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+                let account_keys = msg.static_account_keys();
+                let account_keys = {
+                    let mut account_keys_vec = vec![];
+                    for key in account_keys.iter() {
+                        account_keys_vec.push(key.to_bytes());
+                    }
+                    if atl_keys.is_some() {
+                        if let OptionSerializer::Some(ad) = &meta.loaded_addresses {
+                            for i in &ad.writable {
+                                let mut output: [u8; 32] = [0; 32];
+                                bs58::decode(i).into(&mut output).map_err(|e| {
+                                    IngesterError::DeserializationError(e.to_string())
+                                })?;
+                                account_keys_vec.push(output);
+                            }
 
-                // See if transaction is a vote.
-                let ui_raw_message = match &ui_transaction.message {
-                    solana_transaction_status::UiMessage::Raw(ui_raw_message) => {
-                        if ui_raw_message.account_keys.iter().any(|key| key == VOTE) {
-                            continue;
-                        } else {
-                            ui_raw_message
+                            for i in &ad.readonly {
+                                let mut output: [u8; 32] = [0; 32];
+                                bs58::decode(i).into(&mut output).map_err(|e| {
+                                    IngesterError::DeserializationError(e.to_string())
+                                })?;
+                                account_keys_vec.push(output);
+                            }
                         }
                     }
-                    _ => {
-                        return Err(IngesterError::RpcDataUnsupportedFormat(
-                            "UiMessage".to_string(),
-                        ));
-                    }
+                    account_keys_vec
                 };
-                let sig = ui_transaction.signatures[0].to_string();
+
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
-                let tree = bs58::encode(tree).into_string();
-                let bubblegum = blockbuster::programs::bubblegum::program_id().to_string();
-                if ui_raw_message
-                    .account_keys
+                let tb = tree.to_bytes();
+                let bubblegum = blockbuster::programs::bubblegum::program_id().to_bytes();
+                if account_keys
                     .iter()
-                    .all(|pk| *pk != tree && *pk != bubblegum)
+                    .all(|pk| *pk != tb && *pk != bubblegum)
                 {
                     continue;
                 }
@@ -934,13 +955,12 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // Serialize data.
                 let builder = FlatBufferBuilder::new();
                 println!("Serializing transaction in backfiller {}", sig);
-                let builder = serialize_transaction(
-                    builder,
-                    sig,
-                    meta,
-                    ui_raw_message,
-                    slot.try_into().unwrap(),
-                )?;
+                let tx_wrap = EncodedConfirmedTransactionWithStatusMeta {
+                    transaction: tx.to_owned(),
+                    slot,
+                    block_time: block_data.block_time,
+                };
+                let builder = seralize_encoded_transaction_with_status(builder, tx_wrap)?;
                 self.messenger
                     .send(TRANSACTION_STREAM, builder.finished_data())
                     .await?;
@@ -1042,121 +1062,4 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         Ok(())
     }
-}
-
-fn serialize_transaction<'a>(
-    mut builder: FlatBufferBuilder<'a>,
-    signature: String,
-    meta: &UiTransactionStatusMeta,
-    ui_raw_message: &UiRawMessage,
-    slot: u64,
-) -> Result<FlatBufferBuilder<'a>, IngesterError> {
-    // Serialize account keys.
-    let account_keys = &ui_raw_message.account_keys;
-    let account_keys_len = account_keys.len();
-
-    let account_keys = if account_keys_len > 0 {
-        let mut account_keys_fb_vec = Vec::with_capacity(account_keys_len);
-        for key in account_keys.iter() {
-            let key = Pubkey::from_str(key)
-                .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-            account_keys_fb_vec.push(FBPubkey(key.to_bytes()));
-        }
-        Some(builder.create_vector(&account_keys_fb_vec))
-    } else {
-        None
-    };
-
-    // Serialize log messages.
-    // We dont use them for now.
-    let log_messages = None;
-
-    // Serialize inner instructions.
-    let inner_instructions = if let OptionSerializer::Some(inner_instructions_vec) =
-        meta.inner_instructions.as_ref()
-    {
-        let mut overall_fb_vec = Vec::with_capacity(inner_instructions_vec.len());
-        for inner_instructions in inner_instructions_vec.iter() {
-            let index = inner_instructions.index;
-            let mut instructions_fb_vec = Vec::with_capacity(inner_instructions.instructions.len());
-            for ui_instruction in inner_instructions.instructions.iter() {
-                if let Compiled(ui_compiled_instruction) = ui_instruction {
-                    let program_id_index = ui_compiled_instruction.program_id_index;
-                    let accounts = Some(builder.create_vector(&ui_compiled_instruction.accounts));
-                    let data = bs58::decode(&ui_compiled_instruction.data)
-                        .into_vec()
-                        .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-                    let data = Some(builder.create_vector(&data));
-                    instructions_fb_vec.push(CompiledInstruction::create(
-                        &mut builder,
-                        &CompiledInstructionArgs {
-                            program_id_index,
-                            accounts,
-                            data,
-                        },
-                    ));
-                }
-            }
-
-            let instructions = Some(builder.create_vector(&instructions_fb_vec));
-            overall_fb_vec.push(InnerInstructions::create(
-                &mut builder,
-                &InnerInstructionsArgs {
-                    index,
-                    instructions,
-                },
-            ))
-        }
-
-        Some(builder.create_vector(&overall_fb_vec))
-    } else {
-        None
-    };
-
-    // Serialize outer instructions.
-    let outer_instructions = &ui_raw_message.instructions;
-    let outer_instructions = if !outer_instructions.is_empty() {
-        let mut instructions_fb_vec = Vec::with_capacity(outer_instructions.len());
-        for ui_compiled_instruction in outer_instructions.iter() {
-            let program_id_index = ui_compiled_instruction.program_id_index;
-            let accounts = Some(builder.create_vector(&ui_compiled_instruction.accounts));
-            let data = bs58::decode(&ui_compiled_instruction.data)
-                .into_vec()
-                .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
-            let data = Some(builder.create_vector(&data));
-            instructions_fb_vec.push(CompiledInstruction::create(
-                &mut builder,
-                &CompiledInstructionArgs {
-                    program_id_index,
-                    accounts,
-                    data,
-                },
-            ));
-        }
-        Some(builder.create_vector(&instructions_fb_vec))
-    } else {
-        None
-    };
-
-    // Serialize everything into Transaction Info table.
-    let seen_at = Utc::now();
-    let sig_db = builder.create_string(&signature);
-    let transaction_info = TransactionInfo::create(
-        &mut builder,
-        &TransactionInfoArgs {
-            is_vote: false,
-            account_keys,
-            log_messages,
-            inner_instructions,
-            outer_instructions,
-            slot,
-            seen_at: seen_at.timestamp_millis(),
-            slot_index: None,
-            signature: Some(sig_db),
-        },
-    );
-
-    // Finalize buffer and return to caller.
-    builder.finish(transaction_info, None);
-    Ok(builder)
 }

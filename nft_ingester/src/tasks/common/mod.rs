@@ -5,11 +5,14 @@ use sea_orm::{entity::*, query::*, sea_query::OnConflict, DatabaseTransaction, D
 
 pub mod task;
 
-pub async fn save_changelog_event(
+pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
-    txn: &DatabaseTransaction,
-) -> Result<u64, IngesterError> {
+    txn: &T,
+) -> Result<u64, IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     insert_change_log(change_log_event, slot, txn, false).await?;
     Ok(change_log_event.seq)
 }
@@ -18,12 +21,15 @@ fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }
 
-pub async fn insert_change_log(
+pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
-    txn: &DatabaseTransaction,
+    txn: &T,
     filling: bool,
-) -> Result<(), IngesterError> {
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     let mut i: i64 = 0;
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();

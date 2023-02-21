@@ -25,7 +25,7 @@ cadence-macros = "0.29.0"
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
 tokio-postgres = "0.7.7"
-solana-sdk = { version = ">=1.10.41" }
+solana-sdk = { version = "~1.14.14" }
 bs58 = "0.4.0"
 log = "0.4.17"
 schemars = "0.8.6"

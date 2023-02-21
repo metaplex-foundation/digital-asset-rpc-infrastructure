@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use sea_orm::{DatabaseConnection, TransactionTrait, ConnectionTrait};
+use sea_orm::{ConnectionTrait, DatabaseConnection, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
@@ -24,14 +24,13 @@ use crate::{IngesterError, TaskData};
 pub async fn handle_bubblegum_instruction<'c, T>(
     parsing_result: &'c BubblegumInstruction,
     bundle: &'c InstructionBundle<'c>,
-    db: &T,
+    txn: &T,
     task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let ix_type = &parsing_result.instruction;
-    let txn = db.begin().await?;
     match ix_type {
         InstructionName::Unknown => {
             println!("Unknown instruction:");
@@ -85,49 +84,42 @@ where
 
     match ix_type {
         InstructionName::Transfer => {
-            transfer::transfer(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            transfer::transfer(parsing_result, bundle, txn).await?;
         }
         InstructionName::Burn => {
-            burn::burn(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            burn::burn(parsing_result, bundle, txn).await?;
         }
         InstructionName::Delegate => {
-            delegate::delegate(parsing_result, bundle, &txn).await?;
+            delegate::delegate(parsing_result, bundle, txn).await?;
         }
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
-            let task = mint_v1::mint_v1(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            let task = mint_v1::mint_v1(parsing_result, bundle, txn).await?;
+
             task_manager.send(task)?;
         }
         InstructionName::Redeem => {
-            redeem::redeem(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            redeem::redeem(parsing_result, bundle, txn).await?;
         }
         InstructionName::CancelRedeem => {
-            cancel_redeem::cancel_redeem(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            cancel_redeem::cancel_redeem(parsing_result, bundle, txn).await?;
         }
         InstructionName::DecompressV1 => {
-            decompress::decompress(parsing_result, bundle, &txn).await?;
-            txn.commit().await?;
+            decompress::decompress(parsing_result, bundle, txn).await?;
         }
         InstructionName::VerifyCreator => {
-            creator_verification::process(parsing_result, bundle, &txn, true).await?;
-            txn.commit().await?;
+            creator_verification::process(parsing_result, bundle, txn, true).await?;
         }
         InstructionName::UnverifyCreator => {
-            creator_verification::process(parsing_result, bundle, &txn, false).await?;
-            txn.commit().await?;
+            creator_verification::process(parsing_result, bundle, txn, false).await?;
         }
         InstructionName::VerifyCollection => {
-            collection_verification::process(parsing_result, bundle, &txn, true).await?;
+            collection_verification::process(parsing_result, bundle, txn, true).await?;
         }
         InstructionName::UnverifyCollection => {
-            collection_verification::process(parsing_result, bundle, &txn, false).await?;
+            collection_verification::process(parsing_result, bundle, txn, false).await?;
         }
         InstructionName::SetAndVerifyCollection => {
-            collection_verification::process(parsing_result, bundle, &txn, true).await?;
+            collection_verification::process(parsing_result, bundle, txn, true).await?;
         }
         _ => println!("Bubblegum: Not Implemented Instruction"),
     }

@@ -35,11 +35,14 @@ use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
-pub async fn mint_v1<'c>(
+pub async fn mint_v1<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
-    txn: &'c DatabaseTransaction,
-) -> Result<TaskData, IngesterError> {
+    txn: &'c T,
+) -> Result<TaskData, IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (
         &parsing_result.leaf_update,
         &parsing_result.tree_update,

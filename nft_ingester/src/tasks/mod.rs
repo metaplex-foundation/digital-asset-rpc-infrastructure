@@ -1,5 +1,6 @@
 use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
+use cadence_macros::is_global_default_set;
 use cadence_macros::{statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
@@ -8,7 +9,6 @@ use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
 };
-use cadence_macros::is_global_default_set;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -188,6 +188,7 @@ impl TaskManager {
         _name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
+        process_now: bool,
     ) -> JoinHandle<Result<(), IngesterError>> {
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
         tokio::task::spawn(async move {
@@ -206,7 +207,9 @@ impl TaskManager {
                     errors: Set(None),
                 };
                 let duration = Duration::seconds(task_executor.lock_duration());
-                TaskManager::lock_task(&mut model, duration, instance_name);
+                if process_now {
+                    TaskManager::lock_task(&mut model, duration, instance_name);
+                }
                 let _model = model.insert(&conn).await?;
                 Ok(())
             } else {
@@ -237,7 +240,7 @@ impl TaskManager {
         let act: tasks::ActiveModel = task;
         act.save(txn).await.map_err(|e| e.into())
     }
-    pub fn start_listener(&mut self) -> JoinHandle<()> {
+    pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
         let task_map = self.registered_task_types.clone();
@@ -272,6 +275,7 @@ impl TaskManager {
                         name,
                         task,
                         task_map.clone(),
+                        process_on_receive
                     );
                 }
             }

@@ -45,7 +45,6 @@ services:
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="https://liquid.devnet.rpcpool.com/5ebea512d12be102f53d319dafc8", commitment="confirmed"}'
       RUST_BACKTRACE: 1
-      INGESTER_ROLE: "Ingester"
     build:
       context: .
       dockerfile: Ingest.Dockerfile
@@ -101,7 +100,7 @@ services:
     volumes:
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: localana
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.5.0-1.64.0-v1.14.15
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

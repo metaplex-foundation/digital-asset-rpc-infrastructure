@@ -5,11 +5,14 @@ use sea_orm::{
     entity::*, query::*, ColumnTrait, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait,
 };
 
-pub async fn decompress<'c>(
-    _parsing_result: &BubblegumInstruction,
+pub async fn decompress<'c, T>(
+    parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
-    txn: &'c DatabaseTransaction,
-) -> Result<(), IngesterError> {
+    txn: &'c T,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice().to_vec();
 
     let model = asset::ActiveModel {

@@ -146,11 +146,11 @@ async fn main() {
         .unwrap();
 
     let backfiller = backfiller::<RedisMessenger>(pool.clone(), config.clone());
-
+    let role = config.role.unwrap_or(IngesterRole::All);
     let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
     let mut background_task_manager =
         TaskManager::new(rand_string(), pool.clone(), bg_task_definitions);
-    let background_task_manager_handle = background_task_manager.start_listener();
+    let background_task_manager_handle = background_task_manager.start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
     let backgroun_task_sender = background_task_manager.get_sender().unwrap();
 
     let txn_stream = service_transaction_stream::<RedisMessenger>(
@@ -167,7 +167,7 @@ async fn main() {
 
     let mut tasks = JoinSet::new();
 
-    let role = config.role.unwrap_or(IngesterRole::All);
+    
 
     let stream_size_timer = async move {
         let mut interval = time::interval(tokio::time::Duration::from_secs(10));
@@ -302,21 +302,23 @@ async fn service_account_stream<T: Messenger>(
                     match rc {
                         Ok(data) => {
                             let dl = data.len();
-                            metric! {
-                                statsd_count!("ingester.account_entries_claimed", dl as i64);
-                            }
-                            let s = Instant::now();
+                            if dl > 0 {
+                                metric! {
+                                    statsd_count!("ingester.account_entries_claimed", dl as i64);
+                                }
+                                let s = Instant::now();
 
-                            let ids = handle_account(&mc, data).await;
-                            metric! {
-                                statsd_time!("ingester.wall_batch_time", s.elapsed());
-                            }
-                            if !ids.is_empty() {
-                                if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
-                                    println!("Error ACK-ing messages {:?}", e);
-                                } else {
-                                    metric! {
-                                        statsd_count!("ingester.account_entries_acked", ids.len() as i64);
+                                let ids = handle_account(&mc, data).await;
+                                metric! {
+                                    statsd_time!("ingester.wall_batch_time", s.elapsed());
+                                }
+                                if !ids.is_empty() {
+                                    if let Err(e) = messenger.ack_msg(ACCOUNT_STREAM, &ids).await {
+                                        println!("Error ACK-ing messages {:?}", e);
+                                    } else {
+                                        metric! {
+                                            statsd_count!("ingester.account_entries_acked", ids.len() as i64);
+                                        }
                                     }
                                 }
                             }

@@ -1,6 +1,7 @@
 use crate::TaskData;
 use blockbuster::error::BlockbusterError;
 use plerkle_messenger::MessengerError;
+use plerkle_serialization::error::PlerkleSerializationError;
 use sea_orm::{DbErr, TransactionError};
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError;
@@ -46,7 +47,7 @@ pub enum IngesterError {
     #[error("Unrecoverable task error")]
     UnrecoverableTaskError,
     #[error("Cache Storage Write Error {0}")]
-    CacheStorageWriteError(String),
+    CacheStorageWriteError(String)
 }
 
 impl From<reqwest::Error> for IngesterError {
@@ -100,5 +101,11 @@ impl From<SendError<TaskData>> for IngesterError {
 impl From<MessengerError> for IngesterError {
     fn from(e: MessengerError) -> Self {
         IngesterError::MessengerError(e.to_string())
+    }
+}
+
+impl From<PlerkleSerializationError> for IngesterError {
+    fn from(e: PlerkleSerializationError) -> Self {
+        IngesterError::SerializatonError(e.to_string())
     }
 }

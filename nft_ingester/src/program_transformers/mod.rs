@@ -1,3 +1,5 @@
+use crate::{error::IngesterError, TaskData};
+use blockbuster::instruction::IxPair;
 use blockbuster::{
     instruction::InstructionBundle,
     program_handler::ProgramParser,
@@ -6,10 +8,8 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
-use crate::{error::IngesterError, TaskData};
-use blockbuster::instruction::IxPair;
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
-use sea_orm::{DatabaseConnection, SqlxPostgresConnector,TransactionTrait};
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -80,7 +80,13 @@ impl ProgramTransformer {
         for k in accounts.into_iter() {
             keys.push(*k);
         }
-        
+        let mut not_impl = 0;
+        let ixlen = instructions.len();
+        println!("Instructions: {}", ixlen);
+        let contains = instructions
+            .iter()
+            .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
+        println!("Instructions bgum: {}", contains.count());
         let txn = self.storage.begin().await?;
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
@@ -109,25 +115,35 @@ impl ProgramTransformer {
                 keys: ix_accounts.as_slice(),
                 slot,
             };
+
             if let Some(program) = self.match_program(&ix.program) {
+                println!("Found a ix for program: {:?}", program.key());
                 let result = program.handle_instruction(&ix)?;
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
-                        handle_bubblegum_instruction(
-                            parsing_result,
-                            &ix,
-                            &txn,
-                            &self.task_sender,
-                        )
-                        .await
+                        handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
+                            .await?;
                     }
-    
-                    _ => Err(IngesterError::NotImplemented),
-                }?;
+                    _ => {
+                        not_impl += 1;
+                    }
+                };
             }
         }
-        txn.commit().await?;
+        match txn.commit().await {
+            Ok(_) => {
+                println!("Committed compressed transaction");
+            }
+            Err(e) => {
+                println!("Error committing transaction: {:?}", e);
+                return Err(IngesterError::DatabaseError(e.to_string()));
+            }
+        }
+        if not_impl == ixlen {
+            println!("Not imple");
+            return Err(IngesterError::NotImplemented);
+        }
         Ok(())
     }
 

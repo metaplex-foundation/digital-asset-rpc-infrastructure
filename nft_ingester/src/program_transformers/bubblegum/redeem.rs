@@ -7,13 +7,16 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema},
 };
 use digital_asset_types::dao::asset;
-use sea_orm::{entity::*, DatabaseTransaction};
+use sea_orm::{entity::*, ConnectionTrait, TransactionTrait};
 
-pub async fn redeem<'c>(
+pub async fn redeem<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
-    txn: &'c DatabaseTransaction,
-) -> Result<(), IngesterError> {
+    txn: &'c T,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         return match le.schema {
