@@ -31,10 +31,13 @@ enum Action {
         txn: String,
     },
     Address {
+        #[arg(long)]
         address: String,
+        #[arg(long)]
         include_failed: Option<bool>,
     },
     Scenario {
+        #[arg(long)]
         scenario_file: String,
     },
 }
@@ -73,6 +76,7 @@ async fn main() {
             include_failed,
             address,
         } => {
+            println!("Sending address");
             send_address(
                 &address,
                 cli.rpc_url,
@@ -101,7 +105,7 @@ pub async fn send_address(
     let pub_addr = Pubkey::from_str(address).unwrap();
     let mut sig = Siggrabbenheimer::new(client1, pub_addr, failed);
     let client2 = RpcClient::new(client_url);
-    for s in sig.next().await {
+    while let Some(s) = sig.next().await {
         send_txn(&s, &client2, messenger).await;
     }
 }
