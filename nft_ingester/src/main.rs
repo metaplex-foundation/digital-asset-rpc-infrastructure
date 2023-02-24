@@ -44,6 +44,7 @@ pub type RpcConfig = figment::value::Dict;
 
 pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
+const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
@@ -99,6 +100,7 @@ fn setup_metrics(config: &IngesterConfig) {
         let client = builder
             .with_tag("env", env)
             .with_tag("consumer_id", cons)
+            .with_tag("version", CODE_VERSION)
             .build();
         set_global_default(client);
     }
@@ -295,12 +297,10 @@ async fn service_account_stream<T: Messenger>(
             let result = tokio::spawn(async {
                 let manager = Arc::new(ProgramTransformer::new(pool_cloned, tasks_cloned));
                 let mut messenger = T::new(messenger_config_cloned).await.unwrap();
-                let semaphore = Arc::new(Semaphore::new(1000));
                 println!("Setting up account listener");
                 loop {
                     let mc = manager.clone();
                     let rc = messenger.recv(ACCOUNT_STREAM, ConsumptionType::All).await;
-                    let sem = Arc::clone(&semaphore);
                     match rc {
                         Ok(data) => {
                             let dl = data.len();
@@ -309,8 +309,7 @@ async fn service_account_stream<T: Messenger>(
                                     statsd_count!("ingester.account_entries_claimed", dl as i64);
                                 }
                                 let s = Instant::now();
-
-                                let ids = handle_account(&mc, data, sem).await;
+                                let ids = handle_account(&mc, data).await;
                                 metric! {
                                     statsd_time!("ingester.wall_batch_time", s.elapsed());
                                 }
@@ -347,18 +346,15 @@ async fn service_account_stream<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>, sem: Arc<Semaphore>) -> Vec<String> {
+async fn handle_account(manager: &Arc<ProgramTransformer>, data: Vec<RecvData>) -> Vec<String> {
     metric! {
         statsd_gauge!("ingester.account_batch_size", data.len() as u64);
     }
 
     let tasks = FuturesUnordered::new();
     for item in data.into_iter() {
-        let manager = Arc::clone(manager);
-        let sem = Arc::clone(&sem);
-        tasks.push(async move {
-            let _permit = sem.acquire().await.unwrap();
-            let id = item.id;
+            tasks.push(async move {
+                let id = item.id;
             let mut ret_id = None;
             if item.tries > 0 {
                 metric! {
