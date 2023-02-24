@@ -39,7 +39,7 @@ impl MigrationTrait for Migration {
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
                 "
-                DROP INDEX IF ta_delegate;
+                DROP INDEX IF EXISTS ta_delegate;
                 ALTER TABLE asset DROP CONSTRAINT IF EXISTS asset_asset_data_fkey;
                 DROP INDEX IF EXISTS asset_revision;
                 DROP INDEX IF EXISTS asset_tree_leaf;
