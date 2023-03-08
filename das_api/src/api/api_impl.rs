@@ -198,17 +198,15 @@ impl ApiContract for DasApi {
             before,
             after,
         } = payload;
-        let creator_address = validate_pubkey(creator_address)
-            .unwrap()
-            .to_bytes()
-            .to_vec();
+        let creator_address = validate_pubkey(creator_address.clone())?;
+        let creator_address_bytes = creator_address.to_bytes().to_vec();
 
         self.validate_pagination(&limit, &page, &before, &after)?;
         let sort_by = sort_by.unwrap_or_default();
         let only_verified = only_verified.unwrap_or_default();
         get_assets_by_creators(
             &self.db_connection,
-            vec![creator_address],
+            vec![creator_address_bytes],
             only_verified,
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
@@ -233,15 +231,13 @@ impl ApiContract for DasApi {
             after,
         } = payload;
         let sort_by = sort_by.unwrap_or_default();
-        let authority_address = validate_pubkey(authority_address)
-            .unwrap()
-            .to_bytes()
-            .to_vec();
+        let authority_address = validate_pubkey(authority_address.clone())?;
+        let authority_address_bytes = authority_address.to_bytes().to_vec();
 
         self.validate_pagination(&limit, &page, &before, &after)?;
         get_assets_by_authority(
             &self.db_connection,
-            authority_address,
+            authority_address_bytes,
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
