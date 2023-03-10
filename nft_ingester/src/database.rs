@@ -7,7 +7,7 @@ use crate::{
 const BARE_MINIMUM_CONNECTIONS: u32 = 5;
 const DEFAULT_MAX: u32 = 125;
 pub async fn setup_database(config: IngesterConfig) -> PgPool {
-    let max = config.max_postgres_connections.unwrap_or(125);
+    let max = config.max_postgres_connections.unwrap_or(DEFAULT_MAX);
     if config.role == Some(IngesterRole::All) || config.role == Some(IngesterRole::Ingester) {
         let relative_max =
             config.get_account_stream_worker_count() + config.get_transaction_stream_worker_count();
