@@ -1,7 +1,7 @@
 use crate::{
-    program_transformers::bubblegum::db::update_asset, tasks::common::save_changelog_event,
-    IngesterError,
+    error::IngesterError,
 };
+use super::{update_asset, save_changelog_event};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema},

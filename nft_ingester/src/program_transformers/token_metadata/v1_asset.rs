@@ -1,4 +1,4 @@
-use crate::{IngesterError, TaskData};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
@@ -24,7 +24,7 @@ use sea_orm::{
 };
 use std::collections::HashSet;
 
-use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
+use crate::tasks::{DownloadMetadata, IntoTaskData};
 use sea_orm::{FromQueryResult, JoinType};
 
 #[derive(FromQueryResult)]

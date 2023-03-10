@@ -1,4 +1,4 @@
-use crate::IngesterError;
+use crate::error::IngesterError;
 use blockbuster::token_metadata::state::{Key, MasterEditionV1, MasterEditionV2};
 use digital_asset_types::dao::{
     asset, asset_v1_account_attachments,

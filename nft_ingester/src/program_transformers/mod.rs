@@ -1,7 +1,6 @@
-use crate::{error::IngesterError, TaskData};
-use blockbuster::instruction::IxPair;
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::{
-    instruction::InstructionBundle,
+    instruction::{InstructionBundle, IxPair, order_instructions},
     program_handler::ProgramParser,
     programs::{
         bubblegum::BubblegumParser, token_account::TokenAccountParser,
@@ -16,7 +15,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    order_instructions,
     program_transformers::{
         bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
         token_metadata::handle_token_metadata_account,

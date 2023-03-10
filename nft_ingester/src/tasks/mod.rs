@@ -1,7 +1,6 @@
 use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
-use cadence_macros::is_global_default_set;
-use cadence_macros::{statsd_count, statsd_histogram};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
@@ -17,7 +16,8 @@ use tokio::{
     time,
 };
 
-pub mod common;
+mod common;
+pub use common::*;
 
 #[async_trait]
 pub trait BgTask: Send + Sync {
@@ -275,7 +275,7 @@ impl TaskManager {
                         name,
                         task,
                         task_map.clone(),
-                        process_on_receive
+                        process_on_receive,
                     );
                 }
             }

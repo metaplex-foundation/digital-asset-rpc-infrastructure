@@ -1,33 +1,24 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
-use crate::{
-    error::IngesterError, IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY,
-    RPC_URL_KEY,
-};
-use anchor_lang::Discriminator;
-use blockbuster::programs::bubblegum;
+
 use borsh::BorshDeserialize;
 use cadence_macros::{statsd_count, statsd_gauge};
 use chrono::Utc;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
-use plerkle_serialization::{
-    serializer::seralize_encoded_transaction_with_status, CompiledInstruction,
-    CompiledInstructionArgs, InnerInstructions, InnerInstructionsArgs, Pubkey as FBPubkey,
-    TransactionInfo, TransactionInfoArgs,
-};
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
-    SqlxPostgresConnector, TryGetableMany,
+    SqlxPostgresConnector,
 };
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
     rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
-    rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType},
+    rpc_filter::{Memcmp, RpcFilterType},
 };
 use solana_sdk::{
     account::Account,
@@ -39,20 +30,24 @@ use solana_sdk::{
 use solana_sdk_macro::pubkey;
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
-    EncodedConfirmedTransactionWithStatusMeta, UiInstruction::Compiled, UiRawMessage,
-    UiTransactionEncoding, UiTransactionStatusMeta,
+    EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
 };
-use spl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData};
+use spl_account_compression::state::{ConcurrentMerkleTreeHeader};
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
-use std::cmp;
-use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{
+    cmp,
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 use stretto::{AsyncCache, AsyncCacheBuilder};
 use tokio::{
     sync::Semaphore,
     time::{self, sleep, Duration},
 };
+
+use crate::config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_URL_KEY, RPC_COMMITMENT_KEY};
+use crate::error::IngesterError;
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 60;
@@ -67,7 +62,7 @@ const BLOCK_CACHE_DURATION: u64 = 172800;
 const VOTE: &str = "Vote111111111111111111111111111111111111111";
 pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
 /// Main public entry point for backfiller task.
-pub async fn backfiller<T: Messenger>(
+pub async fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
     config: IngesterConfig,
 ) -> tokio::task::JoinHandle<()> {
@@ -945,10 +940,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // the Bubblegum program.
                 let tb = tree.to_bytes();
                 let bubblegum = blockbuster::programs::bubblegum::program_id().to_bytes();
-                if account_keys
-                    .iter()
-                    .all(|pk| *pk != tb && *pk != bubblegum)
-                {
+                if account_keys.iter().all(|pk| *pk != tb && *pk != bubblegum) {
                     continue;
                 }
 
