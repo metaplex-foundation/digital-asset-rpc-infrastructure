@@ -36,10 +36,21 @@ impl MessengerStreamManager {
     ) -> Result<MessengerDataStream, IngesterError> {
         let key = self.stream_key.clone();
         let config = self.config.clone();
-        let (stream, send) = MessengerDataStream::new();
+        
+        let (stream, send, mut acks) = MessengerDataStream::new();
         let handle = async move {
             let mut messenger = T::new(config).await?;
+            
             loop {
+                if let Some(msgs) = acks.recv().await {
+                    let len = msgs.len();
+                    if let Err(e) = messenger.ack_msg(&key, &msgs).await {
+                        error!("Error acking message: {}", e);
+                    }
+                    metric!{
+                        statsd_count!("ingester.ack", len as i64, "stream" => key);
+                    }
+                }
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
                     ConsumptionType::New => ConsumptionType::New,
@@ -65,13 +76,26 @@ impl MessengerStreamManager {
 }
 
 pub struct MessengerDataStream {
-    chan: UnboundedReceiver<RecvData>,
+    ack_sender: UnboundedSender<Vec<String>>,
+    message_chan: UnboundedReceiver<RecvData>,
 }
 
 impl MessengerDataStream {
-    pub fn new() -> (Self, UnboundedSender<RecvData>) {
-        let (tx, rx) = unbounded_channel::<RecvData>();
-        (Self { chan: rx }, tx)
+    pub fn new() -> (Self, UnboundedSender<RecvData>, UnboundedReceiver<Vec<String>>) {
+        let (message_sender, message_chan) = unbounded_channel::<RecvData>();
+        let (ack_sender, ack_tracker) = unbounded_channel::<Vec<String>>();
+        (
+            MessengerDataStream {
+                ack_sender,
+                message_chan,
+            },
+            message_sender,
+            ack_tracker,
+        )
+    }
+
+    pub fn ack_sender(&self) -> UnboundedSender<Vec<String>> {
+        self.ack_sender.clone()
     }
 }
 
@@ -79,7 +103,7 @@ impl Stream for MessengerDataStream {
     type Item = RecvData;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.chan.poll_recv(cx)
+        self.message_chan.poll_recv(cx)
     }
 }
 

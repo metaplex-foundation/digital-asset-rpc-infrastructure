@@ -39,7 +39,7 @@ enum Action {
     Scenario {
         #[arg(long)]
         scenario_file: String,
-    },
+    }
 }
 const STREAM: &str = "TXN";
 const MAX_CACHE_COST: i64 = 32;

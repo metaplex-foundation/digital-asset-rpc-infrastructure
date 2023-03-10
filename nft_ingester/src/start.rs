@@ -7,7 +7,7 @@ use crate::{
     metric,
     metrics::setup_metrics,
     stream::{MessengerStreamManager, StreamSizeTimer},
-    tasks::{BgTask, DownloadMetadataTask, TaskManager},
+    tasks::{BgTask, DownloadMetadataTask, TaskManager}, transaction_notifications::setup_transaction_stream_worker,
 };
 
 use crate::config::rand_string;
@@ -80,7 +80,7 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
         // This is how we send new bg tasks
         let bg_task_sender = background_task_manager.get_sender().unwrap();
         let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
-        let max_account_workers = config.account_stream_worker_count.unwrap_or(3);
+        let max_account_workers = config.account_stream_worker_count.unwrap_or(4);
         for i in 0..max_account_workers {
             let stream = if i == max_account_workers - 1 {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
@@ -88,6 +88,21 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
             }?;
             tasks.spawn(setup_account_stream_worker::<RedisMessenger>(
+                database_pool.clone(),
+                bg_task_sender.clone(),
+                stream,
+            ));
+        }
+
+        let mut ams = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
+        let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
+        for i in 0..max_account_workers {
+            let stream = if i == max_account_workers - 1 {
+                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
+            } else {
+                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
+            }?;
+            tasks.spawn(setup_transaction_stream_worker::<RedisMessenger>(
                 database_pool.clone(),
                 bg_task_sender.clone(),
                 stream,
