@@ -1,20 +1,25 @@
 use std::{
     collections::HashMap,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
 use crate::{error::IngesterError, metric};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
+
 use log::{error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use tokio::{
-    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    sync::{
+        mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender}
+    },
     task::{JoinHandle, JoinSet},
     time::{self, Duration, Instant},
 };
 use tokio_stream::{Stream, StreamExt};
 pub const HOT_PATH_METRICS_SAMPLE_INTERVAL: u64 = 10;
+
 pub struct MessengerStreamManager {
     config: MessengerConfig,
     stream_key: &'static str,
@@ -36,35 +41,18 @@ impl MessengerStreamManager {
         let key = self.stream_key.clone();
         let (stream, send, mut acks) = MessengerDataStream::new();
         let config = self.config.clone();
-
-        let (sem_tx, mut sem_rx) = unbounded_channel::<usize>();
-        let ack_handle = async move {
+        let handle = async move {
+            let mut metrics_time_sample = Instant::now();
             let mut messenger = T::new(config).await?;
             loop {
-                if let Some(msgs) = acks.recv().await {
+                if let Ok(msgs) = acks.try_recv() {
                     let len = msgs.len();
-                    if let Err(e) = sem_tx.send(len) {
-                        error!("Error updating backpressure: {}", e);
-                    }
                     if let Err(e) = messenger.ack_msg(&key, &msgs).await {
                         error!("Error acking message: {}", e);
                     }
                     metric! {
                         statsd_count!("ingester.ack", len as i64, "stream" => key);
                     }
-                }
-            }
-        };
-        self.message_receiver.spawn(ack_handle);
-        let config = self.config.clone();
-
-        let handle = async move {
-            let mut metrics_time_sample = Instant::now();
-            let mut messenger = T::new(config).await?;
-            let sem = tokio::sync::Semaphore::new(1000);
-            loop {
-                if let Ok(p) = sem_rx.try_recv() {
-                    sem.add_permits(p);
                 }
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
@@ -76,19 +64,12 @@ impl MessengerStreamManager {
                     let l = data.len();
                     if metrics_time_sample.elapsed().as_secs() >= HOT_PATH_METRICS_SAMPLE_INTERVAL {
                         metric! {
-                            statsd_gauge!("ingester.working_permits", sem.available_permits() as u64, "stream" => key);
                             statsd_gauge!("ingester.batch_size", l as f64, "stream" => key);
                         }
                         metrics_time_sample = Instant::now();
                     }
-                    if let Err(e) = sem.acquire_many(l as u32).await {
-                        error!(
-                            "Error acquiring semaphore backpresure close, this is really bad {}",
-                            e
-                        );
-                    }
                     for r in data {
-                        if let Err(e) = send.send(r) {
+                        if let Err(e) = send.send(r).await {
                             error!("Error forwarding to local stream: {}", e);
                         }
                     }
@@ -102,16 +83,12 @@ impl MessengerStreamManager {
 
 pub struct MessengerDataStream {
     ack_sender: UnboundedSender<Vec<String>>,
-    message_chan: UnboundedReceiver<RecvData>,
+    message_chan: Receiver<RecvData>,
 }
 
 impl MessengerDataStream {
-    pub fn new() -> (
-        Self,
-        UnboundedSender<RecvData>,
-        UnboundedReceiver<Vec<String>>,
-    ) {
-        let (message_sender, message_chan) = unbounded_channel::<RecvData>();
+    pub fn new() -> (Self, Sender<RecvData>, UnboundedReceiver<Vec<String>>) {
+        let (message_sender, message_chan) = channel::<RecvData>(10);
         let (ack_sender, ack_tracker) = unbounded_channel::<Vec<String>>();
         (
             MessengerDataStream {

@@ -2615,6 +2615,7 @@ name = "nft_ingester"
 version = "0.6.8"
 dependencies = [
  "anchor-lang",
+ "async-stream",
  "async-trait",
  "base64 0.20.0",
  "blockbuster",
