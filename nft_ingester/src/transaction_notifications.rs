@@ -25,7 +25,7 @@ pub fn setup_transaction_stream_worker<T: Messenger>(
         while let Some(item) = stream.next().await {
             if let Some(id) = handle_transaction(&manager, item).await {
                 acks.push(id);
-                if last_ack.elapsed().as_secs() > 1 {
+                if last_ack.elapsed().as_secs() > 1 || acks.len() > 1000 {
                     let mut send_acks = Vec::with_capacity(acks.len());
                     send_acks.append(&mut acks);
                     acker.send(send_acks).unwrap();

@@ -5,14 +5,15 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::{error::IngesterError, metric};
+use crate::{error::IngesterError, metric, config::rand_string};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
+use figment::value::Value;
 use log::{error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use tokio::{
-    sync::{
-        mpsc::{channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender}
+    sync::mpsc::{
+        channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
     },
     task::{JoinHandle, JoinSet},
     time::{self, Duration, Instant},
@@ -40,7 +41,10 @@ impl MessengerStreamManager {
     ) -> Result<MessengerDataStream, IngesterError> {
         let key = self.stream_key.clone();
         let (stream, send, mut acks) = MessengerDataStream::new();
-        let config = self.config.clone();
+        let mut config = self.config.clone();
+        config
+            .connection_config
+            .insert("consumer_id".to_string(), Value::from(rand_string()));
         let handle = async move {
             let mut metrics_time_sample = Instant::now();
             let mut messenger = T::new(config).await?;

@@ -102,10 +102,6 @@ pub fn setup_config() -> IngesterConfig {
             msg: format!("{}", config_error),
         })
         .unwrap();
-    config
-        .messenger_config
-        .connection_config
-        .insert("consumer_id".to_string(), Value::from(rand_string()));
     config.code_version = Some(CODE_VERSION);
     config
 }
