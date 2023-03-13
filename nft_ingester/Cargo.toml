@@ -5,7 +5,8 @@ edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
-tracing = "0.1.26"
+log = "0.4.17"
+env_logger = "0.10.0"
 redis = { version = "0.22.3", features = ["aio", "tokio-comp", "streams", "tokio-native-tls-comp"] }
 futures = {version = "0.3.25"}
 futures-util = "0.3.0"

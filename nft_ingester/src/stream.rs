@@ -13,7 +13,8 @@ use tokio::{
     time::{self, Duration},
 };
 use tokio_stream::{Stream, StreamExt};
-use tracing::log::error;
+use log::{error, info};
+
 
 pub struct MessengerStreamManager {
     config: MessengerConfig,
@@ -22,11 +23,18 @@ pub struct MessengerStreamManager {
 }
 impl MessengerStreamManager {
     pub fn new(stream: &'static str, messenger_config: MessengerConfig) -> Self {
-        let (tx, rx) = unbounded_channel::<RecvData>();
         Self {
             config: messenger_config,
             stream_key: stream,
             message_receiver: JoinSet::new(),
+        }
+    }
+
+    pub async fn start(&mut self) {
+        while let Some(res) = self.message_receiver.join_next().await {
+            if let Err(e) = res {
+                error!("Error in message receiver: {}", e);
+            }
         }
     }
 
@@ -35,12 +43,10 @@ impl MessengerStreamManager {
         ct: ConsumptionType,
     ) -> Result<MessengerDataStream, IngesterError> {
         let key = self.stream_key.clone();
-        let config = self.config.clone();
-        
         let (stream, send, mut acks) = MessengerDataStream::new();
-        let handle = async move {
+        let config = self.config.clone();
+        let ack_handle = async move {
             let mut messenger = T::new(config).await?;
-            
             loop {
                 if let Some(msgs) = acks.recv().await {
                     let len = msgs.len();
@@ -51,6 +57,13 @@ impl MessengerStreamManager {
                         statsd_count!("ingester.ack", len as i64, "stream" => key);
                     }
                 }
+            }
+        };
+        self.message_receiver.spawn(ack_handle);
+        let config = self.config.clone();
+        let handle = async move {
+            let mut messenger = T::new(config).await?;
+           loop {
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
                     ConsumptionType::New => ConsumptionType::New,

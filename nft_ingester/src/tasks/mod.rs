@@ -4,6 +4,7 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
+use log::{error, debug};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
@@ -123,7 +124,7 @@ impl TaskManager {
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
-                println!("Task Run Error: {}", e);
+                error!("Task Run Error: {}", e);
             }
         }
         Ok(task)
@@ -295,16 +296,16 @@ impl TaskManager {
                 let delete_res = TaskManager::purge_old_tasks(&conn).await;
                 match delete_res {
                     Ok(res) => {
-                        println!("deleted {} tasks entries", res.rows_affected);
+                        debug!("deleted {} tasks entries", res.rows_affected);
                     }
                     Err(e) => {
-                        println!("error deleting tasks: {}", e);
+                        error!("error deleting tasks: {}", e);
                     }
                 };
                 let tasks_res = TaskManager::get_pending_tasks(&conn).await;
                 match tasks_res {
                     Ok(tasks) => {
-                        println!("tasks that need to be executed: {}", tasks.len());
+                        debug!("tasks that need to be executed: {}", tasks.len());
                         let _task_map_clone = task_map.clone();
                         let instance_name = instance_name.clone();
                         for task in tasks {
@@ -342,7 +343,7 @@ impl TaskManager {
                         }
                     }
                     Err(e) => {
-                        println!("Error getting pending tasks: {}", e);
+                        error!("Error getting pending tasks: {}", e);
                     }
                 }
             }

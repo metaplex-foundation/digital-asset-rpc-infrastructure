@@ -2,6 +2,7 @@ use super::{BgTask, FromTaskData, IngesterError, IntoTaskData, TaskData};
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use digital_asset_types::dao::asset_data;
+use log::debug;
 use reqwest::{Client, ClientBuilder};
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
@@ -93,7 +94,7 @@ impl BgTask for DownloadMetadataTask {
             metadata: Set(body),
             ..Default::default()
         };
-        println!(
+        debug!(
             "download metadata for {:?}",
             bs58::encode(download_metadata.asset_data_id.clone()).into_string()
         );

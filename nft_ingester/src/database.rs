@@ -1,4 +1,4 @@
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{postgres::{PgPoolOptions, PgConnectOptions}, PgPool, ConnectOptions};
 
 use crate::{
     config::{IngesterConfig, IngesterRole},
@@ -12,15 +12,20 @@ pub async fn setup_database(config: IngesterConfig) -> PgPool {
         let relative_max =
             config.get_account_stream_worker_count() + config.get_transaction_stream_worker_count();
         let should_be_at_least = relative_max * 5;
-        if relative_max * 5 < max {
+        if should_be_at_least > max {
             panic!("Please increase max_postgres_connections to at least {}, at least 5 connections per worker process should be given", should_be_at_least);
         }
     }
     let url = config.get_database_url();
-    PgPoolOptions::new()
+    let mut options: PgConnectOptions = url.parse().unwrap();
+    options.log_statements(log::LevelFilter::Debug);
+    options.log_slow_statements(log::LevelFilter::Info, std::time::Duration::from_secs(1));
+    
+    let pool = PgPoolOptions::new()
         .min_connections(BARE_MINIMUM_CONNECTIONS)
         .max_connections(max)
-        .connect(&url)
+        .connect_with(options)
         .await
-        .unwrap()
+        .unwrap();
+    pool
 }

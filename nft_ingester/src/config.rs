@@ -20,7 +20,7 @@ pub struct IngesterConfig {
     pub max_postgres_connections: Option<u32>,
     pub account_stream_worker_count: Option<u32>,
     pub transaction_stream_worker_count: Option<u32>,
-    pub code_version: &'static str,
+    pub code_version: Option<&'static str>,
 }
 
 impl IngesterConfig {
@@ -106,5 +106,6 @@ pub fn setup_config() -> IngesterConfig {
         .messenger_config
         .connection_config
         .insert("consumer_id".to_string(), Value::from(rand_string()));
+    config.code_version = Some(CODE_VERSION);
     config
 }

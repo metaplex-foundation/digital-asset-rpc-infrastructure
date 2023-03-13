@@ -15,10 +15,9 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use plerkle_messenger::{redis_messenger::RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM};
 use tokio::task::{JoinError, JoinSet};
-use tracing::log::info;
+use log::{info, error};
 
-pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
-    info!("Starting DASgester");
+pub async fn start() -> Result<(), IngesterError> {
     // Setup Configuration and Metrics ---------------------------------------------
     // Pull Env variables into config struct
     let config = setup_config();
@@ -28,7 +27,7 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
     let database_pool = setup_database(config.clone()).await;
     // The role determines the processes that get run.
     let role = config.clone().role.unwrap_or(IngesterRole::All);
-
+    info!("Starting Program with Role {}", role);
     // Tasks Setup -----------------------------------------------
     // This joinset maages all the tasks that are spawned.
     let mut tasks = JoinSet::new();
@@ -75,11 +74,13 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
             setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone()).await;
         tasks.spawn(backfiller);
     }
+    let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
+    let mut tms = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         // This is how we send new bg tasks
         let bg_task_sender = background_task_manager.get_sender().unwrap();
-        let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
+        
         let max_account_workers = config.account_stream_worker_count.unwrap_or(4);
         for i in 0..max_account_workers {
             let stream = if i == max_account_workers - 1 {
@@ -94,13 +95,12 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
             ));
         }
 
-        let mut ams = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
         let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
         for i in 0..max_account_workers {
             let stream = if i == max_account_workers - 1 {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
+                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
             } else {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
+                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
             }?;
             tasks.spawn(setup_transaction_stream_worker::<RedisMessenger>(
                 database_pool.clone(),
@@ -114,6 +114,12 @@ pub async fn start() -> Result<JoinSet<Result<(), JoinError>>, IngesterError> {
     metric! {
      statsd_count!("ingester.startup", 1, "role" => &roles_str);
     }
-
-    Ok(tasks)
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => {}
+        Err(err) => {
+            error!("Unable to listen for shutdown signal: {}", err);
+        }
+    }
+    tasks.shutdown().await;
+    Ok(())
 }
