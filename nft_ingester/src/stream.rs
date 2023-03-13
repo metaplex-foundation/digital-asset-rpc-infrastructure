@@ -63,8 +63,8 @@ impl MessengerStreamManager {
             let mut messenger = T::new(config).await?;
             let sem = tokio::sync::Semaphore::new(1000);
             loop {
-                if let Some(new_permits) = sem_rx.recv().await {
-                    sem.add_permits(new_permits);
+                if let Ok(p) = sem_rx.try_recv() {
+                    sem.add_permits(p);
                 }
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
