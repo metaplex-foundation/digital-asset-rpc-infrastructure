@@ -7,6 +7,7 @@ use crate::{
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
 use futures::StreamExt;
+use log::error;
 use plerkle_messenger::RecvData;
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
@@ -79,16 +80,18 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, item: RecvData) -> Op
                 }
                 ret_id = Some(id);
             }
-            Err(IngesterError::DeserializationError(_)) => {
+            Err(IngesterError::DeserializationError(e)) => {
                 metric! {
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "de");
                 }
+                error!(e);
                 ret_id = Some(id);
             }
-            Err(IngesterError::ParsingError(_)) => {
+            Err(IngesterError::ParsingError(e)) => {
                 metric! {
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "parse");
                 }
+                error!(e);
                 ret_id = Some(id);
             }
             Err(err) => {

@@ -81,9 +81,9 @@ pub async fn start() -> Result<(), IngesterError> {
         // This is how we send new bg tasks
         let bg_task_sender = background_task_manager.get_sender().unwrap();
         
-        let max_account_workers = config.account_stream_worker_count.unwrap_or(4);
+        let max_account_workers = config.account_stream_worker_count.unwrap_or(5);
         for i in 0..max_account_workers {
-            let stream = if i == max_account_workers - 1 {
+            let stream = if i == 0 {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
             } else {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
@@ -97,7 +97,7 @@ pub async fn start() -> Result<(), IngesterError> {
 
         let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
         for i in 0..max_account_workers {
-            let stream = if i == max_account_workers - 1 {
+            let stream = if i == 0 {
                 tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
             } else {
                 tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
