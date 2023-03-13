@@ -1,20 +1,18 @@
-use std::{sync::Arc};
+use std::sync::Arc;
 
+use crate::{
+    error::IngesterError, metric, program_transformers::ProgramTransformer,
+    stream::MessengerDataStream, tasks::TaskData,
+};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
 use futures::StreamExt;
-use plerkle_messenger::{Messenger, RecvData};
+use plerkle_messenger::RecvData;
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
-use tokio::{sync::mpsc::UnboundedSender, time::Instant, task::JoinHandle};
-use crate::{
-    metric,
-    program_transformers::ProgramTransformer,
-    stream::{MessengerDataStream},
-    tasks::TaskData, error::IngesterError,
-};
+use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
 
-pub fn setup_account_stream_worker<T: Messenger>(
+pub fn setup_account_stream_worker(
     pool: Pool<Postgres>,
     bg_task_sender: UnboundedSender<TaskData>,
     mut stream: MessengerDataStream,
@@ -27,7 +25,7 @@ pub fn setup_account_stream_worker<T: Messenger>(
         while let Some(item) = stream.next().await {
             if let Some(id) = handle_account(&manager, item).await {
                 acks.push(id);
-                if last_ack.elapsed().as_secs() > 1 {
+                if last_ack.elapsed().as_secs() > 1 || acks.len() > 100 {
                     let mut send_acks = Vec::with_capacity(acks.len());
                     send_acks.append(&mut acks);
                     acker.send(send_acks).unwrap();

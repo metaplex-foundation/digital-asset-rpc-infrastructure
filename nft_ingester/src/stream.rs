@@ -16,6 +16,7 @@ use tokio_stream::{Stream, StreamExt};
 use log::{error, info};
 
 
+
 pub struct MessengerStreamManager {
     config: MessengerConfig,
     stream_key: &'static str,
@@ -40,7 +41,9 @@ impl MessengerStreamManager {
         let ack_handle = async move {
             let mut messenger = T::new(config).await?;
             loop {
+                info!("Starting ack loop");
                 if let Some(msgs) = acks.recv().await {
+                    info!("Acking");
                     let len = msgs.len();
                     if let Err(e) = messenger.ack_msg(&key, &msgs).await {
                         error!("Error acking message: {}", e);

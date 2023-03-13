@@ -88,7 +88,7 @@ pub async fn start() -> Result<(), IngesterError> {
             } else {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
             }?;
-            tasks.spawn(setup_account_stream_worker::<RedisMessenger>(
+            tasks.spawn(setup_account_stream_worker(
                 database_pool.clone(),
                 bg_task_sender.clone(),
                 stream,
