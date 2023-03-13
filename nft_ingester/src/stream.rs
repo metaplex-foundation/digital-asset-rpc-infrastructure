@@ -30,14 +30,6 @@ impl MessengerStreamManager {
         }
     }
 
-    pub async fn start(&mut self) {
-        while let Some(res) = self.message_receiver.join_next().await {
-            if let Err(e) = res {
-                error!("Error in message receiver: {}", e);
-            }
-        }
-    }
-
     pub fn listen<T: Messenger>(
         &mut self,
         ct: ConsumptionType,
