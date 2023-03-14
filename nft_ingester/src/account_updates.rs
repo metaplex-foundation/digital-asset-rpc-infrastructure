@@ -84,14 +84,14 @@ async fn handle_account(manager: &Arc<ProgramTransformer>, item: RecvData) -> Op
                 metric! {
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "de");
                 }
-                error!(e);
+                error!("{}", e);
                 ret_id = Some(id);
             }
             Err(IngesterError::ParsingError(e)) => {
                 metric! {
                     statsd_count!("ingester.account_update_error", 1, "owner" => &str_program_id, "error" => "parse");
                 }
-                error!(e);
+                error!("{}", e);
                 ret_id = Some(id);
             }
             Err(err) => {
