@@ -1,4 +1,4 @@
-use super::{save_changelog_event};
+use super::save_changelog_event;
 use crate::{
     error::IngesterError,
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
@@ -22,8 +22,7 @@ use digital_asset_types::{
 };
 use num_traits::FromPrimitive;
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend,
-    EntityTrait, JsonValue,
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
 
@@ -259,9 +258,12 @@ where
                         // `ON CONFLICT ('asset_id') DO NOTHING`.
                         let query = asset_grouping::Entity::insert(model)
                             .on_conflict(
-                                OnConflict::columns([asset_grouping::Column::AssetId])
-                                    .do_nothing()
-                                    .to_owned(),
+                                OnConflict::columns([
+                                    asset_grouping::Column::AssetId,
+                                    asset_grouping::Column::GroupKey,
+                                ])
+                                .do_nothing()
+                                .to_owned(),
                             )
                             .build(DbBackend::Postgres);
                         txn.execute(query).await?;

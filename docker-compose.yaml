@@ -46,6 +46,7 @@ services:
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
+      INGESTER_ROLE: "Ingester"
     build:
       context: .
       dockerfile: Ingest.Dockerfile
