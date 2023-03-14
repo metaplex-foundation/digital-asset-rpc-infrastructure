@@ -30,7 +30,7 @@ services:
       RUST_LOG: debug
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
-      INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
+      INGESTER_DATABASE_CONFIG: '{max_postgres_connections=, listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
@@ -80,7 +80,7 @@ services:
       - "6379:6379"
   db:
     image: 'postgres:latest'
-    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr", "-c", "shared_buffers=256MB","-c","max_connections=200"]
     ports:
       - 5432:5432
     environment:

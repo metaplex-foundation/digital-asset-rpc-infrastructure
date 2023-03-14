@@ -7,21 +7,20 @@ use std::{
 };
 
 use crate::{config::rand_string, error::IngesterError, metric};
-use async_stream::{stream, try_stream};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
 use figment::value::Value;
 use futures::{pin_mut, Future};
-use log::{error, info};
+use log::{error, info, debug};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use tokio::{
     sync::mpsc::{
         channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
     },
     task::{JoinHandle, JoinSet},
-    time::{self, Duration, Instant}, pin,
+    time::{self, Duration, Instant},
 };
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::{Stream};
 pub const HOT_PATH_METRICS_SAMPLE_INTERVAL: u64 = 10;
 
 pub struct MessengerStreamManager {
@@ -38,18 +37,13 @@ impl MessengerStreamManager {
         }
     }
 
-    pub fn listen<T: Messenger, F, Fut>(
+    pub fn listen<T: Messenger>(
         &mut self,
         ct: ConsumptionType,
-        operation: F,
-    ) -> Result<(), IngesterError>
-    where
-        Fut: Future<Output=Result<Vec<String>, IngesterError>> + Send + 'static,
-        F: Fn(Vec<RecvData>) -> Fut,
-        
+    ) -> Result<MessengerDataStream, IngesterError>
     {
         let key = self.stream_key.clone();
-        let (ack_send, acks) = unbounded_channel::<Vec<String>>();
+        let (stream, send, mut acks) = MessengerDataStream::new();
         let config = self.config.clone();
         let ack_handle = async move {
             let mut messenger = T::new(config).await?;
@@ -67,11 +61,11 @@ impl MessengerStreamManager {
         };
         self.message_receiver.spawn(ack_handle);
         let config = self.config.clone();
-        pin!(operation);
         let handle = async move {
             let mut metrics_time_sample = Instant::now();
             let mut messenger = T::new(config).await?;
             loop {
+                debug!("scanning {}", key);
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
                     ConsumptionType::New => ConsumptionType::New,
@@ -80,37 +74,34 @@ impl MessengerStreamManager {
                 let key = key.clone();
                 if let Ok(data) = messenger.recv(&key, ct).await {
                     let l = data.len();
+                    debug!("received messages {}", key);
                     if metrics_time_sample.elapsed().as_secs() >= HOT_PATH_METRICS_SAMPLE_INTERVAL {
                         metric! {
                             statsd_gauge!("ingester.batch_size", l as f64, "stream" => key);
                         }
                         metrics_time_sample = Instant::now();
                     }
-                    let result = operation(data).await;
-                    if let Ok(acks) = result {
-                        let len = acks.len();
-                        if let Err(e) = ack_send.send(acks) {
-                            error!("Error sending acks: {}", e);
-                        }
-                    } else {
-                        error!("Error processing message: {:?}", result);
+                    if let Err(e) = send.send(data).await {
+                        error!("Error forwarding to local stream: {}", e);
                     }
+                } else {
+                    error!("Error receiving message");
                 }
             }
         };
         self.message_receiver.spawn(handle);
-        Ok(())
+        Ok(stream)
     }
 }
 
 pub struct MessengerDataStream {
     ack_sender: UnboundedSender<Vec<String>>,
-    message_chan: Receiver<Vec<RecvData>>,
+    pub message_chan: Receiver<Vec<RecvData>>,
 }
 
 impl MessengerDataStream {
     pub fn new() -> (Self, Sender<Vec<RecvData>>, UnboundedReceiver<Vec<String>>) {
-        let (message_sender, message_chan) = channel::<Vec<RecvData>>(10);
+        let (message_sender, message_chan) = channel::<Vec<RecvData>>(1);
         let (ack_sender, ack_tracker) = unbounded_channel::<Vec<String>>();
         (
             MessengerDataStream {
@@ -124,14 +115,6 @@ impl MessengerDataStream {
 
     pub fn ack_sender(&self) -> UnboundedSender<Vec<String>> {
         self.ack_sender.clone()
-    }
-}
-
-impl Stream for MessengerDataStream {
-    type Item = Vec<RecvData>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.message_chan.poll_recv(cx)
     }
 }
 

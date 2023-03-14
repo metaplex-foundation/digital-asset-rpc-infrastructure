@@ -13,7 +13,7 @@ use plerkle_serialization::root_as_transaction_info;
 use sqlx::{Pool, Postgres};
 use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
 
-pub fn setup_transaction_stream_worker<T: Messenger>(
+pub fn setup_transaction_stream_worker(
     pool: Pool<Postgres>,
     bg_task_sender: UnboundedSender<TaskData>,
     mut stream: MessengerDataStream,
@@ -22,7 +22,7 @@ pub fn setup_transaction_stream_worker<T: Messenger>(
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
         let acker = stream.ack_sender();
         loop {
-            if let Some(items) = stream.next().await {
+            if let Some(items) = stream.message_chan.recv().await {
                 let mut tasks = FuturesUnordered::new();
                 for item in items {
                     tasks.push(handle_transaction(&manager, item));
@@ -43,7 +43,6 @@ pub fn setup_transaction_stream_worker<T: Messenger>(
     })
 }
 
-#[inline(always)]
 async fn handle_transaction(manager: &Arc<ProgramTransformer>, item: RecvData) -> Option<String> {
     let mut ret_id = None;
     if item.tries > 0 {

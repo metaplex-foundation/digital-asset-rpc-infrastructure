@@ -2,11 +2,11 @@ use std::{pin::Pin, sync::Arc};
 
 use crate::{
     error::IngesterError, metric, program_transformers::ProgramTransformer,
-    stream::MessengerDataStream, tasks::TaskData,
+    stream::{MessengerDataStream}, tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt, Stream, pin_mut};
+
 use log::{debug, error};
 use plerkle_messenger::RecvData;
 use plerkle_serialization::root_as_account_info;
@@ -17,38 +17,43 @@ use tokio::{
     time::Instant,
 };
 
+
 pub fn setup_account_stream_worker(
     pool: Pool<Postgres>,
     bg_task_sender: UnboundedSender<TaskData>,
-    stream: impl Stream<Item = Vec<RecvData>>,
-    ack_sender: UnboundedSender<Vec<String>>,
+    mut stream: MessengerDataStream,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
-        let acker = ack_sender;
-        
+        let acker = stream.ack_sender();
         loop {
-            debug!("Account stream waiting for next batch");
-            if let Some(items) = stream.next().await {
+            if let Some(items) = stream.message_chan.recv().await {
+                let mut tasks = JoinSet::new();
                 for item in items {
-                    if let Some(id) = handle_account(manager.as_ref(), item).await {
+                    tasks.spawn(handle_account(manager.clone(), item));
+                }
+                while let Some(res) = tasks.join_next().await {
+                    if let Ok(Some(id)) = res {
                         let send = acker.send(vec![id]);
                         if let Err(err) = send {
                             metric! {
                                 error!("Account stream ack error: {}", err);
-                                statsd_count!("ingester.stream.ack_error", 1, "stream" => "ACC");
+                                statsd_count!("ingester.stream.ack_error", 1, "stream" => "TXN");
                             }
+                        }
+                    } else {
+                        metric! {
+                            error!("Account error");
+                            
                         }
                     }
                 }
-            } else {
-                debug!("Account stream got None, exiting");
             }
         }
     })
 }
 
-async fn handle_account(manager: &ProgramTransformer, item: RecvData) -> Option<String> {
+async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Option<String> {
     let id = item.id;
     let mut ret_id = None;
     if item.tries > 0 {

@@ -6,7 +6,7 @@ use crate::{
     error::IngesterError,
     metric,
     metrics::setup_metrics,
-    stream::{MessengerStreamManager, StreamSizeTimer, MessengerStream},
+    stream::{MessengerStreamManager, StreamSizeTimer},
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
     transaction_notifications::setup_transaction_stream_worker,
 };
@@ -33,7 +33,48 @@ pub async fn start() -> Result<(), IngesterError> {
     // This joinset maages all the tasks that are spawned.
     let mut tasks = JoinSet::new();
     let stream_metrics_timer = Duration::seconds(60).to_std().unwrap();
+    let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
+    let mut tms = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
+    // BACKGROUND TASKS --------------------------------------------
+    //Setup definitions for background tasks
+    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
+    let mut background_task_manager =
+        TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
+    let bg_task_listener = background_task_manager
+        .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
+    // Stream Consumers Setup -------------------------------------
+    if role == IngesterRole::Ingester || role == IngesterRole::All {
+        // This is how we send new bg tasks
+        let bg_task_sender = background_task_manager.get_sender().unwrap();
 
+        let max_account_workers = config.get_account_stream_worker_count();
+        for i in 0..max_account_workers {
+            let stream = if i == 0 {
+                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
+            } else {
+                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
+            }?;
+            tasks.spawn(setup_account_stream_worker(
+                database_pool.clone(),
+                bg_task_sender.clone(),
+                stream
+            ));
+        }
+
+        let max_txn_workers = config.transaction_stream_worker_count.unwrap_or(2);
+        for i in 0..max_txn_workers {
+            let stream = if i == 0 {
+                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
+            } else {
+                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
+            }?;
+            tasks.spawn(setup_transaction_stream_worker(
+                database_pool.clone(),
+                bg_task_sender.clone(),
+                stream,
+            ));
+        }
+    }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
     // If metrics are disabled, these will not run.
@@ -48,13 +89,6 @@ pub async fn start() -> Result<(), IngesterError> {
         TRANSACTION_STREAM,
     )?;
 
-    // BACKGROUND TASKS --------------------------------------------
-    //Setup definitions for background tasks
-    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
-    let mut background_task_manager =
-        TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
-    let bg_task_listener = background_task_manager
-        .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
     // Always listen for background tasks unless we are the bg task runner
     if role != IngesterRole::BackgroundTaskRunner {
         tasks.spawn(bg_task_listener);
@@ -75,42 +109,7 @@ pub async fn start() -> Result<(), IngesterError> {
             setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone()).await;
         tasks.spawn(backfiller);
     }
-    let mut ams = MessengerStream::<RedisMessenger>::new(ACCOUNT_STREAM, config.messenger_config.clone());
-    let mut tms = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
-    // Stream Consumers Setup -------------------------------------
-    if role == IngesterRole::Ingester || role == IngesterRole::All {
-        // This is how we send new bg tasks
-        let bg_task_sender = background_task_manager.get_sender().unwrap();
-
-        let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
-        for i in 0..max_account_workers {
-            let stream = if i == 0 {
-                ams.listen(plerkle_messenger::ConsumptionType::Redeliver).await
-            } else {
-                ams.listen(plerkle_messenger::ConsumptionType::New).await
-            }?;
-            tasks.spawn(setup_account_stream_worker(
-                database_pool.clone(),
-                bg_task_sender.clone(),
-                stream,
-            ));
-        }
-
-        let max_txn_workers = config.transaction_stream_worker_count.unwrap_or(2);
-        for i in 0..max_txn_workers {
-            let stream = if i == 0 {
-                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
-            } else {
-                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
-            }?;
-            tasks.spawn(setup_transaction_stream_worker::<RedisMessenger>(
-                database_pool.clone(),
-                bg_task_sender.clone(),
-                stream,
-            ));
-        }
-    }
-
+    
     let roles_str = role.to_string();
     metric! {
      statsd_count!("ingester.startup", 1, "role" => &roles_str);

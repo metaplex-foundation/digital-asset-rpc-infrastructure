@@ -10,6 +10,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
 use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
+
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
     SqlxPostgresConnector,
@@ -33,7 +34,12 @@ use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
 };
-use spl_account_compression::state::ConcurrentMerkleTreeHeader;
+use spl_account_compression::{
+    zero_copy::ZeroCopy,
+    state::{
+        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+    },
+};
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::{
     cmp,
@@ -48,7 +54,7 @@ use tokio::{
     time::{self, sleep, Duration},
 };
 
-use crate::error::IngesterError;
+use crate::{error::IngesterError};
 use crate::{
     config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY},
     metric,
@@ -66,6 +72,8 @@ const BLOCK_CACHE_DURATION: u64 = 172800;
 // Account key used to determine if transaction is a simple vote.
 const VOTE: &str = "Vote111111111111111111111111111111111111111";
 pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
+
+struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
 pub async fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
@@ -293,9 +301,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         loop {
             interval.tick().await;
             let _permit = sem.acquire().await.unwrap();
-            debug!("Looking for missing trees...");
-            let missing = self.get_missing_trees(&self.db).await;
 
+            debug!("Looking for missing trees...");
+
+            let missing = self.get_missing_trees(&self.db).await;
             match missing {
                 Ok(missing_trees) => {
                     let txn = self.db.begin().await.unwrap();
@@ -329,8 +338,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     }
     /// Run the backfiller task.
     async fn run_filler(&mut self) {
-        // This is always looping, but if there are no trees to backfill, it will wait for a
-        // notification on the db listener channel before continuing.
         let mut interval =
             time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
         loop {
@@ -489,7 +496,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &self,
         cn: &impl ConnectionTrait,
     ) -> Result<Vec<MissingTree>, IngesterError> {
-        let mut all_trees: HashMap<Pubkey, u64> = self.fetch_trees_by_gpa().await?;
+        let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
         info!("Number of Trees on Chain {}", all_trees.len());
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
@@ -519,7 +526,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         }
         let missing_trees = all_trees
             .into_iter()
-            .map(|(k, s)| MissingTree { tree: k, slot: s })
+            .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
             .collect::<Vec<MissingTree>>();
         info!("Number of Missing local trees: {}", missing_trees.len());
         Ok(missing_trees)
@@ -725,7 +732,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .await
     }
 
-    async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, u64>, IngesterError> {
+    async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, SlotSeq>, IngesterError> {
         let config = RpcProgramAccountsConfig {
             filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
                 0,
@@ -744,16 +751,28 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
         let mut list = HashMap::with_capacity(results.len());
         for r in results.into_iter() {
-            let (pubkey, account) = r;
-            let mut sl = account.data.as_slice();
+            let (pubkey, mut account) = r;
+            let (mut header_bytes, rest) = account
+                .data
+                .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
             let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::deserialize(&mut sl)
+                ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+
             let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::id()).0;
+
+            let merkle_tree_size = merkle_tree_get_size(&header)
+                .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            let (tree_bytes, canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+            let seq_bytes = tree_bytes[0..8].try_into().map_err(|e| {
+                IngesterError::RpcGetDataError("Failed to convert seq bytes to array".to_string())
+            })?;
+            let seq = u64::from_le_bytes(seq_bytes); 
+            list.insert(pubkey, SlotSeq(header.get_creation_slot(), seq));
+
             if header.assert_valid_authority(&auth).is_err() {
                 continue;
             }
-            list.insert(pubkey, header.get_creation_slot());
         }
         Ok(list)
     }
