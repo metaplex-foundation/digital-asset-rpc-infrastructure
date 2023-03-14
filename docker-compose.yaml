@@ -10,18 +10,6 @@ services:
       - "8126:8126"
       - "2003:2003"
       - "2004:2004"
-  grafana:
-    image: grafana/grafana
-    restart: always
-    ports:
-      - "3000:3000"
-    links:
-      - graphite
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=password
-    volumes:
-      - ./grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   migrator:
     depends_on:
       - db

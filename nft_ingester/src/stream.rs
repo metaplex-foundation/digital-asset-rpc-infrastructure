@@ -1,14 +1,17 @@
 use std::{
     collections::HashMap,
     pin::Pin,
+    process::Output,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use crate::{config::rand_string, error::IngesterError, metric};
+use async_stream::{stream, try_stream};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
 use figment::value::Value;
+use futures::{pin_mut, Future};
 use log::{error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use tokio::{
@@ -16,7 +19,7 @@ use tokio::{
         channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
     },
     task::{JoinHandle, JoinSet},
-    time::{self, Duration, Instant},
+    time::{self, Duration, Instant}, pin,
 };
 use tokio_stream::{Stream, StreamExt};
 pub const HOT_PATH_METRICS_SAMPLE_INTERVAL: u64 = 10;
@@ -35,12 +38,18 @@ impl MessengerStreamManager {
         }
     }
 
-    pub fn listen<T: Messenger>(
+    pub fn listen<T: Messenger, F, Fut>(
         &mut self,
         ct: ConsumptionType,
-    ) -> Result<MessengerDataStream, IngesterError> {
+        operation: F,
+    ) -> Result<(), IngesterError>
+    where
+        Fut: Future<Output=Result<Vec<String>, IngesterError>> + Send + 'static,
+        F: Fn(Vec<RecvData>) -> Fut,
+        
+    {
         let key = self.stream_key.clone();
-        let (stream, send, mut acks) = MessengerDataStream::new();
+        let (ack_send, acks) = unbounded_channel::<Vec<String>>();
         let config = self.config.clone();
         let ack_handle = async move {
             let mut messenger = T::new(config).await?;
@@ -58,6 +67,7 @@ impl MessengerStreamManager {
         };
         self.message_receiver.spawn(ack_handle);
         let config = self.config.clone();
+        pin!(operation);
         let handle = async move {
             let mut metrics_time_sample = Instant::now();
             let mut messenger = T::new(config).await?;
@@ -76,14 +86,20 @@ impl MessengerStreamManager {
                         }
                         metrics_time_sample = Instant::now();
                     }
-                    if let Err(e) = send.send(data).await {
-                        error!("Error forwarding to local stream: {}", e);
+                    let result = operation(data).await;
+                    if let Ok(acks) = result {
+                        let len = acks.len();
+                        if let Err(e) = ack_send.send(acks) {
+                            error!("Error sending acks: {}", e);
+                        }
+                    } else {
+                        error!("Error processing message: {:?}", result);
                     }
                 }
             }
         };
         self.message_receiver.spawn(handle);
-        Ok(stream)
+        Ok(())
     }
 }
 

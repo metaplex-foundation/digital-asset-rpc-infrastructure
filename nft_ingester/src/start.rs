@@ -6,7 +6,7 @@ use crate::{
     error::IngesterError,
     metric,
     metrics::setup_metrics,
-    stream::{MessengerStreamManager, StreamSizeTimer},
+    stream::{MessengerStreamManager, StreamSizeTimer, MessengerStream},
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
     transaction_notifications::setup_transaction_stream_worker,
 };
@@ -75,7 +75,7 @@ pub async fn start() -> Result<(), IngesterError> {
             setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone()).await;
         tasks.spawn(backfiller);
     }
-    let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
+    let mut ams = MessengerStream::<RedisMessenger>::new(ACCOUNT_STREAM, config.messenger_config.clone());
     let mut tms = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
@@ -85,9 +85,9 @@ pub async fn start() -> Result<(), IngesterError> {
         let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
         for i in 0..max_account_workers {
             let stream = if i == 0 {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
+                ams.listen(plerkle_messenger::ConsumptionType::Redeliver).await
             } else {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
+                ams.listen(plerkle_messenger::ConsumptionType::New).await
             }?;
             tasks.spawn(setup_account_stream_worker(
                 database_pool.clone(),
@@ -96,8 +96,8 @@ pub async fn start() -> Result<(), IngesterError> {
             ));
         }
 
-        let max_account_workers = config.account_stream_worker_count.unwrap_or(2);
-        for i in 0..max_account_workers {
+        let max_txn_workers = config.transaction_stream_worker_count.unwrap_or(2);
+        for i in 0..max_txn_workers {
             let stream = if i == 0 {
                 tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
             } else {

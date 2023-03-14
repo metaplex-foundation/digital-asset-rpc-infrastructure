@@ -6,8 +6,8 @@ use crate::{
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};
-use log::error;
+use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt, Stream, pin_mut};
+use log::{debug, error};
 use plerkle_messenger::RecvData;
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
@@ -16,22 +16,22 @@ use tokio::{
     task::{JoinHandle, JoinSet},
     time::Instant,
 };
+
 pub fn setup_account_stream_worker(
     pool: Pool<Postgres>,
     bg_task_sender: UnboundedSender<TaskData>,
-    mut stream: MessengerDataStream,
+    stream: impl Stream<Item = Vec<RecvData>>,
+    ack_sender: UnboundedSender<Vec<String>>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
-        let acker = stream.ack_sender();
+        let acker = ack_sender;
+        
         loop {
+            debug!("Account stream waiting for next batch");
             if let Some(items) = stream.next().await {
-                let mut tasks = FuturesUnordered::new();
                 for item in items {
-                    tasks.push(handle_account(&manager, item));
-                }
-                while let Some(id) = tasks.next().await {
-                    if let Some(id) = id {
+                    if let Some(id) = handle_account(manager.as_ref(), item).await {
                         let send = acker.send(vec![id]);
                         if let Err(err) = send {
                             metric! {
@@ -41,13 +41,14 @@ pub fn setup_account_stream_worker(
                         }
                     }
                 }
+            } else {
+                debug!("Account stream got None, exiting");
             }
         }
     })
 }
 
-#[inline(always)]
-async fn handle_account(manager: &Arc<ProgramTransformer>, item: RecvData) -> Option<String> {
+async fn handle_account(manager: &ProgramTransformer, item: RecvData) -> Option<String> {
     let id = item.id;
     let mut ret_id = None;
     if item.tries > 0 {

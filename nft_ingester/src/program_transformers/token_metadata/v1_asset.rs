@@ -403,8 +403,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     query.sql
                 );
                 txn.execute(query).await?;
-                txn.commit().await?;
             }
+            txn.commit().await?;
         }
     }
     let mut task = DownloadMetadata {
