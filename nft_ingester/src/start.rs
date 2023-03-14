@@ -7,15 +7,16 @@ use crate::{
     metric,
     metrics::setup_metrics,
     stream::{MessengerStreamManager, StreamSizeTimer},
-    tasks::{BgTask, DownloadMetadataTask, TaskManager}, transaction_notifications::setup_transaction_stream_worker,
+    tasks::{BgTask, DownloadMetadataTask, TaskManager},
+    transaction_notifications::setup_transaction_stream_worker,
 };
 
 use crate::config::rand_string;
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
+use log::{error, info};
 use plerkle_messenger::{redis_messenger::RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM};
 use tokio::task::{JoinError, JoinSet};
-use log::{info, error};
 
 pub async fn start() -> Result<(), IngesterError> {
     // Setup Configuration and Metrics ---------------------------------------------
@@ -80,8 +81,8 @@ pub async fn start() -> Result<(), IngesterError> {
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         // This is how we send new bg tasks
         let bg_task_sender = background_task_manager.get_sender().unwrap();
-        
-        let max_account_workers = config.account_stream_worker_count.unwrap_or(5);
+
+        let max_account_workers = config.account_stream_worker_count.unwrap_or(3);
         for i in 0..max_account_workers {
             let stream = if i == 0 {
                 ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)

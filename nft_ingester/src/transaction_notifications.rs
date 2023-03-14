@@ -20,18 +20,16 @@ pub fn setup_transaction_stream_worker<T: Messenger>(
     tokio::spawn(async move {
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
         let acker = stream.ack_sender();
-        let mut last_ack = Instant::now();
         let mut acks = Vec::new();
-        while let Some(item) = stream.next().await {
-            if let Some(id) = handle_transaction(&manager, item).await {
-                acks.push(id);
-                if last_ack.elapsed().as_secs() > 1 || acks.len() > 1000 {
-                    let mut send_acks = Vec::with_capacity(acks.len());
-                    send_acks.append(&mut acks);
-                    acker.send(send_acks).unwrap();
-                    last_ack = Instant::now();
+        while let Some(items) = stream.next().await {
+            for item in items {
+                if let Some(id) = handle_transaction(&manager, item).await {
+                    acks.push(id);
                 }
             }
+            let mut send_acks = Vec::with_capacity(acks.len());
+            send_acks.append(&mut acks);
+            acker.send(send_acks).unwrap();
         }
     })
 }

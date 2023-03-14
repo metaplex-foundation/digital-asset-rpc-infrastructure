@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "nft_ingester"
-version = "0.6.8"
+version = "0.6.9"
 dependencies = [
  "anchor-lang",
  "async-stream",

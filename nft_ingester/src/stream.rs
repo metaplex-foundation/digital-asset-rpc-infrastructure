@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::{error::IngesterError, metric, config::rand_string};
+use crate::{config::rand_string, error::IngesterError, metric};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
 use figment::value::Value;
@@ -41,10 +41,7 @@ impl MessengerStreamManager {
     ) -> Result<MessengerDataStream, IngesterError> {
         let key = self.stream_key.clone();
         let (stream, send, mut acks) = MessengerDataStream::new();
-        let mut config = self.config.clone();
-        config
-            .connection_config
-            .insert("consumer_id".to_string(), Value::from(rand_string()));
+        let config = self.config.clone();
         let handle = async move {
             let mut metrics_time_sample = Instant::now();
             let mut messenger = T::new(config).await?;
@@ -72,10 +69,8 @@ impl MessengerStreamManager {
                         }
                         metrics_time_sample = Instant::now();
                     }
-                    for r in data {
-                        if let Err(e) = send.send(r).await {
-                            error!("Error forwarding to local stream: {}", e);
-                        }
+                    if let Err(e) = send.send(data).await {
+                        error!("Error forwarding to local stream: {}", e);
                     }
                 }
             }
@@ -87,12 +82,12 @@ impl MessengerStreamManager {
 
 pub struct MessengerDataStream {
     ack_sender: UnboundedSender<Vec<String>>,
-    message_chan: Receiver<RecvData>,
+    message_chan: Receiver<Vec<RecvData>>,
 }
 
 impl MessengerDataStream {
-    pub fn new() -> (Self, Sender<RecvData>, UnboundedReceiver<Vec<String>>) {
-        let (message_sender, message_chan) = channel::<RecvData>(10);
+    pub fn new() -> (Self, Sender<Vec<RecvData>>, UnboundedReceiver<Vec<String>>) {
+        let (message_sender, message_chan) = channel::<Vec<RecvData>>(10);
         let (ack_sender, ack_tracker) = unbounded_channel::<Vec<String>>();
         (
             MessengerDataStream {
@@ -110,7 +105,7 @@ impl MessengerDataStream {
 }
 
 impl Stream for MessengerDataStream {
-    type Item = RecvData;
+    type Item = Vec<RecvData>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.message_chan.poll_recv(cx)
