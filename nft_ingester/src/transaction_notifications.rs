@@ -6,7 +6,8 @@ use crate::{
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::StreamExt;
+use futures::{stream::FuturesUnordered, StreamExt};
+use log::error;
 use plerkle_messenger::{Messenger, RecvData};
 use plerkle_serialization::root_as_transaction_info;
 use sqlx::{Pool, Postgres};
@@ -20,16 +21,24 @@ pub fn setup_transaction_stream_worker<T: Messenger>(
     tokio::spawn(async move {
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
         let acker = stream.ack_sender();
-        let mut acks = Vec::new();
-        while let Some(items) = stream.next().await {
-            for item in items {
-                if let Some(id) = handle_transaction(&manager, item).await {
-                    acks.push(id);
+        loop {
+            if let Some(items) = stream.next().await {
+                let mut tasks = FuturesUnordered::new();
+                for item in items {
+                    tasks.push(handle_transaction(&manager, item));
+                }
+                while let Some(id) = tasks.next().await {
+                    if let Some(id) = id {
+                        let send = acker.send(vec![id]);
+                        if let Err(err) = send {
+                            metric! {
+                                error!("Transaction stream ack error: {}", err);
+                                statsd_count!("ingester.stream.ack_error", 1, "stream" => "TXN");
+                            }
+                        }
+                    }
                 }
             }
-            let mut send_acks = Vec::with_capacity(acks.len());
-            send_acks.append(&mut acks);
-            acker.send(send_acks).unwrap();
         }
     })
 }

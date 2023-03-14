@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
 
 use crate::{
     error::IngesterError, metric, program_transformers::ProgramTransformer,
@@ -6,13 +6,16 @@ use crate::{
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::StreamExt;
+use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use log::error;
 use plerkle_messenger::RecvData;
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
-use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
-
+use tokio::{
+    sync::mpsc::UnboundedSender,
+    task::{JoinHandle, JoinSet},
+    time::Instant,
+};
 pub fn setup_account_stream_worker(
     pool: Pool<Postgres>,
     bg_task_sender: UnboundedSender<TaskData>,
@@ -21,16 +24,24 @@ pub fn setup_account_stream_worker(
     tokio::spawn(async move {
         let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
         let acker = stream.ack_sender();
-        let mut acks = Vec::new();
-        while let Some(items) = stream.next().await {
-            for item in items {
-                if let Some(id) = handle_account(&manager, item).await {
-                    acks.push(id);
+        loop {
+            if let Some(items) = stream.next().await {
+                let mut tasks = FuturesUnordered::new();
+                for item in items {
+                    tasks.push(handle_account(&manager, item));
+                }
+                while let Some(id) = tasks.next().await {
+                    if let Some(id) = id {
+                        let send = acker.send(vec![id]);
+                        if let Err(err) = send {
+                            metric! {
+                                error!("Account stream ack error: {}", err);
+                                statsd_count!("ingester.stream.ack_error", 1, "stream" => "ACC");
+                            }
+                        }
+                    }
                 }
             }
-            let mut send_acks = Vec::with_capacity(acks.len());
-            send_acks.append(&mut acks);
-            acker.send(send_acks).unwrap();
         }
     })
 }
