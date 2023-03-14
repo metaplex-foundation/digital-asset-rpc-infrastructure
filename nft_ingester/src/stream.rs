@@ -42,8 +42,7 @@ impl MessengerStreamManager {
         let key = self.stream_key.clone();
         let (stream, send, mut acks) = MessengerDataStream::new();
         let config = self.config.clone();
-        let handle = async move {
-            let mut metrics_time_sample = Instant::now();
+        let ack_handle = async move {
             let mut messenger = T::new(config).await?;
             loop {
                 if let Ok(msgs) = acks.try_recv() {
@@ -55,6 +54,14 @@ impl MessengerStreamManager {
                         statsd_count!("ingester.ack", len as i64, "stream" => key);
                     }
                 }
+            }
+        };
+        self.message_receiver.spawn(ack_handle);
+        let config = self.config.clone();
+        let handle = async move {
+            let mut metrics_time_sample = Instant::now();
+            let mut messenger = T::new(config).await?;
+            loop {
                 let ct = match ct {
                     ConsumptionType::All => ConsumptionType::All,
                     ConsumptionType::New => ConsumptionType::New,
