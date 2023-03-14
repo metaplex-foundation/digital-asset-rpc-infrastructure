@@ -26,17 +26,9 @@ pub fn setup_metrics(config: &IngesterConfig) {
         let host = (uri.unwrap(), port.unwrap());
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
-        let cons = config
-            .messenger_config
-            .connection_config
-            .get("consumer_id")
-            .unwrap()
-            .as_str()
-            .unwrap();
         let builder = StatsdClient::builder("das_ingester", queuing_sink);
         let client = builder
             .with_tag("env", env)
-            .with_tag("consumer_id", cons)
             .with_tag("version", CODE_VERSION)
             .build();
         set_global_default(client);
