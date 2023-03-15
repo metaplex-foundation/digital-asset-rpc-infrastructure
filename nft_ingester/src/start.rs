@@ -1,14 +1,15 @@
 use crate::{
-    account_updates::setup_account_stream_worker,
+    account_updates::account_worker,
+    ack::ack_worker,
     backfiller::setup_backfiller,
     config::{setup_config, IngesterRole},
     database::setup_database,
     error::IngesterError,
     metric,
     metrics::setup_metrics,
-    stream::{MessengerStreamManager, StreamSizeTimer},
+    stream::StreamSizeTimer,
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
-    transaction_notifications::setup_transaction_stream_worker,
+    transaction_notifications::transaction_worker,
 };
 
 use crate::config::rand_string;
@@ -33,8 +34,7 @@ pub async fn start() -> Result<(), IngesterError> {
     // This joinset maages all the tasks that are spawned.
     let mut tasks = JoinSet::new();
     let stream_metrics_timer = Duration::seconds(60).to_std().unwrap();
-    let mut ams = MessengerStreamManager::new(ACCOUNT_STREAM, config.messenger_config.clone());
-    let mut tms = MessengerStreamManager::new(TRANSACTION_STREAM, config.messenger_config.clone());
+
     // BACKGROUND TASKS --------------------------------------------
     //Setup definitions for background tasks
     let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
@@ -46,33 +46,34 @@ pub async fn start() -> Result<(), IngesterError> {
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         // This is how we send new bg tasks
         let bg_task_sender = background_task_manager.get_sender().unwrap();
+        let (ack_task, ack_sender) =
+            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone()).await;
+        tasks.spawn(ack_task);
 
         let max_account_workers = config.get_account_stream_worker_count();
-        for i in 0..max_account_workers {
-            let stream = if i == 0 {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
-            } else {
-                ams.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
-            }?;
-            tasks.spawn(setup_account_stream_worker(
+        for _ in 0..max_account_workers {
+            let stream = account_worker::<RedisMessenger>(
                 database_pool.clone(),
+                ACCOUNT_STREAM,
+                config.messenger_config.clone(),
                 bg_task_sender.clone(),
-                stream
-            ));
+                ack_sender.clone(),
+            )
+            .await?;
+            tasks.spawn(stream);
         }
 
-        let max_txn_workers = config.transaction_stream_worker_count.unwrap_or(2);
-        for i in 0..max_txn_workers {
-            let stream = if i == 0 {
-                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::Redeliver)
-            } else {
-                tms.listen::<RedisMessenger>(plerkle_messenger::ConsumptionType::New)
-            }?;
-            tasks.spawn(setup_transaction_stream_worker(
+        let max_txn_workers = config.get_transaction_stream_worker_count();
+        for _ in 0..max_txn_workers {
+            let stream = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
+                ACCOUNT_STREAM,
+                config.messenger_config.clone(),
                 bg_task_sender.clone(),
-                stream,
-            ));
+                ack_sender.clone(),
+            )
+            .await?;
+            tasks.spawn(stream);
         }
     }
     // Stream Size Timers ----------------------------------------
@@ -109,17 +110,21 @@ pub async fn start() -> Result<(), IngesterError> {
             setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone()).await;
         tasks.spawn(backfiller);
     }
-    
+
     let roles_str = role.to_string();
     metric! {
-     statsd_count!("ingester.startup", 1, "role" => &roles_str);
+        statsd_count!("ingester.startup", 1, "role" => &roles_str);
     }
-    match tokio::signal::ctrl_c().await {
-        Ok(()) => {}
-        Err(err) => {
-            error!("Unable to listen for shutdown signal: {}", err);
+
+    while let Some(t) = tasks.join_next().await {
+        match t {
+            Ok(_) => {
+                error!("Task completed");
+            }
+            Err(e) => {
+                error!("Task panicked: {}", e);
+            }
         }
     }
-    tasks.shutdown().await;
     Ok(())
 }

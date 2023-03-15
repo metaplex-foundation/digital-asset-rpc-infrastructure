@@ -14,9 +14,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "
-            CREATE INDEX tasks_created_at ON tasks USING BRIN(created_at);
-            "
+                "CREATE INDEX tasks_created_at ON tasks (created_at);"
                 .to_string(),
             ))
             .await?;

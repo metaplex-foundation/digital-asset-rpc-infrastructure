@@ -106,7 +106,7 @@ pub async fn setup_backfiller<T: Messenger>(
                 backfiller.run_finder().await;
             });
 
-            for task in tasks.join_next().await {
+            while let Some(task) = tasks.join_next().await {
                 match task {
                     Ok(_) => break,
                     Err(err) if err.is_panic() => {
