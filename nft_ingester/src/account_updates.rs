@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    error::IngesterError, metric, program_transformers::ProgramTransformer, tasks::TaskData,
+    error::IngesterError, metric, program_transformers::ProgramTransformer, tasks::TaskData, config::rand_string,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time, statsd_gauge};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 
+use figment::value::Value;
 use log::{debug, error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_account_info;
@@ -19,11 +20,14 @@ use tokio::{
 pub fn account_worker<T: Messenger>(
     pool: Pool<Postgres>,
     stream: &'static str,
-    config: MessengerConfig,
+    mut config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<String>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
+        config
+            .connection_config
+            .insert("consumer_id".to_string(), Value::from(rand_string()));
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
@@ -52,7 +56,7 @@ pub fn account_worker<T: Messenger>(
                         metric! {
                             statsd_count!("ingester.stream.receive_error", 1, "stream" => stream);
                         }
-                    },
+                    }
                 }
             }
         }

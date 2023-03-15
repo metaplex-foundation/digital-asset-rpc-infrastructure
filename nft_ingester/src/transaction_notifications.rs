@@ -1,26 +1,36 @@
 use std::sync::Arc;
 
 use crate::{
-    error::IngesterError, metric, program_transformers::ProgramTransformer,
+    config::rand_string, error::IngesterError, metric, program_transformers::ProgramTransformer,
     tasks::TaskData,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time, statsd_gauge};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
+use figment::value::Value;
 use log::{error, info};
-use plerkle_messenger::{Messenger, RecvData, MessengerConfig, ConsumptionType};
+use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_transaction_info;
-use sqlx::{Pool, Postgres};
-use tokio::{sync::mpsc::UnboundedSender, task::{JoinHandle, JoinSet}, time::Instant};
 
-pub fn transaction_worker<T: Messenger>(pool: Pool<Postgres>, 
+use sqlx::{Pool, Postgres};
+use tokio::{
+    sync::mpsc::UnboundedSender,
+    task::{JoinHandle, JoinSet},
+    time::Instant,
+};
+
+pub fn transaction_worker<T: Messenger>(
+    pool: Pool<Postgres>,
     stream: &'static str,
-    config: MessengerConfig, 
+    mut config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
-    ack_channel: UnboundedSender<String>
+    ack_channel: UnboundedSender<String>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
+        config
+            .connection_config
+            .insert("consumer_id".to_string(), Value::from(rand_string()));
         let source = T::new(config).await;
-        if let Ok(mut msg) = source{
+        if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
                 if let Ok(data) = msg.recv(&stream, ConsumptionType::All).await {
@@ -44,8 +54,6 @@ pub fn transaction_worker<T: Messenger>(pool: Pool<Postgres>,
         }
     })
 }
-
-
 
 async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) -> Option<String> {
     let mut ret_id = None;

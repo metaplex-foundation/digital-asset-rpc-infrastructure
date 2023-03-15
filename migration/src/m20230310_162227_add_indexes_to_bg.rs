@@ -55,6 +55,30 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("tasks_locked_until")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("task_attempts")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("task_status")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 }
