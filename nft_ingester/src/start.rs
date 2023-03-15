@@ -42,6 +42,10 @@ pub async fn start() -> Result<(), IngesterError> {
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
     let bg_task_listener = background_task_manager
         .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
+    // Always listen for background tasks unless we are the bg task runner
+    if role != IngesterRole::BackgroundTaskRunner {
+        tasks.spawn(bg_task_listener);
+    }
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         // This is how we send new bg tasks
@@ -51,7 +55,7 @@ pub async fn start() -> Result<(), IngesterError> {
         tasks.spawn(ack_task);
 
         let max_account_workers = config.get_account_stream_worker_count();
-        for _ in 0..max_account_workers {
+       
             let stream = account_worker::<RedisMessenger>(
                 database_pool.clone(),
                 ACCOUNT_STREAM,
@@ -61,10 +65,9 @@ pub async fn start() -> Result<(), IngesterError> {
             )
             .await?;
             tasks.spawn(stream);
-        }
+        
 
-        let max_txn_workers = config.get_transaction_stream_worker_count();
-        for _ in 0..max_txn_workers {
+       
             let stream = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
                 ACCOUNT_STREAM,
@@ -74,7 +77,7 @@ pub async fn start() -> Result<(), IngesterError> {
             )
             .await?;
             tasks.spawn(stream);
-        }
+        
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
@@ -90,10 +93,7 @@ pub async fn start() -> Result<(), IngesterError> {
         TRANSACTION_STREAM,
     )?;
 
-    // Always listen for background tasks unless we are the bg task runner
-    if role != IngesterRole::BackgroundTaskRunner {
-        tasks.spawn(bg_task_listener);
-    }
+    
 
     if role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All {
         tasks.spawn(background_task_manager.start_runner());

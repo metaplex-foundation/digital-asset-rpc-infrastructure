@@ -6,7 +6,7 @@ use crate::{
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use log::error;
+use log::{error, info};
 use plerkle_messenger::{Messenger, RecvData, MessengerConfig, ConsumptionType};
 use plerkle_serialization::root_as_transaction_info;
 use sqlx::{Pool, Postgres};
@@ -23,6 +23,7 @@ pub async fn transaction_worker<T: Messenger>(pool: Pool<Postgres>,
         if let Ok(mut msg) = source{
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
+                info!("{}: ", stream);
                 if let Ok(data) = msg.recv(&stream, ConsumptionType::All).await {
                     let mut tasks = JoinSet::new();
                     for item in data {
