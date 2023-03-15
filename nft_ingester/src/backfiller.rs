@@ -75,7 +75,7 @@ pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5
 
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
-pub async fn setup_backfiller<T: Messenger>(
+pub fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
     config: IngesterConfig,
 ) -> tokio::task::JoinHandle<()> {

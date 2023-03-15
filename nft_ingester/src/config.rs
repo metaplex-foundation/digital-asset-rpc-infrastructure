@@ -78,10 +78,10 @@ pub enum IngesterRole {
 impl Display for IngesterRole {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            IngesterRole::All => write!(f, "all"),
-            IngesterRole::Backfiller => write!(f, "backfiller"),
-            IngesterRole::BackgroundTaskRunner => write!(f, "background_task_runner"),
-            IngesterRole::Ingester => write!(f, "ingester"),
+            IngesterRole::All => write!(f, "All"),
+            IngesterRole::Backfiller => write!(f, "Backfiller"),
+            IngesterRole::BackgroundTaskRunner => write!(f, "BackgroundTaskRunner"),
+            IngesterRole::Ingester => write!(f, "Ingester"),
         }
     }
 }

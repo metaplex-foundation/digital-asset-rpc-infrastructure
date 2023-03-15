@@ -6,8 +6,8 @@ use crate::{
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
 
-use log::{debug, error};
-use plerkle_messenger::{RecvData, MessengerConfig, Messenger, ConsumptionType};
+use log::{debug, error, info};
+use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
 use tokio::{
@@ -16,42 +16,48 @@ use tokio::{
     time::Instant,
 };
 
-
-
-pub async fn account_worker<T: Messenger>(pool: Pool<Postgres>, 
+pub fn account_worker<T: Messenger>(
+    pool: Pool<Postgres>,
     stream: &'static str,
-    config: MessengerConfig, 
+    config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
-    ack_channel: UnboundedSender<String>
-) -> Result<JoinHandle<()>, IngesterError> {
-    let t = tokio::spawn(async move {
+    ack_channel: UnboundedSender<String>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
         let source = T::new(config).await;
-        if let Ok(mut msg) = source{
+        if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                if let Ok(data) = msg.recv(&stream, ConsumptionType::All).await {
-                    let mut tasks = JoinSet::new();
-                    for item in data {
-                        tasks.spawn(handle_account(Arc::clone(&manager), item));
-                    }
-                    while let Some(res) = tasks.join_next().await {
-                        if let Ok(Some(id)) = res {
-                            let send = ack_channel.send(id);
-                            if let Err(err) = send {
-                                metric! {
-                                    error!("Account stream ack error: {}", err);
-                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => stream);
+                let e = msg.recv(&stream, ConsumptionType::All).await;
+                match e {
+                    Ok(data) => {
+                        let mut tasks = JoinSet::new();
+                        for item in data {
+                            tasks.spawn(handle_account(Arc::clone(&manager), item));
+                        }
+                        while let Some(res) = tasks.join_next().await {
+                            if let Ok(Some(id)) = res {
+                                let send = ack_channel.send(id);
+                                if let Err(err) = send {
+                                    metric! {
+                                        error!("Account stream ack error: {}", err);
+                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => stream);
+                                    }
                                 }
                             }
                         }
                     }
+                    Err(e) => {
+                        error!("Error receiving from account stream: {}", e);
+                        metric! {
+                            statsd_count!("ingester.stream.receive_error", 1, "stream" => stream);
+                        }
+                    },
                 }
             }
         }
-    });
-    Ok(t)
+    })
 }
-
 
 async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Option<String> {
     let id = item.id;

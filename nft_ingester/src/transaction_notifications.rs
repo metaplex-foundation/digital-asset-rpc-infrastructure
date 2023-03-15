@@ -12,18 +12,17 @@ use plerkle_serialization::root_as_transaction_info;
 use sqlx::{Pool, Postgres};
 use tokio::{sync::mpsc::UnboundedSender, task::{JoinHandle, JoinSet}, time::Instant};
 
-pub async fn transaction_worker<T: Messenger>(pool: Pool<Postgres>, 
+pub fn transaction_worker<T: Messenger>(pool: Pool<Postgres>, 
     stream: &'static str,
     config: MessengerConfig, 
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<String>
-) -> Result<JoinHandle<()>, IngesterError> {
-    let t = tokio::spawn(async move {
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source{
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                info!("{}: ", stream);
                 if let Ok(data) = msg.recv(&stream, ConsumptionType::All).await {
                     let mut tasks = JoinSet::new();
                     for item in data {
@@ -43,8 +42,7 @@ pub async fn transaction_worker<T: Messenger>(pool: Pool<Postgres>,
                 }
             }
         }
-    });
-    Ok(t)
+    })
 }
 
 
