@@ -49,7 +49,7 @@ pub async fn main() -> Result<(), IngesterError> {
     // Tasks Setup -----------------------------------------------
     // This joinset maages all the tasks that are spawned.
     let mut tasks = JoinSet::new();
-    let stream_metrics_timer = Duration::seconds(60).to_std().unwrap();
+    let stream_metrics_timer = Duration::seconds(30).to_std().unwrap();
 
     // BACKGROUND TASKS --------------------------------------------
     //Setup definitions for background tasks
@@ -82,9 +82,6 @@ pub async fn main() -> Result<(), IngesterError> {
     if let Some(t) = timer_txn.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
-
-    
-
     
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {

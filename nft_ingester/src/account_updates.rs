@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     error::IngesterError, metric, program_transformers::ProgramTransformer, tasks::TaskData,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_time, statsd_gauge};
 use chrono::Utc;
 
 use log::{debug, error, info};
@@ -88,8 +88,6 @@ async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Opt
                 if item.tries == 0 {
                     metric! {
                         statsd_time!("ingester.account_proc_time", begin_processing.elapsed().as_millis() as u64, "owner" => &str_program_id);
-                    }
-                    metric! {
                         statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
                     }
                 }

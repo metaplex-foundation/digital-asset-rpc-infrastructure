@@ -25,7 +25,6 @@ pub fn ack_worker<T: Messenger>(
                     tokio::select! {
                         _ = interval.tick() => {
                         let len = acks.len();
-
                             if let Err(e) = msg.ack_msg(&stream, &acks).await {
                                 error!("Error acking message: {}", e);
                             }
@@ -33,8 +32,6 @@ pub fn ack_worker<T: Messenger>(
                                 statsd_count!("ingester.ack", len as i64, "stream" => stream);
                             }
                             acks.clear();
-
-
                         }
                         Some(msg_id) = rx.recv() => {
                             acks.push(msg_id);

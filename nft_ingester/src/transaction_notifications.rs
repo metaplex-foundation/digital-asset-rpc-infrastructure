@@ -4,7 +4,7 @@ use crate::{
     error::IngesterError, metric, program_transformers::ProgramTransformer,
     tasks::TaskData,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_time, statsd_gauge};
 use chrono::Utc;
 use log::{error, info};
 use plerkle_messenger::{Messenger, RecvData, MessengerConfig, ConsumptionType};
