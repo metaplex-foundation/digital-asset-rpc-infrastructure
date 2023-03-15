@@ -1,4 +1,4 @@
-use crate::TaskData;
+use crate::tasks::TaskData;
 use blockbuster::error::BlockbusterError;
 use plerkle_messenger::MessengerError;
 use plerkle_serialization::error::PlerkleSerializationError;
@@ -47,7 +47,7 @@ pub enum IngesterError {
     #[error("Unrecoverable task error")]
     UnrecoverableTaskError,
     #[error("Cache Storage Write Error {0}")]
-    CacheStorageWriteError(String)
+    CacheStorageWriteError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {

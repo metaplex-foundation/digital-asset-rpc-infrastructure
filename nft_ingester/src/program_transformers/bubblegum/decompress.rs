@@ -1,4 +1,7 @@
-use crate::IngesterError;
+use crate::{
+    error::IngesterError,
+};
+use super::{update_asset, save_changelog_event};
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
 use digital_asset_types::dao::asset;
 use sea_orm::{

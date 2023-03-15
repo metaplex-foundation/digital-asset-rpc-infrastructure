@@ -10,18 +10,6 @@ services:
       - "8126:8126"
       - "2003:2003"
       - "2004:2004"
-  grafana:
-    image: grafana/grafana
-    restart: always
-    ports:
-      - "3000:3000"
-    links:
-      - graphite
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=password
-    volumes:
-      - ./grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
   migrator:
     depends_on:
       - db
@@ -39,9 +27,10 @@ services:
       - solana
     restart: always
     environment:
+      RUST_LOG: debug
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
-      INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
+      INGESTER_DATABASE_CONFIG: '{max_postgres_connections=, listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=100,idle_timeout=5000,message_wait_timeout=10,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
@@ -89,8 +78,8 @@ services:
     ports:
       - "6379:6379"
   db:
-    image: 'postgres:latest'
-    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
+    image: 'postgres:14'
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200"]
     ports:
       - 5432:5432
     environment:
@@ -100,7 +89,7 @@ services:
     volumes:
       - ./db-data/:/var/lib/postgresql/data/:rw
   solana:
-    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.5.0-1.64.0-v1.14.15
+    image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.5.1-1.64.0-v1.14.15
     volumes:
     - ./programs:/so/:ro
     - ./ledger:/config:rw

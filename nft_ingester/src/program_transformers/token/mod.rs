@@ -1,4 +1,4 @@
-use crate::{IngesterError, TaskData};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
@@ -66,16 +66,17 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 query.sql
             );
             db.execute(query).await?;
-
+            let txn = db.begin().await?;
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
                 .filter(asset::Column::OwnerType.eq("single"))
-                .one(db)
+                .one(&txn)
                 .await?;
             if let Some(asset) = asset_update {
                 let mut active: asset::ActiveModel = asset.into();
                 active.owner = Set(Some(owner));
-                active.save(db).await?;
+                active.save(&txn).await?;
             }
+            txn.commit().await?;
             Ok(())
         }
         TokenProgramAccount::Mint(m) => {

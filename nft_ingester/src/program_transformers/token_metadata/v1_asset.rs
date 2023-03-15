@@ -1,4 +1,4 @@
-use crate::{IngesterError, TaskData};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
@@ -24,7 +24,7 @@ use sea_orm::{
 };
 use std::collections::HashSet;
 
-use crate::tasks::{common::task::DownloadMetadata, IntoTaskData};
+use crate::tasks::{DownloadMetadata, IntoTaskData};
 use sea_orm::{FromQueryResult, JoinType};
 
 #[derive(FromQueryResult)]
@@ -355,16 +355,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .await?;
         if existing_creators.len() > 0 {
             let mut db_creators = Vec::with_capacity(creators.len());
-            let txn = conn.begin().await?;
-            asset_creators::Entity::delete_many()
-                .filter(
-                    Condition::all()
-                        .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
-                )
-                .exec(&txn)
-                .await?;
-
             for (i, c) in creators.into_iter().enumerate() {
                 if creators_set.contains(&c.address) {
                     continue;
@@ -381,6 +371,15 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 });
                 creators_set.insert(c.address);
             }
+            let txn = conn.begin().await?;
+            asset_creators::Entity::delete_many()
+                .filter(
+                    Condition::all()
+                        .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+                        .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
+                )
+                .exec(&txn)
+                .await?;
             if db_creators.len() > 0 {
                 let mut query = asset_creators::Entity::insert_many(db_creators)
                     .on_conflict(
@@ -403,8 +402,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     query.sql
                 );
                 txn.execute(query).await?;
-                txn.commit().await?;
             }
+            txn.commit().await?;
         }
     }
     let mut task = DownloadMetadata {
