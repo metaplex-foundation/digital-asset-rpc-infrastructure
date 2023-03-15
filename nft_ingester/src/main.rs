@@ -90,24 +90,28 @@ pub async fn main() -> Result<(), IngesterError> {
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         let (ack_task, ack_sender) =
         ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
-        let account = account_worker::<RedisMessenger>(
-            database_pool.clone(),
-            ACCOUNT_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            ack_sender.clone(),
-        );
-        let txn = transaction_worker::<RedisMessenger>(
-            database_pool.clone(),
-            TRANSACTION_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            ack_sender.clone(),
-        );
         tasks.spawn(ack_task);
         let max_account_workers = config.get_account_stream_worker_count();
-        tasks.spawn(tokio::task::unconstrained(account));
-        tasks.spawn(txn);
+        for _ in 0..max_account_workers {
+            let account = account_worker::<RedisMessenger>(
+                database_pool.clone(),
+                ACCOUNT_STREAM,
+                config.messenger_config.clone(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+            );
+            tasks.spawn(account);
+        }
+        for _ in 0..config.get_transaction_stream_worker_count() {
+            let txn = transaction_worker::<RedisMessenger>(
+                database_pool.clone(),
+                TRANSACTION_STREAM,
+                config.messenger_config.clone(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+            );
+            tasks.spawn(txn);
+        }
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
