@@ -94,6 +94,10 @@ async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Opt
                         statsd_time!("ingester.account_proc_time", begin_processing.elapsed().as_millis() as u64, "owner" => &str_program_id);
                         statsd_count!("ingester.account_update_success", 1, "owner" => &str_program_id);
                     }
+                } else {
+                    metric! {
+                        statsd_count!("ingester.account_ingest_redeliver_success", 1);
+                    }
                 }
                 ret_id = Some(id);
             }
