@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, collections::{HashSet, HashMap}};
 
 use crate::{
     error::IngesterError, metric, program_transformers::ProgramTransformer, tasks::TaskData, config::rand_string,
@@ -20,19 +20,17 @@ use tokio::{
 pub fn account_worker<T: Messenger>(
     pool: Pool<Postgres>,
     stream: &'static str,
-    mut config: MessengerConfig,
+    config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<String>,
+    consumption_type: ConsumptionType,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        config
-            .connection_config
-            .insert("consumer_id".to_string(), Value::from(rand_string()));
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                let e = msg.recv(&stream, ConsumptionType::All).await;
+                let e = msg.recv(&stream, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
                         let mut tasks = JoinSet::new();

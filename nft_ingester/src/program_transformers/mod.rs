@@ -7,6 +7,7 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
+use log::{debug, error};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
 use solana_sdk::pubkey::Pubkey;
@@ -80,11 +81,11 @@ impl ProgramTransformer {
         }
         let mut not_impl = 0;
         let ixlen = instructions.len();
-        println!("Instructions: {}", ixlen);
+        debug!("Instructions: {}", ixlen);
         let contains = instructions
             .iter()
             .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
-        println!("Instructions bgum: {}", contains.count());
+        debug!("Instructions bgum: {}", contains.count());
         let txn = self.storage.begin().await?;
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
@@ -131,15 +132,15 @@ impl ProgramTransformer {
         }
         match txn.commit().await {
             Ok(_) => {
-                println!("Committed compressed transaction");
+                debug!("Committed compressed transaction");
             }
             Err(e) => {
-                println!("Error committing transaction: {:?}", e);
+                error!("Error committing transaction: {:?}", e);
                 return Err(IngesterError::DatabaseError(e.to_string()));
             }
         }
         if not_impl == ixlen {
-            println!("Not imple");
+            debug!("Not imple");
             return Err(IngesterError::NotImplemented);
         }
         Ok(())

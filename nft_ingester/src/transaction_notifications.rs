@@ -21,19 +21,17 @@ use tokio::{
 pub fn transaction_worker<T: Messenger>(
     pool: Pool<Postgres>,
     stream: &'static str,
-    mut config: MessengerConfig,
+    config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<String>,
+    consumption_type: ConsumptionType,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        config
-            .connection_config
-            .insert("consumer_id".to_string(), Value::from(rand_string()));
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                if let Ok(data) = msg.recv(&stream, ConsumptionType::All).await {
+                if let Ok(data) = msg.recv(&stream, consumption_type.clone()).await {
                     let mut tasks = JoinSet::new();
                     for item in data {
                         tasks.spawn(handle_transaction(Arc::clone(&manager), item));

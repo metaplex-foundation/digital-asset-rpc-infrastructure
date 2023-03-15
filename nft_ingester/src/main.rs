@@ -29,7 +29,7 @@ use crate::config::rand_string;
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use log::{error, info};
-use plerkle_messenger::{redis_messenger::RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM};
+use plerkle_messenger::{redis_messenger::RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM, ConsumptionType};
 use tokio::{task::{JoinError, JoinSet}, signal};
 
 #[tokio::main]
@@ -89,25 +89,52 @@ pub async fn main() -> Result<(), IngesterError> {
         ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
         tasks.spawn(ack_task);
         let max_account_workers = config.get_account_stream_worker_count();
-        for _ in 0..max_account_workers {
-            let account = account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                ACCOUNT_STREAM,
-                config.messenger_config.clone(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-            );
-            tasks.spawn(account);
+        for i in 0..max_account_workers {
+            if i == 0 {
+                let account = account_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    ACCOUNT_STREAM,
+                    config.messenger_config.clone(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    ConsumptionType::Redeliver
+                );
+                tasks.spawn(account);
+            } else {
+                let account = account_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    ACCOUNT_STREAM,
+                    config.messenger_config.clone(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    ConsumptionType::New
+                );
+                tasks.spawn(account);
+            }
+            
         }
-        for _ in 0..config.get_transaction_stream_worker_count() {
-            let txn = transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                TRANSACTION_STREAM,
-                config.messenger_config.clone(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-            );
-            tasks.spawn(txn);
+        for i in 0..config.get_transaction_stream_worker_count() {
+            if i == 0 {
+                let account = transaction_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    TRANSACTION_STREAM,
+                    config.messenger_config.clone(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    ConsumptionType::Redeliver
+                );
+                tasks.spawn(account);
+            } else {
+                let account = transaction_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    TRANSACTION_STREAM,
+                    config.messenger_config.clone(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    ConsumptionType::New
+                );
+                tasks.spawn(account);
+            }
         }
     }
     // Stream Size Timers ----------------------------------------
