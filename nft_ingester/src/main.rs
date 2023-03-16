@@ -95,56 +95,29 @@ pub async fn main() -> Result<(), IngesterError> {
             let (ack_task, ack_sender) =
                 ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
             tasks.spawn(ack_task);
-            if i == 0 {
-                let account = account_worker::<RedisMessenger>(
-                    database_pool.clone(),
-                    ACCOUNT_STREAM,
-                    config.messenger_config.clone(),
-                    bg_task_sender.clone(),
-                    ack_sender.clone(),
-                    ConsumptionType::Redeliver,
-                );
-                tasks.spawn(account);
-            } else {
-                let (ack_task, ack_sender) =
-                    ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
-                tasks.spawn(ack_task);
-                let account = account_worker::<RedisMessenger>(
-                    database_pool.clone(),
-                    ACCOUNT_STREAM,
-                    config.messenger_config.clone(),
-                    bg_task_sender.clone(),
-                    ack_sender.clone(),
-                    ConsumptionType::New,
-                );
-                tasks.spawn(account);
-            }
+            let account = account_worker::<RedisMessenger>(
+                database_pool.clone(),
+                ACCOUNT_STREAM,
+                config.messenger_config.clone(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+                ConsumptionType::All,
+            );
+            tasks.spawn(account);
         }
         for i in 0..config.get_transaction_stream_worker_count() {
             let (ack_task, ack_sender) =
                 ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
             tasks.spawn(ack_task);
-            if i == 0 {
-                let account = transaction_worker::<RedisMessenger>(
-                    database_pool.clone(),
-                    TRANSACTION_STREAM,
-                    config.messenger_config.clone(),
-                    bg_task_sender.clone(),
-                    ack_sender.clone(),
-                    ConsumptionType::Redeliver,
-                );
-                tasks.spawn(account);
-            } else {
-                let account = transaction_worker::<RedisMessenger>(
-                    database_pool.clone(),
-                    TRANSACTION_STREAM,
-                    config.messenger_config.clone(),
-                    bg_task_sender.clone(),
-                    ack_sender.clone(),
-                    ConsumptionType::New,
-                );
-                tasks.spawn(account);
-            }
+            let account = transaction_worker::<RedisMessenger>(
+                database_pool.clone(),
+                TRANSACTION_STREAM,
+                config.messenger_config.clone(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+                ConsumptionType::All,
+            );
+            tasks.spawn(account);
         }
     }
     // Stream Size Timers ----------------------------------------
