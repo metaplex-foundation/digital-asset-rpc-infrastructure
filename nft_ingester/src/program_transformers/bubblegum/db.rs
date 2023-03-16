@@ -66,9 +66,7 @@ where
                         cl_items::Column::Hash,
                         cl_items::Column::Seq,
                         cl_items::Column::LeafIdx,
-                        cl_items::Column::Hash,
-                        cl_items::Column::Seq,
-                        cl_items::Column::Level
+                        cl_items::Column::Level,
                     ])
                     .to_owned(),
             )
