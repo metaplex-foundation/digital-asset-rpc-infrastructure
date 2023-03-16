@@ -29,8 +29,13 @@ use crate::config::rand_string;
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use log::{error, info};
-use plerkle_messenger::{redis_messenger::RedisMessenger, ACCOUNT_STREAM, TRANSACTION_STREAM, ConsumptionType};
-use tokio::{task::{JoinError, JoinSet}, signal};
+use plerkle_messenger::{
+    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, TRANSACTION_STREAM,
+};
+use tokio::{
+    signal,
+    task::{JoinError, JoinSet},
+};
 
 #[tokio::main]
 pub async fn main() -> Result<(), IngesterError> {
@@ -82,14 +87,14 @@ pub async fn main() -> Result<(), IngesterError> {
     if let Some(t) = timer_txn.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
-    
+
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
-        let (ack_task, ack_sender) =
-        ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
-        tasks.spawn(ack_task);
         let max_account_workers = config.get_account_stream_worker_count();
         for i in 0..max_account_workers {
+            let (ack_task, ack_sender) =
+                ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+            tasks.spawn(ack_task);
             if i == 0 {
                 let account = account_worker::<RedisMessenger>(
                     database_pool.clone(),
@@ -97,23 +102,28 @@ pub async fn main() -> Result<(), IngesterError> {
                     config.messenger_config.clone(),
                     bg_task_sender.clone(),
                     ack_sender.clone(),
-                    ConsumptionType::Redeliver
+                    ConsumptionType::Redeliver,
                 );
                 tasks.spawn(account);
             } else {
+                let (ack_task, ack_sender) =
+                    ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+                tasks.spawn(ack_task);
                 let account = account_worker::<RedisMessenger>(
                     database_pool.clone(),
                     ACCOUNT_STREAM,
                     config.messenger_config.clone(),
                     bg_task_sender.clone(),
                     ack_sender.clone(),
-                    ConsumptionType::New
+                    ConsumptionType::New,
                 );
                 tasks.spawn(account);
             }
-            
         }
         for i in 0..config.get_transaction_stream_worker_count() {
+            let (ack_task, ack_sender) =
+                ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+            tasks.spawn(ack_task);
             if i == 0 {
                 let account = transaction_worker::<RedisMessenger>(
                     database_pool.clone(),
@@ -121,7 +131,7 @@ pub async fn main() -> Result<(), IngesterError> {
                     config.messenger_config.clone(),
                     bg_task_sender.clone(),
                     ack_sender.clone(),
-                    ConsumptionType::Redeliver
+                    ConsumptionType::Redeliver,
                 );
                 tasks.spawn(account);
             } else {
@@ -131,7 +141,7 @@ pub async fn main() -> Result<(), IngesterError> {
                     config.messenger_config.clone(),
                     bg_task_sender.clone(),
                     ack_sender.clone(),
-                    ConsumptionType::New
+                    ConsumptionType::New,
                 );
                 tasks.spawn(account);
             }
@@ -145,8 +155,7 @@ pub async fn main() -> Result<(), IngesterError> {
     }
     // Backfiller Setup ------------------------------------------
     if role == IngesterRole::Backfiller || role == IngesterRole::All {
-        let backfiller =
-            setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone());
+        let backfiller = setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone());
         tasks.spawn(backfiller);
     }
 
@@ -156,14 +165,14 @@ pub async fn main() -> Result<(), IngesterError> {
     }
 
     match signal::ctrl_c().await {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(err) => {
             eprintln!("Unable to listen for shutdown signal: {}", err);
             // we also shut down in case of error
-        },
+        }
     }
 
     tasks.shutdown().await;
-    
+
     Ok(())
 }
