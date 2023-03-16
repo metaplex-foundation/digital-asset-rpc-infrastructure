@@ -1,6 +1,9 @@
 use crate::error::IngesterError;
-use digital_asset_types::dao::{asset, asset_creators, cl_items, backfill_items};
-use sea_orm::{entity::*, query::*, ColumnTrait, DatabaseTransaction, DbErr, EntityTrait, sea_query::OnConflict, DbBackend};
+use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
+use sea_orm::{
+    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DatabaseTransaction, DbBackend, DbErr,
+    EntityTrait,
+};
 use spl_account_compression::events::ChangeLogEventV1;
 
 pub async fn save_changelog_event<'c, T>(
@@ -59,7 +62,14 @@ where
         let mut query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
-                    .update_columns([cl_items::Column::Hash, cl_items::Column::Seq])
+                    .update_columns([
+                        cl_items::Column::Hash,
+                        cl_items::Column::Seq,
+                        cl_items::Column::LeafIdx,
+                        cl_items::Column::Hash,
+                        cl_items::Column::Seq,
+                        cl_items::Column::Level
+                    ])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
@@ -106,8 +116,6 @@ where
     //TODO -> set maximum size of path and break into multiple statements
 }
 
-
-
 pub async fn update_asset<T>(
     txn: &T,
     id: Vec<u8>,
@@ -118,9 +126,11 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     let update_one = if let Some(seq) = seq {
-        asset::Entity::update(model)
-            .filter(asset::Column::Id.eq(id))
-            .filter(asset::Column::Seq.lte(seq))
+        asset::Entity::update(model).filter(
+            Condition::all()
+                .add(asset::Column::Id.eq(id))
+                .add(asset::Column::Seq.lte(seq)),
+        )
     } else {
         asset::Entity::update(model).filter(asset::Column::Id.eq(id))
     };
@@ -155,9 +165,12 @@ where
     // by the `(asset_id, creator)` pair. Is there any reason why we should not use
     // `update_many` here?
     let update = asset_creators::Entity::update_many()
-        .filter(asset_creators::Column::AssetId.eq(asset_id))
-        .filter(asset_creators::Column::Creator.eq(creator))
-        .filter(asset_creators::Column::Seq.lte(seq))
+        .filter(
+            Condition::all()
+                .add(asset_creators::Column::AssetId.eq(asset_id))
+                .add(asset_creators::Column::Creator.eq(creator))
+                .add(asset_creators::Column::Seq.lte(seq)),
+        )
         .set(model);
 
     update.exec(txn).await.map_err(IngesterError::from)?;

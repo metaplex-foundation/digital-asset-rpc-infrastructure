@@ -27,7 +27,7 @@ services:
       - solana
     restart: always
     environment:
-      RUST_LOG: info
+      RUST_LOG: debug
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
       INGESTER_DATABASE_CONFIG: '{max_postgres_connections=, listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'

@@ -37,7 +37,7 @@ use tokio::{
     task::{JoinError, JoinSet},
 };
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), IngesterError> {
     env_logger::init();
     info!("Starting nft_ingester");
@@ -90,35 +90,46 @@ pub async fn main() -> Result<(), IngesterError> {
 
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
-        let max_account_workers = config.get_account_stream_worker_count();
-        for i in 0..max_account_workers {
-            let (ack_task, ack_sender) =
-                ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
-            tasks.spawn(ack_task);
-            let account = account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                ACCOUNT_STREAM,
-                config.messenger_config.clone(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                ConsumptionType::All,
-            );
-            tasks.spawn(account);
-        }
-        for i in 0..config.get_transaction_stream_worker_count() {
-            let (ack_task, ack_sender) =
-                ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
-            tasks.spawn(ack_task);
-            let account = transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                TRANSACTION_STREAM,
-                config.messenger_config.clone(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                ConsumptionType::All,
-            );
-            tasks.spawn(account);
-        }
+        let (ack_task, ack_sender) =
+            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+        tasks.spawn(ack_task);
+        let account = account_worker::<RedisMessenger>(
+            database_pool.clone(),
+            ACCOUNT_STREAM,
+            config.messenger_config.clone(),
+            bg_task_sender.clone(),
+            ack_sender.clone(),
+            ConsumptionType::New,
+        );
+        tasks.spawn(tokio::task::unconstrained(account));
+        let account_red = account_worker::<RedisMessenger>(
+            database_pool.clone(),
+            ACCOUNT_STREAM,
+            config.messenger_config.clone(),
+            bg_task_sender.clone(),
+            ack_sender.clone(),
+            ConsumptionType::Redeliver,
+        );
+        tasks.spawn(account_red);
+
+        let txns = transaction_worker::<RedisMessenger>(
+            database_pool.clone(),
+            TRANSACTION_STREAM,
+            config.messenger_config.clone(),
+            bg_task_sender.clone(),
+            ack_sender.clone(),
+            ConsumptionType::All,
+        );
+        tasks.spawn(tokio::task::unconstrained(txns));
+        let txns_red = transaction_worker::<RedisMessenger>(
+            database_pool.clone(),
+            TRANSACTION_STREAM,
+            config.messenger_config.clone(),
+            bg_task_sender.clone(),
+            ack_sender.clone(),
+            ConsumptionType::Redeliver,
+        );
+        tasks.spawn(txns_red);
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
