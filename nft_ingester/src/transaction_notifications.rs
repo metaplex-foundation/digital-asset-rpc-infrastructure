@@ -7,16 +7,13 @@ use crate::{
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
 use figment::value::Value;
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
-use tokio::{
-    sync::mpsc::UnboundedSender,
-    task::{JoinHandle, JoinSet},
-    time::Instant,
-};
+use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
 
 pub fn transaction_worker<T: Messenger>(
     pool: Pool<Postgres>,
@@ -31,20 +28,29 @@ pub fn transaction_worker<T: Messenger>(
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                if let Ok(data) = msg.recv(&stream, consumption_type.clone()).await {
-                    let mut tasks = JoinSet::new();
-                    for item in data {
-                        tasks.spawn(handle_transaction(Arc::clone(&manager), item));
-                    }
-                    while let Some(res) = tasks.join_next().await {
-                        if let Ok(Some(id)) = res {
-                            let send = ack_channel.send(id);
-                            if let Err(err) = send {
-                                metric! {
-                                    error!("Account stream ack error: {}", err);
-                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => stream);
+                let e = msg.recv(&stream, consumption_type.clone()).await;
+                match e {
+                    Ok(data) => {
+                        let mut tasks = FuturesUnordered::new();
+                        for item in data {
+                            tasks.push(handle_transaction(Arc::clone(&manager), item));
+                        }
+                        while let Some(t) = tasks.next().await {
+                            if let Some(id) = t {
+                                let send = ack_channel.send(id);
+                                if let Err(err) = send {
+                                    metric! {
+                                        error!("Account stream ack error: {}", err);
+                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => stream);
+                                    }
                                 }
                             }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error receiving from account stream: {}", e);
+                        metric! {
+                            statsd_count!("ingester.stream.receive_error", 1, "stream" => stream);
                         }
                     }
                 }

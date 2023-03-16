@@ -1,12 +1,15 @@
-use std::{sync::Arc, collections::{HashSet, HashMap}};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::{
-    error::IngesterError, metric, program_transformers::ProgramTransformer, tasks::TaskData, config::rand_string,
+    config::rand_string, error::IngesterError, metric, program_transformers::ProgramTransformer,
+    tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-
-use figment::value::Value;
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_account_info;
@@ -33,12 +36,12 @@ pub fn account_worker<T: Messenger>(
                 let e = msg.recv(&stream, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
-                        let mut tasks = JoinSet::new();
+                        let mut tasks = FuturesUnordered::new();
                         for item in data {
-                            tasks.spawn(handle_account(Arc::clone(&manager), item));
+                            tasks.push(handle_account(Arc::clone(&manager), item));
                         }
-                        while let Some(res) = tasks.join_next().await {
-                            if let Ok(Some(id)) = res {
+                        while let Some(t) = tasks.next().await {
+                            if let Some(id) = t {
                                 let send = ack_channel.send(id);
                                 if let Err(err) = send {
                                     metric! {

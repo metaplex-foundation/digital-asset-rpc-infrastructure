@@ -99,37 +99,22 @@ pub async fn main() -> Result<(), IngesterError> {
             config.messenger_config.clone(),
             bg_task_sender.clone(),
             ack_sender.clone(),
-            ConsumptionType::New,
+            ConsumptionType::All,
         );
-        tasks.spawn(tokio::task::unconstrained(account));
-        let account_red = account_worker::<RedisMessenger>(
-            database_pool.clone(),
-            ACCOUNT_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            ack_sender.clone(),
-            ConsumptionType::Redeliver,
-        );
-        tasks.spawn(account_red);
+        tasks.spawn(account);
 
+        let (tx_ack_task, txn_ack_sender) =
+            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+        tasks.spawn(tx_ack_task);
         let txns = transaction_worker::<RedisMessenger>(
             database_pool.clone(),
             TRANSACTION_STREAM,
             config.messenger_config.clone(),
             bg_task_sender.clone(),
-            ack_sender.clone(),
+            txn_ack_sender.clone(),
             ConsumptionType::All,
         );
-        tasks.spawn(tokio::task::unconstrained(txns));
-        let txns_red = transaction_worker::<RedisMessenger>(
-            database_pool.clone(),
-            TRANSACTION_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            ack_sender.clone(),
-            ConsumptionType::Redeliver,
-        );
-        tasks.spawn(txns_red);
+        tasks.spawn(txns);
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
