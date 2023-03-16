@@ -104,7 +104,7 @@ pub async fn main() -> Result<(), IngesterError> {
         tasks.spawn(account);
 
         let (tx_ack_task, txn_ack_sender) =
-            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+            ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.messenger_config.clone());
         tasks.spawn(tx_ack_task);
         let txns = transaction_worker::<RedisMessenger>(
             database_pool.clone(),
