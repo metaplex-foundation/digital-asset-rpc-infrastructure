@@ -1,12 +1,8 @@
 use crate::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, Pagination,
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
+    Pagination,
 };
-use sea_orm::{
-    entity::*,
-    query::*,
-    sea_query::{ColumnRef, IntoColumnRef, TableRef},
-    ConnectionTrait, DbBackend, DbErr, Order, Value,
-};
+use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
 use std::collections::BTreeMap;
 
 pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
@@ -67,6 +63,22 @@ pub async fn get_by_creator(
         limit,
     )
     .await
+}
+
+pub async fn get_grouping(
+    conn: &impl ConnectionTrait,
+    group_key: String,
+    group_value: String,
+) -> Result<GroupingSize, DbErr> {
+    let size = asset_grouping::Entity::find()
+        .filter(
+            Condition::all()
+                .add(asset_grouping::Column::GroupKey.eq(group_key))
+                .add(asset_grouping::Column::GroupValue.eq(group_value)),
+        )
+        .count(conn)
+        .await?;
+    Ok(GroupingSize { size })
 }
 
 pub async fn get_by_grouping(

@@ -18,9 +18,9 @@ pub async fn setup_database(config: IngesterConfig) -> PgPool {
     }
     let url = config.get_database_url();
     let mut options: PgConnectOptions = url.parse().unwrap();
-    options.log_statements(log::LevelFilter::Debug);
+    options.log_statements(log::LevelFilter::Trace);
 
-    options.log_slow_statements(log::LevelFilter::Info, std::time::Duration::from_secs(1));
+    options.log_slow_statements(log::LevelFilter::Info, std::time::Duration::from_millis(500));
     
     let pool = PgPoolOptions::new()
         .min_connections(BARE_MINIMUM_CONNECTIONS)

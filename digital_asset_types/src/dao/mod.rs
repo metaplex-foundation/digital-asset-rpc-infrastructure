@@ -3,6 +3,7 @@ mod generated;
 pub mod scopes;
 pub use full_asset::*;
 pub use generated::*;
+use solana_sdk::pubkey::Pubkey;
 
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
@@ -15,6 +16,10 @@ use sea_orm::{
     Condition, DbErr, RelationDef,
 };
 use serde::{self, Deserialize, Serialize};
+
+pub struct GroupingSize {
+    pub size: u64,
+}
 
 pub enum Pagination {
     Keyset {

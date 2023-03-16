@@ -13,6 +13,14 @@ pub struct AssetError {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
 #[serde(default)]
+pub struct GetGroupingResponse {
+    pub group_key: String,
+    pub group_name: String,
+    pub group_size: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default)]
 pub struct AssetList {
     pub total: u32,
     pub limit: u32,

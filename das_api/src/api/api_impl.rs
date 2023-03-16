@@ -2,6 +2,7 @@ use std::vec;
 
 use digital_asset_types::{
     dao::{
+        scopes::asset::get_grouping,
         sea_orm_active_enums::{
             OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
         },
@@ -11,7 +12,7 @@ use digital_asset_types::{
         get_asset, get_assets_by_authority, get_assets_by_creators, get_assets_by_group,
         get_assets_by_owner, get_proof_for_asset, search_assets,
     },
-    rpc::filter::SearchConditionType,
+    rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
 };
 use open_rpc_derive::document_rpc;
@@ -337,5 +338,21 @@ impl ApiContract for DasApi {
         )
         .await
         .map_err(Into::into)
+    }
+
+    async fn get_grouping(
+        self: &DasApi,
+        payload: GetGrouping,
+    ) -> Result<GetGroupingResponse, DasApiError> {
+        let GetGrouping {
+            group_key,
+            group_value,
+        } = payload;
+        let gs = get_grouping(&self.db_connection, group_key.clone(), group_value.clone()).await?;
+        Ok(GetGroupingResponse {
+            group_key: group_key,
+            group_name: group_value,
+            group_size: gs.size,
+        })
     }
 }
