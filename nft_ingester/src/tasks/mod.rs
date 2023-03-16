@@ -7,7 +7,7 @@ use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
 use log::{debug, error};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
-    DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
+    DeleteResult, SqlxPostgresConnector,
 };
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};

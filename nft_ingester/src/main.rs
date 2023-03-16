@@ -132,7 +132,6 @@ pub async fn main() -> Result<(), IngesterError> {
     metric! {
         statsd_count!("ingester.startup", 1, "role" => &roles_str);
     }
-
     match signal::ctrl_c().await {
         Ok(()) => {}
         Err(err) => {

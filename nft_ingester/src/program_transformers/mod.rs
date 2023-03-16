@@ -118,10 +118,8 @@ impl ProgramTransformer {
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
-                        let txn = self.storage.begin().await?;
                         handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
                             .await?;
-                        txn.commit().await?
                     }
                     _ => {
                         not_impl += 1;

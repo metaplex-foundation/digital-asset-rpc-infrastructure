@@ -34,11 +34,8 @@ use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
 };
-use spl_account_compression::{
-    state::{
-        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-    },
-    zero_copy::ZeroCopy,
+use spl_account_compression::state::{
+    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::{

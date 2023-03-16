@@ -17,7 +17,7 @@ pub fn ack_worker<T: Messenger>(
 
     (
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_millis(500));
+            let mut interval = interval(Duration::from_millis(100));
             let mut acks = Vec::new();
             let source = T::new(config).await;
             if let Ok(mut msg) = source {
