@@ -1,6 +1,6 @@
 use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::{
-    instruction::{InstructionBundle, IxPair, order_instructions},
+    instruction::{order_instructions, InstructionBundle, IxPair},
     program_handler::ProgramParser,
     programs::{
         bubblegum::BubblegumParser, token_account::TokenAccountParser,
@@ -15,11 +15,9 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{
-    program_transformers::{
-        bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
-        token_metadata::handle_token_metadata_account,
-    },
+use crate::program_transformers::{
+    bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
+    token_metadata::handle_token_metadata_account,
 };
 
 mod bubblegum;
@@ -30,7 +28,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>
+    key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
@@ -120,11 +118,10 @@ impl ProgramTransformer {
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
-                        let txn = self.storage.begin_with_config().await?;
+                        let txn = self.storage.begin().await?;
                         handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
                             .await?;
-                            txn.commit().await?
-                        }
+                        txn.commit().await?
                     }
                     _ => {
                         not_impl += 1;
@@ -132,7 +129,7 @@ impl ProgramTransformer {
                 };
             }
         }
-        
+
         if not_impl == ixlen {
             debug!("Not imple");
             return Err(IngesterError::NotImplemented);
