@@ -349,8 +349,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
         let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
-            .filter(asset_creators::Column::AssetId.eq(id.to_vec()))
-            .filter(asset_creators::Column::SlotUpdated.lt(slot_i))
+            .filter(
+                Condition::all()
+                    .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+                    .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
+            )
             .all(conn)
             .await?;
         if existing_creators.len() > 0 {

@@ -35,10 +35,10 @@ use solana_transaction_status::{
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
 };
 use spl_account_compression::{
-    zero_copy::ZeroCopy,
     state::{
         merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
     },
+    zero_copy::ZeroCopy,
 };
 use sqlx::{self, postgres::PgListener, Pool, Postgres};
 use std::{
@@ -54,9 +54,9 @@ use tokio::{
     time::{self, sleep, Duration},
 };
 
-use crate::{error::IngesterError};
 use crate::{
     config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY},
+    error::IngesterError,
     metric,
 };
 // Number of tries to backfill a single tree before marking as "failed".
@@ -536,13 +536,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         // Start a db transaction.
         let txn = self.db.begin().await?;
 
-        // Lock the backfill_items table.
-        txn.execute(Statement::from_string(
-            DbBackend::Postgres,
-            "LOCK TABLE backfill_items IN ACCESS EXCLUSIVE MODE".to_string(),
-        ))
-        .await?;
-
         // Get trees with the `force_chk` flag set to true (that have not failed and are not locked).
         let force_chk_trees = Statement::from_string(
             DbBackend::Postgres,
@@ -767,7 +760,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             let seq_bytes = tree_bytes[0..8].try_into().map_err(|e| {
                 IngesterError::RpcGetDataError("Failed to convert seq bytes to array".to_string())
             })?;
-            let seq = u64::from_le_bytes(seq_bytes); 
+            let seq = u64::from_le_bytes(seq_bytes);
             list.insert(pubkey, SlotSeq(header.get_creation_slot(), seq));
 
             if header.assert_valid_authority(&auth).is_err() {
@@ -797,8 +790,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let query = backfill_items::Entity::find()
             .select_only()
             .column(backfill_items::Column::Seq)
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .filter(backfill_items::Column::Backfilled.eq(true))
+            .filter(
+                Condition::all()
+                    .add(backfill_items::Column::Tree.eq(tree))
+                    .add(backfill_items::Column::Backfilled.eq(true)),
+            )
             .order_by_desc(backfill_items::Column::Seq)
             .limit(1)
             .build(DbBackend::Postgres);
@@ -815,8 +811,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .select_only()
             .column(backfill_items::Column::Seq)
             .column(backfill_items::Column::Slot)
-            .filter(backfill_items::Column::Seq.gte(start_seq))
-            .filter(backfill_items::Column::Tree.eq(tree))
+            .filter(
+                Condition::all()
+                    .add(backfill_items::Column::Seq.gte(start_seq))
+                    .add(backfill_items::Column::Tree.eq(tree)),
+            )
             .order_by_asc(backfill_items::Column::Seq)
             .build(DbBackend::Postgres);
 
@@ -1007,16 +1006,22 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         // the caller-specified max seq number.  One row for each tree must remain so that gaps can be
         // detected after subsequent inserts.
         backfill_items::Entity::delete_many()
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .filter(backfill_items::Column::Seq.ne(max_seq))
+            .filter(
+                Condition::all()
+                    .add(backfill_items::Column::Tree.eq(tree))
+                    .add(backfill_items::Column::Seq.ne(max_seq)),
+            )
             .exec(&self.db)
             .await?;
 
         // Remove any duplicates that have the caller-specified max seq number.  This happens when
         // a transaction that was already handled is replayed during backfilling.
         let items = backfill_items::Entity::find()
-            .filter(backfill_items::Column::Tree.eq(tree))
-            .filter(backfill_items::Column::Seq.eq(max_seq))
+            .filter(
+                Condition::all()
+                    .add(backfill_items::Column::Tree.eq(tree))
+                    .add(backfill_items::Column::Seq.ne(max_seq)),
+            )
             .all(&self.db)
             .await?;
 

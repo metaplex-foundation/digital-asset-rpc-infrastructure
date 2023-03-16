@@ -1,7 +1,5 @@
-use crate::{
-    error::IngesterError,
-};
-use super::{update_asset, save_changelog_event};
+use super::{save_changelog_event, update_asset};
+use crate::error::IngesterError;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
 use digital_asset_types::dao::asset;
 use sea_orm::{
@@ -35,8 +33,11 @@ where
     // Do not run this command if the asset is already marked as
     // decompressed.
     let query = asset::Entity::update(model)
-        .filter(asset::Column::Id.eq(id_bytes.clone()))
-        .filter(asset::Column::Compressed.eq(true))
+        .filter(
+            Condition::all()
+                .add(asset::Column::Id.eq(id_bytes.clone()))
+                .add(asset::Column::Compressed.eq(true)),
+        )
         .build(DbBackend::Postgres);
 
     txn.execute(query).await.map(|_| ()).map_err(Into::into)

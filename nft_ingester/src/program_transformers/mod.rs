@@ -86,7 +86,6 @@ impl ProgramTransformer {
             .iter()
             .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
         debug!("Instructions bgum: {}", contains.count());
-        let txn = self.storage.begin().await?;
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
@@ -121,8 +120,11 @@ impl ProgramTransformer {
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
+                        let txn = self.storage.begin_with_config().await?;
                         handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
                             .await?;
+                            txn.commit().await?
+                        }
                     }
                     _ => {
                         not_impl += 1;
@@ -130,15 +132,7 @@ impl ProgramTransformer {
                 };
             }
         }
-        match txn.commit().await {
-            Ok(_) => {
-                debug!("Committed compressed transaction");
-            }
-            Err(e) => {
-                error!("Error committing transaction: {:?}", e);
-                return Err(IngesterError::DatabaseError(e.to_string()));
-            }
-        }
+        
         if not_impl == ixlen {
             debug!("Not imple");
             return Err(IngesterError::NotImplemented);
