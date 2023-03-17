@@ -18,7 +18,6 @@ use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
 
 pub fn transaction_worker<T: Messenger>(
     pool: Pool<Postgres>,
-    stream: &'static str,
     config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<String>,
@@ -29,7 +28,7 @@ pub fn transaction_worker<T: Messenger>(
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
-                let e = msg.recv(&stream, consumption_type.clone()).await;
+                let e = msg.recv(TRANSACTION_STREAM, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
                         let mut futures = FuturesUnordered::new();
@@ -55,7 +54,7 @@ pub fn transaction_worker<T: Messenger>(
                     Err(e) => {
                         error!("Error receiving from account stream: {}", e);
                         metric! {
-                            statsd_count!("ingester.stream.receive_error", 1, "stream" => stream);
+                            statsd_count!("ingester.stream.receive_error", 1, "stream" => TRANSACTION_STREAM);
                         }
                     }
                 }
@@ -68,7 +67,7 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) ->
     let mut ret_id = None;
     if item.tries > 0 {
         metric! {
-            statsd_count!("ingester.tx_stream_redelivery", 1, "stream" => TRANSACTION_STREAM);
+            statsd_count!("ingester.stream_redelivery", 1, "stream" => TRANSACTION_STREAM);
         }
     }
     let id = item.id.to_string();

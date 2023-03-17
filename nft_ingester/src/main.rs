@@ -112,9 +112,8 @@ pub async fn main() -> Result<(), IngesterError> {
             ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.get_messneger_client_config());
         tasks.spawn(tx_ack_task);
         for i in 0..config.get_transaction_stream_worker_count() {
-            let account = transaction_worker::<RedisMessenger>(
+            let txn = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
-                TRANSACTION_STREAM,
                 config.get_messneger_client_config(),
                 bg_task_sender.clone(),
                 txn_ack_sender.clone(),
@@ -124,7 +123,7 @@ pub async fn main() -> Result<(), IngesterError> {
                     ConsumptionType::New
                 },
             );
-            tasks.spawn(account);
+            tasks.spawn(txn);
         }
     }
     // Stream Size Timers ----------------------------------------

@@ -51,9 +51,8 @@ pub fn account_worker<T: Messenger>(
                                 }
                             });
                         }
-                        while let Some(_) = futures.next().await {
-                            info!("Processed {} account updates", futures.len());
-                        }
+                        while let Some(_) = futures.next().await {}
+                        info!("Processed {} account updates", futures.len());
                     }
                     Err(e) => {
                         error!("Error receiving from account stream: {}", e);
@@ -73,7 +72,7 @@ async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Opt
     let data = item.data;
     if item.tries > 0 {
         metric! {
-            statsd_count!("ingester.account_stream_redelivery", 1, "stream" => ACCOUNT_STREAM);
+            statsd_count!("ingester.stream_redelivery", 1, "stream" => ACCOUNT_STREAM);
         }
     }
     // Get root of account info flatbuffers object.

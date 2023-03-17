@@ -15,6 +15,7 @@ mod m20230131_140613_change_token_account_indexes;
 mod m20230203_205959_improve_upsert_perf;
 mod m20230224_093722_performance_improvements;
 mod m20230310_162227_add_indexes_to_bg;
+mod m20230317_121944_remove_indexes_for_perf;
 
 pub struct Migrator;
 
@@ -37,6 +38,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230203_205959_improve_upsert_perf::Migration),
             Box::new(m20230224_093722_performance_improvements::Migration),
             Box::new(m20230310_162227_add_indexes_to_bg::Migration),
+            Box::new(m20230317_121944_remove_indexes_for_perf::Migration),
         ]
     }
 }
