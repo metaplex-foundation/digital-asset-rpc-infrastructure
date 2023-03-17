@@ -91,30 +91,42 @@ pub async fn main() -> Result<(), IngesterError> {
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         let (ack_task, ack_sender) =
-            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.messenger_config.clone());
+            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.get_messneger_client_config());
+        for i in 0..config.get_account_stream_worker_count() {
+            let account = account_worker::<RedisMessenger>(
+                database_pool.clone(),
+                ACCOUNT_STREAM,
+                config.get_messneger_client_config(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+                if i == 0 {
+                    ConsumptionType::Redeliver
+                } else {
+                    ConsumptionType::New
+                },
+            );
+            tasks.spawn(account);
+        }
         tasks.spawn(ack_task);
-        let account = account_worker::<RedisMessenger>(
-            database_pool.clone(),
-            ACCOUNT_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            ack_sender.clone(),
-            ConsumptionType::All,
-        );
-        tasks.spawn(account);
 
         let (tx_ack_task, txn_ack_sender) =
-            ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.messenger_config.clone());
+            ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.get_messneger_client_config());
         tasks.spawn(tx_ack_task);
-        let txns = transaction_worker::<RedisMessenger>(
-            database_pool.clone(),
-            TRANSACTION_STREAM,
-            config.messenger_config.clone(),
-            bg_task_sender.clone(),
-            txn_ack_sender.clone(),
-            ConsumptionType::All,
-        );
-        tasks.spawn(txns);
+        for i in 0..config.get_transaction_stream_worker_count() {
+            let account = transaction_worker::<RedisMessenger>(
+                database_pool.clone(),
+                TRANSACTION_STREAM,
+                config.get_messneger_client_config(),
+                bg_task_sender.clone(),
+                txn_ack_sender.clone(),
+                if i == 0 {
+                    ConsumptionType::Redeliver
+                } else {
+                    ConsumptionType::New
+                },
+            );
+            tasks.spawn(account);
+        }
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
@@ -135,7 +147,7 @@ pub async fn main() -> Result<(), IngesterError> {
     match signal::ctrl_c().await {
         Ok(()) => {}
         Err(err) => {
-            eprintln!("Unable to listen for shutdown signal: {}", err);
+            error!("Unable to listen for shutdown signal: {}", err);
             // we also shut down in case of error
         }
     }

@@ -36,12 +36,8 @@ pub fn account_worker<T: Messenger>(
                 let e = msg.recv(&stream, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
-                        let mut tasks = FuturesUnordered::new();
                         for item in data {
-                            tasks.push(handle_account(Arc::clone(&manager), item));
-                        }
-                        while let Some(t) = tasks.next().await {
-                            if let Some(id) = t {
+                            if let Some(id) = handle_account(Arc::clone(&manager), item).await {
                                 let send = ack_channel.send(id);
                                 if let Err(err) = send {
                                     metric! {

@@ -277,9 +277,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let rpc_client = RpcClient::new_with_commitment(rpc_url, rpc_commitment);
 
         // Instantiate messenger.
-        let mut messenger = T::new(config.messenger_config).await.unwrap();
+        let mut messenger = T::new(config.get_messneger_client_config()).await.unwrap();
         messenger.add_stream(TRANSACTION_STREAM).await.unwrap();
-        messenger.set_buffer_size(TRANSACTION_STREAM, 5000).await;
+        messenger
+            .set_buffer_size(TRANSACTION_STREAM, 10_000_000)
+            .await;
 
         Self {
             db,
