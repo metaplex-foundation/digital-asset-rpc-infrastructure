@@ -15,7 +15,7 @@ use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
 use tokio::{
-    sync::mpsc::UnboundedSender,
+    sync::{mpsc::UnboundedSender, Semaphore},
     task::{JoinHandle, JoinSet},
     time::Instant,
 };
@@ -33,19 +33,12 @@ pub fn transaction_worker<T: Messenger>(
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
                 let e = msg.recv(TRANSACTION_STREAM, consumption_type.clone()).await;
+                let mut tasks = JoinSet::new();
                 match e {
                     Ok(data) => {
                         let len = data.len();
                         for item in data {
-                            if let Some(id) = handle_transaction(Arc::clone(&manager), item).await {
-                                let send = ack_channel.send(id);
-                                if let Err(err) = send {
-                                    metric! {
-                                        error!("Account stream ack error: {}", err);
-                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => TRANSACTION_STREAM);
-                                    }
-                                }
-                            }
+                            tasks.spawn(handle_transaction(Arc::clone(&manager), item));
                         }
                         info!("Processed {} txns", len);
                     }
@@ -53,6 +46,19 @@ pub fn transaction_worker<T: Messenger>(
                         error!("Error receiving from txn stream: {}", e);
                         metric! {
                             statsd_count!("ingester.stream.receive_error", 1, "stream" => TRANSACTION_STREAM);
+                        }
+                    }
+                }
+                while let Some(res) = tasks.join_next().await {
+                    if let Ok(id) = res {
+                        if let Some(id) = id {
+                            let send = ack_channel.send(id);
+                            if let Err(err) = send {
+                                metric! {
+                                    error!("Txn stream ack error: {}", err);
+                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => TRANSACTION_STREAM);
+                                }
+                            }
                         }
                     }
                 }

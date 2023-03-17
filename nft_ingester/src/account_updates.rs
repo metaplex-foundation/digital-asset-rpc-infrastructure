@@ -33,26 +33,32 @@ pub fn account_worker<T: Messenger>(
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
                 let e = msg.recv(ACCOUNT_STREAM, consumption_type.clone()).await;
+                let mut tasks = JoinSet::new();
                 match e {
                     Ok(data) => {
                         let len = data.len();
                         for item in data {
-                            if let Some(id) = handle_account(Arc::clone(&manager), item).await {
-                                let send = ack_channel.send(id);
-                                if let Err(err) = send {
-                                    metric! {
-                                        error!("Account stream ack error: {}", err);
-                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
-                                    }
-                                }
-                            }
+                            tasks.spawn(handle_account(Arc::clone(&manager), item));
                         }
-                        info!("Processed {} accounts", len);
+                        info!("Processed {} account", len);
                     }
                     Err(e) => {
                         error!("Error receiving from account stream: {}", e);
                         metric! {
                             statsd_count!("ingester.stream.receive_error", 1, "stream" => ACCOUNT_STREAM);
+                        }
+                    }
+                }
+                while let Some(res) = tasks.join_next().await {
+                    if let Ok(id) = res {
+                        if let Some(id) = id {
+                            let send = ack_channel.send(id);
+                            if let Err(err) = send {
+                                metric! {
+                                    error!("Account stream ack error: {}", err);
+                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
+                                }
+                            }
                         }
                     }
                 }
