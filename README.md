@@ -205,4 +205,49 @@ skaffold build --file-output skaffold-state.json --cache-artifacts=false
 skaffold deploy -p devnet --build-artifacts skaffold-state.json --namespace devnet-read-api --tail=true
 ```
 
+# METRICS
+Here are the metrics that various parts of ths system expose;
+
+## NFT INGESTER
+### ACKING
+count ingester.ack - number of messages acked tagged by stream
+
+count ingester.stream.ack_error - error acking a message
+count ingester.stream.receive_error - error getting stream data
+
+### Stream Metrics
+ingester.stream_redelivery - Stream tagged of messages re delivered
+ingester.stream_size - Size of stream, tagged by stream
+ingester.stream_size_error - Error getting the stream size
+
+### Stream Specific Metrics
+All these metrics are tagged by stream
+count ingester.seen
+time ingester.proc_time
+count ingester.ingest_success
+count ingester.ingest_redeliver_success
+count ingester.not_implemented
+count ingester.ingest_error
+
+### BG Tasks
+time ingester.bgtask.proc_time
+count ingester.bgtask.success
+count ingester.bgtask.error
+time ingester.bgtask.bus_time
+count ingester.bgtask.identical
+
+### BACKFILLER
+count ingester.backfiller.task_panic
+count ingester.backfiller.task_error
+guage ingester.backfiller.missing_trees
+
+### Startup
+ingester.startup
+
+## API
+api_call
+
+
+
+
 

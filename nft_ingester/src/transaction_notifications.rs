@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
 use crate::{
-    config::rand_string, error::IngesterError, metric, program_transformers::ProgramTransformer,
-    tasks::TaskData,
+    config::rand_string, error::IngesterError, metric, metrics::capture_result,
+    program_transformers::ProgramTransformer, tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use log::error;
-use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
+use log::{debug, error};
+use plerkle_messenger::{
+    ConsumptionType, Messenger, MessengerConfig, RecvData, TRANSACTION_STREAM,
+};
 use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
@@ -64,48 +66,25 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) ->
     let tx_data = item.data;
     if let Ok(tx) = root_as_transaction_info(&tx_data) {
         let signature = tx.signature().unwrap_or("NO SIG");
-        if let Some(si) = tx.slot_index() {
-            let slt_idx = format!("{}-{}", tx.slot(), si);
-            metric! {
-                statsd_count!("ingester.transaction_event_seen", 1, "slot-idx" => &slt_idx);
-            }
+        debug!("Received transaction: {}", signature);
+        metric! {
+            statsd_count!("ingester.seen", 1);
         }
         let seen_at = Utc::now();
-        metric! {
-            statsd_time!(
-                "ingester.bus_ingest_time",
-                (seen_at.timestamp_millis() - tx.seen_at()) as u64
-            );
-        }
+        statsd_time!(
+            "ingester.bus_ingest_time",
+            (seen_at.timestamp_millis() - tx.seen_at()) as u64
+        );
         let begin = Instant::now();
         let res = manager.handle_transaction(&tx).await;
-        match res {
-            Ok(_) => {
-                if item.tries == 0 {
-                    metric! {
-                        statsd_time!("ingester.tx_proc_time", begin.elapsed().as_millis() as u64);
-                        statsd_count!("ingester.tx_ingest_success", 1);
-                    }
-                } else {
-                    metric! {
-                        statsd_count!("ingester.tx_ingest_redeliver_success", 1);
-                    }
-                }
-                ret_id = Some(id);
-            }
-            Err(err) if err == IngesterError::NotImplemented => {
-                metric! {
-                    statsd_count!("ingester.tx_not_implemented", 1);
-                }
-                ret_id = Some(id);
-            }
-            Err(err) => {
-                println!("ERROR:txn: {:?} {:?}", signature, err);
-                metric! {
-                    statsd_count!("ingester.tx_ingest_error", 1);
-                }
-            }
-        }
+        ret_id = capture_result(
+            id,
+            TRANSACTION_STREAM,
+            ("txn", "txn"),
+            item.tries,
+            res,
+            begin,
+        );
     }
     ret_id
 }

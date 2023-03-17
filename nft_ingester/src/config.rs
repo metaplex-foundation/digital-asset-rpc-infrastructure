@@ -54,11 +54,11 @@ impl IngesterConfig {
     }
 
     pub fn get_account_stream_worker_count(&self) -> u32 {
-        self.account_stream_worker_count.unwrap_or(1)
+        self.account_stream_worker_count.unwrap_or(2)
     }
 
     pub fn get_transaction_stream_worker_count(&self) -> u32 {
-        self.transaction_stream_worker_count.unwrap_or(1)
+        self.transaction_stream_worker_count.unwrap_or(2)
     }
 }
 

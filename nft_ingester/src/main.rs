@@ -96,7 +96,6 @@ pub async fn main() -> Result<(), IngesterError> {
         for i in 0..config.get_account_stream_worker_count() {
             let account = account_worker::<RedisMessenger>(
                 database_pool.clone(),
-                ACCOUNT_STREAM,
                 config.get_messneger_client_config(),
                 bg_task_sender.clone(),
                 ack_sender.clone(),
