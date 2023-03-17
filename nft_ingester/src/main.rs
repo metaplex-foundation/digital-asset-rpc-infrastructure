@@ -92,6 +92,7 @@ pub async fn main() -> Result<(), IngesterError> {
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         let (ack_task, ack_sender) =
             ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.get_messneger_client_config());
+        tasks.spawn(ack_task);
         for i in 0..config.get_account_stream_worker_count() {
             let account = account_worker::<RedisMessenger>(
                 database_pool.clone(),
@@ -107,7 +108,6 @@ pub async fn main() -> Result<(), IngesterError> {
             );
             tasks.spawn(account);
         }
-        tasks.spawn(ack_task);
 
         let (tx_ack_task, txn_ack_sender) =
             ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.get_messneger_client_config());
