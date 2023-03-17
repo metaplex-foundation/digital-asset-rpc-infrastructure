@@ -35,27 +35,22 @@ pub fn transaction_worker<T: Messenger>(
                 let e = msg.recv(TRANSACTION_STREAM, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
-                        let mut futures = JoinSet::new();
+                        let len = data.len();
                         for item in data {
-                            let m = Arc::clone(&manager);
-                            let s = ack_channel.clone();
-                            futures.spawn(async move {
-                                if let Some(id) = handle_transaction(m, item).await {
-                                    let send = s.send(id);
-                                    if let Err(err) = send {
-                                        metric! {
-                                            error!("Account stream ack error: {}", err);
-                                            statsd_count!("ingester.stream.ack_error", 1, "stream" => TRANSACTION_STREAM);
-                                        }
+                            if let Some(id) = handle_transaction(Arc::clone(&manager), item).await {
+                                let send = ack_channel.send(id);
+                                if let Err(err) = send {
+                                    metric! {
+                                        error!("Account stream ack error: {}", err);
+                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => TRANSACTION_STREAM);
                                     }
                                 }
-                            });
+                            }
                         }
-                        while let Some(_) = futures.join_next().await {}
-                        info!("Processed {} transactions", futures.len());
+                        info!("Processed {} txns", len);
                     }
                     Err(e) => {
-                        error!("Error receiving from account stream: {}", e);
+                        error!("Error receiving from txn stream: {}", e);
                         metric! {
                             statsd_count!("ingester.stream.receive_error", 1, "stream" => TRANSACTION_STREAM);
                         }
