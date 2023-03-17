@@ -68,7 +68,7 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) ->
     let mut ret_id = None;
     if item.tries > 0 {
         metric! {
-            statsd_count!("ingester.tx_stream_redelivery", 1);
+            statsd_count!("ingester.tx_stream_redelivery", 1, "stream" => TRANSACTION_STREAM);
         }
     }
     let id = item.id.to_string();
@@ -77,12 +77,13 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) ->
         let signature = tx.signature().unwrap_or("NO SIG");
         debug!("Received transaction: {}", signature);
         metric! {
-            statsd_count!("ingester.seen", 1);
+            statsd_count!("ingester.seen", 1, "stream" => TRANSACTION_STREAM);
         }
         let seen_at = Utc::now();
         statsd_time!(
             "ingester.bus_ingest_time",
-            (seen_at.timestamp_millis() - tx.seen_at()) as u64
+            (seen_at.timestamp_millis() - tx.seen_at()) as u64,
+            "stream" => TRANSACTION_STREAM
         );
         let begin = Instant::now();
         let res = manager.handle_transaction(&tx).await;

@@ -73,7 +73,7 @@ async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Opt
     let data = item.data;
     if item.tries > 0 {
         metric! {
-            statsd_count!("ingester.account_stream_redelivery", 1);
+            statsd_count!("ingester.account_stream_redelivery", 1, "stream" => ACCOUNT_STREAM);
         }
     }
     // Get root of account info flatbuffers object.
