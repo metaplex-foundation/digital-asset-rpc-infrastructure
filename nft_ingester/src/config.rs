@@ -46,8 +46,15 @@ impl IngesterConfig {
             .unwrap()
     }
 
+    pub fn get_messneger_client_config(&self) -> MessengerConfig {
+        let mut mc = self.messenger_config.clone();
+        mc.connection_config
+            .insert("consumer_id".to_string(), Value::from(rand_string()));
+        mc
+    }
+
     pub fn get_account_stream_worker_count(&self) -> u32 {
-        self.account_stream_worker_count.unwrap_or(3)
+        self.account_stream_worker_count.unwrap_or(2)
     }
 
     pub fn get_transaction_stream_worker_count(&self) -> u32 {
@@ -102,10 +109,6 @@ pub fn setup_config() -> IngesterConfig {
             msg: format!("{}", config_error),
         })
         .unwrap();
-    config
-        .messenger_config
-        .connection_config
-        .insert("consumer_id".to_string(), Value::from(rand_string()));
     config.code_version = Some(CODE_VERSION);
     config
 }

@@ -1,12 +1,13 @@
 use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::{
-    instruction::{InstructionBundle, IxPair, order_instructions},
+    instruction::{order_instructions, InstructionBundle, IxPair},
     program_handler::ProgramParser,
     programs::{
         bubblegum::BubblegumParser, token_account::TokenAccountParser,
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
+use log::{debug, error};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
 use solana_sdk::pubkey::Pubkey;
@@ -14,11 +15,9 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::{
-    program_transformers::{
-        bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
-        token_metadata::handle_token_metadata_account,
-    },
+use crate::program_transformers::{
+    bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
+    token_metadata::handle_token_metadata_account,
 };
 
 mod bubblegum;
@@ -29,7 +28,7 @@ pub struct ProgramTransformer {
     storage: DatabaseConnection,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    key_set: HashSet<Pubkey>
+    key_set: HashSet<Pubkey>,
 }
 
 impl ProgramTransformer {
@@ -80,12 +79,11 @@ impl ProgramTransformer {
         }
         let mut not_impl = 0;
         let ixlen = instructions.len();
-        println!("Instructions: {}", ixlen);
+        debug!("Instructions: {}", ixlen);
         let contains = instructions
             .iter()
             .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
-        println!("Instructions bgum: {}", contains.count());
-        let txn = self.storage.begin().await?;
+        debug!("Instructions bgum: {}", contains.count());
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
@@ -120,8 +118,13 @@ impl ProgramTransformer {
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
-                        handle_bubblegum_instruction(parsing_result, &ix, &txn, &self.task_sender)
-                            .await?;
+                        handle_bubblegum_instruction(
+                            parsing_result,
+                            &ix,
+                            &self.storage,
+                            &self.task_sender,
+                        )
+                        .await?;
                     }
                     _ => {
                         not_impl += 1;
@@ -129,17 +132,9 @@ impl ProgramTransformer {
                 };
             }
         }
-        match txn.commit().await {
-            Ok(_) => {
-                println!("Committed compressed transaction");
-            }
-            Err(e) => {
-                println!("Error committing transaction: {:?}", e);
-                return Err(IngesterError::DatabaseError(e.to_string()));
-            }
-        }
+
         if not_impl == ixlen {
-            println!("Not imple");
+            debug!("Not imple");
             return Err(IngesterError::NotImplemented);
         }
         Ok(())

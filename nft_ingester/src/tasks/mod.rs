@@ -4,10 +4,10 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{error, debug};
+use log::{debug, error};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
-    DatabaseTransaction, DeleteResult, SqlxPostgresConnector, TransactionTrait,
+    DeleteResult, SqlxPostgresConnector,
 };
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
@@ -33,6 +33,7 @@ pub trait BgTask: Send + Sync {
 }
 
 const RETRY_INTERVAL: u64 = 1000;
+const DELETE_INTERVAL: u64 = 30000;
 const MAX_TASK_BATCH_SIZE: u64 = 100;
 
 pub struct TaskData {
@@ -287,12 +288,11 @@ impl TaskManager {
         let task_map = self.registered_task_types.clone();
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
-
         tokio::spawn(async move {
-            let mut interval = time::interval(tokio::time::Duration::from_millis(RETRY_INTERVAL));
+            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+            let mut interval = time::interval(tokio::time::Duration::from_millis(DELETE_INTERVAL));
             loop {
                 interval.tick().await; // ticks immediately
-                let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
                 let delete_res = TaskManager::purge_old_tasks(&conn).await;
                 match delete_res {
                     Ok(res) => {
@@ -302,6 +302,14 @@ impl TaskManager {
                         error!("error deleting tasks: {}", e);
                     }
                 };
+            }
+        });
+        let pool = self.pool.clone();
+        tokio::spawn(async move {
+            let mut interval = time::interval(tokio::time::Duration::from_millis(RETRY_INTERVAL));
+            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+            loop {
+                interval.tick().await; // ticks immediately
                 let tasks_res = TaskManager::get_pending_tasks(&conn).await;
                 match tasks_res {
                     Ok(tasks) => {

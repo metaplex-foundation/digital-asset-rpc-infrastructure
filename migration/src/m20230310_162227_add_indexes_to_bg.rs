@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE INDEX tasks_created_at ON tasks USING BRIN(created_at);"
+                "CREATE INDEX IF NOT EXISTS tasks_created_at ON tasks USING BRIN(created_at);"
                 .to_string(),
             ))
             .await?;
@@ -22,7 +22,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE INDEX tasks_locked_until ON tasks USING BRIN(locked_until);"
+                "CREATE INDEX IF NOT EXISTS tasks_locked_until ON tasks USING BRIN(locked_until);"
                 .to_string(),
             ))
             .await?;
@@ -30,7 +30,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE INDEX task_attempts ON tasks USING BRIN(attempts);"
+                "CREATE INDEX IF NOT EXISTS task_attempts ON tasks USING BRIN(attempts);"
                 .to_string(),
             ))
             .await?;
@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE INDEX task_status ON tasks status;"
+                "CREATE INDEX IF NOT EXISTS task_status ON tasks status;"
                 .to_string(),
             ))
             .await?;
@@ -51,6 +51,30 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("tasks_created_at")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("tasks_locked_until")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("task_attempts")
+                    .table(tasks::Entity)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("task_status")
                     .table(tasks::Entity)
                     .to_owned(),
             )
