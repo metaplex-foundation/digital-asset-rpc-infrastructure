@@ -6,7 +6,8 @@ use crate::{
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
 use chrono::Utc;
-use log::{debug, error};
+use futures::{stream::FuturesUnordered, StreamExt};
+use log::{debug, error, info};
 use plerkle_messenger::{
     ConsumptionType, Messenger, MessengerConfig, RecvData, TRANSACTION_STREAM,
 };
@@ -31,16 +32,24 @@ pub fn transaction_worker<T: Messenger>(
                 let e = msg.recv(&stream, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
+                        let mut futures = FuturesUnordered::new();
                         for item in data {
-                            if let Some(id) = handle_transaction(Arc::clone(&manager), item).await {
-                                let send = ack_channel.send(id);
-                                if let Err(err) = send {
-                                    metric! {
-                                        error!("Account stream ack error: {}", err);
-                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => stream);
+                            let m = Arc::clone(&manager);
+                            let s = ack_channel.clone();
+                            futures.push(async move {
+                                if let Some(id) = handle_transaction(m, item).await {
+                                    let send = s.send(id);
+                                    if let Err(err) = send {
+                                        metric! {
+                                            error!("Account stream ack error: {}", err);
+                                            statsd_count!("ingester.stream.ack_error", 1, "stream" => TRANSACTION_STREAM);
+                                        }
                                     }
                                 }
-                            }
+                            });
+                        }
+                        while let Some(_) = futures.next().await {
+                            info!("Processed {} transactions", futures.len());
                         }
                     }
                     Err(e) => {

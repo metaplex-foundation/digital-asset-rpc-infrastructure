@@ -35,16 +35,24 @@ pub fn account_worker<T: Messenger>(
                 let e = msg.recv(ACCOUNT_STREAM, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
+                        let mut futures = FuturesUnordered::new();
                         for item in data {
-                            if let Some(id) = handle_account(Arc::clone(&manager), item).await {
-                                let send = ack_channel.send(id);
-                                if let Err(err) = send {
-                                    metric! {
-                                        error!("Account stream ack error: {}", err);
-                                        statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
+                            let m = Arc::clone(&manager);
+                            let s = ack_channel.clone();
+                            futures.push(async move {
+                                if let Some(id) = handle_account(m, item).await {
+                                    let send = s.send(id);
+                                    if let Err(err) = send {
+                                        metric! {
+                                            error!("Account stream ack error: {}", err);
+                                            statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
+                                        }
                                     }
                                 }
-                            }
+                            });
+                        }
+                        while let Some(_) = futures.next().await {
+                            info!("Processed {} account updates", futures.len());
                         }
                     }
                     Err(e) => {
