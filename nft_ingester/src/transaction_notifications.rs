@@ -14,7 +14,11 @@ use plerkle_messenger::{
 use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
-use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle, time::Instant};
+use tokio::{
+    sync::mpsc::UnboundedSender,
+    task::{JoinHandle, JoinSet},
+    time::Instant,
+};
 
 pub fn transaction_worker<T: Messenger>(
     pool: Pool<Postgres>,
@@ -31,11 +35,11 @@ pub fn transaction_worker<T: Messenger>(
                 let e = msg.recv(TRANSACTION_STREAM, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
-                        let mut futures = FuturesUnordered::new();
+                        let mut futures = JoinSet::new();
                         for item in data {
                             let m = Arc::clone(&manager);
                             let s = ack_channel.clone();
-                            futures.push(async move {
+                            futures.spawn(async move {
                                 if let Some(id) = handle_transaction(m, item).await {
                                     let send = s.send(id);
                                     if let Err(err) = send {
@@ -47,9 +51,8 @@ pub fn transaction_worker<T: Messenger>(
                                 }
                             });
                         }
-                        while let Some(_) = futures.next().await {
-                            info!("Processed {} transactions", futures.len());
-                        }
+                        while let Some(_) = futures.join_next().await {}
+                        info!("Processed {} transactions", futures.len());
                     }
                     Err(e) => {
                         error!("Error receiving from account stream: {}", e);

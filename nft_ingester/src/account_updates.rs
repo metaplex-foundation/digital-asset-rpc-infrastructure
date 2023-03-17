@@ -35,11 +35,11 @@ pub fn account_worker<T: Messenger>(
                 let e = msg.recv(ACCOUNT_STREAM, consumption_type.clone()).await;
                 match e {
                     Ok(data) => {
-                        let mut futures = FuturesUnordered::new();
+                        let mut futures = JoinSet::new();
                         for item in data {
                             let m = Arc::clone(&manager);
                             let s = ack_channel.clone();
-                            futures.push(async move {
+                            futures.spawn(async move {
                                 if let Some(id) = handle_account(m, item).await {
                                     let send = s.send(id);
                                     if let Err(err) = send {
@@ -51,7 +51,7 @@ pub fn account_worker<T: Messenger>(
                                 }
                             });
                         }
-                        while let Some(_) = futures.next().await {}
+                        while let Some(_) = futures.join_next().await {}
                         info!("Processed {} account updates", futures.len());
                     }
                     Err(e) => {
