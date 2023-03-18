@@ -24,7 +24,7 @@ CREATE TABLE cl_items
 -- Let's materialize cl_items into a view so the indexes don't lock
 -- the cl_items table and prevent ingest
 CREATE MATERIALIZED VIEW cl_items_view AS
-SELECT * FROM my_table;
+SELECT * FROM cl_items;
 
 CREATE INDEX cl_items_tree_idx on cl_items_view (tree);
 -- @@@@@@
