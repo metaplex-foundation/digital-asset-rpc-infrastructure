@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE INDEX IF NOT EXISTS task_status ON tasks status;"
+                "CREATE INDEX IF NOT EXISTS task_status ON tasks (status);"
                 .to_string(),
             ))
             .await?;
