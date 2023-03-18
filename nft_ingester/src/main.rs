@@ -91,8 +91,7 @@ pub async fn main() -> Result<(), IngesterError> {
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
         let (ack_task, ack_sender) =
-            ack_worker::<RedisMessenger>(ACCOUNT_STREAM, config.get_messneger_client_config());
-        tasks.spawn(ack_task);
+            ack_worker::<RedisMessenger>(config.get_messneger_client_config());
         for i in 0..config.get_account_stream_worker_count() {
             let account = account_worker::<RedisMessenger>(
                 database_pool.clone(),
@@ -105,25 +104,19 @@ pub async fn main() -> Result<(), IngesterError> {
                     ConsumptionType::New
                 },
             );
-            tasks.spawn(account);
         }
-
-        let (tx_ack_task, txn_ack_sender) =
-            ack_worker::<RedisMessenger>(TRANSACTION_STREAM, config.get_messneger_client_config());
-        tasks.spawn(tx_ack_task);
         for i in 0..config.get_transaction_stream_worker_count() {
             let txn = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
                 config.get_messneger_client_config(),
                 bg_task_sender.clone(),
-                txn_ack_sender.clone(),
+                ack_sender.clone(),
                 if i == 0 {
                     ConsumptionType::Redeliver
                 } else {
                     ConsumptionType::New
                 },
             );
-            tasks.spawn(txn);
         }
     }
     // Stream Size Timers ----------------------------------------

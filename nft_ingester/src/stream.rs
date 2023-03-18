@@ -10,7 +10,6 @@ use tokio::{
 };
 
 
-
 pub struct StreamSizeTimer {
     interval: tokio::time::Duration,
     messenger_config: MessengerConfig,

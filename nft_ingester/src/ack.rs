@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cadence_macros::{is_global_default_set, statsd_count};
 use log::error;
 use plerkle_messenger::{Messenger, MessengerConfig};
@@ -10,31 +12,37 @@ use tokio::{
 use crate::metric;
 
 pub fn ack_worker<T: Messenger>(
-    stream: &'static str,
     config: MessengerConfig,
-) -> (JoinHandle<()>, UnboundedSender<String>) {
-    let (tx, mut rx) = unbounded_channel::<String>();
-
+) -> (JoinHandle<()>, UnboundedSender<(&'static str, String)>) {
+    let (tx, mut rx) = unbounded_channel::<(&'static str, String)>();
     (
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_millis(1000));
-            let mut acks = Vec::new();
+            let mut interval = interval(Duration::from_millis(100));
+            let mut acks: HashMap<&str, Vec<String>> = HashMap::new();
             let source = T::new(config).await;
             if let Ok(mut msg) = source {
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
-                        let len = acks.len();
-                            if let Err(e) = msg.ack_msg(&stream, &acks).await {
-                                error!("Error acking message: {}", e);
+                            if acks.is_empty() {
+                                continue;
                             }
-                            metric! {
-                                statsd_count!("ingester.ack", len as i64, "stream" => stream);
+                            let len = acks.len();
+                            for (stream, msgs)  in acks.iter_mut() {
+                                if let Err(e) = msg.ack_msg(&stream, &msgs).await {
+                                    error!("Error acking message: {}", e);
+                                }
+                                metric! {
+                                    statsd_count!("ingester.ack", len as i64, "stream" => stream);
+                                }
+                                msgs.clear();
                             }
-                            acks.clear();
+
                         }
-                        Some(msg_id) = rx.recv() => {
-                            acks.push(msg_id);
+                        Some(msg) = rx.recv() => {
+                            let (stream, msg) = msg;
+                            let ackstream = acks.entry(stream).or_insert_with(Vec::<String>::new);
+                            ackstream.push(msg);
                         }
                     }
                 }

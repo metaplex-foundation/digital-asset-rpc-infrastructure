@@ -59,7 +59,7 @@ use crate::{
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 60;
-const MAX_BACKFILL_CHECK_WAIT: u64 = 5000;
+const MAX_BACKFILL_CHECK_WAIT: u64 = 1000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
@@ -188,7 +188,6 @@ impl GapInfo {
 /// Main struct used for backfiller task.
 struct Backfiller<'a, T: Messenger> {
     db: DatabaseConnection,
-    listener: PgListener,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
     messenger: T,
@@ -206,14 +205,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         // Create Sea ORM database connection used later for queries.
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
 
-        // Connect to database using sqlx and create PgListener.
-        let mut listener = sqlx::postgres::PgListener::connect_with(&pool.clone())
-            .await
-            .map_err(|e| IngesterError::StorageListenerError {
-                msg: format!("Could not connect to db for PgListener {e}"),
-            })
-            .unwrap();
-
         // Get database listener channel.
         let channel = config
             .database_config
@@ -224,15 +215,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     "Database listener channel missing: {}",
                     DATABASE_LISTENER_CHANNEL_KEY
                 ),
-            })
-            .unwrap();
-
-        // Setup listener on channel.
-        listener
-            .listen(&channel)
-            .await
-            .map_err(|e| IngesterError::StorageListenerError {
-                msg: format!("Error listening to channel on backfill_items tbl {e}"),
             })
             .unwrap();
 
@@ -285,7 +267,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         Self {
             db,
-            listener,
             rpc_client,
             rpc_block_config,
             messenger,
@@ -340,28 +321,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let mut interval =
             time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
         loop {
+            interval.tick().await;
             match self.get_trees_to_backfill().await {
                 Ok(backfill_trees) => {
-                    if backfill_trees.is_empty() {
-                        tokio::select! {
-                            _ = interval.tick() => {
-
-                            }
-                            _ = self.listener.recv() => {
-
-                            }
-                        }
-                    } else {
-                        // First just check if we can talk to an RPC provider.
-                        match self.rpc_client.get_version().await {
-                            Ok(version) => info!("RPC client version {version}"),
-                            Err(err) => {
-                                error!("RPC client error {err}");
-                                self.sleep_and_increase_delay().await;
-                                continue;
-                            }
-                        }
-
+                    if !backfill_trees.is_empty() {
                         for backfill_tree in backfill_trees {
                             for tries in 1..=NUM_TRIES {
                                 // Get the tree out of nested structs.

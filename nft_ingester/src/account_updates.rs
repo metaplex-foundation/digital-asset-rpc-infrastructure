@@ -24,7 +24,7 @@ pub fn account_worker<T: Messenger>(
     pool: Pool<Postgres>,
     config: MessengerConfig,
     bg_task_sender: UnboundedSender<TaskData>,
-    ack_channel: UnboundedSender<String>,
+    ack_channel: UnboundedSender<(&'static str, String)>,
     consumption_type: ConsumptionType,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -40,7 +40,9 @@ pub fn account_worker<T: Messenger>(
                         for item in data {
                             tasks.spawn(handle_account(Arc::clone(&manager), item));
                         }
-                        info!("Processed {} account", len);
+                        if len > 0 {
+                            debug!("Processed {} account", len);
+                        }
                     }
                     Err(e) => {
                         error!("Error receiving from account stream: {}", e);
@@ -52,7 +54,7 @@ pub fn account_worker<T: Messenger>(
                 while let Some(res) = tasks.join_next().await {
                     if let Ok(id) = res {
                         if let Some(id) = id {
-                            let send = ack_channel.send(id);
+                            let send = ack_channel.send((ACCOUNT_STREAM, id));
                             if let Err(err) = send {
                                 metric! {
                                     error!("Account stream ack error: {}", err);
