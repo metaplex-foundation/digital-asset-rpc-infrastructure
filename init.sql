@@ -20,18 +20,23 @@ CREATE TABLE cl_items
     hash     BYTEA  NOT NULL
 );
 -- @@@@@@
--- Index All the things space is cheap
-CREATE INDEX cl_items_tree_idx on cl_items (tree);
+-- Index All the things space is cheap, but index rebuilds are not
+-- Let's materialize cl_items into a view so the indexes don't lock
+-- the cl_items table and prevent ingest
+CREATE MATERIALIZED VIEW cl_items_view AS
+SELECT * FROM my_table;
+
+CREATE INDEX cl_items_tree_idx on cl_items_view (tree);
 -- @@@@@@
-CREATE INDEX cl_items_hash_idx on cl_items (hash);
+CREATE INDEX cl_items_hash_idx on cl_items_view (hash);
 -- @@@@@@
-CREATE INDEX cl_items_level on cl_items (level);
+CREATE INDEX cl_items_level on cl_items_view (level);
 -- @@@@@@
-CREATE INDEX cl_items_node_idx on cl_items (node_idx);
+CREATE INDEX cl_items_node_idx on cl_items_view (node_idx);
 -- @@@@@@
-CREATE INDEX cl_items_leaf_idx on cl_items (leaf_idx);
+CREATE INDEX cl_items_leaf_idx on cl_items_view (leaf_idx);
 -- @@@@@@
-CREATE UNIQUE INDEX cl_items__tree_node on cl_items (tree, node_idx);
+CREATE UNIQUE INDEX cl_items__tree_node on cl_items_view (tree, node_idx);
 -- @@@@@@
 
 CREATE TABLE backfill_items
