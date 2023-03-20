@@ -56,11 +56,11 @@ pub fn capture_result(
             }
             if tries == 0 {
                 metric! {
-                    statsd_count!("ingester.redeliver_success", 1, label.0 => &label.1, "stream" => stream);
+                    statsd_count!("ingester.ingest_success", 1, label.0 => &label.1, "stream" => stream);
                 }
             } else {
                 metric! {
-                    statsd_count!("ingester.ingest_success", 1, label.0 => &label.1, "stream" => stream);
+                    statsd_count!("ingester.redeliver_success", 1, label.0 => &label.1, "stream" => stream);
                 }
             }
             ret_id = Some(id);
