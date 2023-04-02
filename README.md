@@ -233,6 +233,7 @@ count ingester.ingest_error
 time ingester.bgtask.proc_time
 count ingester.bgtask.success
 count ingester.bgtask.error
+count ingester.bgtask.network_error
 time ingester.bgtask.bus_time
 count ingester.bgtask.identical
 

@@ -459,7 +459,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         cn: &impl ConnectionTrait,
     ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
-        info!("Number of Trees on Chain {}", all_trees.len());
+        debug!("Number of Trees on Chain {}", all_trees.len());
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
@@ -490,7 +490,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
             .collect::<Vec<MissingTree>>();
-        info!("Number of Missing local trees: {}", missing_trees.len());
+        if missing_trees.len() > 0 {
+            info!("Number of Missing local trees: {}", missing_trees.len());
+        } else {
+            debug!("No missing trees");
+        }
         Ok(missing_trees)
     }
 

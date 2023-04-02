@@ -4,7 +4,7 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{debug, error};
+use log::{debug, error, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DeleteResult, SqlxPostgresConnector,
@@ -119,13 +119,23 @@ impl TaskManager {
                 } else {
                     task.locked_by = Set(None);
                 }
-                metric! {
-                    statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
-                }
                 task.status = Set(TaskStatus::Failed);
                 task.errors = Set(Some(e.to_string()));
                 task.locked_until = Set(None);
-                error!("Task Run Error: {}", e);
+
+                if e == IngesterError::BatchInitNetworkingError {
+                    // Network errors are common for off-chain JSONs.
+                    // Logging these as errors is far too noisy.
+                    metric! {
+                        statsd_count!("ingester.bgtask.network_error", 1, "type" => task_name);
+                    }
+                    warn!("Task failed due to network error: {}",  e);
+                } else {
+                    metric! {
+                        statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
+                    }
+                    error!("Task Run Error: {}",  e);
+                }
             }
         }
         Ok(task)

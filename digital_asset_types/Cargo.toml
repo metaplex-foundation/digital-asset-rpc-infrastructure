@@ -32,3 +32,4 @@ async-trait = "0.1.60"
 tokio = { version = "1.22.0", features = ["full"] }
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
+log = "0.4.17"

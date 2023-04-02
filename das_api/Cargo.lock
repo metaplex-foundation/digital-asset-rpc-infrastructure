@@ -1068,6 +1068,7 @@ dependencies = [
  "bs58 0.4.0",
  "futures",
  "jsonpath_lib",
+ "log",
  "mime_guess",
  "num-derive",
  "num-traits",

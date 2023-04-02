@@ -10,13 +10,11 @@ mod stream;
 pub mod tasks;
 mod transaction_notifications;
 
-use env_logger;
-
 use crate::{
     account_updates::account_worker,
     ack::ack_worker,
     backfiller::setup_backfiller,
-    config::{setup_config, IngesterRole},
+    config::{init_logger, setup_config, IngesterRole},
     database::setup_database,
     error::IngesterError,
     metrics::setup_metrics,
@@ -34,12 +32,12 @@ use plerkle_messenger::{
 };
 use tokio::{
     signal,
-    task::{JoinError, JoinSet},
+    task::{JoinSet},
 };
 
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), IngesterError> {
-    env_logger::init();
+    init_logger();
     info!("Starting nft_ingester");
     // Setup Configuration and Metrics ---------------------------------------------
     // Pull Env variables into config struct

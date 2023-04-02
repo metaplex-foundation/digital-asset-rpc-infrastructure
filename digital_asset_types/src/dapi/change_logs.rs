@@ -1,5 +1,6 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::{DatabaseConnection, DbBackend};
+use log::debug;
 use {
     crate::dao::asset,
     crate::dao::cl_items,
@@ -35,8 +36,6 @@ pub async fn get_proof_for_asset(
             vec![asset_id],
         ))
         .filter(cl_items::Column::Level.eq(0i64));
-    let sql = sel.clone().build(DbBackend::Postgres);
-    println!("find leaf sql {} ", sql.sql);
     let leaf: Option<cl_items::Model> = sel.one(db).await?;
     if leaf.is_none() {
         return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
@@ -62,7 +61,6 @@ pub async fn get_proof_for_asset(
     query.sql = query
         .sql
         .replace("SELECT", "SELECT DISTINCT ON (cl_items.node_idx)");
-    println!("sql {} ", query.sql);
     let nodes: Vec<SimpleChangeLog> = db.query_all(query).await.map(|qr| {
         qr.iter()
             .map(|q| SimpleChangeLog::from_query_result(q, "").unwrap())
@@ -81,7 +79,7 @@ pub async fn get_proof_for_asset(
         }
     }
     for n in final_node_list.iter() {
-        println!(
+        debug!(
             "level {} index {} seq {} hash {}",
             n.level,
             n.node_idx,
