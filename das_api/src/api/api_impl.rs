@@ -9,8 +9,8 @@ use digital_asset_types::{
         SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_assets_by_authority, get_assets_by_creators, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, search_assets,
+        get_asset, get_assets_by_authority, get_assets_by_group,
+        get_assets_by_owner, get_proof_for_asset, search_assets, get_assets_by_creator,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -205,9 +205,9 @@ impl ApiContract for DasApi {
         self.validate_pagination(&limit, &page, &before, &after)?;
         let sort_by = sort_by.unwrap_or_default();
         let only_verified = only_verified.unwrap_or_default();
-        get_assets_by_creators(
+        get_assets_by_creator(
             &self.db_connection,
-            vec![creator_address_bytes],
+            creator_address_bytes,
             only_verified,
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),

@@ -30,29 +30,19 @@ where
 
 pub async fn get_by_creator(
     conn: &impl ConnectionTrait,
-    creators: Vec<Vec<u8>>,
+    creator: Vec<u8>,
     only_verified: bool,
     sort_by: asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    if creators.is_empty() {
-        return Ok(vec![]);
-    }
-    if creators.len() > 5 {
-        return Err(DbErr::Custom("Too many creators".to_string()));
-    }
-    let mut condition = Condition::any();
-    for creator in creators {
-        condition = condition.add(asset_creators::Column::Creator.eq(creator));
-    }
+    let mut condition = Condition::all()
+        .add(asset_creators::Column::Creator.eq(creator))
+        .add(asset::Column::Supply.gt(0));
     if only_verified {
-        condition = Condition::all()
-            .add(condition)
-            .add(asset_creators::Column::Verified.eq(true));
+        condition = condition.add(asset_creators::Column::Verified.eq(true));
     }
-    condition = condition.add(asset::Column::Supply.gt(0));
     get_by_related_condition(
         conn,
         condition,
