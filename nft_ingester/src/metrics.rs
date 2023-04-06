@@ -86,7 +86,7 @@ pub fn capture_result(
             ret_id = Some(id);
         }
         Err(err) => {
-            println!("Error handling account update: {:?}", err);
+            error!("Error handling account update: {:?}", err);
             metric! {
                 statsd_count!("ingester.ingest_update_error", 1, label.0 => &label.1, "stream" => stream, "error" => "u");
             }

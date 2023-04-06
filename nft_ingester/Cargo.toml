@@ -52,6 +52,11 @@ anchor-lang = "=0.26.0"
 borsh = "0.9.1"
 stretto = { version = "0.7", features = ["async"] }
 tokio-stream = "0.1.12"
+tracing-subscriber = { version = "0.3.16", features = [
+  "json",
+  "env-filter",
+  "ansi",
+] }
 
 [dependencies.num-integer] 
 version = "0.1.44"

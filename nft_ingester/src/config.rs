@@ -4,6 +4,8 @@ use figment::{providers::Env, value::Value, Figment};
 use plerkle_messenger::MessengerConfig;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
+use std::env;
+use tracing_subscriber::fmt;
 
 use crate::error::IngesterError;
 
@@ -111,4 +113,12 @@ pub fn setup_config() -> IngesterConfig {
         .unwrap();
     config.code_version = Some(CODE_VERSION);
     config
+}
+
+pub fn init_logger() {
+    let env_filter = env::var("RUST_LOG")
+        .or::<Result<String, ()>>(Ok("info".to_string()))
+        .unwrap();
+    let t = tracing_subscriber::fmt().with_env_filter(env_filter);
+    t.event_format(fmt::format::json()).init();
 }

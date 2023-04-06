@@ -1,7 +1,8 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
+use log::{info, debug};
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DatabaseTransaction, DbBackend, DbErr,
+    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr,
     EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
@@ -36,7 +37,7 @@ where
     let tree_id = change_log_event.id.as_ref();
     for p in change_log_event.path.iter() {
         let node_idx = p.index as i64;
-        println!(
+        debug!(
             "seq {}, index {} level {}, node {:?}",
             change_log_event.seq,
             p.index,
@@ -96,7 +97,7 @@ where
         // sequence number.  So in this case we set at flag to force checking the tree.
         let force_chk = rows.is_empty() && change_log_event.seq > 1;
 
-        println!("Adding to backfill_items table at level {}", i - 1);
+        info!("Adding to backfill_items table at level {}", i - 1);
         let item = backfill_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
             seq: Set(change_log_event.seq as i64),

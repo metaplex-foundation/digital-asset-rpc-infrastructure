@@ -7,7 +7,7 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
-use log::{debug, error};
+use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
 use solana_sdk::pubkey::Pubkey;
@@ -69,7 +69,7 @@ impl ProgramTransformer {
         &self,
         tx: &'a TransactionInfo<'a>,
     ) -> Result<(), IngesterError> {
-        println!("Handling Transaction: {:?}", tx.signature());
+        info!("Handling Transaction: {:?}", tx.signature());
         let instructions = self.break_transaction(&tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
@@ -113,7 +113,7 @@ impl ProgramTransformer {
             };
 
             if let Some(program) = self.match_program(&ix.program) {
-                println!("Found a ix for program: {:?}", program.key());
+                debug!("Found a ix for program: {:?}", program.key());
                 let result = program.handle_instruction(&ix)?;
                 let concrete = result.result_type();
                 match concrete {

@@ -41,7 +41,7 @@ pub fn account_worker<T: Messenger>(
                             tasks.spawn(handle_account(Arc::clone(&manager), item));
                         }
                         if len > 0 {
-                            debug!("Processed {} account", len);
+                            debug!("Processed {} accounts", len);
                         }
                     }
                     Err(e) => {

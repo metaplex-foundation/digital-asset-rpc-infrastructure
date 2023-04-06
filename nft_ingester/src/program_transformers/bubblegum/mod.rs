@@ -3,6 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
+use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -33,52 +34,52 @@ where
     let ix_type = &parsing_result.instruction;
     match ix_type {
         InstructionName::Unknown => {
-            println!("Unknown instruction:");
+            debug!("Unknown instruction:");
         }
         InstructionName::MintV1 => {
-            println!("MintV1 instruction:");
+            debug!("MintV1 instruction:");
         }
         InstructionName::MintToCollectionV1 => {
-            println!("MintToCollectionV1 instruction:");
+            debug!("MintToCollectionV1 instruction:");
         }
         InstructionName::Redeem => {
-            println!("Redeem instruction:");
+            debug!("Redeem instruction:");
         }
         InstructionName::CancelRedeem => {
-            println!("CancelRedeem instruction:");
+            debug!("CancelRedeem instruction:");
         }
         InstructionName::Transfer => {
-            println!("Transfer instruction:");
+            debug!("Transfer instruction:");
         }
         InstructionName::Delegate => {
-            println!("Delegate instruction:");
+            debug!("Delegate instruction:");
         }
         InstructionName::DecompressV1 => {
-            println!("DecompressV1 instruction:");
+            debug!("DecompressV1 instruction:");
         }
         InstructionName::Compress => {
-            println!("Compress instruction:");
+            debug!("Compress instruction:");
         }
         InstructionName::Burn => {
-            println!("Burn instruction:");
+            debug!("Burn instruction:");
         }
         InstructionName::CreateTree => {
-            println!("CreateTree instruction:");
+            debug!("CreateTree instruction:");
         }
         InstructionName::VerifyCreator => {
-            println!("VerifyCreator instruction:");
+            debug!("VerifyCreator instruction:");
         }
         InstructionName::UnverifyCreator => {
-            println!("UnverifyCreator instruction:");
+            debug!("UnverifyCreator instruction:");
         }
         InstructionName::VerifyCollection => {
-            println!("VerifyCollection instruction:");
+            debug!("VerifyCollection instruction:");
         }
         InstructionName::UnverifyCollection => {
-            println!("UnverifyCollection instruction:");
+            debug!("UnverifyCollection instruction:");
         }
         InstructionName::SetAndVerifyCollection => {
-            println!("SetAndVerifyCollection instruction:");
+            debug!("SetAndVerifyCollection instruction:");
         }
     }
 
@@ -121,7 +122,7 @@ where
         InstructionName::SetAndVerifyCollection => {
             collection_verification::process(parsing_result, bundle, txn, true).await?;
         }
-        _ => println!("Bubblegum: Not Implemented Instruction"),
+        _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
     Ok(())
 }
