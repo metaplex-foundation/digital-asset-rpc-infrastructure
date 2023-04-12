@@ -6,9 +6,9 @@ use sea_orm::DbErr;
 
 use super::common::{build_asset_response, create_pagination, create_sorting};
 
-pub async fn get_assets_by_creators(
+pub async fn get_assets_by_creator(
     db: &DatabaseConnection,
-    creators: Vec<Vec<u8>>,
+    creator: Vec<u8>,
     only_verified: bool,
     sorting: AssetSorting,
     limit: u64,
@@ -20,7 +20,7 @@ pub async fn get_assets_by_creators(
     let (sort_direction, sort_column) = create_sorting(sorting);
     let assets = scopes::asset::get_by_creator(
         db,
-        creators,
+        creator,
         only_verified,
         sort_column,
         sort_direction,
