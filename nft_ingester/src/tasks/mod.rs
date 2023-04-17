@@ -325,7 +325,7 @@ impl TaskManager {
                         continue;
                     }
                     metric! {
-                        statsd_count!("ingester.bgtask.new", 1, "type" => &e.task_type);
+                        statsd_count!("ingester.bgtask.new", 1, "type" => &task.name);
                     }
                     TaskManager::new_task_handler(
                         pool.clone(),
