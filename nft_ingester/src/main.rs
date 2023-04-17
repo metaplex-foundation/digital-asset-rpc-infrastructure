@@ -88,7 +88,7 @@ pub async fn main() -> Result<(), IngesterError> {
     let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {
         lock_duration: task_runner_config.lock_duration,
         max_attempts: task_runner_config.max_attempts,
-        timeout: task_runner_config.timeout,
+        timeout: Some(time::Duration::from_secs(task_runner_config.timeout.unwrap_or(3))),
     })];
 
     let mut background_task_manager =

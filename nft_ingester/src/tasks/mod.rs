@@ -50,7 +50,7 @@ pub struct BackgroundTaskRunnerConfig {
     pub batch_size: Option<u64>,
     pub lock_duration: Option<i64>,
     pub max_attempts: Option<i16>,
-    pub timeout: Option<StdDuration>,
+    pub timeout: Option<u64>,
 }
 
 impl Default for BackgroundTaskRunnerConfig {
@@ -62,7 +62,7 @@ impl Default for BackgroundTaskRunnerConfig {
             batch_size: Some(MAX_TASK_BATCH_SIZE),
             lock_duration: Some(5),
             max_attempts: Some(3),
-            timeout: Some(StdDuration::from_secs(3)),
+            timeout: Some(3),
         }
     }
 }
