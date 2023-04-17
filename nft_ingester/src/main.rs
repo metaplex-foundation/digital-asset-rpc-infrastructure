@@ -35,7 +35,10 @@ use tokio::{
     task::{JoinSet},
 };
 
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time
+};
 use clap::{arg, command, value_parser, ArgAction, Command};
 
 #[tokio::main(flavor = "multi_thread")]
@@ -81,7 +84,12 @@ pub async fn main() -> Result<(), IngesterError> {
 
     // BACKGROUND TASKS --------------------------------------------
     //Setup definitions for background tasks
-    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
+    let task_runner_config = config.background_task_runner_config.clone().unwrap_or_default();
+    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {
+        lock_duration: task_runner_config.lock_duration,
+        max_attempts: task_runner_config.max_attempts,
+        timeout: task_runner_config.timeout,
+    })];
 
     let mut background_task_manager =
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);

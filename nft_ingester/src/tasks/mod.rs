@@ -17,6 +17,7 @@ use tokio::{
     time,
 };
 use serde::Deserialize;
+use std::time::Duration as StdDuration;
 
 mod common;
 pub use common::*;
@@ -47,6 +48,9 @@ pub struct BackgroundTaskRunnerConfig {
     pub retry_interval: Option<u64>,
     pub purge_time: Option<u64>,
     pub batch_size: Option<u64>,
+    pub lock_duration: Option<i64>,
+    pub max_attempts: Option<i16>,
+    pub timeout: Option<StdDuration>,
 }
 
 impl Default for BackgroundTaskRunnerConfig {
@@ -56,6 +60,9 @@ impl Default for BackgroundTaskRunnerConfig {
             retry_interval: Some(RETRY_INTERVAL),
             purge_time: Some(PURGE_TIME),
             batch_size: Some(MAX_TASK_BATCH_SIZE),
+            lock_duration: Some(5),
+            max_attempts: Some(3),
+            timeout: Some(StdDuration::from_secs(3)),
         }
     }
 }

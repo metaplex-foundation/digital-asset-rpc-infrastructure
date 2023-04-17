@@ -30,7 +30,6 @@ pub struct IngesterConfig {
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
 }
 
-
 impl IngesterConfig {
     /// Get the db url out of the dict, this is built a a dict so that future extra db parameters can be easily shoved in.
     /// this panics if the key is not present

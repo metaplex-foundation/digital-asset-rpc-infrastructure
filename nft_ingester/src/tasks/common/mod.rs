@@ -48,12 +48,16 @@ impl FromTaskData<DownloadMetadata> for DownloadMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DownloadMetadataTask {}
+pub struct DownloadMetadataTask {
+    pub lock_duration: Option<i64>,
+    pub max_attempts: Option<i16>,
+    pub timeout: Option<Duration>,
+}
 
 impl DownloadMetadataTask {
-    async fn request_metadata(uri: String) -> Result<serde_json::Value, IngesterError> {
+    async fn request_metadata(uri: String, timeout: Duration) -> Result<serde_json::Value, IngesterError> {
         let client = ClientBuilder::new()
-            .timeout(Duration::from_secs(3))
+            .timeout(timeout)
             .build()?;
         let response = Client::get(&client, uri) // Need to check for malicious sites ?
             .send()
@@ -75,11 +79,11 @@ impl BgTask for DownloadMetadataTask {
     }
 
     fn lock_duration(&self) -> i64 {
-        5
+        self.lock_duration.unwrap_or(5)
     }
 
     fn max_attempts(&self) -> i16 {
-        3
+        self.max_attempts.unwrap_or(3)
     }
 
     async fn task(
@@ -90,7 +94,9 @@ impl BgTask for DownloadMetadataTask {
         let download_metadata: DownloadMetadata = serde_json::from_value(data)?;
         let meta_url = Url::parse(&download_metadata.uri);
         let body = match meta_url {
-            Ok(_) => DownloadMetadataTask::request_metadata(download_metadata.uri).await?,
+            Ok(_) => DownloadMetadataTask::request_metadata(
+                download_metadata.uri, 
+                self.timeout.unwrap_or(Duration::from_secs(3))).await?,
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.
         };
         let model = asset_data::ActiveModel {
