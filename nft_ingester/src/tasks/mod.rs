@@ -363,6 +363,7 @@ impl TaskManager {
 
         // Loop to purge tasks
         let pool = self.pool.clone();
+        let task_name = instance_name.clone();
         tokio::spawn(async move {
             let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
             let mut interval = time::interval(delete_interval);
@@ -372,8 +373,14 @@ impl TaskManager {
                 match delete_res {
                     Ok(res) => {
                         debug!("deleted {} tasks entries", res.rows_affected);
+                        metric! {
+                            statsd_count!("ingester.bgtask.purged_tasks", i64::try_from(res.rows_affected).unwrap_or(1), "type" => &task_name);
+                        }
                     }
                     Err(e) => {
+                        metric! {
+                            statsd_count!("ingester.bgtask.purge_error", 1, "type" => &task_name);
+                        }
                         error!("error deleting tasks: {}", e);
                     }
                 };
