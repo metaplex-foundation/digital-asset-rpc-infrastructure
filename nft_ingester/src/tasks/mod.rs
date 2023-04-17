@@ -158,7 +158,8 @@ impl TaskManager {
                             .less_or_equal(Expr::col(tasks::Column::MaxAttempts)),
                     ),
             )
-            .order_by_desc(tasks::Column::CreatedAt)
+            .order_by(tasks::Column::Attempts, Order::Asc)
+            .order_by(tasks::Column::CreatedAt, Order::Desc)
             .limit(MAX_TASK_BATCH_SIZE)
             .all(conn)
             .await
