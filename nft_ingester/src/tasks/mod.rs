@@ -377,12 +377,12 @@ impl TaskManager {
                     Ok(res) => {
                         debug!("deleted {} tasks entries", res.rows_affected);
                         metric! {
-                            statsd_count!("ingester.bgtask.purged_tasks", i64::try_from(res.rows_affected).unwrap_or(1), "type" => &task_name);
+                            statsd_count!("ingester.bgtask.purged_tasks", i64::try_from(res.rows_affected).unwrap_or(1));
                         }
                     }
                     Err(e) => {
                         metric! {
-                            statsd_count!("ingester.bgtask.purge_error", 1, "type" => &task_name);
+                            statsd_count!("ingester.bgtask.purge_error", 1);
                         }
                         error!("error deleting tasks: {}", e);
                     }
