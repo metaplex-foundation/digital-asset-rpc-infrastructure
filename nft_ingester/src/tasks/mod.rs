@@ -278,6 +278,7 @@ impl TaskManager {
 
     pub async fn purge_old_tasks(conn: &DatabaseConnection, task_max_age: time::Duration) -> Result<DeleteResult, IngesterError> {
         let interval = format!("interval {} seconds", task_max_age.as_secs());
+        info!("Purging tasks with interval: {}", interval);
         let cod = Expr::cust_with_values("NOW() - created_at::timestamp > ?", [interval]); 
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
@@ -315,6 +316,8 @@ impl TaskManager {
                 let name = instance_name.clone();
                 if let Ok(hash) = task.hash() {
                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+
+                    // Check if the task being added is already stored in the DB and is not pending
                     let task_entry = tasks::Entity::find_by_id(hash.clone())
                         .filter(tasks::Column::Status.ne(TaskStatus::Pending))
                         .one(&conn)
@@ -367,7 +370,6 @@ impl TaskManager {
 
         // Loop to purge tasks
         let pool = self.pool.clone();
-        let task_name = instance_name.clone();
         tokio::spawn(async move {
             let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
             let mut interval = time::interval(delete_interval);
@@ -414,6 +416,8 @@ impl TaskManager {
                                 {
                                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
                                     let mut active_model: tasks::ActiveModel = task.into();
+
+                                    // Lock the task and save it
                                     TaskManager::lock_task(
                                         &mut active_model,
                                         Duration::seconds(task_executor.lock_duration()),
@@ -422,12 +426,16 @@ impl TaskManager {
                                     // can ignore as txn will bubble up errors
                                     let active_model =
                                         TaskManager::save_task(&conn, active_model).await?;
+
+                                    // Execute the task
                                     let model = TaskManager::execute_task(
                                         &conn,
                                         task_executor,
                                         active_model,
                                     )
                                     .await?;
+                                    
+                                    // Save any updates to the atsk from the execute_task function
                                     TaskManager::save_task(&conn, model).await?;
                                     return Ok(());
                                 }
