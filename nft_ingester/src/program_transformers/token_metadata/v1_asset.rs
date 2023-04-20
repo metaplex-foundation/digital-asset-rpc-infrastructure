@@ -296,25 +296,33 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             txn.execute(query).await?;
         }
     }
-    txn.commit().await?;
-    let creators = data.creators.unwrap_or_default();
-    if !creators.is_empty() {
-        let mut creators_set = HashSet::new();
-        let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+
+    // check if we need to index a newer update. This assumes that all creator rows with same AssetId have the same SlotUpdated
+    let should_update_creators = asset::Entity::find()
+        .filter(
+            Condition::all()
+                .add(asset::Column::Id.eq(id.to_vec()))
+                .add(asset::Column::SlotUpdated.gte(slot_i)),
+        )
+        .one(conn)
+        .await?
+        .is_none();
+    if should_update_creators {
+        // delete all old creators for asset. Creators can be removed, and a full delete is needed to handle edge cases.
+        let delete_query = asset_creators::Entity::delete_many()
             .filter(
                 Condition::all()
                     .add(asset_creators::Column::AssetId.eq(id.to_vec()))
                     .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
             )
-            .all(conn)
-            .await?;
-        if existing_creators.len() > 0 {
-            let mut db_creators = Vec::with_capacity(creators.len());
-            for (i, c) in creators.into_iter().enumerate() {
-                if creators_set.contains(&c.address) {
-                    continue;
-                }
-                db_creators.push(asset_creators::ActiveModel {
+            .build(DbBackend::Postgres);
+        txn.execute(delete_query).await?;
+        let creators = data.creators.unwrap_or_default();
+        if !creators.is_empty() {
+            let db_creators: Vec<asset_creators::ActiveModel> = creators
+                .into_iter()
+                .enumerate()
+                .map(|(i, c)| asset_creators::ActiveModel {
                     asset_id: Set(id.to_vec()),
                     creator: Set(c.address.to_bytes().to_vec()),
                     share: Set(c.share as i32),
@@ -323,44 +331,33 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     slot_updated: Set(slot_i),
                     position: Set(i as i16),
                     ..Default::default()
-                });
-                creators_set.insert(c.address);
-            }
-            let txn = conn.begin().await?;
-            asset_creators::Entity::delete_many()
-                .filter(
-                    Condition::all()
-                        .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
+                })
+                .collect();
+            // ideally should have no rows after deleting, conflict logic exists solely for safety
+            let mut query = asset_creators::Entity::insert_many(db_creators)
+                .on_conflict(
+                    OnConflict::columns([
+                        asset_creators::Column::AssetId,
+                        asset_creators::Column::Position,
+                    ])
+                    .update_columns([
+                        asset_creators::Column::Creator,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::Seq,
+                        asset_creators::Column::SlotUpdated,
+                    ])
+                    .to_owned(),
                 )
-                .exec(&txn)
-                .await?;
-            if db_creators.len() > 0 {
-                let mut query = asset_creators::Entity::insert_many(db_creators)
-                    .on_conflict(
-                        OnConflict::columns([
-                            asset_creators::Column::AssetId,
-                            asset_creators::Column::Position,
-                        ])
-                        .update_columns([
-                            asset_creators::Column::Creator,
-                            asset_creators::Column::Share,
-                            asset_creators::Column::Verified,
-                            asset_creators::Column::Seq,
-                            asset_creators::Column::SlotUpdated,
-                        ])
-                        .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-                query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
-                    query.sql
-                );
-                txn.execute(query).await?;
-            }
-            txn.commit().await?;
+                .build(DbBackend::Postgres);
+            query.sql = format!(
+                "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+                query.sql
+            );
+            txn.execute(query).await?;
         }
     }
+    txn.commit().await?;
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
