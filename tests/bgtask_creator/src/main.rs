@@ -109,7 +109,7 @@ pub async fn main() {
                 .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
         )
         .order_by(asset_data::Column::Id, Order::Asc)
-        .paginate(&conn, 100)
+        .paginate(&conn, 1000)
         .into_stream();
 
     while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
