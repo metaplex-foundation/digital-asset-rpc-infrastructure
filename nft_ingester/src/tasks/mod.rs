@@ -142,15 +142,18 @@ impl TaskManager {
                 task.locked_by = Set(None);
             }
             Err(e) => {
-                if e == IngesterError::UnrecoverableTaskError {
-                    task.attempts = Set(task_def.max_attempts() + 1);
-                    task.locked_by = Set(Some("permanent failure".to_string()));
-                // todo add new task status
-                } else {
-                    task.locked_by = Set(None);
+                let err_msg = e.to_string();
+                match e {
+                    IngesterError::UnrecoverableTaskError(_) => {
+                        task.attempts = Set(task_def.max_attempts() + 1);
+                        task.locked_by = Set(Some("permanent failure".to_string()));
+                    },
+                    _ => {
+                        task.locked_by = Set(None);
+                    }
                 }
                 task.status = Set(TaskStatus::Failed);
-                task.errors = Set(Some(e.to_string()));
+                task.errors = Set(Some(err_msg));
                 task.locked_until = Set(None);
 
                 match e {
@@ -169,6 +172,14 @@ impl TaskManager {
                                 "type" => task_name);
                         }
                         warn!("Task failed due to HTTP error: {}",  e);
+                    },
+                    IngesterError::UnrecoverableTaskError(_) => {
+                        // Unrecoverable errors are always going to be off-chain parsing failures at the moment.
+                        // We can't do anything about malformed JSONs.
+                        metric! {
+                            statsd_count!("ingester.bgtask.unrecoverable_error", 1, "type" => task_name);
+                        }
+                        warn!("{}",  e);
                     },
                     _ => {
                         metric! {

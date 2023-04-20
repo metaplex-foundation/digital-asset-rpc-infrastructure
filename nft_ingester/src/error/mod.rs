@@ -44,8 +44,8 @@ pub enum IngesterError {
     UnknownTaskType(String),
     #[error("BG Task Manager Not Started")]
     TaskManagerNotStarted,
-    #[error("Unrecoverable task error")]
-    UnrecoverableTaskError,
+    #[error("Unrecoverable task error {0}")]
+    UnrecoverableTaskError(String),
     #[error("Cache Storage Write Error {0}")]
     CacheStorageWriteError(String),
     #[error("HttpError {status_code}")]

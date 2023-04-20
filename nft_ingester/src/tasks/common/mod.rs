@@ -95,7 +95,7 @@ impl BgTask for DownloadMetadataTask {
         let meta_url = Url::parse(&download_metadata.uri);
         let body = match meta_url {
             Ok(_) => DownloadMetadataTask::request_metadata(
-                download_metadata.uri, 
+                download_metadata.uri.clone(), 
                 self.timeout.unwrap_or(Duration::from_secs(3))).await?,
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.
         };
@@ -121,7 +121,10 @@ impl BgTask for DownloadMetadataTask {
                 ))
             })?;
         if meta_url.is_err() {
-            return Err(IngesterError::UnrecoverableTaskError);
+            return Err(IngesterError::UnrecoverableTaskError(format!(
+                "Failed to parse URI: {}",
+                download_metadata.uri
+            )));
         }
         Ok(())
     }
