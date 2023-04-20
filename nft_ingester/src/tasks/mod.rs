@@ -4,7 +4,7 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{debug, error, warn};
+use log::{debug, info, error, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DeleteResult, SqlxPostgresConnector,
@@ -288,9 +288,8 @@ impl TaskManager {
     }
 
     pub async fn purge_old_tasks(conn: &DatabaseConnection, task_max_age: time::Duration) -> Result<DeleteResult, IngesterError> {
-        let interval = format!("interval {} seconds", task_max_age.as_secs());
-        info!("Purging tasks with interval setting: {}", interval)
-        let cod = Expr::cust_with_values("NOW() - created_at::timestamp > ?", [interval]); 
+        let interval = format!("NOW() - created_at::timestamp > interval '{} seconds'", task_max_age.as_secs());
+        let cod = Expr::cust(&interval);
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
             .exec(conn)
@@ -388,7 +387,7 @@ impl TaskManager {
                 let delete_res = TaskManager::purge_old_tasks(&conn, purge_time).await;
                 match delete_res {
                     Ok(res) => {
-                        debug!("deleted {} tasks entries", res.rows_affected);
+                        info!("deleted {} tasks entries", res.rows_affected);
                         metric! {
                             statsd_count!("ingester.bgtask.purged_tasks", i64::try_from(res.rows_affected).unwrap_or(1));
                         }
