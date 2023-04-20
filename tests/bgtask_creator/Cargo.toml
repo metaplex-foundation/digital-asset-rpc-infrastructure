@@ -1,0 +1,20 @@
+[package]
+name = "bgtask_creator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures = {version = "0.3.25"}
+futures-util = "0.3.0"
+thiserror = "1.0.31"
+tokio = { version = "1.26.0", features = ["full", "tracing"] }
+nft_ingester = { path = "../../nft_ingester" }
+digital_asset_types = { path = "../../digital_asset_types", features = ["json_types", "sql_types"] }
+clap = { version = "4.1.4", features = ["derive", "cargo"] }
+figment = { version = "0.10.8" }
+bs58 = "0.4.0"
+tokio-stream = "0.1.11"
+log = "0.4.17"
+sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-query = { version = "0.28.1", features = ["postgres-array"] }
