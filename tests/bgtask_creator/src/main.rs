@@ -1,7 +1,7 @@
 use tokio::task::JoinSet;
 use digital_asset_types::dao::{asset_data, tasks};
 
-use log::{info};
+use log::{info, debug};
 
 use nft_ingester::{
     tasks::{BgTask, DownloadMetadata, IntoTaskData, DownloadMetadataTask, TaskManager},
@@ -16,6 +16,8 @@ use std::{
     path::PathBuf,
     time
 };
+
+use futures::TryStreamExt;
 
 use sea_orm::{
     entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
@@ -101,19 +103,16 @@ pub async fn main() {
     }
 
     // Find all the assets with missing metadata
-    let asset_data_missing: Result<Vec<asset_data::Model>, IngesterError>  = asset_data::Entity::find()
+    let mut asset_data_missing = asset_data::Entity::find()
         .filter(
             Condition::all()
                 .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
         )
         .order_by(asset_data::Column::Id, Order::Asc)
-        .limit(10000)
-        .all(&conn)
-        .await
-        .map_err(|e| e.into());
+        .paginate(&conn, 100)
+        .into_stream();
 
-    match asset_data_missing {
-        Ok(assets) => {
+    while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
             info!("Found {} assets", assets.len());
             for asset in assets {
                 let mut task = DownloadMetadata {
@@ -122,14 +121,10 @@ pub async fn main() {
                     created_at: Some(Utc::now().naive_utc()),
                 };
 
-                info!("Print task {}", task);
+                debug!("Print task {}", task);
                 task.sanitize();
                 let task_data = task.into_task_data().unwrap();
                 bg_task_sender.send(task_data);
             }
-        }
-        Err(e) => {
-            info!("Error: {}", e);
-        }
     }
 }
