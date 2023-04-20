@@ -1,5 +1,5 @@
 use tokio::task::JoinSet;
-use digital_asset_types::dao::asset_data;
+use digital_asset_types::dao::{asset_data, tasks};
 
 use log::{info};
 
@@ -18,12 +18,19 @@ use std::{
 };
 
 use sea_orm::{
-    entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector
+    entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
 };
 
 use clap::{arg, command, value_parser};
 
 use sqlx::types::chrono::Utc;
+
+/**
+ * The bgtask creator is intended to be use as a tool to handle assets that have not been indexed.
+ * It will delete all the current bgtasks and create new ones for assets where the metadata is missing.
+ * 
+ * Currently it will try every missing asset every run.
+ */
 
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() {
@@ -79,14 +86,14 @@ pub async fn main() {
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
 
     // Delete all existing tasks
-    let deleted_tasks = tasks::Entity::delete_many()
-            .exec(conn)
+    let deleted_tasks: Result<DeleteResult, IngesterError> = tasks::Entity::delete_many()
+            .exec(&conn)
             .await
             .map_err(|e| e.into());
     
     match deleted_tasks {
-        Ok(_) => {
-            info!("Deleted a number of tasks {}", deleted_tasks.rows_affected);
+        Ok(result) => {
+            info!("Deleted a number of tasks {}", result.rows_affected);
         }
         Err(e) => {
             info!("Error deleting tasks: {}", e);
