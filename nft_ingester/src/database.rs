@@ -2,7 +2,6 @@ use sqlx::{postgres::{PgPoolOptions, PgConnectOptions}, PgPool, ConnectOptions};
 
 use crate::{
     config::{IngesterConfig, IngesterRole},
-    error,
 };
 const BARE_MINIMUM_CONNECTIONS: u32 = 5;
 const DEFAULT_MAX: u32 = 125;

@@ -1,4 +1,4 @@
-use std::{fmt::{Display, Formatter}, sync::Arc};
+use std::fmt::{Display, Formatter};
 
 use figment::{providers::{Env, Format, Yaml}, value::Value, Figment};
 use plerkle_messenger::MessengerConfig;

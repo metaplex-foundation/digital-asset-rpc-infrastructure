@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-    config::rand_string, error::IngesterError, metric, metrics::capture_result,
+    metric, metrics::capture_result,
     program_transformers::ProgramTransformer, tasks::TaskData,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error};
 use plerkle_messenger::{
     ConsumptionType, Messenger, MessengerConfig, RecvData, TRANSACTION_STREAM,
 };
@@ -15,7 +14,7 @@ use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
 use tokio::{
-    sync::{mpsc::UnboundedSender, Semaphore},
+    sync::mpsc::UnboundedSender,
     task::{JoinHandle, JoinSet},
     time::Instant,
 };
