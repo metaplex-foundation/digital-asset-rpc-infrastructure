@@ -289,6 +289,7 @@ impl TaskManager {
 
     pub async fn purge_old_tasks(conn: &DatabaseConnection, task_max_age: time::Duration) -> Result<DeleteResult, IngesterError> {
         let interval = format!("interval {} seconds", task_max_age.as_secs());
+        info!("Purging tasks with interval setting: {}", interval)
         let cod = Expr::cust_with_values("NOW() - created_at::timestamp > ?", [interval]); 
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
