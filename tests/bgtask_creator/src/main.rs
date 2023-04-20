@@ -78,6 +78,21 @@ pub async fn main() {
     // Create new postgres connection
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
 
+    // Delete all existing tasks
+    let deleted_tasks = tasks::Entity::delete_many()
+            .exec(conn)
+            .await
+            .map_err(|e| e.into());
+    
+    match deleted_tasks {
+        Ok(_) => {
+            info!("Deleted a number of tasks {}", deleted_tasks.rows_affected);
+        }
+        Err(e) => {
+            info!("Error deleting tasks: {}", e);
+        }
+    }
+
     // Find all the assets with missing metadata
     let asset_data_missing: Result<Vec<asset_data::Model>, IngesterError>  = asset_data::Entity::find()
         .filter(
