@@ -7,7 +7,7 @@ use sea_orm::{
     DatabaseConnection, DbBackend, EntityTrait,
 };
 use solana_sdk::program_option::COption;
-use spl_token::state::{AccountState};
+use spl_token::state::AccountState;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
@@ -34,7 +34,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),
                 mint: Set(mint.clone()),
-                delegate: Set(delegate),
+                delegate: Set(delegate.clone()),
                 owner: Set(owner.clone()),
                 frozen: Set(frozen),
                 delegated_amount: Set(ta.delegated_amount as i64),
@@ -72,9 +72,13 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 .one(&txn)
                 .await?;
             if let Some(asset) = asset_update {
-                let mut active: asset::ActiveModel = asset.into();
-                active.owner = Set(Some(owner));
-                active.save(&txn).await?;
+                // will only update owner if token account balance is non-zero
+                if ta.amount > 0 {
+                    let mut active: asset::ActiveModel = asset.into();
+                    active.owner = Set(Some(owner));
+                    active.delegate = Set(delegate);
+                    active.save(&txn).await?;
+                }
             }
             txn.commit().await?;
             Ok(())
@@ -121,13 +125,14 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 query.sql
             );
             db.execute(query).await?;
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes)
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes.clone())
                 .filter(asset::Column::OwnerType.eq("single"))
                 .one(db)
                 .await?;
             if let Some(asset) = asset_update {
                 let mut active: asset::ActiveModel = asset.into();
                 active.supply = Set(m.supply as i64);
+                active.supply_mint = Set(Some(key_bytes));
                 active.save(db).await?;
             }
             Ok(())
