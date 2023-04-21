@@ -103,6 +103,7 @@ pub async fn send_address(
 ) {
     let client1 = RpcClient::new(client_url.clone());
     let pub_addr = Pubkey::from_str(address).unwrap();
+    // This takes a param failed but it excludes all failed TXs
     let mut sig = Siggrabbenheimer::new(client1, pub_addr, failed);
     let client2 = RpcClient::new(client_url);
     while let Some(s) = sig.next().await {
@@ -128,17 +129,25 @@ pub async fn send_txn(
         .await
         .unwrap();
 
-    send(txn, messenger).await
+    send(&sig, txn, messenger).await
 }
 
 pub async fn send(
+    sig: &Signature,
     txn: EncodedConfirmedTransactionWithStatusMeta,
     messenger: &mut Box<dyn plerkle_messenger::Messenger>,
 ) {
     let fbb = flatbuffers::FlatBufferBuilder::new();
-    let fbb = seralize_encoded_transaction_with_status(fbb, txn).unwrap();
-    let bytes = fbb.finished_data();
+    let fbb = seralize_encoded_transaction_with_status(fbb, txn);
 
-    messenger.send(STREAM, bytes).await.unwrap();
-    println!("Sent txn to stream");
+    match fbb {
+      Ok(fb_tx) => {
+        let bytes = fb_tx.finished_data();
+        messenger.send(STREAM, bytes).await.unwrap();
+        println!("Sent txn to stream {}", sig);
+      },
+      Err(e) => {
+        println!("Failed to send txn {} to stream: {}", sig, e);
+      }
+    }
 }
