@@ -23,7 +23,7 @@ use sea_orm::{
     entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
 };
 
-use clap::{arg, command, value_parser};
+use clap::{Arg, Command, value_parser};
 
 use sqlx::types::chrono::Utc;
 
@@ -39,14 +39,31 @@ pub async fn main() {
     init_logger();
     info!("Starting bgtask creator");
 
-    let matches = command!() 
+    let matches = Command::new("bgtaskcreator")
         .arg(
-            arg!(
-                -c --config <FILE> "Sets a custom config file"
-            )
-            // We don't have syntax yet for optional options, so manually calling `required`
-            .required(false)
-            .value_parser(value_parser!(PathBuf)),
+            Arg::new("config")
+                .long("config")
+                .short("c")
+                .help("Sets a custom config file")
+                .required(false)
+                .value_parser(value_parser!(PathBuf))
+        )
+        .arg(
+            Arg::new("delete")
+                .long("delete")
+                .short("d")
+                .help("Delete all existing tasks before creating new ones.")
+                .required(false)
+                .takes_value(false)
+        )
+        .arg(
+            Arg::new("batch_size")
+                .long("batch-size")
+                .short("b")
+                .help("Sets the batch size for the assets to be processed.")
+                .required(false)
+                .takes_value(true)
+                .value_parser(value_parser!(u64))
         )
         .get_matches();
 
@@ -87,20 +104,28 @@ pub async fn main() {
     // Create new postgres connection
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
 
-    // Delete all existing tasks
-    let deleted_tasks: Result<DeleteResult, IngesterError> = tasks::Entity::delete_many()
-            .exec(&conn)
-            .await
-            .map_err(|e| e.into());
-    
-    match deleted_tasks {
-        Ok(result) => {
-            info!("Deleted a number of tasks {}", result.rows_affected);
-        }
-        Err(e) => {
-            info!("Error deleting tasks: {}", e);
+    if matches.contains_id("delete") {
+        info!("Deleting all existing tasks");
+
+        // Delete all existing tasks
+        let deleted_tasks: Result<DeleteResult, IngesterError> = tasks::Entity::delete_many()
+                .exec(&conn)
+                .await
+                .map_err(|e| e.into());
+        
+        match deleted_tasks {
+            Ok(result) => {
+                info!("Deleted a number of tasks {}", result.rows_affected);
+            }
+            Err(e) => {
+                info!("Error deleting tasks: {}", e);
+            }
         }
     }
+
+    let batch_size = matches.get_one::<u64>("batch_size").unwrap_or(1000);
+
+    info!("Creating new tasks for assets with missing metadata, batch size={}", batch_size);
 
     // Find all the assets with missing metadata
     let mut asset_data_missing = asset_data::Entity::find()
@@ -109,7 +134,7 @@ pub async fn main() {
                 .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
         )
         .order_by(asset_data::Column::Id, Order::Asc)
-        .paginate(&conn, 1000)
+        .paginate(&conn, batch_size)
         .into_stream();
 
     while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
