@@ -23,7 +23,7 @@ use sea_orm::{
     entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
 };
 
-use clap::{Arg, Command, value_parser};
+use clap::{Arg, ArgAction, Command, value_parser};
 
 use sqlx::types::chrono::Utc;
 
@@ -43,27 +43,28 @@ pub async fn main() {
         .arg(
             Arg::new("config")
                 .long("config")
-                .short("c")
+                .short('c')
                 .help("Sets a custom config file")
                 .required(false)
+                .action(ArgAction::Set)
                 .value_parser(value_parser!(PathBuf))
         )
         .arg(
             Arg::new("delete")
                 .long("delete")
-                .short("d")
+                .short('d')
                 .help("Delete all existing tasks before creating new ones.")
                 .required(false)
-                .takes_value(false)
         )
         .arg(
             Arg::new("batch_size")
                 .long("batch-size")
-                .short("b")
+                .short('b')
                 .help("Sets the batch size for the assets to be processed.")
                 .required(false)
-                .takes_value(true)
+                .action(ArgAction::Set)
                 .value_parser(value_parser!(u64))
+                .default_value("1000")
         )
         .get_matches();
 
@@ -123,7 +124,7 @@ pub async fn main() {
         }
     }
 
-    let batch_size = matches.get_one::<u64>("batch_size").unwrap_or(1000);
+    let batch_size = matches.get_one::<u64>("batch_size").unwrap();
 
     info!("Creating new tasks for assets with missing metadata, batch size={}", batch_size);
 
@@ -134,7 +135,7 @@ pub async fn main() {
                 .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
         )
         .order_by(asset_data::Column::Id, Order::Asc)
-        .paginate(&conn, batch_size)
+        .paginate(&conn, *batch_size)
         .into_stream();
 
     while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
