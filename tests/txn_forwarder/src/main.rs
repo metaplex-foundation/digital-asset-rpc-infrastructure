@@ -126,10 +126,12 @@ pub async fn send_txn(
                 max_supported_transaction_version: Some(0),
             },
         )
-        .await
-        .unwrap();
+        .await;
 
-    send(&sig, txn, messenger).await
+    match txn {
+      Ok(txn) => send(&sig, txn, messenger).await,
+      Err(e) => println!("Could not load transaction {}: {}", sig, e)
+    }
 }
 
 pub async fn send(
