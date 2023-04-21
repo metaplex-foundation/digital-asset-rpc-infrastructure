@@ -282,7 +282,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             interval.tick().await;
             let _permit = sem.acquire().await.unwrap();
 
-            debug!("Looking for missing trees...");
+            info!("Looking for missing trees...");
 
             let missing = self.get_missing_trees(&self.db).await;
             match missing {
@@ -292,14 +292,14 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     metric! {
                         statsd_gauge!("ingester.backfiller.missing_trees", len as f64);
                     }
-                    debug!("Found {} missing trees", len);
+                    info!("Found {} missing trees", len);
                     if len > 0 {
                         let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
 
                         let res2 = txn.commit().await;
                         match (res, res2) {
                             (Ok(_), Ok(_)) => {
-                                debug!("Set {} trees to backfill from 0", len);
+                                info!("Set {} trees to backfill from 0", len);
                             }
                             (Err(e), _) => {
                                 error!("Error setting trees to backfill from 0: {}", e);
@@ -411,7 +411,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     ) {
         match opt_max_seq {
             Some(max_seq) => {
-                debug!("Successfully backfilled tree: {tree_string}, attempt {tries}");
+                info!("Successfully backfilled tree: {tree_string}, attempt {tries}");
 
                 // Delete extra rows and mark as backfilled.
                 match self
@@ -458,34 +458,43 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &self,
         cn: &impl ConnectionTrait,
     ) -> Result<Vec<MissingTree>, IngesterError> {
+        // Fetch all trees by GPA
         let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
-        debug!("Number of Trees on Chain {}", all_trees.len());
+        info!("Number of Trees on Chain {}", all_trees.len());
+
+        // Find all trees in local backfill_items DB that are either failed or locked and remove them from all trees
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
              OR locked = true"
                 .to_string(),
         );
-        let locked_trees = cn.query_all(get_locked_or_failed_trees).await?;
-        for row in locked_trees.into_iter() {
+
+        let locked_or_failed_trees = cn.query_all(get_locked_or_failed_trees).await?;
+        for row in locked_or_failed_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
             let key = &Pubkey::new(&tree.tree);
             if all_trees.contains_key(key) {
                 all_trees.remove(key);
             }
         }
+
+        // Get all the local trees already in cl_items and remove them
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
         );
-        let force_chk_trees = cn.query_all(get_all_local_trees).await?;
-        for row in force_chk_trees.into_iter() {
+        let local_trees = cn.query_all(get_all_local_trees).await?;
+        for row in local_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
             let key = &Pubkey::new(&tree.tree);
             if all_trees.contains_key(key) {
                 all_trees.remove(key);
             }
         }
+
+        // After removing all the tres in backfill_itemsa nd the trees already in CL Items then return the list
+        // of missing trees
         let missing_trees = all_trees
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
@@ -493,7 +502,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         if missing_trees.len() > 0 {
             info!("Number of Missing local trees: {}", missing_trees.len());
         } else {
-            debug!("No missing trees");
+            info!("No missing trees");
         }
         Ok(missing_trees)
     }
@@ -519,7 +528,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     .collect()
             })?;
 
-        debug!(
+        info!(
             "Number of force check trees to backfill: {} {}",
             force_chk_trees.len(),
             Utc::now()
@@ -559,7 +568,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     .collect()
             })?;
 
-        debug!(
+        info!(
             "Number of multi-row trees to backfill {}",
             multi_row_trees.len()
         );
@@ -844,7 +853,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             let key = format!("block{}", slot);
             let mut cached_block = self.cache.get(&key);
             if cached_block.is_none() {
-                debug!("Fetching block {} from RPC", slot);
+                info!("Fetching block {} from RPC", slot);
                 let block = EncodedConfirmedBlock::from(
                     self.rpc_client
                         .get_block_with_config(slot as u64, self.rpc_block_config)
@@ -967,7 +976,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .filter(backfill_items::Column::Tree.eq(tree))
             .all(&self.db)
             .await?;
-        debug!("Count of items before delete: {}", test_items.len());
+        info!("Count of items before delete: {}", test_items.len());
         // Delete all rows in the `backfill_items` table for a specified tree, except for the row with
         // the caller-specified max seq number.  One row for each tree must remain so that gaps can be
         // detected after subsequent inserts.
@@ -1013,7 +1022,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .filter(backfill_items::Column::Tree.eq(tree))
             .all(&self.db)
             .await?;
-        debug!("Count of items after delete: {}", test_items.len());
+        info!("Count of items after delete: {}", test_items.len());
         Ok(())
     }
 
