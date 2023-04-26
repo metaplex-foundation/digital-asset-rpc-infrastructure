@@ -25,12 +25,14 @@ struct Args {
 
 #[derive(Subcommand, Clone)]
 enum Action {
+    /// Checks a single merkle tree to check if it;s fully indexed
     CheckTree {
-        #[arg(short, long, default_value_t = { "8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T".to_owned() })]
+        #[arg(short, long, help = "Takes a single pubkey as a parameter to check", default_value_t = { "8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T".to_owned() })]
         key: String,
     },
+    /// Checks a list of merkle trees to check if they're fully indexed
     CheckTrees {
-        #[arg(short, long)]
+        #[arg(short, long, help = "Takes a path to a file with pubkeys as a parameter to check")]
         file: String,
     },
 }
