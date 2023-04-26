@@ -20,6 +20,8 @@ struct Cli {
     key: String,
     #[command(subcommand)]
     action: CheckTree,
+    // #[command(subcommand)]
+    // action: CheckTrees,
 }
 #[derive(clap::Subcommand, Clone)]
 enum Action {
@@ -27,9 +29,11 @@ enum Action {
         #[arg(long)]
         key: String,
     },
+    // CheckTrees {
+    //     #[arg(long)]
+    //     file: String,
+    // },
 }
-// define struct for the clap arguments
-
 
 #[tokio::main]
 async fn main() {
@@ -38,19 +42,23 @@ async fn main() {
        .author("TritonOne")
        .about("Test state of the sprcified tree.")
        .next_line_help(true)
-       .arg(arg!(-k --key <PUBKEY>).required(false).action(ArgAction::Set))
-       // .arg(Arg::new("key")
-       //      .long("key")
-       //      // .short("k")
-       //      .index(1)
+       // .arg(arg!(-k --key <PUBKEY>).required(false).action(ArgAction::Set))
+       .arg(Arg::new("key")
+            .long("key")
+            .short("k")
+            .index(1)
+            .required(false)
+            .help("The pubkey of the tree to check"))
+       // .arg(Arg::new("file")
+       //      .long("file")
+       //      .short("f")
+       //      .index(2)
        //      .required(false)
-       //      .help("The pubkey of the tree to check"))
+       //      .help("The path to the file containing the pubkeys of the trees to check"))
        .get_matches();
-    let mut arg = matches.get_one::<String>("key").to_owned().unwrap();
-    // let arg = matches.get_one::<String>("key").to_owned.unwrap_or("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T");
+    let arg = matches.get_one::<String>("key").to_owned().unwrap();
+    // let arg = matches.get_one::<String>("file").to_owned().unwrap();
     println!("arg: {:?}", arg);
-    // let test = arg.trim().unwrap();
-    // println!("test: {:?}", test);
     let mut pubkey =Pubkey::try_from(arg).unwrap();
     println!("pubkey: {:?}", pubkey);
     let cli = Cli::parse();
@@ -60,12 +68,21 @@ async fn main() {
     match cmd {
         Action::CheckTree { key } => {
             println!("Validating state of the tree: {:?}", default_pubkey);
-            // println!("The pubkey vaue is: {:?}", pubkey);
-            println!("The key vaue is: {:?}", key);
+            println!("The pubkey value is: {:?}", pubkey);
+            // println!("The key vaue is: {:?}", key);
             let seq = get_tree_latest_seq(Pubkey::try_from(default_pubkey).unwrap(), &client).await;
             // let seq = get_tree_latest_seq(Pubkey::from(pubkey).unwrap_or(default_pubkey), &client).await;
             println!("seq: {:?}", seq);
         }
+        // add a second action to check trees from a file.
+        // },
+        // Action::CheckTrees { file } => {
+        //     loop {
+        //         let seq = get_tree_latest_seq(Pubkey::try_from(default_pubkey).unwrap(), &client).await;
+        //         // let seq = get_tree_latest_seq(Pubkey::from(pubkey).unwrap_or(default_pubkey), &client).await;
+        //         println!("seq: {:?}", seq);
+        //     }
+        // }
     }
 }
 
