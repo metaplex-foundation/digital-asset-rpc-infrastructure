@@ -19,3 +19,8 @@ solana-transaction-status = { version = "=1.14.15"}
 spl-account-compression = "0.1.8"
 spl-concurrent-merkle-tree = "0.1.3"
 tokio = { version = "1.23.0", features = ["full", "tracing"] }
+sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-query = { version = "0.28.1", features = ["postgres-array"] }
+nft_ingester = { path = "../../nft_ingester" }
+digital_asset_types = { path = "../../digital_asset_types", features = ["json_types", "sql_types"] }

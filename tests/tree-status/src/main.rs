@@ -2,6 +2,11 @@ use {
     anyhow::Context,
     borsh::BorshDeserialize,
     clap::{arg, Parser, Subcommand},
+    digital_asset_types::dao::cl_items,
+    sea_orm::{
+        sea_query::Expr, ColumnTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
+        FromQueryResult, QueryFilter, QuerySelect, QueryTrait, SqlxPostgresConnector,
+    },
     // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
     // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
     solana_client::nonblocking::rpc_client::RpcClient,
@@ -11,13 +16,26 @@ use {
     spl_account_compression::state::{
         merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
     },
+    sqlx::{
+        postgres::{PgConnectOptions, PgPoolOptions},
+        ConnectOptions, PgPool,
+    },
 };
+
+#[derive(Debug, FromQueryResult, Clone)]
+struct MaxSeqItem {
+    max_seq: i64,
+    cnt_seq: i64,
+}
 
 #[derive(Parser)]
 #[command(author, version, about)]
 struct Args {
-    #[arg(short, long, default_value_t = { "a4d23a00546272efeba9843a4ae4".to_owned() })]
-    access_key: String,
+    #[arg(short, long, default_value_t = { "https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4".to_owned() })]
+    rpc_url: String,
+
+    #[arg(short, long)]
+    pg_url: String,
 
     #[command(subcommand)]
     action: Action,
@@ -32,7 +50,11 @@ enum Action {
     },
     /// Checks a list of merkle trees to check if they're fully indexed
     CheckTrees {
-        #[arg(short, long, help = "Takes a path to a file with pubkeys as a parameter to check")]
+        #[arg(
+            short,
+            long,
+            help = "Takes a path to a file with pubkeys as a parameter to check"
+        )]
         file: String,
     },
 }
@@ -41,7 +63,24 @@ enum Action {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    let client = RpcClient::new(format!("https://index.rpcpool.com/{}", args.access_key));
+    // Set up db connection
+    let url = args.pg_url;
+    let mut options: PgConnectOptions = url.parse().unwrap();
+
+    // Create postgres pool
+    let pool = PgPoolOptions::new()
+        .min_connections(2)
+        .max_connections(10)
+        .connect_with(options)
+        .await
+        .unwrap();
+
+    // Create new postgres connection
+    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+
+    // Set up RPC interface
+    let client = RpcClient::new(args.rpc_url);
+
     let pubkeys = match args.action {
         Action::CheckTree { key } => vec![key],
         Action::CheckTrees { file } => tokio::fs::read_to_string(&file)
@@ -60,6 +99,9 @@ async fn main() -> anyhow::Result<()> {
             Ok(pubkey) => {
                 let seq = get_tree_latest_seq(pubkey, &client).await;
                 println!("seq for pubkey {:?}: {:?}", pubkey, seq);
+
+                let max_seq = get_tree_max_seq(&pubkey.to_bytes(), &conn).await;
+                println!("max_seq: {:?}", max_seq);
             }
             Err(error) => {
                 eprintln!("failed to parse pubkey {:?}, reason: {:?}", pubkey, error);
@@ -68,6 +110,21 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn get_tree_max_seq(
+    tree: &[u8],
+    conn: &DatabaseConnection,
+) -> Result<Option<MaxSeqItem>, DbErr> {
+    let query = cl_items::Entity::find()
+        .select_only()
+        .filter(cl_items::Column::Tree.eq(tree))
+        .column_as(Expr::col(cl_items::Column::Seq).max(), "max_seq")
+        .column_as(Expr::cust("count(distinct seq)"), "cnt_seq")
+        .build(DbBackend::Postgres);
+
+    let res = MaxSeqItem::find_by_statement(query).one(conn).await?;
+    Ok(res)
 }
 
 async fn get_tree_latest_seq(address: Pubkey, client: &RpcClient) -> anyhow::Result<u64> {
