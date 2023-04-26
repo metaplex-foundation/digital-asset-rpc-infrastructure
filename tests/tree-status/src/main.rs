@@ -45,7 +45,7 @@ struct Args {
 enum Action {
     /// Checks a single merkle tree to check if it;s fully indexed
     CheckTree {
-        #[arg(short, long, help = "Takes a single pubkey as a parameter to check", default_value_t = { "8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T".to_owned() })]
+        #[arg(short, long, help = "Takes a single pubkey as a parameter to check")]
         key: String,
     },
     /// Checks a list of merkle trees to check if they're fully indexed
