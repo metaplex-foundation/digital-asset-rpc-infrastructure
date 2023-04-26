@@ -11,12 +11,62 @@ use spl_account_compression::state::{
 };
 use mpl_bubblegum;
 use std::str::FromStr;
+use clap::{Parser, Arg, arg, Command, ArgAction};
+
+#[derive(Parser)]
+// #[command(next_line_help = true)]
+struct Cli {
+    #[arg(long)]
+    key: String,
+    #[command(subcommand)]
+    action: CheckTree,
+}
+#[derive(clap::Subcommand, Clone)]
+enum Action {
+    CheckTree {
+        #[arg(long)]
+        key: String,
+    },
+}
+// define struct for the clap arguments
+
 
 #[tokio::main]
 async fn main() {
+    let matches = Command::new("tree-status")
+       .version("0.1")
+       .author("TritonOne")
+       .about("Test state of the sprcified tree.")
+       .next_line_help(true)
+       .arg(arg!(-k --key <PUBKEY>).required(false).action(ArgAction::Set))
+       // .arg(Arg::new("key")
+       //      .long("key")
+       //      // .short("k")
+       //      .index(1)
+       //      .required(false)
+       //      .help("The pubkey of the tree to check"))
+       .get_matches();
+    let mut arg = matches.get_one::<String>("key").to_owned().unwrap();
+    // let arg = matches.get_one::<String>("key").to_owned.unwrap_or("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T");
+    println!("arg: {:?}", arg);
+    // let test = arg.trim().unwrap();
+    // println!("test: {:?}", test);
+    let mut pubkey =Pubkey::try_from(arg).unwrap();
+    println!("pubkey: {:?}", pubkey);
+    let cli = Cli::parse();
+    let default_pubkey = Pubkey::try_from("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T").unwrap();
     let client = RpcClient::new(String::from("https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4"));
-    let seq = get_tree_latest_seq(Pubkey::try_from("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T").unwrap(), &client).await;
-    println!("seq: {:?}", seq);
+    let cmd = cli.action;
+    match cmd {
+        Action::CheckTree { key } => {
+            println!("Validating state of the tree: {:?}", default_pubkey);
+            // println!("The pubkey vaue is: {:?}", pubkey);
+            println!("The key vaue is: {:?}", key);
+            let seq = get_tree_latest_seq(Pubkey::try_from(default_pubkey).unwrap(), &client).await;
+            // let seq = get_tree_latest_seq(Pubkey::from(pubkey).unwrap_or(default_pubkey), &client).await;
+            println!("seq: {:?}", seq);
+        }
+    }
 }
 
 pub async fn get_tree_latest_seq(
