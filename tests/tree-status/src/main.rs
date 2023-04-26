@@ -98,10 +98,53 @@ async fn main() -> anyhow::Result<()> {
         match pubkey.parse() {
             Ok(pubkey) => {
                 let seq = get_tree_latest_seq(pubkey, &client).await;
-                println!("seq for pubkey {:?}: {:?}", pubkey, seq);
+                //println!("seq for pubkey {:?}: {:?}", pubkey, seq);
+                if seq.is_err() {
+                   eprintln!("[{:?}] tree is missing from chain or error occurred: {:?}", pubkey, seq);
+                    continue;
+                }
 
-                let max_seq = get_tree_max_seq(&pubkey.to_bytes(), &conn).await;
-                println!("max_seq: {:?}", max_seq);
+                let seq = seq.unwrap();
+
+                let fetch_seq = get_tree_max_seq(&pubkey.to_bytes(), &conn).await;
+                if fetch_seq.is_err() {
+                    eprintln!("[{:?}] couldn't query tree from index: {:?}", pubkey, fetch_seq);
+                    continue;
+                }
+                match fetch_seq.unwrap() {
+                    Some(indexed_seq) => {
+                        let mut indexing_successful = false;
+                        // Check tip 
+                        if indexed_seq.max_seq > seq.try_into().unwrap() {
+                            eprintln!("[{:?}] indexer error: {:?} > {:?}", pubkey, indexed_seq.max_seq, seq);
+                        } else if indexed_seq.max_seq < seq.try_into().unwrap() {
+                            eprintln!(
+                                "[{:?}] tree not fully indexed: {:?} < {:?}",
+                                pubkey, indexed_seq.max_seq, seq
+                            );
+                        } else {
+                            indexing_successful = true;
+                        }
+
+                        // Check completeness
+                        if indexed_seq.max_seq != indexed_seq.cnt_seq {
+                            eprintln!(
+                                "[{:?}] tree has gaps {:?} != {:?}",
+                                pubkey, indexed_seq.max_seq, indexed_seq.cnt_seq
+                            );
+                            indexing_successful = false;
+                        }
+
+                        if indexing_successful {
+                            println!("[{:?}] indexing is complete", pubkey)
+                        } else {
+                            eprintln!("[{:?}] indexing is failed", pubkey)
+                        }
+                    },
+                    None => {
+                        eprintln!("[{:?}] tree  missing from index", pubkey)
+                    }
+                }
             }
             Err(error) => {
                 eprintln!("failed to parse pubkey {:?}, reason: {:?}", pubkey, error);
