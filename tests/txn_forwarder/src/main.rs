@@ -88,8 +88,16 @@ async fn main() {
         Action::Scenario { scenario_file } => {
             let scenario = std::fs::read_to_string(scenario_file).unwrap();
             let scenario: Vec<String> = scenario.lines().map(|s| s.to_string()).collect();
+            let mut tasks = Vec::new();
             for txn in scenario {
-                send_txn(&txn, &client, &mut messenger).await;
+                let client = client.clone();
+                let mut messenger = messenger.clone();
+                tasks.push(tokio::spawn(async move {
+                    send_txn(&txn, &client, &mut messenger).await;
+                }));
+            }
+            for task in tasks {
+                task.await.unwrap();
             }
         }
     }
