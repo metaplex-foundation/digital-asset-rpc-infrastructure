@@ -136,9 +136,9 @@ async fn main() -> anyhow::Result<()> {
                         }
 
                         if indexing_successful {
-                            println!("[{:?}] indexing is complete", pubkey)
+                            println!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
                         } else {
-                            eprintln!("[{:?}] indexing is failed", pubkey)
+                            eprintln!("[{:?}] indexing is failed, seq={:?} max_seq={:?}", pubkey, seq, indexed_seq)
                         }
                     },
                     None => {
