@@ -13,7 +13,9 @@ use solana_transaction_status::{
     UiTransactionEncoding,
 };
 use tokio_stream::StreamExt;
+use tokio::sync::Mutex;
 use utils::Siggrabbenheimer;
+
 #[derive(Parser)]
 #[command(next_line_help = true)]
 struct Cli {
@@ -64,6 +66,7 @@ async fn main() {
     messenger.add_stream(STREAM).await.unwrap();
     messenger.add_stream("ACC").await.unwrap();
     messenger.set_buffer_size(STREAM, 10000000000000000).await;
+    let messenger = Arc::new(Mutex::new(messenger));
 
     // TODO allow txn piping to stdin
     let client = RpcClient::new(cli.rpc_url.clone());
@@ -71,7 +74,7 @@ async fn main() {
     let cmd = cli.action;
 
     match cmd {
-        Action::Single { txn } => send_txn(&txn, &client, &mut messenger).await,
+        Action::Single { txn } => send_txn(&txn, &client, messenger).await,
         Action::Address {
             include_failed,
             address,
@@ -80,7 +83,7 @@ async fn main() {
             send_address(
                 &address,
                 cli.rpc_url,
-                &mut messenger,
+                messenger,
                 include_failed.unwrap_or(false),
             )
             .await;
@@ -90,10 +93,10 @@ async fn main() {
             let scenario: Vec<String> = scenario.lines().map(|s| s.to_string()).collect();
             let mut tasks = Vec::new();
             for txn in scenario {
-                let client = client.clone();
-                let mut messenger = messenger.clone();
+                let client = RpcClient::new(cli.rpc_url.clone());
+                let messenger = Arc::clone(&messenger);
                 tasks.push(tokio::spawn(async move {
-                    send_txn(&txn, &client, &mut messenger).await;
+                    send_txn(&txn, &client, messenger).await;
                 }));
             }
             for task in tasks {
@@ -106,7 +109,7 @@ async fn main() {
 pub async fn send_address(
     address: &str,
     client_url: String,
-    messenger: &mut Box<dyn plerkle_messenger::Messenger>,
+    messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
     failed: bool,
 ) {
     let client1 = RpcClient::new(client_url.clone());
@@ -115,14 +118,14 @@ pub async fn send_address(
     let mut sig = Siggrabbenheimer::new(client1, pub_addr, failed);
     let client2 = RpcClient::new(client_url);
     while let Some(s) = sig.next().await {
-        send_txn(&s, &client2, messenger).await;
+        send_txn(&s, &client2, Arc::clone(&messenger)).await;
     }
 }
 
 pub async fn send_txn(
     txn: &str,
     client: &RpcClient,
-    messenger: &mut Box<dyn plerkle_messenger::Messenger>,
+    messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
 ) {
     let sig = Signature::from_str(txn).unwrap();
     let txn = client
@@ -145,7 +148,7 @@ pub async fn send_txn(
 pub async fn send(
     sig: &Signature,
     txn: EncodedConfirmedTransactionWithStatusMeta,
-    messenger: &mut Box<dyn plerkle_messenger::Messenger>,
+    messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
 ) {
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let fbb = seralize_encoded_transaction_with_status(fbb, txn);
@@ -153,7 +156,7 @@ pub async fn send(
     match fbb {
       Ok(fb_tx) => {
         let bytes = fb_tx.finished_data();
-        messenger.send(STREAM, bytes).await.unwrap();
+        messenger.lock().await.send(STREAM, bytes).await.unwrap();
         println!("Sent txn to stream {}", sig);
       },
       Err(e) => {
