@@ -1,59 +1,198 @@
-use borsh::BorshDeserialize;
-
-use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config};
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
-use solana_transaction_status::{
-    UiTransactionEncoding,
+use {
+    anyhow::Context,
+    borsh::BorshDeserialize,
+    clap::{arg, Parser, Subcommand},
+    digital_asset_types::dao::cl_items,
+    sea_orm::{
+        sea_query::Expr, ColumnTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
+        FromQueryResult, QueryFilter, QuerySelect, QueryTrait, SqlxPostgresConnector,
+    },
+    // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
+    // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
+    solana_client::nonblocking::rpc_client::RpcClient,
+    solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey},
+    // solana_sdk::signature::Signature,
+    // solana_transaction_status::UiTransactionEncoding,
+    spl_account_compression::state::{
+        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+    },
+    sqlx::{
+        postgres::{PgConnectOptions, PgPoolOptions},
+        ConnectOptions, PgPool,
+    },
 };
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-use spl_account_compression::state::{
-    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-};
-use mpl_bubblegum;
-use std::str::FromStr;
 
-#[tokio::main]
-async fn main() {
-    let client = RpcClient::new(String::from("https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4"));
-    let seq = get_tree_latest_seq(Pubkey::try_from("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T").unwrap(), &client).await;
-    println!("seq: {:?}", seq);
+#[derive(Debug, FromQueryResult, Clone)]
+struct MaxSeqItem {
+    max_seq: i64,
+    cnt_seq: i64,
 }
 
-pub async fn get_tree_latest_seq(
-    address: Pubkey,
-    client: &RpcClient,
-) -> Result<u64, String> {
-    // get account info
-    let account_info = client   
-                .get_account_with_commitment(
-                    &address,
-                    CommitmentConfig::confirmed(),
-                )
-                .await
-                .map_err(|e| e.to_string())?;
+#[derive(Parser)]
+#[command(author, version, about)]
+struct Args {
+    #[arg(short, long, default_value_t = { "https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4".to_owned() })]
+    rpc_url: String,
 
-    if let Some(mut account) = account_info.value {
-            let (mut header_bytes, rest) = account
-                .data
-                .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
-            let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
-                    .map_err(|e| e.to_string())?;
+    #[arg(short, long)]
+    pg_url: String,
 
-            let auth = Pubkey::find_program_address(&[address.as_ref()], &mpl_bubblegum::id()).0;
+    #[command(subcommand)]
+    action: Action,
+}
 
-            let merkle_tree_size = merkle_tree_get_size(&header)
-                    .map_err(|e| e.to_string())?; 
-            let (tree_bytes, canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+#[derive(Subcommand, Clone)]
+enum Action {
+    /// Checks a single merkle tree to check if it;s fully indexed
+    CheckTree {
+        #[arg(short, long, help = "Takes a single pubkey as a parameter to check")]
+        key: String,
+    },
+    /// Checks a list of merkle trees to check if they're fully indexed
+    CheckTrees {
+        #[arg(
+            short,
+            long,
+            help = "Takes a path to a file with pubkeys as a parameter to check"
+        )]
+        file: String,
+    },
+}
 
-            let seq_bytes = tree_bytes[0..8].try_into()
-                    .map_err(|e: _| "Error parsing bytes")?; 
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
 
-            let seq = u64::from_le_bytes(seq_bytes);
-            Ok(seq)
-    } else {
-        Err("No account found".to_string())
+    // Set up db connection
+    let url = args.pg_url;
+    let mut options: PgConnectOptions = url.parse().unwrap();
+
+    // Create postgres pool
+    let pool = PgPoolOptions::new()
+        .min_connections(2)
+        .max_connections(10)
+        .connect_with(options)
+        .await
+        .unwrap();
+
+    // Create new postgres connection
+    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+
+    // Set up RPC interface
+    let client = RpcClient::new(args.rpc_url);
+
+    let pubkeys = match args.action {
+        Action::CheckTree { key } => vec![key],
+        Action::CheckTrees { file } => tokio::fs::read_to_string(&file)
+            .await
+            .with_context(|| format!("failed to read file with keys: {:?}", file))?
+            .split('\n')
+            .filter_map(|x| {
+                let x = x.trim();
+                (!x.is_empty()).then(|| x.to_string())
+            })
+            .collect(),
+    };
+
+    for pubkey in pubkeys {
+        match pubkey.parse() {
+            Ok(pubkey) => {
+                let seq = get_tree_latest_seq(pubkey, &client).await;
+                //println!("seq for pubkey {:?}: {:?}", pubkey, seq);
+                if seq.is_err() {
+                   eprintln!("[{:?}] tree is missing from chain or error occurred: {:?}", pubkey, seq);
+                    continue;
+                }
+
+                let seq = seq.unwrap();
+
+                let fetch_seq = get_tree_max_seq(&pubkey.to_bytes(), &conn).await;
+                if fetch_seq.is_err() {
+                    eprintln!("[{:?}] couldn't query tree from index: {:?}", pubkey, fetch_seq);
+                    continue;
+                }
+                match fetch_seq.unwrap() {
+                    Some(indexed_seq) => {
+                        let mut indexing_successful = false;
+                        // Check tip 
+                        if indexed_seq.max_seq > seq.try_into().unwrap() {
+                            eprintln!("[{:?}] indexer error: {:?} > {:?}", pubkey, indexed_seq.max_seq, seq);
+                        } else if indexed_seq.max_seq < seq.try_into().unwrap() {
+                            eprintln!(
+                                "[{:?}] tree not fully indexed: {:?} < {:?}",
+                                pubkey, indexed_seq.max_seq, seq
+                            );
+                        } else {
+                            indexing_successful = true;
+                        }
+
+                        // Check completeness
+                        if indexed_seq.max_seq != indexed_seq.cnt_seq {
+                            eprintln!(
+                                "[{:?}] tree has gaps {:?} != {:?}",
+                                pubkey, indexed_seq.max_seq, indexed_seq.cnt_seq
+                            );
+                            indexing_successful = false;
+                        }
+
+                        if indexing_successful {
+                            println!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
+                        } else {
+                            eprintln!("[{:?}] indexing is failed, seq={:?} max_seq={:?}", pubkey, seq, indexed_seq)
+                        }
+                    },
+                    None => {
+                        eprintln!("[{:?}] tree  missing from index", pubkey)
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("failed to parse pubkey {:?}, reason: {:?}", pubkey, error);
+            }
+        }
     }
+
+    Ok(())
+}
+
+async fn get_tree_max_seq(
+    tree: &[u8],
+    conn: &DatabaseConnection,
+) -> Result<Option<MaxSeqItem>, DbErr> {
+    let query = cl_items::Entity::find()
+        .select_only()
+        .filter(cl_items::Column::Tree.eq(tree))
+        .column_as(Expr::col(cl_items::Column::Seq).max(), "max_seq")
+        .column_as(Expr::cust("count(distinct seq)"), "cnt_seq")
+        .build(DbBackend::Postgres);
+
+    let res = MaxSeqItem::find_by_statement(query).one(conn).await?;
+    Ok(res)
+}
+
+async fn get_tree_latest_seq(address: Pubkey, client: &RpcClient) -> anyhow::Result<u64> {
+    // get account info
+    let account_info = client
+        .get_account_with_commitment(&address, CommitmentConfig::confirmed())
+        .await?;
+
+    let mut account = account_info
+        .value
+        .ok_or_else(|| anyhow::anyhow!("No account found"))?;
+
+    let (header_bytes, rest) = account
+        .data
+        .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
+    let header: ConcurrentMerkleTreeHeader =
+        ConcurrentMerkleTreeHeader::try_from_slice(header_bytes)?;
+
+    // let auth = Pubkey::find_program_address(&[address.as_ref()], &mpl_bubblegum::id()).0;
+
+    let merkle_tree_size = merkle_tree_get_size(&header)?;
+    let (tree_bytes, _canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+
+    let seq_bytes = tree_bytes[0..8].try_into().context("Error parsing bytes")?;
+    Ok(u64::from_le_bytes(seq_bytes))
 
     // get signatures
     /*let sigs = client
@@ -114,21 +253,21 @@ pub async fn get_tree_latest_seq(
             }
         }
     }*/
-   /*let tx = Signature::from_str(sig).unwrap();
-        .get_transaction_with_config(
-            &sig,
-            solana_client::rpc_config::RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Base64),
-                commitment: Some(CommitmentConfig::confirmed()),
-                max_supported_transaction_version: Some(0),
-            },
-        )
-        .await
-        .unwrap();
-*/
+    /*let tx = Signature::from_str(sig).unwrap();
+            .get_transaction_with_config(
+                &sig,
+                solana_client::rpc_config::RpcTransactionConfig {
+                    encoding: Some(UiTransactionEncoding::Base64),
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    max_supported_transaction_version: Some(0),
+                },
+            )
+            .await
+            .unwrap();
+    */
 }
 
-/* 
+/*
 pub async fn handle_transaction<'a>(
     &self,
     tx: &'a TransactionInfo<'a>,
