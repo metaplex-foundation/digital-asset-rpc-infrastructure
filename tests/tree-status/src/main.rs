@@ -1,126 +1,96 @@
-use borsh::BorshDeserialize;
-
-use solana_client::{nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config};
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
-use solana_transaction_status::{
-    UiTransactionEncoding,
+use {
+    anyhow::Context,
+    borsh::BorshDeserialize,
+    clap::{arg, Parser, Subcommand},
+    // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
+    // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
+    solana_client::nonblocking::rpc_client::RpcClient,
+    solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey},
+    // solana_sdk::signature::Signature,
+    // solana_transaction_status::UiTransactionEncoding,
+    spl_account_compression::state::{
+        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+    },
 };
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-use spl_account_compression::state::{
-    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-};
-use mpl_bubblegum;
-use std::str::FromStr;
-use clap::{Parser, Arg, arg, Command, ArgAction};
 
 #[derive(Parser)]
-// #[command(next_line_help = true)]
-struct Cli {
-    #[arg(long)]
-    key: String,
+#[command(author, version, about)]
+struct Args {
+    #[arg(short, long, default_value_t = { "a4d23a00546272efeba9843a4ae4".to_owned() })]
+    access_key: String,
+
     #[command(subcommand)]
-    action: CheckTree,
-    // #[command(subcommand)]
-    // action: CheckTrees,
+    action: Action,
 }
-#[derive(clap::Subcommand, Clone)]
+
+#[derive(Subcommand, Clone)]
 enum Action {
     CheckTree {
-        #[arg(long)]
+        #[arg(short, long, default_value_t = { "8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T".to_owned() })]
         key: String,
     },
-    // CheckTrees {
-    //     #[arg(long)]
-    //     file: String,
-    // },
+    CheckTrees {
+        #[arg(short, long)]
+        file: String,
+    },
 }
 
 #[tokio::main]
-async fn main() {
-    let matches = Command::new("tree-status")
-       .version("0.1")
-       .author("TritonOne")
-       .about("Test state of the sprcified tree.")
-       .next_line_help(true)
-       // .arg(arg!(-k --key <PUBKEY>).required(false).action(ArgAction::Set))
-       .arg(Arg::new("key")
-            .long("key")
-            .short("k")
-            .index(1)
-            .required(false)
-            .help("The pubkey of the tree to check"))
-       // .arg(Arg::new("file")
-       //      .long("file")
-       //      .short("f")
-       //      .index(2)
-       //      .required(false)
-       //      .help("The path to the file containing the pubkeys of the trees to check"))
-       .get_matches();
-    let arg = matches.get_one::<String>("key").to_owned().unwrap();
-    // let arg = matches.get_one::<String>("file").to_owned().unwrap();
-    println!("arg: {:?}", arg);
-    let mut pubkey =Pubkey::try_from(arg).unwrap();
-    println!("pubkey: {:?}", pubkey);
-    let cli = Cli::parse();
-    let default_pubkey = Pubkey::try_from("8wKvdzBu2kEG5T3maJBX8m2gLs4XFavXzCKiZcGVeS8T").unwrap();
-    let client = RpcClient::new(String::from("https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4"));
-    let cmd = cli.action;
-    match cmd {
-        Action::CheckTree { key } => {
-            println!("Validating state of the tree: {:?}", default_pubkey);
-            println!("The pubkey value is: {:?}", pubkey);
-            // println!("The key vaue is: {:?}", key);
-            let seq = get_tree_latest_seq(Pubkey::try_from(default_pubkey).unwrap(), &client).await;
-            // let seq = get_tree_latest_seq(Pubkey::from(pubkey).unwrap_or(default_pubkey), &client).await;
-            println!("seq: {:?}", seq);
+async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+
+    let client = RpcClient::new(format!("https://index.rpcpool.com/{}", args.access_key));
+    let pubkeys = match args.action {
+        Action::CheckTree { key } => vec![key],
+        Action::CheckTrees { file } => tokio::fs::read_to_string(&file)
+            .await
+            .with_context(|| format!("failed to read file with keys: {:?}", file))?
+            .split('\n')
+            .filter_map(|x| {
+                let x = x.trim();
+                (!x.is_empty()).then(|| x.to_string())
+            })
+            .collect(),
+    };
+
+    for pubkey in pubkeys {
+        match pubkey.parse() {
+            Ok(pubkey) => {
+                let seq = get_tree_latest_seq(pubkey, &client).await;
+                println!("seq for pubkey {:?}: {:?}", pubkey, seq);
+            }
+            Err(error) => {
+                eprintln!("failed to parse pubkey {:?}, reason: {:?}", pubkey, error);
+            }
         }
-        // add a second action to check trees from a file.
-        // },
-        // Action::CheckTrees { file } => {
-        //     loop {
-        //         let seq = get_tree_latest_seq(Pubkey::try_from(default_pubkey).unwrap(), &client).await;
-        //         // let seq = get_tree_latest_seq(Pubkey::from(pubkey).unwrap_or(default_pubkey), &client).await;
-        //         println!("seq: {:?}", seq);
-        //     }
-        // }
     }
+
+    Ok(())
 }
 
-pub async fn get_tree_latest_seq(
-    address: Pubkey,
-    client: &RpcClient,
-) -> Result<u64, String> {
+async fn get_tree_latest_seq(address: Pubkey, client: &RpcClient) -> anyhow::Result<u64> {
     // get account info
-    let account_info = client   
-                .get_account_with_commitment(
-                    &address,
-                    CommitmentConfig::confirmed(),
-                )
-                .await
-                .map_err(|e| e.to_string())?;
+    let account_info = client
+        .get_account_with_commitment(&address, CommitmentConfig::confirmed())
+        .await?;
 
-    if let Some(mut account) = account_info.value {
-            let (mut header_bytes, rest) = account
-                .data
-                .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
-            let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
-                    .map_err(|e| e.to_string())?;
+    let mut account = account_info
+        .value
+        .ok_or_else(|| anyhow::anyhow!("No account found"))?;
 
-            let auth = Pubkey::find_program_address(&[address.as_ref()], &mpl_bubblegum::id()).0;
+    let (header_bytes, rest) = account
+        .data
+        .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
+    let header: ConcurrentMerkleTreeHeader =
+        ConcurrentMerkleTreeHeader::try_from_slice(header_bytes)?;
 
-            let merkle_tree_size = merkle_tree_get_size(&header)
-                    .map_err(|e| e.to_string())?; 
-            let (tree_bytes, canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+    // let auth = Pubkey::find_program_address(&[address.as_ref()], &mpl_bubblegum::id()).0;
 
-            let seq_bytes = tree_bytes[0..8].try_into()
-                    .map_err(|e: _| "Error parsing bytes")?; 
+    let merkle_tree_size = merkle_tree_get_size(&header)?;
+    let (tree_bytes, _canopy_bytes) = rest.split_at_mut(merkle_tree_size);
 
-            let seq = u64::from_le_bytes(seq_bytes);
-            Ok(seq)
-    } else {
-        Err("No account found".to_string())
-    }
+    let seq_bytes = tree_bytes[0..8].try_into().context("Error parsing bytes")?;
+    Ok(u64::from_le_bytes(seq_bytes))
 
     // get signatures
     /*let sigs = client
@@ -181,21 +151,21 @@ pub async fn get_tree_latest_seq(
             }
         }
     }*/
-   /*let tx = Signature::from_str(sig).unwrap();
-        .get_transaction_with_config(
-            &sig,
-            solana_client::rpc_config::RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Base64),
-                commitment: Some(CommitmentConfig::confirmed()),
-                max_supported_transaction_version: Some(0),
-            },
-        )
-        .await
-        .unwrap();
-*/
+    /*let tx = Signature::from_str(sig).unwrap();
+            .get_transaction_with_config(
+                &sig,
+                solana_client::rpc_config::RpcTransactionConfig {
+                    encoding: Some(UiTransactionEncoding::Base64),
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    max_supported_transaction_version: Some(0),
+                },
+            )
+            .await
+            .unwrap();
+    */
 }
 
-/* 
+/*
 pub async fn handle_transaction<'a>(
     &self,
     tx: &'a TransactionInfo<'a>,

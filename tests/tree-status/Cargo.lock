@@ -4378,6 +4378,7 @@ dependencies = [
 name = "tree-status"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "borsh",
  "clap 4.2.4",
  "flatbuffers",
