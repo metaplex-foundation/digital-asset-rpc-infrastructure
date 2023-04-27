@@ -5825,6 +5825,7 @@ dependencies = [
  "clap 4.2.4",
  "digital_asset_types",
  "flatbuffers",
+ "hex",
  "mpl-bubblegum",
  "nft_ingester",
  "plerkle_messenger",

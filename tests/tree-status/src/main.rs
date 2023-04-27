@@ -6,6 +6,7 @@ use {
     sea_orm::{
         sea_query::Expr, ColumnTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
         FromQueryResult, QueryFilter, QuerySelect, QueryTrait, SqlxPostgresConnector,
+        ConnectionTrait, Statement
     },
     // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
     // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
@@ -18,7 +19,7 @@ use {
     },
     sqlx::{
         postgres::{PgConnectOptions, PgPoolOptions},
-        ConnectOptions, PgPool,
+        ConnectOptions, PgPool
     },
 };
 
@@ -28,10 +29,15 @@ struct MaxSeqItem {
     cnt_seq: i64,
 }
 
+#[derive(Debug, FromQueryResult, Clone)]
+struct MissingSeq {
+    missing_seq: i64,
+}
+
 #[derive(Parser)]
 #[command(author, version, about)]
 struct Args {
-    #[arg(short, long, default_value_t = { "https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4".to_owned() })]
+    #[arg(short, long)]
     rpc_url: String,
 
     #[arg(short, long)]
@@ -138,7 +144,14 @@ async fn main() -> anyhow::Result<()> {
                         if indexing_successful {
                             println!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
                         } else {
-                            eprintln!("[{:?}] indexing is failed, seq={:?} max_seq={:?}", pubkey, seq, indexed_seq)
+                            eprintln!("[{:?}] indexing is failed, seq={:?} max_seq={:?}", pubkey, seq, indexed_seq);
+                            let ret = get_missing_seq(&pubkey.to_bytes(), seq.try_into().unwrap(), &conn).await;
+                            if ret.is_err() {
+                                eprintln!("[{:?}] failed to query missing seq: {:?}", pubkey, ret);
+                            } else {
+                                let ret = ret.unwrap();
+                                eprintln!("[{:?}] missing seq: {:?}", pubkey, ret);
+                            }
                         }
                     },
                     None => {
@@ -153,6 +166,25 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn get_missing_seq(
+    tree: &[u8],
+    max_seq: i64,
+    conn: &DatabaseConnection,
+) ->  Result<Vec<MissingSeq>, DbErr> {
+    let query = Statement::from_string(
+            DbBackend::Postgres,
+            format!("SELECT s.seq AS missing_seq FROM generate_series(1::bigint,{}::bigint) s(seq) WHERE NOT EXISTS (SELECT 1 FROM cl_items WHERE seq = s.seq AND tree='\\x{}')", max_seq, hex::encode(tree))
+        );
+
+    let missing_sequence_numbers: Vec<MissingSeq> = conn.query_all(query).await.map(|qr| {
+        qr.iter()
+            .map(|q| MissingSeq::from_query_result(q, "").unwrap())
+            .collect()
+    })?;
+        
+    Ok(missing_sequence_numbers)
 }
 
 async fn get_tree_max_seq(
@@ -194,152 +226,4 @@ async fn get_tree_latest_seq(address: Pubkey, client: &RpcClient) -> anyhow::Res
     let seq_bytes = tree_bytes[0..8].try_into().context("Error parsing bytes")?;
     Ok(u64::from_le_bytes(seq_bytes))
 
-    // get signatures
-    /*let sigs = client
-                .get_signatures_for_address_with_config(
-                    &address,
-                    GetConfirmedSignaturesForAddress2Config {
-                        before: None,
-                        until: None,
-                        commitment: Some(CommitmentConfig::confirmed()),
-                        ..GetConfirmedSignaturesForAddress2Config::default()
-                    },
-                )
-                .await
-                .map_err(|e| e.to_string())?;
-
-    if sigs.is_empty() {
-        return Ok(0);
-    }
-
-    let mut first_sig = None;
-    for sig in sigs.iter() {
-        if sig.confirmation_status.is_none() || sig.err.is_some() {
-            continue;
-        }
-        // Break on the first non err and confirmed transaction
-        first_sig = Some(sig);
-        break;
-    };
-
-    if let Some(first_sig) = first_sig {
-        let sig_str = Signature::from_str(&first_sig.signature).unwrap();
-        println!("first sig: {}", sig_str);
-
-        let tx = client
-            .get_transaction_with_config(
-                &sig_str,
-                solana_client::rpc_config::RpcTransactionConfig {
-                    encoding: Some(UiTransactionEncoding::Base64),
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    max_supported_transaction_version: Some(0),
-                },
-            )
-            .await
-            .unwrap();
-
-        // Being a bit lazy and encoding this flatbuffers. Almost certainly we don't have to
-        let fbb = flatbuffers::FlatBufferBuilder::new();
-        let fbb = seralize_encoded_transaction_with_status(fbb, tx);
-
-        match fbb {
-            Ok(fb_tx) => {
-                let bytes = fb_tx.finished_data();
-
-                println!("tx: {:?}", bytes);
-            },
-            Err(e) => {
-                println!("err: {:?}", e);
-            }
-        }
-    }*/
-    /*let tx = Signature::from_str(sig).unwrap();
-            .get_transaction_with_config(
-                &sig,
-                solana_client::rpc_config::RpcTransactionConfig {
-                    encoding: Some(UiTransactionEncoding::Base64),
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    max_supported_transaction_version: Some(0),
-                },
-            )
-            .await
-            .unwrap();
-    */
 }
-
-/*
-pub async fn handle_transaction<'a>(
-    &self,
-    tx: &'a TransactionInfo<'a>,
-) -> Result<(), IngesterError> {
-    info!("Handling Transaction: {:?}", tx.signature());
-    let instructions = self.break_transaction(&tx);
-    let accounts = tx.account_keys().unwrap_or_default();
-    let slot = tx.slot();
-    let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
-    for k in accounts.into_iter() {
-        keys.push(*k);
-    }
-    let mut not_impl = 0;
-    let ixlen = instructions.len();
-    debug!("Instructions: {}", ixlen);
-    let contains = instructions
-        .iter()
-        .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::id().as_ref());
-    debug!("Instructions bgum: {}", contains.count());
-    for (outer_ix, inner_ix) in instructions {
-        let (program, instruction) = outer_ix;
-        let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
-        let ix_account_len = ix_accounts.len();
-        let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
-        if keys.len() < max {
-            return Err(IngesterError::DeserializationError(
-                "Missing Accounts in Serialized Ixn/Txn".to_string(),
-            ));
-        }
-        let ix_accounts =
-            ix_accounts
-                .iter()
-                .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
-                    if let Some(key) = keys.get(*a as usize) {
-                        acc.push(*key);
-                    }
-                    acc
-                });
-        let ix = InstructionBundle {
-            txn_id: "",
-            program,
-            instruction: Some(instruction),
-            inner_ix,
-            keys: ix_accounts.as_slice(),
-            slot,
-        };
-
-        if let Some(program) = self.match_program(&ix.program) {
-            debug!("Found a ix for program: {:?}", program.key());
-            let result = program.handle_instruction(&ix)?;
-            let concrete = result.result_type();
-            match concrete {
-                ProgramParseResult::Bubblegum(parsing_result) => {
-                    handle_bubblegum_instruction(
-                        parsing_result,
-                        &ix,
-                        &self.storage,
-                        &self.task_sender,
-                    )
-                    .await?;
-                }
-                _ => {
-                    not_impl += 1;
-                }
-            };
-        }
-    }
-
-    if not_impl == ixlen {
-        debug!("Not imple");
-        return Err(IngesterError::NotImplemented);
-    }
-    Ok(())
-}
-*/
