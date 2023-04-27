@@ -1,7 +1,7 @@
 [package]
 name = "tree-status"
 version = "0.1.0"
-authours = ["TritonOne"]
+authors = ["Triton One"]
 edition = "2021"
 description = "Test state of the sprcified tree"
 
@@ -24,3 +24,4 @@ sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "s
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
 nft_ingester = { path = "../../nft_ingester" }
 digital_asset_types = { path = "../../digital_asset_types", features = ["json_types", "sql_types"] }
+hex = "0.4.3"
