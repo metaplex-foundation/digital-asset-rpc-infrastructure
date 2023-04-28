@@ -169,14 +169,14 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                                 let file = 
                                     if let Some(str_mime) = m.as_str() {
                                         File {
-                                             uri: str_uri.to_string(),
-                                             mime: str_mime.to_string(),
+                                             uri: Some(str_uri.to_string()),
+                                             mime: Some(str_mime.to_string()),
                                              quality: None,
                                              contexts: None,
                                         }
                                     } else {
                                         warn!("Mime is not string: {:?}", m); 
-                                        file_from_str(str_uri.to_string());
+                                        file_from_str(str_uri.to_string())
                                     };
                                 actual_files.insert(
                                    str_uri.to_string().clone(),
