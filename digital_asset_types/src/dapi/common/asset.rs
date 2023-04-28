@@ -198,7 +198,7 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                             );*/
                         }
                         (Some(u), None) => {
-                            let str_uri = serde_json::to_string(u).unwrap_or(String::from(""));
+                            let str_uri = serde_json::to_string(u).unwrap_or_else(|| String::new());
                             actual_files.insert(str_uri.clone(), file_from_str(str_uri));
                         }
                         _ => {}
