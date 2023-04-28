@@ -18,6 +18,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 
+use log::{debug, info, warn};
+
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
 }
@@ -163,8 +165,28 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                     let mime_type = v.get("type");
                     match (uri, mime_type) {
                         (Some(u), Some(m)) => {
-                            let str_uri = u.as_str().unwrap().to_string();
-                            let str_mime = m.as_str().unwrap().to_string();
+                            if let Some(str_uri) = u.as_str() {
+                                let file = 
+                                    if let Some(str_mime) = m.as_str() {
+                                        File {
+                                             uri: Some(str_uri.to_string()),
+                                             mime: Some(str_mime.to_string()),
+                                             quality: None,
+                                             contexts: None,
+                                        }
+                                    } else {
+                                        warn!("Mime is not string: {:?}", m); 
+                                        file_from_str(str_uri.to_string())
+                                    };
+                                actual_files.insert(
+                                   str_uri.to_string().clone(),
+                                   file,
+                                );
+                            } else {
+                                warn!("URI is not string: {:?}", u);
+                            }     
+                           /*  let str_uri = u.as_str().unwrap_or("").to_string();
+                            let str_mime = m.as_str().unwrap_or("").to_string();
                             actual_files.insert(
                                 str_uri.clone(),
                                 File {
@@ -173,10 +195,10 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                                     quality: None,
                                     contexts: None,
                                 },
-                            );
+                            );*/
                         }
                         (Some(u), None) => {
-                            let str_uri = serde_json::to_string(u).unwrap();
+                            let str_uri = serde_json::to_string(u).unwrap_or_else(|| String::new());
                             actual_files.insert(str_uri.clone(), file_from_str(str_uri));
                         }
                         _ => {}
