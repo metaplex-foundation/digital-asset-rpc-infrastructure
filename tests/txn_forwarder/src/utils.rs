@@ -1,12 +1,9 @@
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
 };
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
 use std::{
-    collections::{HashSet, VecDeque},
     str::FromStr,
-    sync::Arc,
 };
 
 use std::pin::Pin;
@@ -17,10 +14,10 @@ use tokio::{
 };
 use tokio_stream::Stream;
 
-pub fn find_sigs<'a>(
+pub fn find_sigs(
     address: Pubkey,
     client: RpcClient,
-    failed: bool,
+    _failed: bool,
 ) -> Result<(JoinHandle<Result<(), String>>, UnboundedReceiver<String>), String> {
     let mut last_sig = None;
     let (tx, rx) = mpsc::unbounded_channel::<String>();

@@ -1,6 +1,6 @@
 mod utils;
 
-use std::{collections::BTreeMap, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use clap::Parser;
 use figment::{util::map, value::Value};
@@ -12,14 +12,11 @@ use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
-    transaction::VersionedTransaction,
 };
 use solana_transaction_status::{
-    EncodedConfirmedTransactionWithStatusMeta, EncodedTransactionWithStatusMeta, UiInstruction,
-    UiTransactionEncoding, UiTransactionStatusMeta, option_serializer::OptionSerializer, UiCompiledInstruction
+    EncodedConfirmedTransactionWithStatusMeta,
+    UiTransactionEncoding,
 };
-use spl_account_compression::{AccountCompressionEvent, ChangeLogEvent};
-use thiserror::Error;
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use utils::Siggrabbenheimer;
@@ -166,7 +163,7 @@ pub async fn send_txn(
         Err(e) => {
             if retries > 0 {
                 println!("Retrying transaction {} retry no {}: {}", sig, retries, e);
-                send_txn(sig_str, &client, retries - 1, messenger).await;
+                send_txn(sig_str, client, retries - 1, messenger).await;
             } else {
                 println!("Could not load transaction {}: {}", sig, e);
                 eprintln!("{}", sig);
