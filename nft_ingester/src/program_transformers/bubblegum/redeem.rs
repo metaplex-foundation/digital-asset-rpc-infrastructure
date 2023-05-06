@@ -1,7 +1,4 @@
-use crate::{
-    program_transformers::bubblegum::{update_asset},
-    error::IngesterError,
-};
+use crate::{error::IngesterError, program_transformers::bubblegum::update_asset};
 
 use super::save_changelog_event;
 use blockbuster::{
@@ -44,8 +41,7 @@ where
                     ..Default::default()
                 };
                 update_asset(txn, id_bytes, Some(seq), asset_to_update).await
-            }
-            _ => Err(IngesterError::NotImplemented),
+            } // _ => Err(IngesterError::NotImplemented),
         };
     }
     Err(IngesterError::ParsingError(

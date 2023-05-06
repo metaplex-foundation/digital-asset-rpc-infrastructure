@@ -1,12 +1,10 @@
 use crate::error::IngesterError;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
 use digital_asset_types::dao::asset;
-use sea_orm::{
-    entity::*, query::*, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
-};
+use sea_orm::{entity::*, query::*, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait};
 
 pub async fn decompress<'c, T>(
-    parsing_result: &BubblegumInstruction,
+    _parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
 ) -> Result<(), IngesterError>

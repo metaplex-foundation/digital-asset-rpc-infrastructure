@@ -1,25 +1,19 @@
+use {
+    async_recursion::async_recursion,
+    clap::Parser,
+    figment::{util::map, value::Value},
+    plerkle_messenger::MessengerConfig,
+    plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
+    solana_client::nonblocking::rpc_client::RpcClient,
+    solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature},
+    solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
+    std::{str::FromStr, sync::Arc},
+    tokio::sync::Mutex,
+    tokio_stream::StreamExt,
+    utils::Siggrabbenheimer,
+};
+
 mod utils;
-
-use std::{str::FromStr, sync::Arc};
-
-use clap::Parser;
-use figment::{util::map, value::Value};
-
-use async_recursion::async_recursion;
-
-use plerkle_messenger::MessengerConfig;
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
-};
-use solana_transaction_status::{
-    EncodedConfirmedTransactionWithStatusMeta,
-    UiTransactionEncoding,
-};
-use tokio::sync::Mutex;
-use tokio_stream::StreamExt;
-use utils::Siggrabbenheimer;
 
 #[derive(Parser)]
 #[command(next_line_help = true)]
@@ -33,6 +27,7 @@ struct Cli {
     #[command(subcommand)]
     action: Action,
 }
+
 #[derive(clap::Subcommand, Clone)]
 enum Action {
     Single {
@@ -50,6 +45,7 @@ enum Action {
         scenario_file: String,
     },
 }
+
 const STREAM: &str = "TXN";
 
 #[tokio::main]

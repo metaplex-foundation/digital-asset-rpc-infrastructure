@@ -1,5 +1,3 @@
-use std::vec;
-
 use digital_asset_types::{
     dao::{
         scopes::asset::get_grouping,
@@ -9,8 +7,8 @@ use digital_asset_types::{
         SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_assets_by_authority, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, search_assets, get_assets_by_creator,
+        get_asset, get_assets_by_authority, get_assets_by_creator, get_assets_by_group,
+        get_assets_by_owner, get_proof_for_asset, search_assets,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -350,7 +348,7 @@ impl ApiContract for DasApi {
         } = payload;
         let gs = get_grouping(&self.db_connection, group_key.clone(), group_value.clone()).await?;
         Ok(GetGroupingResponse {
-            group_key: group_key,
+            group_key,
             group_name: group_value,
             group_size: gs.size,
         })

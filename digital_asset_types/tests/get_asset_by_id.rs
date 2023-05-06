@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod common;
 
 use blockbuster::token_metadata::state::*;
@@ -51,7 +50,7 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,

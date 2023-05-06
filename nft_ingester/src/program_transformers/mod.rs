@@ -61,8 +61,10 @@ impl ProgramTransformer {
         order_instructions(ref_set, tx)
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
-        self.matchers.get(&Pubkey::new(key.0.as_slice()))
+        self.matchers
+            .get(&Pubkey::try_from(key.0.as_slice()).unwrap())
     }
 
     pub async fn handle_transaction<'a>(
@@ -70,7 +72,7 @@ impl ProgramTransformer {
         tx: &'a TransactionInfo<'a>,
     ) -> Result<(), IngesterError> {
         info!("Handling Transaction: {:?}", tx.signature());
-        let instructions = self.break_transaction(&tx);
+        let instructions = self.break_transaction(tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
         let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());

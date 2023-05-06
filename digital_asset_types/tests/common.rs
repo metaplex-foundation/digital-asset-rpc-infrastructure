@@ -86,6 +86,7 @@ pub fn create_asset_data(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_asset(
     id: Vec<u8>,
     owner: Vec<u8>,
@@ -142,7 +143,7 @@ pub fn create_asset(
             royalty_target_type,
             royalty_target,
             royalty_amount,
-            asset_data: Some(id.clone()),
+            asset_data: Some(id),
             burnt: false,
             created_at: None,
             specification_asset_class: SpecificationAssetClass::Nft,
@@ -204,6 +205,7 @@ pub fn create_asset_authority(
     )
 }
 
+#[allow(dead_code)]
 pub fn create_asset_grouping(
     asset_id: Vec<u8>,
     collection: Pubkey,

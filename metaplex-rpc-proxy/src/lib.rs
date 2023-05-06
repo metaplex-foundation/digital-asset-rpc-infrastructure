@@ -1,10 +1,10 @@
-use lazy_static::lazy_static;
-use log::info;
-use proxy_wasm::traits::*;
-use proxy_wasm::types::*;
-use regex::{Regex, RegexBuilder};
-use std::env;
-use std::time::Duration;
+use {
+    lazy_static::lazy_static,
+    log::info,
+    proxy_wasm::{traits::*, types::*},
+    regex::{Regex, RegexBuilder},
+    std::time::Duration,
+};
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
@@ -35,9 +35,9 @@ struct RpcProxy {
 
 impl RpcProxy {
     fn new(path: Option<String>) -> Self {
-        return Self {
-            rpc_url_path: path.unwrap_or("/".to_string()),
-        };
+        Self {
+            rpc_url_path: path.unwrap_or("/".to_owned()),
+        }
     }
 }
 
@@ -98,18 +98,17 @@ impl HttpContext for RpcProxy {
             if let Ok(body_str) = String::from_utf8(body.clone()) {
                 let read_api = FILTER.is_match(&body_str);
                 info!("Read API: {} {}", read_api, body_str);
-                if read_api {
-                    return Action::Continue;
+                return if read_api {
+                    Action::Continue
                 } else {
-                    let res = upstream_rpc_call(self, body);
-                    return match res {
-                        Ok(res) => Action::Pause,
+                    match upstream_rpc_call(self, body) {
+                        Ok(_res) => Action::Pause,
                         Err(e) => {
                             info!("Error: {:?}", e);
                             Action::Continue
                         }
-                    };
-                }
+                    }
+                };
             }
         }
         Action::Continue

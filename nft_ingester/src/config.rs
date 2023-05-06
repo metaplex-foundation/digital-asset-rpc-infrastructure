@@ -1,17 +1,17 @@
 use std::fmt::{Display, Formatter};
 
-use figment::{providers::{Env, Format, Yaml}, value::Value, Figment};
+use figment::{
+    providers::{Env, Format, Yaml},
+    value::Value,
+    Figment,
+};
 use plerkle_messenger::MessengerConfig;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 use tracing_subscriber::fmt;
 
-use crate::{
-    error::IngesterError,
-    tasks::BackgroundTaskRunnerConfig,
-};
+use crate::{error::IngesterError, tasks::BackgroundTaskRunnerConfig};
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
@@ -81,19 +81,13 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 pub const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Default)]
 pub enum IngesterRole {
+    #[default]
     All,
     Backfiller,
     BackgroundTaskRunner,
     Ingester,
-}
-
-impl Default for IngesterRole {
-    fn default() -> Self {
-        IngesterRole::All
-    }
 }
 
 impl Display for IngesterRole {
@@ -116,15 +110,13 @@ pub fn rand_string() -> String {
 }
 
 pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
-    let mut figment = Figment::new()
-        .join(Env::prefixed("INGESTER_"));
+    let mut figment = Figment::new().join(Env::prefixed("INGESTER_"));
 
     if let Some(config_file) = config_file {
         figment = figment.join(Yaml::file(config_file));
     }
 
-    let mut config: IngesterConfig = 
-        figment
+    let mut config: IngesterConfig = figment
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),
@@ -135,9 +127,7 @@ pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
 }
 
 pub fn init_logger() {
-    let env_filter = env::var("RUST_LOG")
-        .or::<Result<String, ()>>(Ok("info".to_string()))
-        .unwrap();
+    let env_filter = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_owned());
     let t = tracing_subscriber::fmt().with_env_filter(env_filter);
     t.event_format(fmt::format::json()).init();
 }

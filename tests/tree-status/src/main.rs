@@ -45,6 +45,7 @@ struct MaxSeqItem {
     cnt_seq: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, FromQueryResult, Clone)]
 struct MissingSeq {
     missing_seq: i64,

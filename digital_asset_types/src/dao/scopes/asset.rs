@@ -5,7 +5,7 @@ use crate::dao::{
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
 use std::collections::BTreeMap;
 
-pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
+pub fn paginate<T>(pagination: &Pagination, limit: u64, stmt: T) -> T
 where
     T: QueryFilter + QuerySelect,
 {
@@ -226,7 +226,7 @@ pub async fn get_related_for_assets(
         }
     }
 
-    Ok(assets_map.into_iter().map(|(_, v)| v).collect())
+    Ok(assets_map.into_values().collect())
 }
 
 pub async fn get_assets_by_condition(

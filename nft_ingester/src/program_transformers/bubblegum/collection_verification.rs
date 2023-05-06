@@ -5,10 +5,8 @@ use blockbuster::{
 use digital_asset_types::dao::{asset, asset_grouping};
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set, Unchanged};
 
-use crate::{
-    error::IngesterError,
-};
-use super::{update_asset, save_changelog_event};
+use super::{save_changelog_event, update_asset};
+use crate::error::IngesterError;
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
@@ -69,8 +67,7 @@ where
                     }
                 }
                 id_bytes
-            }
-            _ => return Err(IngesterError::NotImplemented),
+            } // _ => return Err(IngesterError::NotImplemented),
         };
 
         return Ok(());

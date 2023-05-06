@@ -29,7 +29,7 @@ pub fn ack_worker<T: Messenger>(
                             }
                             let len = acks.len();
                             for (stream, msgs)  in acks.iter_mut() {
-                                if let Err(e) = msg.ack_msg(&stream, &msgs).await {
+                                if let Err(e) = msg.ack_msg(stream, msgs).await {
                                     error!("Error acking message: {}", e);
                                 }
                                 metric! {

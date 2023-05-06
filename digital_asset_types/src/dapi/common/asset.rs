@@ -1,7 +1,7 @@
 use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::FullAsset;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::FullAsset;
 
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::response::{AssetError, AssetList};
@@ -18,10 +18,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 
-use log::{debug, info, warn};
+use log::warn;
 
 pub fn to_uri(uri: String) -> Option<Url> {
-    Url::parse(&*uri).ok()
+    Url::parse(&uri).ok()
 }
 
 pub fn get_mime(url: Url) -> Option<Mime> {
@@ -30,7 +30,9 @@ pub fn get_mime(url: Url) -> Option<Mime> {
 
 pub fn get_mime_type_from_uri(uri: String) -> String {
     let default_mime_type = "image/png".to_string();
-    to_uri(uri).and_then(get_mime).map_or(default_mime_type, |m| m.to_string())
+    to_uri(uri)
+        .and_then(get_mime)
+        .map_or(default_mime_type, |m| m.to_string())
 }
 
 pub fn file_from_str(str: String) -> File {
@@ -88,10 +90,7 @@ pub fn create_pagination(
     page: Option<u64>,
 ) -> Result<Pagination, DbErr> {
     match (&before, &after, &page) {
-        (_, _, None) => Ok(Pagination::Keyset {
-            before: before.map(|x| x.into()),
-            after: after.map(|x| x.into()),
-        }),
+        (_, _, None) => Ok(Pagination::Keyset { before, after }),
         (None, None, Some(p)) => Ok(Pagination::Page { page: *p }),
         _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
     }
@@ -103,8 +102,7 @@ pub fn track_top_level_file(
 ) {
     if top_level_file.is_some() {
         let img = top_level_file.and_then(|x| x.as_str());
-        if img.is_some() {
-            let img = img.unwrap();
+        if let Some(img) = img {
             let entry = file_map.get(img);
             if entry.is_none() {
                 file_map.insert(img.to_string(), file_from_str(img.to_string()));
@@ -158,64 +156,60 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     });
     let _metadata = safe_select(selector, "description");
     let mut actual_files: HashMap<String, File> = HashMap::new();
-    selector("$.properties.files[*]")
+    if let Some(files) = selector("$.properties.files[*]")
         .ok()
         .filter(|d| !Vec::is_empty(d))
-        .map(|files| {
-            for v in files.iter() {
-                if v.is_object() {
-                    // Some assets don't follow the standard and specifiy 'url' instead of 'uri'
-                    let mut uri = v.get("uri");
-                    if uri.is_none() {
-                        uri = v.get("url");
-                    }
-                    let mime_type = v.get("type");
-                    match (uri, mime_type) {
-                        (Some(u), Some(m)) => {
-                            if let Some(str_uri) = u.as_str() {
-                                let file = 
-                                    if let Some(str_mime) = m.as_str() {
-                                        File {
-                                             uri: Some(str_uri.to_string()),
-                                             mime: Some(str_mime.to_string()),
-                                             quality: None,
-                                             contexts: None,
-                                        }
-                                    } else {
-                                        warn!("Mime is not string: {:?}", m); 
-                                        file_from_str(str_uri.to_string())
-                                    };
-                                actual_files.insert(
-                                   str_uri.to_string().clone(),
-                                   file,
-                                );
-                            } else {
-                                warn!("URI is not string: {:?}", u);
-                            }     
-                           /*  let str_uri = u.as_str().unwrap_or("").to_string();
-                            let str_mime = m.as_str().unwrap_or("").to_string();
-                            actual_files.insert(
-                                str_uri.clone(),
+    {
+        for v in files.iter() {
+            if v.is_object() {
+                // Some assets don't follow the standard and specifiy 'url' instead of 'uri'
+                let mut uri = v.get("uri");
+                if uri.is_none() {
+                    uri = v.get("url");
+                }
+                let mime_type = v.get("type");
+                match (uri, mime_type) {
+                    (Some(u), Some(m)) => {
+                        if let Some(str_uri) = u.as_str() {
+                            let file = if let Some(str_mime) = m.as_str() {
                                 File {
-                                    uri: Some(str_uri),
-                                    mime: Some(str_mime),
+                                    uri: Some(str_uri.to_string()),
+                                    mime: Some(str_mime.to_string()),
                                     quality: None,
                                     contexts: None,
-                                },
-                            );*/
+                                }
+                            } else {
+                                warn!("Mime is not string: {:?}", m);
+                                file_from_str(str_uri.to_string())
+                            };
+                            actual_files.insert(str_uri.to_string().clone(), file);
+                        } else {
+                            warn!("URI is not string: {:?}", u);
                         }
-                        (Some(u), None) => {
-                            let str_uri = serde_json::to_string(u).unwrap_or_else(|_|String::new());
-                            actual_files.insert(str_uri.clone(), file_from_str(str_uri));
-                        }
-                        _ => {}
+                        /*  let str_uri = u.as_str().unwrap_or("").to_string();
+                        let str_mime = m.as_str().unwrap_or("").to_string();
+                        actual_files.insert(
+                            str_uri.clone(),
+                            File {
+                                uri: Some(str_uri),
+                                mime: Some(str_mime),
+                                quality: None,
+                                contexts: None,
+                            },
+                        );*/
                     }
-                } else if v.is_string() {
-                    let str_uri = v.as_str().unwrap().to_string();
-                    actual_files.insert(str_uri.clone(), file_from_str(str_uri));
+                    (Some(u), None) => {
+                        let str_uri = serde_json::to_string(u).unwrap_or_else(|_| String::new());
+                        actual_files.insert(str_uri.clone(), file_from_str(str_uri));
+                    }
+                    _ => {}
                 }
+            } else if v.is_string() {
+                let str_uri = v.as_str().unwrap().to_string();
+                actual_files.insert(str_uri.clone(), file_from_str(str_uri));
             }
-        });
+        }
+    }
 
     track_top_level_file(&mut actual_files, image);
     track_top_level_file(&mut actual_files, animation);
@@ -348,7 +342,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         },
         supply: match interface {
             Interface::V1NFT => Some(Supply {
-                edition_nonce: edition_nonce,
+                edition_nonce,
                 print_current_supply: 0,
                 print_max_supply: 0,
             }),

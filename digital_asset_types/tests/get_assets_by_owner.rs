@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod common;
 
 use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
@@ -62,7 +61,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -115,7 +114,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -175,7 +174,7 @@ async fn get_assets_by_owner() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,

@@ -4,7 +4,7 @@ mod config;
 mod error;
 mod validation;
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use {
     crate::api::DasApi,
     crate::builder::RpcApiBuilder,
@@ -17,7 +17,7 @@ use {
     std::net::UdpSocket,
 };
 
-use hyper::{http, Method};
+use hyper::Method;
 use log::{debug, info};
 use tower_http::cors::{Any, CorsLayer};
 
@@ -97,17 +97,17 @@ impl Logger for MetricMiddleware {
         &self,
         method_name: &str,
         params: jsonrpsee::types::Params,
-        kind: jsonrpsee::server::logger::MethodKind,
-        transport: TransportProtocol,
+        _kind: jsonrpsee::server::logger::MethodKind,
+        _transport: TransportProtocol,
     ) {
         debug!("Call: {} {:?}", method_name, params);
     }
 
-    fn on_response(&self, result: &str, started_at: Self::Instant, transport: TransportProtocol) {
+    fn on_response(&self, result: &str, _started_at: Self::Instant, _transport: TransportProtocol) {
         debug!("Response: {}", result);
     }
 
-    fn on_disconnect(&self, remote_addr: SocketAddr, transport: TransportProtocol) {
+    fn on_disconnect(&self, remote_addr: SocketAddr, _transport: TransportProtocol) {
         debug!("Disconnecting from {}", remote_addr);
     }
 }

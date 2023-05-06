@@ -22,7 +22,6 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
     DbErr, EntityTrait, JsonValue,
 };
-use std::collections::HashSet;
 
 use crate::tasks::{DownloadMetadata, IntoTaskData};
 

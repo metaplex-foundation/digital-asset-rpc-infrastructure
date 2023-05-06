@@ -27,6 +27,7 @@ pub enum Interface {
     #[serde(rename = "V1_PRINT")]
     V1PRINT,
     #[serde(rename = "LEGACY_NFT")]
+    #[allow(non_camel_case_types)]
     LEGACY_NFT,
     #[serde(rename = "V2_NFT")]
     Nft,
@@ -56,9 +57,9 @@ impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
     }
 }
 
-impl Into<(SpecificationVersions, SpecificationAssetClass)> for Interface {
-    fn into(self) -> (SpecificationVersions, SpecificationAssetClass) {
-        match self {
+impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
+    fn from(val: Interface) -> Self {
+        match val {
             Interface::V1NFT => (SpecificationVersions::V1, SpecificationAssetClass::Nft),
             Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
             Interface::ProgrammableNFT => (
@@ -115,12 +116,12 @@ pub struct File {
 
 pub type Files = Vec<File>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(PartialEq, Eq, Debug, Default, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
 impl MetadataMap {
     pub fn new() -> Self {
-        Self(BTreeMap::new())
+        Self::default()
     }
 
     pub fn inner(&self) -> &BTreeMap<String, serde_json::Value> {

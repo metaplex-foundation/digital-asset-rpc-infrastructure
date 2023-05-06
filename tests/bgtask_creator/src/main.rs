@@ -1,36 +1,26 @@
-use tokio::task::JoinSet;
-use digital_asset_types::dao::{asset_data, tasks};
-
-use log::{info, debug};
-
-use nft_ingester::{
-    tasks::{BgTask, DownloadMetadata, IntoTaskData, DownloadMetadataTask, TaskManager},
-    config::{init_logger, setup_config},
-    database::setup_database,
-    metrics::setup_metrics,
-    config::rand_string,
-    error::IngesterError,
+use {
+    clap::{value_parser, Arg, ArgAction, Command},
+    digital_asset_types::dao::{asset_data, tasks},
+    futures::TryStreamExt,
+    log::{debug, info},
+    nft_ingester::{
+        config::rand_string,
+        config::{init_logger, setup_config},
+        database::setup_database,
+        error::IngesterError,
+        metrics::setup_metrics,
+        tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
+    },
+    sea_orm::{entity::*, query::*, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector},
+    sqlx::types::chrono::Utc,
+    std::{path::PathBuf, time},
+    tokio::task::JoinSet,
 };
-
-use std::{
-    path::PathBuf,
-    time
-};
-
-use futures::TryStreamExt;
-
-use sea_orm::{
-    entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
-};
-
-use clap::{Arg, ArgAction, Command, value_parser};
-
-use sqlx::types::chrono::Utc;
 
 /**
  * The bgtask creator is intended to be use as a tool to handle assets that have not been indexed.
  * It will delete all the current bgtasks and create new ones for assets where the metadata is missing.
- * 
+ *
  * Currently it will try every missing asset every run.
  */
 
@@ -47,14 +37,14 @@ pub async fn main() {
                 .help("Sets a custom config file")
                 .required(false)
                 .action(ArgAction::Set)
-                .value_parser(value_parser!(PathBuf))
+                .value_parser(value_parser!(PathBuf)),
         )
         .arg(
             Arg::new("delete")
                 .long("delete")
                 .short('d')
                 .help("Delete all existing tasks before creating new ones.")
-                .required(false)
+                .required(false),
         )
         .arg(
             Arg::new("batch_size")
@@ -64,7 +54,7 @@ pub async fn main() {
                 .required(false)
                 .action(ArgAction::Set)
                 .value_parser(value_parser!(u64))
-                .default_value("1000")
+                .default_value("1000"),
         )
         .get_matches();
 
@@ -86,16 +76,21 @@ pub async fn main() {
     let mut tasks = JoinSet::new();
 
     //Setup definitions for background tasks
-    let task_runner_config = config.background_task_runner_config.clone().unwrap_or_default();
+    let task_runner_config = config
+        .background_task_runner_config
+        .clone()
+        .unwrap_or_default();
     let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {
         lock_duration: task_runner_config.lock_duration,
         max_attempts: task_runner_config.max_attempts,
-        timeout: Some(time::Duration::from_secs(task_runner_config.timeout.unwrap_or(3))),
+        timeout: Some(time::Duration::from_secs(
+            task_runner_config.timeout.unwrap_or(3),
+        )),
     })];
 
     let mut background_task_manager =
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
-        
+
     // This is how we send new bg tasks
     let bg_task_listener = background_task_manager.start_listener(false);
     tasks.spawn(bg_task_listener);
@@ -110,10 +105,10 @@ pub async fn main() {
 
         // Delete all existing tasks
         let deleted_tasks: Result<DeleteResult, IngesterError> = tasks::Entity::delete_many()
-                .exec(&conn)
-                .await
-                .map_err(|e| e.into());
-        
+            .exec(&conn)
+            .await
+            .map_err(|e| e.into());
+
         match deleted_tasks {
             Ok(result) => {
                 info!("Deleted a number of tasks {}", result.rows_affected);
@@ -126,31 +121,34 @@ pub async fn main() {
 
     let batch_size = matches.get_one::<u64>("batch_size").unwrap();
 
-    info!("Creating new tasks for assets with missing metadata, batch size={}", batch_size);
+    info!(
+        "Creating new tasks for assets with missing metadata, batch size={}",
+        batch_size
+    );
 
     // Find all the assets with missing metadata
     let mut asset_data_missing = asset_data::Entity::find()
         .filter(
             Condition::all()
-                .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+                .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string()))),
         )
         .order_by(asset_data::Column::Id, Order::Asc)
         .paginate(&conn, *batch_size)
         .into_stream();
 
     while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
-            info!("Found {} assets", assets.len());
-            for asset in assets {
-                let mut task = DownloadMetadata {
-                    asset_data_id: asset.id,
-                    uri: asset.metadata_url,
-                    created_at: Some(Utc::now().naive_utc()),
-                };
+        info!("Found {} assets", assets.len());
+        for asset in assets {
+            let mut task = DownloadMetadata {
+                asset_data_id: asset.id,
+                uri: asset.metadata_url,
+                created_at: Some(Utc::now().naive_utc()),
+            };
 
-                debug!("Print task {}", task);
-                task.sanitize();
-                let task_data = task.into_task_data().unwrap();
-                bg_task_sender.send(task_data);
-            }
+            debug!("Print task {}", task);
+            task.sanitize();
+            let task_data = task.into_task_data().unwrap();
+            let _ = bg_task_sender.send(task_data);
+        }
     }
 }

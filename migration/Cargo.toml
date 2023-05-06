@@ -9,22 +9,15 @@ name = "migration"
 path = "src/lib.rs"
 
 [dependencies]
-async-std = { version = "^1", features = ["attributes", "tokio1", ] }
+async-std = { version = "^1", features = ["attributes", "tokio1"] }
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
 enum-iterator = "1.2.0"
-enum-iterator-derive = "1.1.0"
-
-[dependencies.sea-orm-migration]
-version = "0.10.6"
-features = [
-    "runtime-tokio-rustls",
-    "sqlx-postgres",
-]
+sea-orm-migration = { version = "0.10.6", features = ["runtime-tokio-rustls", "sqlx-postgres"] }
 
 [patch.crates-io]
-blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
-anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
-mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}
+anchor-lang = { git = "https://github.com/metaplex-foundation/anchor" }
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch = "1.14" }
+mpl-bubblegum = { git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "update-deps" }
+mpl-candy-guard = { git = "https://github.com/metaplex-foundation/mpl-candy-guard", branch = "update-deps" }
+mpl-candy-machine-core = { git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "update-deps" }
+mpl-token-metadata = { git = "https://github.com/metaplex-foundation/metaplex-program-library", branch = "update-deps" }

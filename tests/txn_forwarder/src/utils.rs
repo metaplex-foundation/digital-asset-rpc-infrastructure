@@ -1,19 +1,21 @@
-use solana_client::{
-    nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
-};
-use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use std::{
-    str::FromStr,
+use {
+    solana_client::{
+        nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
+    },
+    solana_sdk::{pubkey::Pubkey, signature::Signature},
+    std::{
+        pin::Pin,
+        str::FromStr,
+        task::{Context, Poll},
+    },
+    tokio::{
+        sync::mpsc::{self, UnboundedReceiver},
+        task::JoinHandle,
+    },
+    tokio_stream::Stream,
 };
 
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use tokio::{
-    sync::mpsc::{self, UnboundedReceiver},
-    task::JoinHandle,
-};
-use tokio_stream::Stream;
-
+#[allow(clippy::type_complexity)]
 pub fn find_sigs(
     address: Pubkey,
     client: RpcClient,
@@ -52,11 +54,13 @@ pub fn find_sigs(
     Ok((jh, rx))
 }
 
+#[allow(dead_code)]
 pub struct Siggrabbenheimer {
     address: Pubkey,
     handle: Option<JoinHandle<Result<(), String>>>,
     chan: UnboundedReceiver<String>,
 }
+
 impl Siggrabbenheimer {
     pub fn new(client: RpcClient, address: Pubkey, failed: bool) -> Self {
         let (handle, chan) = find_sigs(address, client, failed).unwrap();

@@ -1,7 +1,5 @@
-use crate::{
-    error::IngesterError,
-};
-use super::{update_asset, save_changelog_event};
+use super::{save_changelog_event, update_asset};
+use crate::error::IngesterError;
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema},
@@ -42,8 +40,7 @@ where
                     ..Default::default()
                 };
                 update_asset(txn, id_bytes, Some(seq), asset_to_update).await
-            }
-            _ => Err(IngesterError::NotImplemented),
+            } // _ => Err(IngesterError::NotImplemented),
         };
     }
     Err(IngesterError::ParsingError(

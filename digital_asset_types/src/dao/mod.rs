@@ -2,6 +2,8 @@ mod full_asset;
 mod generated;
 pub mod scopes;
 pub use full_asset::*;
+#[allow(clippy::useless_attribute)]
+#[allow(ambiguous_glob_reexports)]
 pub use generated::*;
 
 use self::sea_orm_active_enums::{
@@ -194,7 +196,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(a) = self.authority_address.to_owned() {
-            conditions = conditions.add(asset_authority::Column::Authority.eq(a.clone()));
+            conditions = conditions.add(asset_authority::Column::Authority.eq(a));
             let rel = asset_authority::Relation::Asset
                 .def()
                 .rev()

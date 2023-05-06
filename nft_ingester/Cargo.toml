@@ -2,63 +2,45 @@
 name = "nft_ingester"
 version = "0.7.1"
 edition = "2021"
+publish = false
 
 [dependencies]
-hex = "0.4.3"
-log = "0.4.17"
-env_logger = "0.10.0"
-redis = { version = "0.22.3", features = ["aio", "tokio-comp", "streams", "tokio-native-tls-comp"] }
-futures = {version = "0.3.25"}
-futures-util = "0.3.27"
-base64 = "0.21.0"
-thiserror = "1.0.31"
-serde_json = "1.0.81"
-tokio = { version = "1.26.0", features = ["full", "tracing"] }
-sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
-sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
-sea-query = { version = "0.28.1", features = ["postgres-array"] }
-chrono = "0.4.19"
-tokio-postgres = "0.7.7"
-serde = "1.0.136"
-bs58 = "0.4.0"
-reqwest = "0.11.11"
-plerkle_messenger = { version = "1.5.2", features = ['redis'] }
-plerkle_serialization = { version = "1.5.2" }
-flatbuffers = "23.1.21"
-lazy_static = "1.4.0"
-regex = "1.5.5"
-digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = "0.7.0"
-spl-account-compression = "0.1.8"
-spl-concurrent-merkle-tree = "0.1.3"
-uuid = "1.0.0"
 async-trait = "0.1.53"
-num-traits = "0.2.15"
-blockbuster = { version = "0.7.3" }
-figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
+base64 = "0.21.0"
+blockbuster = "0.7.3"
+borsh = "0.9.1"
+bs58 = "0.4.0"
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-sdk = "~1.14"
-solana-client = "~1.14"
-spl-token = { version = "3.5.0", features = ["no-entrypoint"] }
-solana-transaction-status = "~1.14"
-solana-account-decoder = "~1.14"
-solana-geyser-plugin-interface = { version = "~1.14" }
-solana-sdk-macro = "~1.14"
-rand = "0.8.5"
-rust-crypto = "0.2.36"
-url="2.3.1"
-anchor-lang = "=0.26.0"
-borsh = "0.9.1"
-stretto = { version = "0.7", features = ["async"] }
-tokio-stream = "0.1.12"
-tracing-subscriber = { version = "0.3.16", features = [
-  "json",
-  "env-filter",
-  "ansi",
-] }
+chrono = "0.4.19"
 clap = { version = "4.2.2", features = ["derive", "cargo"] }
-
-[dependencies.num-integer] 
-version = "0.1.44"
-default-features = false
+digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
+env_logger = "0.10.0"
+figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
+flatbuffers = "23.1.21"
+futures = "0.3.25"
+hex = "0.4.3"
+log = "0.4.17"
+mpl-bubblegum = "0.7.0"
+num-traits = "0.2.15"
+plerkle_messenger = { version = "1.5.2", features = ["redis"] }
+plerkle_serialization = "1.5.2"
+rand = "0.8.5"
+reqwest = "0.11.11"
+rust-crypto = "0.2.36"
+sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+serde = "1.0.136"
+serde_json = "1.0.81"
+solana-account-decoder = "~1.14"
+solana-client = "~1.14"
+solana-sdk = "~1.14"
+solana-transaction-status = "~1.14"
+spl-account-compression = "0.1.8"
+spl-token = { version = "3.5.0", features = ["no-entrypoint"] }
+sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+stretto = { version = "0.7", features = ["async"] }
+thiserror = "1.0.31"
+tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
+tokio-postgres = "0.7.7"
+tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter", "ansi"] }
+url = "2.3.1"

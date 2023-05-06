@@ -1,4 +1,3 @@
-#[cfg(test)]
 mod common;
 
 use sea_orm::{
@@ -65,7 +64,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -118,7 +117,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -178,7 +177,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
         false,
         None,
         SpecificationVersions::V1,
-        0 as i64,
+        0,
         None,
         RoyaltyTargetType::Creators,
         None,

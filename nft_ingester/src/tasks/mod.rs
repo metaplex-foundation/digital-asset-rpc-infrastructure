@@ -4,11 +4,12 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{debug, info, error, warn};
+use log::{debug, error, info, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DeleteResult, SqlxPostgresConnector,
 };
+use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -16,7 +17,6 @@ use tokio::{
     task::JoinHandle,
     time,
 };
-use serde::Deserialize;
 
 mod common;
 pub use common::*;
@@ -102,6 +102,7 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
+    #[allow(clippy::borrowed_box)]
     async fn execute_task(
         db: &DatabaseConnection,
         task_def: &Box<dyn BgTask>,
@@ -123,7 +124,7 @@ impl TaskManager {
         }?;
 
         let start = Utc::now();
-        let res = task_def.task(&db, *data_json).await;
+        let res = task_def.task(db, *data_json).await;
         let end = Utc::now();
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
@@ -147,7 +148,7 @@ impl TaskManager {
                     IngesterError::UnrecoverableTaskError(_) => {
                         task.attempts = Set(task_def.max_attempts() + 1);
                         task.locked_by = Set(Some("permanent failure".to_string()));
-                    },
+                    }
                     _ => {
                         task.locked_by = Set(None);
                     }
@@ -163,29 +164,29 @@ impl TaskManager {
                         metric! {
                             statsd_count!("ingester.bgtask.network_error", 1, "type" => task_name);
                         }
-                        warn!("Task failed due to network error: {}",  e);
-                    },
+                        warn!("Task failed due to network error: {}", e);
+                    }
                     IngesterError::HttpError { ref status_code } => {
                         metric! {
-                            statsd_count!("ingester.bgtask.http_error", 1, 
-                                "status" => &status_code,
+                            statsd_count!("ingester.bgtask.http_error", 1,
+                                "status" => status_code,
                                 "type" => task_name);
                         }
-                        warn!("Task failed due to HTTP error: {}",  e);
-                    },
+                        warn!("Task failed due to HTTP error: {}", e);
+                    }
                     IngesterError::UnrecoverableTaskError(_) => {
                         // Unrecoverable errors are always going to be off-chain parsing failures at the moment.
                         // We can't do anything about malformed JSONs.
                         metric! {
                             statsd_count!("ingester.bgtask.unrecoverable_error", 1, "type" => task_name);
                         }
-                        warn!("{}",  e);
-                    },
+                        warn!("{}", e);
+                    }
                     _ => {
                         metric! {
                             statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
                         }
-                        error!("Task Run Error: {}",  e);
+                        error!("Task Run Error: {}", e);
                     }
                 }
             }
@@ -287,8 +288,14 @@ impl TaskManager {
         })
     }
 
-    pub async fn purge_old_tasks(conn: &DatabaseConnection, task_max_age: time::Duration) -> Result<DeleteResult, IngesterError> {
-        let interval = format!("NOW() - created_at::timestamp > interval '{} seconds'", task_max_age.as_secs());
+    pub async fn purge_old_tasks(
+        conn: &DatabaseConnection,
+        task_max_age: time::Duration,
+    ) -> Result<DeleteResult, IngesterError> {
+        let interval = format!(
+            "NOW() - created_at::timestamp > interval '{} seconds'",
+            task_max_age.as_secs()
+        );
         let cod = Expr::cust(&interval);
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
@@ -339,7 +346,7 @@ impl TaskManager {
                         continue;
                     }
                     metric! {
-                        statsd_count!("ingester.bgtask.new", 1, "type" => &task.name);
+                        statsd_count!("ingester.bgtask.new", 1, "type" => task.name);
                     }
                     TaskManager::new_task_handler(
                         pool.clone(),
@@ -364,19 +371,29 @@ impl TaskManager {
 
         let delete_interval = tokio::time::Duration::from_millis(
             config.delete_interval.unwrap_or(
-                BackgroundTaskRunnerConfig::default().delete_interval.unwrap()
-            ));
+                BackgroundTaskRunnerConfig::default()
+                    .delete_interval
+                    .unwrap(),
+            ),
+        );
 
         let retry_interval = tokio::time::Duration::from_millis(
             config.retry_interval.unwrap_or(
-                BackgroundTaskRunnerConfig::default().retry_interval.unwrap()));
+                BackgroundTaskRunnerConfig::default()
+                    .retry_interval
+                    .unwrap(),
+            ),
+        );
 
         let purge_time = tokio::time::Duration::from_secs(
-            config.purge_time.unwrap_or(
-                BackgroundTaskRunnerConfig::default().purge_time.unwrap()));
+            config
+                .purge_time
+                .unwrap_or(BackgroundTaskRunnerConfig::default().purge_time.unwrap()),
+        );
 
-        let batch_size = config.batch_size.unwrap_or(
-            BackgroundTaskRunnerConfig::default().batch_size.unwrap());
+        let batch_size = config
+            .batch_size
+            .unwrap_or(BackgroundTaskRunnerConfig::default().batch_size.unwrap());
 
         // Loop to purge tasks
         let pool = self.pool.clone();
@@ -444,7 +461,7 @@ impl TaskManager {
                                         active_model,
                                     )
                                     .await?;
-                                    
+
                                     // Save any updates to the atsk from the execute_task function
                                     TaskManager::save_task(&conn, model).await?;
                                     return Ok(());

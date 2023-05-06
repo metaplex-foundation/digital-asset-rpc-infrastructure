@@ -1,10 +1,7 @@
-use std::{
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
-    metric, metrics::capture_result,
-    program_transformers::ProgramTransformer, tasks::TaskData,
+    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
@@ -50,14 +47,12 @@ pub fn account_worker<T: Messenger>(
                     }
                 }
                 while let Some(res) = tasks.join_next().await {
-                    if let Ok(id) = res {
-                        if let Some(id) = id {
-                            let send = ack_channel.send((ACCOUNT_STREAM, id));
-                            if let Err(err) = send {
-                                metric! {
-                                    error!("Account stream ack error: {}", err);
-                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
-                                }
+                    if let Ok(Some(id)) = res {
+                        let send = ack_channel.send((ACCOUNT_STREAM, id));
+                        if let Err(err) = send {
+                            metric! {
+                                error!("Account stream ack error: {}", err);
+                                statsd_count!("ingester.stream.ack_error", 1, "stream" => ACCOUNT_STREAM);
                             }
                         }
                     }

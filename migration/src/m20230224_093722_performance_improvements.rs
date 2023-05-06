@@ -1,4 +1,3 @@
-use digital_asset_types::dao::token_accounts;
 use sea_orm_migration::{
     prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
@@ -135,7 +134,7 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 }

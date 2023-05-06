@@ -2,11 +2,12 @@ mod master_edition;
 mod v1_asset;
 
 use crate::{
+    error::IngesterError,
     program_transformers::token_metadata::{
         master_edition::{save_v1_master_edition, save_v2_master_edition},
         v1_asset::{burn_v1_asset, save_v1_asset},
     },
-    error::IngesterError, tasks::TaskData,
+    tasks::TaskData,
 };
 use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
 use plerkle_serialization::AccountInfo;

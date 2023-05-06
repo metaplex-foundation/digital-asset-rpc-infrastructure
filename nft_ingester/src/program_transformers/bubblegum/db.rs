@@ -1,9 +1,8 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
-use log::{info, debug};
+use log::{debug, info};
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr,
-    EntityTrait,
+    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
 

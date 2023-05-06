@@ -26,10 +26,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::Some(d) => Some(d.to_bytes().to_vec()),
                 COption::None => None,
             };
-            let frozen = match ta.state {
-                AccountState::Frozen => true,
-                _ => false,
-            };
+            let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),

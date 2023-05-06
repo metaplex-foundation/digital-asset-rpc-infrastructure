@@ -1,6 +1,6 @@
+use log::debug;
 use sea_orm::sea_query::Expr;
 use sea_orm::{DatabaseConnection, DbBackend};
-use log::debug;
 use {
     crate::dao::asset,
     crate::dao::cl_items,
@@ -120,5 +120,5 @@ pub fn get_required_nodes_for_proof(index: i64) -> Vec<i64> {
         idx >>= 1
     }
     indexes.push(1);
-    return indexes;
+    indexes
 }

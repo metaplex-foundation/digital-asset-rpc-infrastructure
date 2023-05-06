@@ -1,16 +1,17 @@
-use std::str::FromStr;
-
-use clap::Parser;
-
-use figment::{map, value::Value};
-use mpl_token_metadata::pda::find_metadata_account;
-use plerkle_messenger::MessengerConfig;
-use plerkle_serialization::{
-    serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
+use {
+    clap::Parser,
+    figment::{map, value::Value},
+    mpl_token_metadata::pda::find_metadata_account,
+    plerkle_messenger::MessengerConfig,
+    plerkle_serialization::{
+        serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
+    },
+    serde_json::json,
+    solana_client::nonblocking::rpc_client::RpcClient,
+    solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey},
+    std::str::FromStr,
 };
-use serde_json::json;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
+
 #[derive(Parser)]
 #[command(next_line_help = true)]
 struct Cli {
@@ -21,6 +22,7 @@ struct Cli {
     #[command(subcommand)]
     action: Action,
 }
+
 #[derive(clap::Subcommand, Clone)]
 enum Action {
     Single {
@@ -112,7 +114,7 @@ pub async fn get_token_account(endpoint: &str, mint: &str) -> String {
         .unwrap();
     result["result"]["value"][0]["address"]
         .as_str()
-        .unwrap_or_else(|| "")
+        .unwrap_or("")
         .to_string()
 }
 pub async fn send_account(
