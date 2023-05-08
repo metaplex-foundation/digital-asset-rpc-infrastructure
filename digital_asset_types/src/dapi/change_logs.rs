@@ -66,16 +66,14 @@ pub async fn get_proof_for_asset(
             .map(|q| SimpleChangeLog::from_query_result(q, "").unwrap())
             .collect()
     })?;
-    if nodes.len() != expected_proof_size {
-        for node in nodes.iter() {
-            if node.level < final_node_list.len().try_into().unwrap() {
-                final_node_list[node.level as usize] = node.to_owned();
-            }
+    for node in nodes.iter() {
+        if node.level < final_node_list.len().try_into().unwrap() {
+            final_node_list[node.level as usize] = node.to_owned();
         }
-        for (i, (n, nin)) in final_node_list.iter_mut().zip(req_indexes).enumerate() {
-            if *n == SimpleChangeLog::default() {
-                *n = make_empty_node(i as i64, nin);
-            }
+    }
+    for (i, (n, nin)) in final_node_list.iter_mut().zip(req_indexes).enumerate() {
+        if *n == SimpleChangeLog::default() {
+            *n = make_empty_node(i as i64, nin);
         }
     }
     for n in final_node_list.iter() {
