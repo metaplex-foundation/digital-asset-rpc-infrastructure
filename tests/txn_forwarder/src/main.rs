@@ -9,11 +9,8 @@ use {
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     std::{str::FromStr, sync::Arc},
     tokio::sync::Mutex,
-    tokio_stream::StreamExt,
-    utils::Siggrabbenheimer,
+    txn_forwarder::find_signatures,
 };
-
-mod utils;
 
 #[derive(Parser)]
 #[command(next_line_help = true)]
@@ -76,18 +73,11 @@ async fn main() {
     match cmd {
         Action::Single { txn } => send_txn(&txn, &client, cli.max_retries, messenger).await,
         Action::Address {
-            include_failed,
+            include_failed: _include_failed,
             address,
         } => {
             println!("Sending address");
-            send_address(
-                &address,
-                cli.rpc_url,
-                messenger,
-                include_failed.unwrap_or(false),
-                cli.max_retries,
-            )
-            .await;
+            send_address(&address, cli.rpc_url, messenger, cli.max_retries).await;
         }
         Action::Scenario { scenario_file } => {
             let scenario = std::fs::read_to_string(scenario_file).unwrap();
@@ -111,21 +101,21 @@ pub async fn send_address(
     address: &str,
     client_url: String,
     messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
-    failed: bool,
     max_retries: u8,
 ) {
     let client1 = RpcClient::new(client_url.clone());
     let pub_addr = Pubkey::from_str(address).unwrap();
     // This takes a param failed but it excludes all failed TXs
-    let mut sig = Siggrabbenheimer::new(client1, pub_addr, failed);
+    let mut sig = find_signatures(pub_addr, client1, 2_000);
     let mut tasks = Vec::new();
-    while let Some(s) = sig.next().await {
+    while let Some(s) = sig.recv().await {
+        let s = s.unwrap();
         let client_url = client_url.clone();
         let messenger = Arc::clone(&messenger);
         tasks.push(tokio::spawn(async move {
             let client2 = RpcClient::new(client_url.clone());
             let messenger = Arc::clone(&messenger);
-            send_txn(&s, &client2, max_retries, messenger).await;
+            send_txn(&s.to_string(), &client2, max_retries, messenger).await;
         }))
     }
     for task in tasks {

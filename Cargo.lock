@@ -4513,25 +4513,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
 
 [[package]]
-name = "show-tree"
-version = "0.6.9"
-dependencies = [
- "anchor-client",
- "async-recursion",
- "bs58 0.4.0",
- "clap 4.2.7",
- "solana-client",
- "solana-sdk",
- "solana-transaction-status",
- "spl-account-compression",
- "spl-noop",
- "thiserror",
- "tokio",
- "tokio-stream",
- "txn_forwarder",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5913,11 +5894,11 @@ version = "0.1.0"
 dependencies = [
  "anchor-client",
  "anyhow",
- "async-recursion",
  "bs58 0.4.0",
  "clap 4.2.7",
  "digital_asset_types",
  "flatbuffers",
+ "futures",
  "hex",
  "sea-orm",
  "solana-client",
@@ -5928,7 +5909,6 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
- "tokio-stream",
  "txn_forwarder",
 ]
 
@@ -5983,8 +5963,8 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
+ "thiserror",
  "tokio",
- "tokio-stream",
 ]
 
 [[package]]
