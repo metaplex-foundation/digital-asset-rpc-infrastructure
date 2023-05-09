@@ -109,6 +109,7 @@ impl BgTask for DownloadMetadataTask {
         let model = asset_data::ActiveModel {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),
+            reindex: Set(Some(false)),
             ..Default::default()
         };
         debug!(

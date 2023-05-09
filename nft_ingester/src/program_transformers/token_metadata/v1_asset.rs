@@ -147,6 +147,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         metadata: Set(JsonValue::String("processing".to_string())),
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
+        reindex: Set(Some(true)),
         id: Set(id.to_vec()),
     };
     let txn = conn.begin().await?;
@@ -157,9 +158,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::ChainDataMutability,
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
-                    asset_data::Column::Metadata,
                     asset_data::Column::MetadataMutability,
                     asset_data::Column::SlotUpdated,
+                    asset_data::Column::Reindex,
                 ])
                 .to_owned(),
         )

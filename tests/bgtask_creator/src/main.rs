@@ -129,8 +129,9 @@ pub async fn main() {
     // Find all the assets with missing metadata
     let mut asset_data_missing = asset_data::Entity::find()
         .filter(
-            Condition::all()
-                .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string()))),
+            Condition::any()
+                .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+                .add(asset_data::Column::Reindex.eq(Some(true))),
         )
         .order_by(asset_data::Column::Id, Order::Asc)
         .paginate(&conn, *batch_size)
