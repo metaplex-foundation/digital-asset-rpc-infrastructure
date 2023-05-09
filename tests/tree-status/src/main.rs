@@ -24,10 +24,12 @@ use {
     },
     // solana_sdk::signature::Signature,
     // solana_transaction_status::UiTransactionEncoding,
-    spl_account_compression::state::{
-        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+    spl_account_compression::{
+        state::{
+            merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+        },
+        AccountCompressionEvent, ChangeLogEvent,
     },
-    spl_account_compression::{AccountCompressionEvent, ChangeLogEvent},
     sqlx::postgres::{PgConnectOptions, PgPoolOptions},
     std::{
         cmp,
@@ -204,7 +206,8 @@ async fn check_tree(
     let seq = get_tree_latest_seq(pubkey, client)
         .await
         .with_context(|| format!("[{pubkey}] tree is missing from chain or error occured"))?
-        as i64;
+        .try_into()
+        .unwrap();
 
     let indexed_seq = get_tree_max_seq(pubkey, conn)
         .await
@@ -345,6 +348,13 @@ async fn read_tree(
         .collect::<Vec<_>>();
     drop(print_tx);
 
+    fn print_seqs(id: usize, sig: Signature, seqs: Option<Vec<(u64, Option<i64>)>>) {
+        for (seq, leaf_idx) in seqs.unwrap_or_default() {
+            let leaf_idx = leaf_idx.map(|v| v.to_string()).unwrap_or_default();
+            println!("{seq} {leaf_idx} {sig} {id}");
+        }
+    }
+
     try_join(try_join_all(fetch_futs).map_ok(|_| ()), async move {
         let mut next_id = 0;
         let mut map = HashMap::new();
@@ -353,9 +363,7 @@ async fn read_tree(
             map.insert(id, (sig, seqs));
 
             if let Some((sig, seqs)) = map.remove(&next_id) {
-                for seq in seqs.unwrap_or_default() {
-                    println!("{seq} {sig} {next_id}");
-                }
+                print_seqs(next_id, sig, seqs);
                 next_id += 1;
             }
         }
@@ -363,9 +371,7 @@ async fn read_tree(
         let mut vec = map.into_iter().collect::<Vec<_>>();
         vec.sort_by_key(|(id, _)| *id);
         for (id, (sig, seqs)) in vec.into_iter() {
-            for seq in seqs.unwrap_or_default() {
-                println!("{seq} {sig} {id}");
-            }
+            print_seqs(id, sig, seqs);
         }
 
         Ok(())
@@ -379,7 +385,7 @@ async fn process_txn(
     sig: Signature,
     client: &RpcClient,
     mut retries: u8,
-) -> anyhow::Result<HashMap<Pubkey, Vec<u64>>> {
+) -> anyhow::Result<HashMap<Pubkey, Vec<(u64, Option<i64>)>>> {
     let mut delay = Duration::from_millis(100);
     loop {
         let config = RpcTransactionConfig {
@@ -401,10 +407,11 @@ async fn process_txn(
 }
 
 // Parse the trasnaction data
+#[allow(clippy::type_complexity)]
 fn parse_txn_sequence(
     tx: EncodedConfirmedTransactionWithStatusMeta,
-) -> Result<HashMap<Pubkey, Vec<u64>>, ParseError> {
-    let mut seq_updates = HashMap::<Pubkey, Vec<u64>>::new();
+) -> Result<HashMap<Pubkey, Vec<(u64, Option<i64>)>>, ParseError> {
+    let mut seq_updates = HashMap::<Pubkey, Vec<(u64, Option<i64>)>>::new();
 
     // Get `UiTransaction` out of `EncodedTransactionWithStatusMeta`.
     let meta: UiTransactionStatusMeta = tx.transaction.meta.ok_or(ParseError::TransactionMeta)?;
@@ -441,7 +448,16 @@ fn parse_txn_sequence(
                                 AccountCompressionEvent::try_from_slice(&data)
                             {
                                 let ChangeLogEvent::V1(cl_data) = cl_data;
-                                seq_updates.entry(cl_data.id).or_default().push(cl_data.seq);
+                                let leaf_idx = cl_data.path.get(0).map(|node| {
+                                    node_idx_to_leaf_idx(
+                                        node.index as i64,
+                                        cl_data.path.len() as u32 - 1,
+                                    )
+                                });
+                                seq_updates
+                                    .entry(cl_data.id)
+                                    .or_default()
+                                    .push((cl_data.seq, leaf_idx));
                             }
                         }
                     }
@@ -450,4 +466,8 @@ fn parse_txn_sequence(
         }
     }
     Ok(seq_updates)
+}
+
+fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
+    index - 2i64.pow(tree_height)
 }
