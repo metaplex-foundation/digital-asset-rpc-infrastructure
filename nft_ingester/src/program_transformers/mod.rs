@@ -7,9 +7,9 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
-use log::{debug, error, info};
+use log::{debug, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
-use sea_orm::{DatabaseConnection, SqlxPostgresConnector, TransactionTrait};
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};

@@ -1,7 +1,7 @@
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::sea_orm_active_enums::SpecificationVersions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{FullAsset, FullAssetList};
+use crate::dao::FullAsset;
 
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::response::{AssetError, AssetList};
@@ -12,10 +12,9 @@ use crate::rpc::{
 
 use jsonpath_lib::JsonPathError;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::DbErr;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 
