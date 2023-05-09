@@ -55,12 +55,16 @@ impl DownloadMetadataTask {
         let client = ClientBuilder::new()
             .timeout(Duration::from_secs(3))
             .build()?;
-        let val: serde_json::Value = Client::get(&client, uri) // Need to check for malicious sites ?
+        let response = Client::get(&client, uri) // Need to check for malicious sites ?
             .send()
-            .await?
-            .json()
             .await?;
-        Ok(val)
+
+        if response.status() != reqwest::StatusCode::OK {
+            Err(IngesterError::HttpError{ status_code: response.status().as_str().to_string() })
+        } else {
+            let val: serde_json::Value = response.json().await?;
+            Ok(val)
+        }
     }
 }
 
