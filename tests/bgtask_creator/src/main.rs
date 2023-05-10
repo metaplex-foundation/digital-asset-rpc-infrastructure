@@ -1,33 +1,31 @@
-use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, asset_data, asset_authority, asset_grouping, asset_creators, tokens, tasks, asset};
+use digital_asset_types::dao::{
+    asset, asset_authority, asset_creators, asset_data, asset_grouping,
+    sea_orm_active_enums::TaskStatus, tasks, tokens,
+};
 
-use log::{info, debug, error};
+use log::{debug, error, info};
 
 use nft_ingester::{
-    tasks::{BgTask, DownloadMetadata, IntoTaskData, DownloadMetadataTask, TaskManager},
+    config::rand_string,
     config::{init_logger, setup_config},
     database::setup_database,
-    metrics::setup_metrics,
-    config::rand_string,
     error::IngesterError,
+    metrics::setup_metrics,
+    tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
 };
 
-use std::{
-    path::PathBuf,
-    time
-};
+use std::{path::PathBuf, time};
 
 use futures::TryStreamExt;
 
-use sea_orm::{
-    entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
-};
+use sea_orm::{entity::*, query::*, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector};
 
-use clap::{Arg, ArgAction, Command, value_parser};
+use clap::{value_parser, Arg, ArgAction, Command};
 
 use sqlx::types::chrono::Utc;
 
 use solana_sdk::pubkey::Pubkey;
-use std::{str::FromStr, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 /**
  * The bgtask creator is intended to be use as a tool to handle assets that have not been indexed.
@@ -57,7 +55,7 @@ pub async fn main() {
                 .short('d')
                 .help("Delete all existing tasks before creating new ones.")
                 .required(false)
-                .action(clap::ArgAction::SetTrue)
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             Arg::new("batch_size")
@@ -75,7 +73,7 @@ pub async fn main() {
                 .short('a')
                 .help("Create background tasks for the given authority")
                 .required(false)
-                .action(ArgAction::Set)
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("collection")
@@ -83,7 +81,7 @@ pub async fn main() {
                 .short('o')
                 .help("Create background tasks for the given collection")
                 .required(false)
-                .action(ArgAction::Set)
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("mint")
@@ -91,7 +89,7 @@ pub async fn main() {
                 .short('m')
                 .help("Create background tasks for the given mint")
                 .required(false)
-                .action(ArgAction::Set)
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("creator")
@@ -99,19 +97,17 @@ pub async fn main() {
                 .short('r')
                 .help("Create background tasks for the given creator")
                 .required(false)
-                .action(ArgAction::Set)
+                .action(ArgAction::Set),
         )
         .subcommand(
-            Command::new("show")
-                .about("Show tasks")
-                .arg(
-                    Arg::new("print")
-                        .long("print")
-                        .short('p')
-                        .help("Print the tasks to stdout")
-                        .required(false)
-                        .action(clap::ArgAction::SetTrue)
-                )
+            Command::new("show").about("Show tasks").arg(
+                Arg::new("print")
+                    .long("print")
+                    .short('p')
+                    .help("Print the tasks to stdout")
+                    .required(false)
+                    .action(clap::ArgAction::SetTrue),
+            ),
         )
         .get_matches();
 
@@ -143,7 +139,7 @@ pub async fn main() {
     })];
     let mut bg_tasks = HashMap::new();
     for task in bg_task_definitions {
-            bg_tasks.insert(task.name().to_string(), task);
+        bg_tasks.insert(task.name().to_string(), task);
     }
     let task_map = Arc::new(bg_tasks);
 
@@ -178,116 +174,141 @@ pub async fn main() {
     let creator = matches.get_one::<String>("creator");
 
     /*
-            select ad.id from asset_data ad 
-     inner join asset_authority aa  on aa.asset_id = ad.id 
-     where  
-      aa.authority='\x0b6eeb8809df3468cbe2ee7b224e7b3291d99770811728fcdefbc180c6933157' and 
-      ad.metadata=to_jsonb('processing'::text); 
-       */
+           select ad.id from asset_data ad
+    inner join asset_authority aa  on aa.asset_id = ad.id
+    where
+     aa.authority='\x0b6eeb8809df3468cbe2ee7b224e7b3291d99770811728fcdefbc180c6933157' and
+     ad.metadata=to_jsonb('processing'::text);
+      */
 
     let all = "all".to_string();
-    let mut asset_data_missing =  if let Some(authority) = authority {
-            info!("Creating new tasks for assets with missing metadata for authority {}, batch size={}", authority, batch_size);
+    let mut asset_data_missing = if let Some(authority) = authority {
+        info!(
+            "Creating new tasks for assets with missing metadata for authority {}, batch size={}",
+            authority, batch_size
+        );
 
-            let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
-            let pubkey_bytes = pubkey.to_bytes().to_vec();
-            
-            (asset_data::Entity::find()
-                 .join_rev(
+        let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
+        let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+        (
+            asset_data::Entity::find()
+                .join_rev(
                     JoinType::InnerJoin,
                     asset_authority::Entity::belongs_to(asset_data::Entity)
                         .from(asset_authority::Column::AssetId)
                         .to(asset_data::Column::Id)
-                        .into()
-                 )
-                 .filter(
+                        .into(),
+                )
+                .filter(
                     Condition::all()
                         .add(asset_authority::Column::Authority.eq(pubkey_bytes))
-                        .add(asset_data::Column::Reindex.eq(false))
-                 )
-                 .order_by(asset_data::Column::Id, Order::Asc)
+                        .add(asset_data::Column::Reindex.eq(false)),
+                )
+                .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
-                .into_stream(), authority)
+                .into_stream(),
+            authority,
+        )
+    } else if let Some(collection) = collection {
+        info!(
+            "Creating new tasks for assets with missing metadata for collection {}, batch size={}",
+            collection, batch_size
+        );
 
-        } else if let Some(collection) = collection {
-            info!("Creating new tasks for assets with missing metadata for collection {}, batch size={}", collection, batch_size);
-
-            (asset_data::Entity::find()
-                 .join_rev(
+        (
+            asset_data::Entity::find()
+                .join_rev(
                     JoinType::InnerJoin,
                     asset_grouping::Entity::belongs_to(asset_data::Entity)
                         .from(asset_grouping::Column::AssetId)
                         .to(asset_data::Column::Id)
-                        .into()
-                 )
-                 .filter(
+                        .into(),
+                )
+                .filter(
                     Condition::all()
                         .add(asset_grouping::Column::GroupValue.eq(collection.as_str()))
-                        .add(asset_data::Column::Reindex.eq(false))
-                 )
-                 .order_by(asset_data::Column::Id, Order::Asc)
+                        .add(asset_data::Column::Reindex.eq(false)),
+                )
+                .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
-                .into_stream(), collection)
-        } else if let Some(mint) = mint {
-            info!("Creating new tasks for assets with missing metadata for mint {}, batch size={}", mint, batch_size);
-            
-            let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
-            let pubkey_bytes = pubkey.to_bytes().to_vec();
+                .into_stream(),
+            collection,
+        )
+    } else if let Some(mint) = mint {
+        info!(
+            "Creating new tasks for assets with missing metadata for mint {}, batch size={}",
+            mint, batch_size
+        );
 
-            (asset_data::Entity::find()
-                 .join(
-                    JoinType::InnerJoin,
-                    asset::Relation::AssetData.def()
-                 )
-                 .join_rev(
+        let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
+        let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+        (
+            asset_data::Entity::find()
+                .join(JoinType::InnerJoin, asset::Relation::AssetData.def())
+                .join_rev(
                     JoinType::InnerJoin,
                     tokens::Entity::belongs_to(asset::Entity)
                         .from(tokens::Column::Mint)
                         .to(asset::Column::SupplyMint)
-                        .into()
-                 )
-                 .filter(
+                        .into(),
+                )
+                .filter(
                     Condition::all()
                         .add(tokens::Column::MintAuthority.eq(pubkey_bytes))
-                        .add(asset_data::Column::Reindex.eq(false))
-                 )
-                 .order_by(asset_data::Column::Id, Order::Asc)
+                        .add(asset_data::Column::Reindex.eq(false)),
+                )
+                .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
-                .into_stream(), mint)
-        } else if let Some(creator) = creator {
-            info!("Creating new tasks for assets with missing metadata for creator {}, batch size={}", creator, batch_size);
+                .into_stream(),
+            mint,
+        )
+    } else if let Some(creator) = creator {
+        info!(
+            "Creating new tasks for assets with missing metadata for creator {}, batch size={}",
+            creator, batch_size
+        );
 
-            let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
-            let pubkey_bytes = pubkey.to_bytes().to_vec();
+        let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
+        let pubkey_bytes = pubkey.to_bytes().to_vec();
 
-            (asset_data::Entity::find()
-                 .join_rev(
+        (
+            asset_data::Entity::find()
+                .join_rev(
                     JoinType::InnerJoin,
                     asset_creators::Entity::belongs_to(asset_data::Entity)
                         .from(asset_creators::Column::AssetId)
                         .to(asset_data::Column::Id)
-                        .into()
-                 )
-                 .filter(
-                    Condition::all()
-                        .add(asset_creators::Column::Creator.eq(pubkey_bytes))
-                        .add(asset_data::Column::Reindex.eq(false))
-                 )
-                .order_by(asset_data::Column::Id, Order::Asc)
-                .paginate(&conn, *batch_size)
-                .into_stream(), creator)
-        } else {
-            info!("Creating new tasks for all assets with missing metadata, batch size={}", batch_size);
-            (asset_data::Entity::find()
+                        .into(),
+                )
                 .filter(
                     Condition::all()
-                        .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+                        .add(asset_creators::Column::Creator.eq(pubkey_bytes))
+                        .add(asset_data::Column::Reindex.eq(false)),
                 )
                 .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
-                .into_stream(), &all)
-        };
-    
+                .into_stream(),
+            creator,
+        )
+    } else {
+        info!(
+            "Creating new tasks for all assets with missing metadata, batch size={}",
+            batch_size
+        );
+        (
+            asset_data::Entity::find()
+                .filter(Condition::all().add(
+                    asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())),
+                ))
+                .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(),
+            &all,
+        )
+    };
+
     let mut tasks = Vec::new();
     match matches.subcommand_name() {
         Some("show") => {
@@ -295,19 +316,22 @@ pub async fn main() {
             let asset_data_found = if let Some(authority) = authority {
                 let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
                 let pubkey_bytes = pubkey.to_bytes().to_vec();
-                
+
                 asset_data::Entity::find()
                     .join_rev(
                         JoinType::InnerJoin,
                         asset_authority::Entity::belongs_to(asset_data::Entity)
                             .from(asset_authority::Column::AssetId)
                             .to(asset_data::Column::Id)
-                            .into()
+                            .into(),
                     )
                     .filter(
                         Condition::all()
                             .add(asset_authority::Column::Authority.eq(pubkey_bytes))
-                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                            .add(
+                                asset_data::Column::Metadata
+                                    .ne(JsonValue::String("processing".to_string())),
+                            ),
                     )
                     .count(&conn)
                     .await
@@ -318,12 +342,15 @@ pub async fn main() {
                         asset_grouping::Entity::belongs_to(asset_data::Entity)
                             .from(asset_grouping::Column::AssetId)
                             .to(asset_data::Column::Id)
-                            .into()
+                            .into(),
                     )
                     .filter(
                         Condition::all()
                             .add(asset_grouping::Column::GroupValue.eq(collection.as_str()))
-                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                            .add(
+                                asset_data::Column::Metadata
+                                    .ne(JsonValue::String("processing".to_string())),
+                            ),
                     )
                     .count(&conn)
                     .await
@@ -332,21 +359,21 @@ pub async fn main() {
                 let pubkey_bytes = pubkey.to_bytes().to_vec();
 
                 asset_data::Entity::find()
-                    .join(
-                        JoinType::InnerJoin,
-                        asset::Relation::AssetData.def()
-                    )
+                    .join(JoinType::InnerJoin, asset::Relation::AssetData.def())
                     .join_rev(
                         JoinType::InnerJoin,
                         tokens::Entity::belongs_to(asset::Entity)
                             .from(tokens::Column::Mint)
                             .to(asset::Column::SupplyMint)
-                            .into()
+                            .into(),
                     )
                     .filter(
                         Condition::all()
                             .add(tokens::Column::MintAuthority.eq(pubkey_bytes))
-                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                            .add(
+                                asset_data::Column::Metadata
+                                    .ne(JsonValue::String("processing".to_string())),
+                            ),
                     )
                     .count(&conn)
                     .await
@@ -360,20 +387,25 @@ pub async fn main() {
                         asset_creators::Entity::belongs_to(asset_data::Entity)
                             .from(asset_creators::Column::AssetId)
                             .to(asset_data::Column::Id)
-                            .into()
+                            .into(),
                     )
                     .filter(
                         Condition::all()
                             .add(asset_creators::Column::Creator.eq(pubkey_bytes))
-                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                            .add(
+                                asset_data::Column::Metadata
+                                    .ne(JsonValue::String("processing".to_string())),
+                            ),
                     )
                     .count(&conn)
                     .await
             } else {
                 asset_data::Entity::find()
                     .filter(
-                        Condition::all()
-                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                        Condition::all().add(
+                            asset_data::Column::Metadata
+                                .ne(JsonValue::String("processing".to_string())),
+                        ),
                     )
                     .count(&conn)
                     .await
@@ -386,7 +418,11 @@ pub async fn main() {
                 if let Some(matches) = matches.subcommand_matches("show") {
                     if matches.get_flag("print") {
                         for asset in assets {
-                            println!("{}, missing asset, {:?}", asset_data_missing.1, Pubkey::try_from(asset.id));
+                            println!(
+                                "{}, missing asset, {:?}",
+                                asset_data_missing.1,
+                                Pubkey::try_from(asset.id)
+                            );
                         }
                     }
                 }
@@ -399,60 +435,66 @@ pub async fn main() {
         _ => {
             // Find all the assets with missing metadata
             while let Some(assets) = asset_data_missing.0.try_next().await.unwrap() {
-                    info!("Found {} assets", assets.len());
-                    for asset in assets {
-                        let mut task = DownloadMetadata {
-                            asset_data_id: asset.id,
-                            uri: asset.metadata_url,
-                            created_at: Some(Utc::now().naive_utc()),
-                        };
+                info!("Found {} assets", assets.len());
+                for asset in assets {
+                    let mut task = DownloadMetadata {
+                        asset_data_id: asset.id,
+                        uri: asset.metadata_url,
+                        created_at: Some(Utc::now().naive_utc()),
+                    };
 
-                        task.sanitize();
-                        let task_data = task.clone().into_task_data().unwrap();
+                    task.sanitize();
+                    let task_data = task.clone().into_task_data().unwrap();
 
-                        debug!("Print task {} hash {:?}", task_data.data, task_data.hash());
-                        let name = instance_name.clone();
-                        if let Ok(hash) = task_data.hash() {
-                            let database_pool = database_pool.clone();
-                            let task_map = task_map.clone();
-                            let name = name.clone();
-                            let new_task = tokio::task::spawn(async move {
-                                let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
+                    debug!("Print task {} hash {:?}", task_data.data, task_data.hash());
+                    let name = instance_name.clone();
+                    if let Ok(hash) = task_data.hash() {
+                        let database_pool = database_pool.clone();
+                        let task_map = task_map.clone();
+                        let name = name.clone();
+                        let new_task = tokio::task::spawn(async move {
+                            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(
+                                database_pool.clone(),
+                            );
 
-                                // Check if the task being added is already stored in the DB and is not pending
-                                let task_entry = tasks::Entity::find_by_id(hash.clone())
-                                    .filter(tasks::Column::Status.ne(TaskStatus::Pending))
-                                    .one(&conn)
-                                    .await;
-                                if let Ok(Some(e)) = task_entry {
-                                    debug!("Found duplicate task: {:?} {:?}", e, hash.clone());
-                                    return
+                            // Check if the task being added is already stored in the DB and is not pending
+                            let task_entry = tasks::Entity::find_by_id(hash.clone())
+                                .filter(tasks::Column::Status.ne(TaskStatus::Pending))
+                                .one(&conn)
+                                .await;
+                            if let Ok(Some(e)) = task_entry {
+                                debug!("Found duplicate task: {:?} {:?}", e, hash.clone());
+                                return;
+                            }
+
+                            let task_hash = task_data.hash();
+                            info!("Created task: {:?}", task_hash);
+
+                            let res = TaskManager::new_task_handler(
+                                database_pool.clone(),
+                                name.clone(),
+                                name,
+                                task_data,
+                                task_map.clone(),
+                                false,
+                            )
+                            .await;
+
+                            match res {
+                                Ok(_) => {
+                                    info!(
+                                        "Task completed: {:?} {:?}",
+                                        task_hash, task.asset_data_id
+                                    );
                                 }
-
-                                let task_hash = task_data.hash();
-                                info!("Created task: {:?}", task_hash);
-
-                                let res = TaskManager::new_task_handler(
-                                    database_pool.clone(),
-                                    name.clone(),
-                                    name,
-                                    task_data,
-                                    task_map.clone(),
-                                    false,
-                                ).await;
-
-                                match res {
-                                    Ok(_) => {
-                                        info!("Task completed: {:?} {:?}", task_hash, task.asset_data_id);
-                                    }
-                                    Err(e) => {
-                                        error!("Task failed: {}", e);
-                                    }
+                                Err(e) => {
+                                    error!("Task failed: {}", e);
                                 }
-                            });
-                            tasks.push(new_task);
-                        }
+                            }
+                        });
+                        tasks.push(new_task);
                     }
+                }
             }
 
             if tasks.is_empty() {
@@ -460,10 +502,9 @@ pub async fn main() {
             } else {
                 info!("Found {} tasks to process", tasks.len());
                 for task in tasks {
-                    let res = task.await; 
+                    let res = task.await;
                     match res {
-                        Ok(_) => {
-                        }
+                        Ok(_) => {}
                         Err(e) => {
                             error!("Task failed: {}", e);
                         }
