@@ -1,13 +1,17 @@
-use std::fmt::{Display, Formatter};
+use std::{fmt::{Display, Formatter}, sync::Arc};
 
-use figment::{providers::Env, value::Value, Figment};
+use figment::{providers::{Env, Format, Yaml}, value::Value, Figment};
 use plerkle_messenger::MessengerConfig;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde::Deserialize;
 use std::env;
+use std::path::PathBuf;
 use tracing_subscriber::fmt;
 
-use crate::error::IngesterError;
+use crate::{
+    error::IngesterError,
+    tasks::BackgroundTaskRunnerConfig,
+};
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct IngesterConfig {
@@ -23,6 +27,7 @@ pub struct IngesterConfig {
     pub account_stream_worker_count: Option<u32>,
     pub transaction_stream_worker_count: Option<u32>,
     pub code_version: Option<&'static str>,
+    pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
 }
 
 impl IngesterConfig {
@@ -76,12 +81,19 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 pub const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
     All,
     Backfiller,
     BackgroundTaskRunner,
     Ingester,
+}
+
+impl Default for IngesterRole {
+    fn default() -> Self {
+        IngesterRole::All
+    }
 }
 
 impl Display for IngesterRole {
@@ -103,9 +115,16 @@ pub fn rand_string() -> String {
         .collect()
 }
 
-pub fn setup_config() -> IngesterConfig {
-    let mut config: IngesterConfig = Figment::new()
-        .join(Env::prefixed("INGESTER_"))
+pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
+    let mut figment = Figment::new()
+        .join(Env::prefixed("INGESTER_"));
+
+    if let Some(config_file) = config_file {
+        figment = figment.join(Yaml::file(config_file));
+    }
+
+    let mut config: IngesterConfig = 
+        figment
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),
