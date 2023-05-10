@@ -93,17 +93,25 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         match ownership_type {
             OwnerType::Single => {
                 let token: Option<tokens::Model> =
-                    tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
+                    tokens::Entity::find_by_id(mint.clone())
+                    .order_by_desc(tokens::Column::SlotUpdated)
+                    .one(conn)
+                    .await?;
                 // query for token account associated with mint with positive balance
-                let token_account: Option<token_accounts::Model> = token_accounts::Entity::find()
+                let token_account: Option<token_accounts::Model> = 
+                    token_accounts::Entity::find()
                     .filter(token_accounts::Column::Mint.eq(mint.clone()))
                     .filter(token_accounts::Column::Amount.gt(0))
+                    .order_by_desc(token_accounts::Column::SlotUpdated)
                     .one(conn)
                     .await?;
                 Ok((token, token_account))
             }
             _ => {
-                let token = tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
+                let token = tokens::Entity::find_by_id(mint.clone())
+                    .order_by_desc(tokens::Column::SlotUpdated)
+                    .one(conn)
+                    .await?;
                 Ok((token, None))
             }
         }
