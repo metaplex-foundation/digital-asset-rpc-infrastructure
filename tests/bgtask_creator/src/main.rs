@@ -1,21 +1,33 @@
-use {
-    clap::{value_parser, Arg, ArgAction, Command},
-    digital_asset_types::dao::{asset_data, tasks},
-    futures::TryStreamExt,
-    log::{debug, info},
-    nft_ingester::{
-        config::rand_string,
-        config::{init_logger, setup_config},
-        database::setup_database,
-        error::IngesterError,
-        metrics::setup_metrics,
-        tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
-    },
-    sea_orm::{entity::*, query::*, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector},
-    sqlx::types::chrono::Utc,
-    std::{path::PathBuf, time},
-    tokio::task::JoinSet,
+use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, asset_data, asset_authority, asset_grouping, asset_creators, tokens, tasks, asset};
+
+use log::{info, debug, error};
+
+use nft_ingester::{
+    tasks::{BgTask, DownloadMetadata, IntoTaskData, DownloadMetadataTask, TaskManager},
+    config::{init_logger, setup_config},
+    database::setup_database,
+    metrics::setup_metrics,
+    config::rand_string,
+    error::IngesterError,
 };
+
+use std::{
+    path::PathBuf,
+    time
+};
+
+use futures::TryStreamExt;
+
+use sea_orm::{
+    entity::*, query::*, EntityTrait, JsonValue, SqlxPostgresConnector, DeleteResult
+};
+
+use clap::{Arg, ArgAction, Command, value_parser};
+
+use sqlx::types::chrono::Utc;
+
+use solana_sdk::pubkey::Pubkey;
+use std::{str::FromStr, collections::HashMap, sync::Arc};
 
 /**
  * The bgtask creator is intended to be use as a tool to handle assets that have not been indexed.
@@ -44,7 +56,8 @@ pub async fn main() {
                 .long("delete")
                 .short('d')
                 .help("Delete all existing tasks before creating new ones.")
-                .required(false),
+                .required(false)
+                .action(clap::ArgAction::SetTrue)
         )
         .arg(
             Arg::new("batch_size")
@@ -56,11 +69,55 @@ pub async fn main() {
                 .value_parser(value_parser!(u64))
                 .default_value("1000"),
         )
+        .arg(
+            Arg::new("authority")
+                .long("authority")
+                .short('a')
+                .help("Create background tasks for the given authority")
+                .required(false)
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("collection")
+                .long("collection")
+                .short('o')
+                .help("Create background tasks for the given collection")
+                .required(false)
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("mint")
+                .long("mint")
+                .short('m')
+                .help("Create background tasks for the given mint")
+                .required(false)
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("creator")
+                .long("creator")
+                .short('r')
+                .help("Create background tasks for the given creator")
+                .required(false)
+                .action(ArgAction::Set)
+        )
+        .subcommand(
+            Command::new("show")
+                .about("Show tasks")
+                .arg(
+                    Arg::new("print")
+                        .long("print")
+                        .short('p')
+                        .help("Print the tasks to stdout")
+                        .required(false)
+                        .action(clap::ArgAction::SetTrue)
+                )
+        )
         .get_matches();
 
     let config_path = matches.get_one::<PathBuf>("config");
     if let Some(config_path) = config_path {
-        println!("Loading config from: {}", config_path.display());
+        info!("Loading config from: {}", config_path.display());
     }
 
     // Pull Env variables into config struct
@@ -71,9 +128,6 @@ pub async fn main() {
 
     // One pool many clones, this thing is thread safe and send sync
     let database_pool = setup_database(config.clone()).await;
-
-    // Set up a task pool
-    let mut tasks = JoinSet::new();
 
     //Setup definitions for background tasks
     let task_runner_config = config
@@ -87,20 +141,18 @@ pub async fn main() {
             task_runner_config.timeout.unwrap_or(3),
         )),
     })];
+    let mut bg_tasks = HashMap::new();
+    for task in bg_task_definitions {
+            bg_tasks.insert(task.name().to_string(), task);
+    }
+    let task_map = Arc::new(bg_tasks);
 
-    let mut background_task_manager =
-        TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
+    let instance_name = rand_string();
 
-    // This is how we send new bg tasks
-    let bg_task_listener = background_task_manager.start_listener(false);
-    tasks.spawn(bg_task_listener);
-
-    let bg_task_sender = background_task_manager.get_sender().unwrap();
-
-    // Create new postgres connection
+    // Get a postgres connection from the pool
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
 
-    if matches.contains_id("delete") {
+    if matches.get_flag("delete") {
         info!("Deleting all existing tasks");
 
         // Delete all existing tasks
@@ -120,36 +172,304 @@ pub async fn main() {
     }
 
     let batch_size = matches.get_one::<u64>("batch_size").unwrap();
+    let authority = matches.get_one::<String>("authority");
+    let collection = matches.get_one::<String>("collection");
+    let mint = matches.get_one::<String>("mint");
+    let creator = matches.get_one::<String>("creator");
 
-    info!(
-        "Creating new tasks for assets with missing metadata, batch size={}",
-        batch_size
-    );
+    /*
+            select ad.id from asset_data ad 
+     inner join asset_authority aa  on aa.asset_id = ad.id 
+     where  
+      aa.authority='\x0b6eeb8809df3468cbe2ee7b224e7b3291d99770811728fcdefbc180c6933157' and 
+      ad.metadata=to_jsonb('processing'::text); 
+       */
 
-    // Find all the assets with missing metadata
-    let mut asset_data_missing = asset_data::Entity::find()
-        .filter(
-            Condition::any()
-                .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
-                .add(asset_data::Column::Reindex.eq(Some(true))),
-        )
-        .order_by(asset_data::Column::Id, Order::Asc)
-        .paginate(&conn, *batch_size)
-        .into_stream();
+    let all = "all".to_string();
+    let mut asset_data_missing =  if let Some(authority) = authority {
+            info!("Creating new tasks for assets with missing metadata for authority {}, batch size={}", authority, batch_size);
 
-    while let Some(assets) = asset_data_missing.try_next().await.unwrap() {
-        info!("Found {} assets", assets.len());
-        for asset in assets {
-            let mut task = DownloadMetadata {
-                asset_data_id: asset.id,
-                uri: asset.metadata_url,
-                created_at: Some(Utc::now().naive_utc()),
+            let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
+            let pubkey_bytes = pubkey.to_bytes().to_vec();
+            
+            (asset_data::Entity::find()
+                 .join_rev(
+                    JoinType::InnerJoin,
+                    asset_authority::Entity::belongs_to(asset_data::Entity)
+                        .from(asset_authority::Column::AssetId)
+                        .to(asset_data::Column::Id)
+                        .into()
+                 )
+                 .filter(
+                    Condition::all()
+                        .add(asset_authority::Column::Authority.eq(pubkey_bytes))
+                        .add(asset_data::Column::Reindex.eq(false))
+                 )
+                 .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(), authority)
+
+        } else if let Some(collection) = collection {
+            info!("Creating new tasks for assets with missing metadata for collection {}, batch size={}", collection, batch_size);
+
+            (asset_data::Entity::find()
+                 .join_rev(
+                    JoinType::InnerJoin,
+                    asset_grouping::Entity::belongs_to(asset_data::Entity)
+                        .from(asset_grouping::Column::AssetId)
+                        .to(asset_data::Column::Id)
+                        .into()
+                 )
+                 .filter(
+                    Condition::all()
+                        .add(asset_grouping::Column::GroupValue.eq(collection.as_str()))
+                        .add(asset_data::Column::Reindex.eq(false))
+                 )
+                 .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(), collection)
+        } else if let Some(mint) = mint {
+            info!("Creating new tasks for assets with missing metadata for mint {}, batch size={}", mint, batch_size);
+            
+            let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
+            let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+            (asset_data::Entity::find()
+                 .join(
+                    JoinType::InnerJoin,
+                    asset::Relation::AssetData.def()
+                 )
+                 .join_rev(
+                    JoinType::InnerJoin,
+                    tokens::Entity::belongs_to(asset::Entity)
+                        .from(tokens::Column::Mint)
+                        .to(asset::Column::SupplyMint)
+                        .into()
+                 )
+                 .filter(
+                    Condition::all()
+                        .add(tokens::Column::MintAuthority.eq(pubkey_bytes))
+                        .add(asset_data::Column::Reindex.eq(false))
+                 )
+                 .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(), mint)
+        } else if let Some(creator) = creator {
+            info!("Creating new tasks for assets with missing metadata for creator {}, batch size={}", creator, batch_size);
+
+            let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
+            let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+            (asset_data::Entity::find()
+                 .join_rev(
+                    JoinType::InnerJoin,
+                    asset_creators::Entity::belongs_to(asset_data::Entity)
+                        .from(asset_creators::Column::AssetId)
+                        .to(asset_data::Column::Id)
+                        .into()
+                 )
+                 .filter(
+                    Condition::all()
+                        .add(asset_creators::Column::Creator.eq(pubkey_bytes))
+                        .add(asset_data::Column::Reindex.eq(false))
+                 )
+                .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(), creator)
+        } else {
+            info!("Creating new tasks for all assets with missing metadata, batch size={}", batch_size);
+            (asset_data::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+                )
+                .order_by(asset_data::Column::Id, Order::Asc)
+                .paginate(&conn, *batch_size)
+                .into_stream(), &all)
+        };
+    
+    let mut tasks = Vec::new();
+    match matches.subcommand_name() {
+        Some("show") => {
+            // Check the assets found
+            let asset_data_found = if let Some(authority) = authority {
+                let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
+                let pubkey_bytes = pubkey.to_bytes().to_vec();
+                
+                asset_data::Entity::find()
+                    .join_rev(
+                        JoinType::InnerJoin,
+                        asset_authority::Entity::belongs_to(asset_data::Entity)
+                            .from(asset_authority::Column::AssetId)
+                            .to(asset_data::Column::Id)
+                            .into()
+                    )
+                    .filter(
+                        Condition::all()
+                            .add(asset_authority::Column::Authority.eq(pubkey_bytes))
+                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                    )
+                    .count(&conn)
+                    .await
+            } else if let Some(collection) = collection {
+                asset_data::Entity::find()
+                    .join_rev(
+                        JoinType::InnerJoin,
+                        asset_grouping::Entity::belongs_to(asset_data::Entity)
+                            .from(asset_grouping::Column::AssetId)
+                            .to(asset_data::Column::Id)
+                            .into()
+                    )
+                    .filter(
+                        Condition::all()
+                            .add(asset_grouping::Column::GroupValue.eq(collection.as_str()))
+                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                    )
+                    .count(&conn)
+                    .await
+            } else if let Some(mint) = mint {
+                let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
+                let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+                asset_data::Entity::find()
+                    .join(
+                        JoinType::InnerJoin,
+                        asset::Relation::AssetData.def()
+                    )
+                    .join_rev(
+                        JoinType::InnerJoin,
+                        tokens::Entity::belongs_to(asset::Entity)
+                            .from(tokens::Column::Mint)
+                            .to(asset::Column::SupplyMint)
+                            .into()
+                    )
+                    .filter(
+                        Condition::all()
+                            .add(tokens::Column::MintAuthority.eq(pubkey_bytes))
+                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                    )
+                    .count(&conn)
+                    .await
+            } else if let Some(creator) = creator {
+                let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
+                let pubkey_bytes = pubkey.to_bytes().to_vec();
+
+                asset_data::Entity::find()
+                    .join_rev(
+                        JoinType::InnerJoin,
+                        asset_creators::Entity::belongs_to(asset_data::Entity)
+                            .from(asset_creators::Column::AssetId)
+                            .to(asset_data::Column::Id)
+                            .into()
+                    )
+                    .filter(
+                        Condition::all()
+                            .add(asset_creators::Column::Creator.eq(pubkey_bytes))
+                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                    )
+                    .count(&conn)
+                    .await
+            } else {
+                asset_data::Entity::find()
+                    .filter(
+                        Condition::all()
+                            .add(asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string())))
+                    )
+                    .count(&conn)
+                    .await
             };
 
-            debug!("Print task {}", task);
-            task.sanitize();
-            let task_data = task.into_task_data().unwrap();
-            let _ = bg_task_sender.send(task_data);
+            let mut i = 0;
+            while let Some(assets) = asset_data_missing.0.try_next().await.unwrap() {
+                info!("Found {} assets", assets.len());
+                i += assets.len();
+                if let Some(matches) = matches.subcommand_matches("show") {
+                    if matches.get_flag("print") {
+                        for asset in assets {
+                            println!("{}, missing asset, {:?}", asset_data_missing.1, Pubkey::try_from(asset.id));
+                        }
+                    }
+                }
+            }
+            if let Ok(total) = asset_data_found {
+                println!("{}, total assets, {}", asset_data_missing.1, total);
+            }
+            println!("{}, total missing assets, {}", asset_data_missing.1, i)
+        }
+        _ => {
+            // Find all the assets with missing metadata
+            while let Some(assets) = asset_data_missing.0.try_next().await.unwrap() {
+                    info!("Found {} assets", assets.len());
+                    for asset in assets {
+                        let mut task = DownloadMetadata {
+                            asset_data_id: asset.id,
+                            uri: asset.metadata_url,
+                            created_at: Some(Utc::now().naive_utc()),
+                        };
+
+                        task.sanitize();
+                        let task_data = task.clone().into_task_data().unwrap();
+
+                        debug!("Print task {} hash {:?}", task_data.data, task_data.hash());
+                        let name = instance_name.clone();
+                        if let Ok(hash) = task_data.hash() {
+                            let database_pool = database_pool.clone();
+                            let task_map = task_map.clone();
+                            let name = name.clone();
+                            let new_task = tokio::task::spawn(async move {
+                                let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
+
+                                // Check if the task being added is already stored in the DB and is not pending
+                                let task_entry = tasks::Entity::find_by_id(hash.clone())
+                                    .filter(tasks::Column::Status.ne(TaskStatus::Pending))
+                                    .one(&conn)
+                                    .await;
+                                if let Ok(Some(e)) = task_entry {
+                                    debug!("Found duplicate task: {:?} {:?}", e, hash.clone());
+                                    return
+                                }
+
+                                let task_hash = task_data.hash();
+                                info!("Created task: {:?}", task_hash);
+
+                                let res = TaskManager::new_task_handler(
+                                    database_pool.clone(),
+                                    name.clone(),
+                                    name,
+                                    task_data,
+                                    task_map.clone(),
+                                    false,
+                                ).await;
+
+                                match res {
+                                    Ok(_) => {
+                                        info!("Task completed: {:?} {:?}", task_hash, task.asset_data_id);
+                                    }
+                                    Err(e) => {
+                                        error!("Task failed: {}", e);
+                                    }
+                                }
+                            });
+                            tasks.push(new_task);
+                        }
+                    }
+            }
+
+            if tasks.is_empty() {
+                info!("No assets with missing metadata found");
+            } else {
+                info!("Found {} tasks to process", tasks.len());
+                for task in tasks {
+                    let res = task.await; 
+                    match res {
+                        Ok(_) => {
+                        }
+                        Err(e) => {
+                            error!("Task failed: {}", e);
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -249,7 +249,7 @@ impl TaskManager {
         }
     }
 
-    fn new_task_handler(
+    pub fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
         _name: String,
@@ -260,6 +260,7 @@ impl TaskManager {
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
         tokio::task::spawn(async move {
             if let Some(task_executor) = tasks_def.get(task.name) {
+                debug!("Creating new task with hash {:?}", task.hash());
                 let mut model = tasks::ActiveModel {
                     id: Set(task.hash()?),
                     task_type: Set(task.name.to_string()),
@@ -329,6 +330,7 @@ impl TaskManager {
                     metric! {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     }
+                    debug!("Got a task: {:?}", task_created_time.timestamp_millis());
                 }
                 let name = instance_name.clone();
                 if let Ok(hash) = task.hash() {
@@ -340,6 +342,7 @@ impl TaskManager {
                         .one(&conn)
                         .await;
                     if let Ok(Some(e)) = task_entry {
+                        debug!("Found duplicate task: {:?} {:?}", e, task.hash());
                         metric! {
                             statsd_count!("ingester.bgtask.identical", 1, "type" => &e.task_type);
                         }
