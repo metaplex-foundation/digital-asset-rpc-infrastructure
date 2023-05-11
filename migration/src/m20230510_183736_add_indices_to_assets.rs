@@ -20,16 +20,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_asset_asset_data")
-                    .col(asset::Column::AssetData)
-                    .table(asset::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
                     .name("idx_asset_creators_asset_id")
                     .col(asset_creators::Column::AssetId)
                     .table(asset_creators::Entity)
@@ -43,26 +33,6 @@ impl MigrationTrait for Migration {
                     .name("idx_asset_creators_creator")
                     .col(asset_creators::Column::Creator)
                     .table(asset_creators::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_asset_creators_verified")
-                    .col(asset_creators::Column::Verified)
-                    .table(asset_creators::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_asset_data_id")
-                    .col(asset_data::Column::Id)
-                    .table(asset_data::Entity)
                     .to_owned(),
             )
             .await?;
@@ -92,15 +62,6 @@ impl MigrationTrait for Migration {
         manager
             .drop_index(
                 Index::drop()
-                    .name("idx_asset_asset_data")
-                    .table(asset::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .drop_index(
-                Index::drop()
                     .name("idx_asset_creators_asset_id")
                     .table(asset_creators::Entity)
                     .to_owned(),
@@ -112,24 +73,6 @@ impl MigrationTrait for Migration {
                 Index::drop()
                     .name("idx_asset_creators_creator")
                     .table(asset_creators::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .drop_index(
-                Index::drop()
-                    .name("idx_asset_creators_verified")
-                    .table(asset_creators::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .drop_index(
-                Index::drop()
-                    .name("idx_asset_data_id")
-                    .table(asset_data::Entity)
                     .to_owned(),
             )
             .await?;
