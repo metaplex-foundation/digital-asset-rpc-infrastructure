@@ -10,16 +10,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_asset_id")
-                    .col(asset::Column::Id)
-                    .table(asset::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_index(
-                Index::create()
                     .name("idx_asset_creators_asset_id")
                     .col(asset_creators::Column::AssetId)
                     .table(asset_creators::Entity)
@@ -50,15 +40,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_index(
-                Index::drop()
-                    .name("idx_asset_id")
-                    .table(asset::Entity)
-                    .to_owned(),
-            )
-            .await?;
-
         manager
             .drop_index(
                 Index::drop()
