@@ -66,7 +66,11 @@ impl DasApi {
             }
         }
 
-        if let Some(_page) = page {
+        if let Some(page) = page {
+            if *page == 0 {
+                return Err(DasApiError::PaginationEmptyError);
+            }
+
             // make config item
             if before.is_some() || after.is_some() {
                 return Err(DasApiError::PaginationError);
