@@ -35,7 +35,7 @@ where
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?
 
-        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn).await?;
         let asset_id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => {
                 let id_bytes = id.to_bytes().to_vec();

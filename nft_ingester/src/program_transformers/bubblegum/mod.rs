@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use log::debug;
+use log::{debug,info};
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -32,56 +32,60 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     let ix_type = &parsing_result.instruction;
-    match ix_type {
+
+    // @TODO this would be much better served by implemneting Debug trait on the InstructionName
+    // or wrapping it into something that can display it more neatly.
+    let ix_str = match ix_type {
         InstructionName::Unknown => {
-            debug!("Unknown instruction:");
+            "Unknown"
         }
         InstructionName::MintV1 => {
-            debug!("MintV1 instruction:");
+            "MintV1"
         }
         InstructionName::MintToCollectionV1 => {
-            debug!("MintToCollectionV1 instruction:");
+            "MintToCollectionV1"
         }
         InstructionName::Redeem => {
-            debug!("Redeem instruction:");
+            "Redeem"
         }
         InstructionName::CancelRedeem => {
-            debug!("CancelRedeem instruction:");
+            "CancelRedeem"
         }
         InstructionName::Transfer => {
-            debug!("Transfer instruction:");
+            "Transfer"
         }
         InstructionName::Delegate => {
-            debug!("Delegate instruction:");
+            "Delegate"
         }
         InstructionName::DecompressV1 => {
-            debug!("DecompressV1 instruction:");
+            "DecompressV1"
         }
         InstructionName::Compress => {
-            debug!("Compress instruction:");
+            "Compress"
         }
         InstructionName::Burn => {
-            debug!("Burn instruction:");
+            "Burn"
         }
         InstructionName::CreateTree => {
-            debug!("CreateTree instruction:");
+            "CreateTree"
         }
         InstructionName::VerifyCreator => {
-            debug!("VerifyCreator instruction:");
+            "VerifyCreator"
         }
         InstructionName::UnverifyCreator => {
-            debug!("UnverifyCreator instruction:");
+            "UnverifyCreator"
         }
         InstructionName::VerifyCollection => {
-            debug!("VerifyCollection instruction:");
+            "VerifyCollection"
         }
         InstructionName::UnverifyCollection => {
-            debug!("UnverifyCollection instruction:");
+            "UnverifyCollection"
         }
         InstructionName::SetAndVerifyCollection => {
-            debug!("SetAndVerifyCollection instruction:");
+            "SetAndVerifyCollection"
         }
-    }
+    };
+    info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     match ix_type {
         InstructionName::Transfer => {

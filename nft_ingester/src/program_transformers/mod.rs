@@ -75,6 +75,7 @@ impl ProgramTransformer {
         let instructions = self.break_transaction(tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
+        let txn_id = tx.signature().unwrap_or("");
         let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
         for k in accounts.into_iter() {
             keys.push(*k);
@@ -106,7 +107,7 @@ impl ProgramTransformer {
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id: "",
+                txn_id: txn_id,
                 program,
                 instruction: Some(instruction),
                 inner_ix,
