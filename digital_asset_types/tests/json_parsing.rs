@@ -28,6 +28,7 @@ pub async fn test_json(uri: String) -> Content {
         metadata_mutability: Mutability::Mutable,
         metadata: body,
         slot_updated: 0,
+        reindex: None,
     };
 
     v1_content_from_json(&asset_data).unwrap()

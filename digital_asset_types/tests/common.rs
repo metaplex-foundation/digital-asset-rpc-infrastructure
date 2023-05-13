@@ -82,6 +82,7 @@ pub fn create_asset_data(
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
             slot_updated: 0,
+            reindex: None,
         },
     )
 }
