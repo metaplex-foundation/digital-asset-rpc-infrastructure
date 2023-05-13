@@ -26,3 +26,6 @@ test-programs
 /tests/*/target
 /*/target
 /target
+
+# data used for indexing
+indexing-data

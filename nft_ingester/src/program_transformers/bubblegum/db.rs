@@ -14,7 +14,7 @@ pub async fn save_changelog_event<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn, false).await?;
+    insert_change_log(change_log_event, slot, txn).await?;
     Ok(change_log_event.seq)
 }
 
@@ -26,7 +26,6 @@ pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn: &T,
-    filling: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -59,7 +58,7 @@ where
             ..Default::default()
         };
         i += 1;
-        let mut query = cl_items::Entity::insert(item)
+        let query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
                     .update_columns([
@@ -71,9 +70,11 @@ where
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        if !filling {
+        /* LK: Removing the filling param for now because it's not used anywhere and gives
+         * an incorrect view of what might be going on.
+         * if !filling {
             query.sql = format!("{} WHERE excluded.seq > cl_items.seq", query.sql);
-        }
+        } */
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
