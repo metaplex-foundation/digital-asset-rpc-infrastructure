@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use log::{debug,info};
+use log::{debug, info};
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -36,54 +36,22 @@ where
     // @TODO this would be much better served by implemneting Debug trait on the InstructionName
     // or wrapping it into something that can display it more neatly.
     let ix_str = match ix_type {
-        InstructionName::Unknown => {
-            "Unknown"
-        }
-        InstructionName::MintV1 => {
-            "MintV1"
-        }
-        InstructionName::MintToCollectionV1 => {
-            "MintToCollectionV1"
-        }
-        InstructionName::Redeem => {
-            "Redeem"
-        }
-        InstructionName::CancelRedeem => {
-            "CancelRedeem"
-        }
-        InstructionName::Transfer => {
-            "Transfer"
-        }
-        InstructionName::Delegate => {
-            "Delegate"
-        }
-        InstructionName::DecompressV1 => {
-            "DecompressV1"
-        }
-        InstructionName::Compress => {
-            "Compress"
-        }
-        InstructionName::Burn => {
-            "Burn"
-        }
-        InstructionName::CreateTree => {
-            "CreateTree"
-        }
-        InstructionName::VerifyCreator => {
-            "VerifyCreator"
-        }
-        InstructionName::UnverifyCreator => {
-            "UnverifyCreator"
-        }
-        InstructionName::VerifyCollection => {
-            "VerifyCollection"
-        }
-        InstructionName::UnverifyCollection => {
-            "UnverifyCollection"
-        }
-        InstructionName::SetAndVerifyCollection => {
-            "SetAndVerifyCollection"
-        }
+        InstructionName::Unknown => "Unknown",
+        InstructionName::MintV1 => "MintV1",
+        InstructionName::MintToCollectionV1 => "MintToCollectionV1",
+        InstructionName::Redeem => "Redeem",
+        InstructionName::CancelRedeem => "CancelRedeem",
+        InstructionName::Transfer => "Transfer",
+        InstructionName::Delegate => "Delegate",
+        InstructionName::DecompressV1 => "DecompressV1",
+        InstructionName::Compress => "Compress",
+        InstructionName::Burn => "Burn",
+        InstructionName::CreateTree => "CreateTree",
+        InstructionName::VerifyCreator => "VerifyCreator",
+        InstructionName::UnverifyCreator => "UnverifyCreator",
+        InstructionName::VerifyCollection => "VerifyCollection",
+        InstructionName::UnverifyCollection => "UnverifyCollection",
+        InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 

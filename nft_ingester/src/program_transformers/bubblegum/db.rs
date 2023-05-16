@@ -1,5 +1,5 @@
 use crate::error::IngesterError;
-use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items, cl_audits};
+use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_audits, cl_items};
 use log::{debug, info};
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr, EntityTrait,
@@ -53,7 +53,6 @@ where
             None
         };
 
-        
         let item = cl_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
             level: Set(i),
@@ -64,7 +63,7 @@ where
             ..Default::default()
         };
 
-        let mut audit_item : cl_audits::ActiveModel = item.clone().into();
+        let mut audit_item: cl_audits::ActiveModel = item.clone().into();
         audit_item.tx = Set(txn_id.to_string());
 
         i += 1;
@@ -88,7 +87,6 @@ where
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
 
         // Insert the audit item after the insert into cl_items have been completed
         cl_audits::Entity::insert(audit_item).exec(txn).await?;

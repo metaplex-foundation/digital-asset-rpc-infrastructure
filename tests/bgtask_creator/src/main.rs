@@ -1,31 +1,23 @@
-use digital_asset_types::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping,
-    sea_orm_active_enums::TaskStatus, tasks, tokens,
+use {
+    clap::{value_parser, Arg, ArgAction, Command},
+    digital_asset_types::dao::{
+        asset, asset_authority, asset_creators, asset_data, asset_grouping,
+        sea_orm_active_enums::TaskStatus, tasks, tokens,
+    },
+    futures::TryStreamExt,
+    log::{debug, error, info},
+    nft_ingester::{
+        config::{init_logger, rand_string, setup_config},
+        database::setup_database,
+        error::IngesterError,
+        metrics::setup_metrics,
+        tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
+    },
+    sea_orm::{entity::*, query::*, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector},
+    solana_sdk::pubkey::Pubkey,
+    sqlx::types::chrono::Utc,
+    std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time},
 };
-
-use log::{debug, error, info};
-
-use nft_ingester::{
-    config::rand_string,
-    config::{init_logger, setup_config},
-    database::setup_database,
-    error::IngesterError,
-    metrics::setup_metrics,
-    tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
-};
-
-use std::{path::PathBuf, time};
-
-use futures::TryStreamExt;
-
-use sea_orm::{entity::*, query::*, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector};
-
-use clap::{value_parser, Arg, ArgAction, Command};
-
-use sqlx::types::chrono::Utc;
-
-use solana_sdk::pubkey::Pubkey;
-use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 /**
  * The bgtask creator is intended to be use as a tool to handle assets that have not been indexed.
@@ -188,7 +180,7 @@ pub async fn main() {
             authority, batch_size
         );
 
-        let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
+        let pubkey = Pubkey::from_str(authority.as_str()).unwrap();
         let pubkey_bytes = pubkey.to_bytes().to_vec();
 
         (
@@ -241,7 +233,7 @@ pub async fn main() {
             mint, batch_size
         );
 
-        let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
+        let pubkey = Pubkey::from_str(mint.as_str()).unwrap();
         let pubkey_bytes = pubkey.to_bytes().to_vec();
 
         (
@@ -270,7 +262,7 @@ pub async fn main() {
             creator, batch_size
         );
 
-        let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
+        let pubkey = Pubkey::from_str(creator.as_str()).unwrap();
         let pubkey_bytes = pubkey.to_bytes().to_vec();
 
         (
@@ -314,7 +306,7 @@ pub async fn main() {
         Some("show") => {
             // Check the assets found
             let asset_data_found = if let Some(authority) = authority {
-                let pubkey = Pubkey::from_str(&authority.as_str()).unwrap();
+                let pubkey = Pubkey::from_str(authority.as_str()).unwrap();
                 let pubkey_bytes = pubkey.to_bytes().to_vec();
 
                 asset_data::Entity::find()
@@ -355,7 +347,7 @@ pub async fn main() {
                     .count(&conn)
                     .await
             } else if let Some(mint) = mint {
-                let pubkey = Pubkey::from_str(&mint.as_str()).unwrap();
+                let pubkey = Pubkey::from_str(mint.as_str()).unwrap();
                 let pubkey_bytes = pubkey.to_bytes().to_vec();
 
                 asset_data::Entity::find()
@@ -378,7 +370,7 @@ pub async fn main() {
                     .count(&conn)
                     .await
             } else if let Some(creator) = creator {
-                let pubkey = Pubkey::from_str(&creator.as_str()).unwrap();
+                let pubkey = Pubkey::from_str(creator.as_str()).unwrap();
                 let pubkey_bytes = pubkey.to_bytes().to_vec();
 
                 asset_data::Entity::find()

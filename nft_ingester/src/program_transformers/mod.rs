@@ -107,7 +107,7 @@ impl ProgramTransformer {
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id: txn_id,
+                txn_id,
                 program,
                 instruction: Some(instruction),
                 inner_ix,
