@@ -383,15 +383,17 @@ async fn check_tree_leafs(
     try_join(fetch_fut, async move {
         // collect max seq per leaf index from transactions
         let mut leafs = HashMap::new();
-        while let Some((_id, _signature, vec)) = leafs_rx.recv().await {
+        while let Some((_id, signature, vec)) = leafs_rx.recv().await {
             for (seq, maybe_leaf) in vec.unwrap_or_default() {
                 if let Some(LeafNode {
                     index: leaf_idx,
                     leaf: _leaf,
                 }) = maybe_leaf
                 {
-                    let entry_seq = leafs.entry(leaf_idx).or_insert(seq);
-                    *entry_seq = seq.max(*entry_seq);
+                    let entry = leafs.entry(leaf_idx).or_insert((signature, seq));
+                    if entry.1 < seq {
+                        *entry = (signature, seq);
+                    }
                 }
             }
         }
@@ -424,10 +426,10 @@ GROUP BY
             let leaf_db = AssetMaxSeq::from_query_result(leaf_db, "").unwrap();
             match leafs.remove(&leaf_db.leaf_idx) {
                 Some(seq) => {
-                    if leaf_db.seq != seq as i64 {
+                    if leaf_db.seq != seq.1 as i64 {
                         error!(
-                            "leaf index {}: invalid seq {} vs {} (db vs blockchain)",
-                            leaf_db.leaf_idx, leaf_db.seq, seq
+                            "leaf index {}: invalid seq {} vs {} (db vs blockchain, tx={:?})",
+                            leaf_db.leaf_idx, leaf_db.seq, seq.1, seq.0
                         );
                     }
                 }
@@ -437,7 +439,8 @@ GROUP BY
             }
         }
         for (leaf_idx, seq) in leafs.into_iter() {
-            error!("leaf index {leaf_idx}: not found in db, seq {seq}");
+            error!("leaf index {leaf_idx}: not found in db, seq {} tx={:?}", seq.1, seq.0);
+            info!("{}", seq.0);
         }
 
         Ok(())
