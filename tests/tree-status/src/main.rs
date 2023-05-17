@@ -4,6 +4,7 @@ use {
     clap::{arg, Parser, Subcommand},
     digital_asset_types::dao::cl_items,
     futures::future::{try_join, try_join_all, BoxFuture, FutureExt, TryFutureExt},
+    log::{debug, error, info},
     sea_orm::{
         sea_query::{Expr, Value},
         ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
@@ -34,6 +35,7 @@ use {
     std::{
         cmp,
         collections::HashMap,
+        env,
         num::NonZeroUsize,
         str::FromStr,
         sync::{
@@ -74,9 +76,17 @@ struct MissingSeq {
 
 #[derive(Debug, FromQueryResult)]
 struct AssetMaxSeq {
-    leaf: Vec<u8>,
+    leaf_idx: i64,
     seq: i64,
 }
+
+#[derive(Debug)]
+struct LeafNode {
+    leaf: Vec<u8>,
+    index: i64,
+}
+
+type MaybeLeafNode = Option<LeafNode>;
 
 #[derive(Parser)]
 #[command(next_line_help = true, author, version, about)]
@@ -167,6 +177,13 @@ enum Action {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // RUST_LOG=info,sqlx=warn,tree_status=debug
+    env::set_var(
+        env_logger::DEFAULT_FILTER_ENV,
+        env::var_os(env_logger::DEFAULT_FILTER_ENV).unwrap_or_else(|| "info,sqlx=warn".into()),
+    );
+    env_logger::init();
+
     let args = Args::parse();
 
     let concurrency = NonZeroUsize::new(args.concurrency)
@@ -204,30 +221,30 @@ async fn main() -> anyhow::Result<()> {
             let client = RpcClient::new(args.rpc.clone());
             let conn = args.get_pg_conn().await?;
             for pubkey in pubkeys {
-                println!("checking tree {pubkey}");
+                info!("checking tree {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) = check_tree(pubkey, &client, &conn).await {
-                    eprintln!("{:?}", error);
+                    error!("{:?}", error);
                 }
             }
         }
         Action::CheckTreeLeafs { .. } | Action::CheckTreesLeafs { .. } => {
             let conn = args.get_pg_conn().await?;
             for pubkey in pubkeys {
-                println!("checking tree leafs {pubkey}");
+                info!("checking tree leafs {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) =
                     check_tree_leafs(pubkey, &args.rpc, concurrency, args.max_retries, &conn).await
                 {
-                    eprintln!("{:?}", error);
+                    error!("{:?}", error);
                 }
             }
         }
         Action::ShowTree { .. } | Action::ShowTrees { .. } => {
             for pubkey in pubkeys {
-                println!("showing tree {pubkey}");
+                info!("showing tree {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) =
                     read_tree(pubkey, &args.rpc, concurrency, args.max_retries).await
                 {
-                    eprintln!("{:?}", error);
+                    error!("{:?}", error);
                 }
             }
         }
@@ -255,32 +272,32 @@ async fn check_tree(
     // Check tip
     match indexed_seq.max_seq.cmp(&seq) {
         cmp::Ordering::Less => {
-            eprintln!(
+            error!(
                 "[{pubkey}] tree not fully indexed: {} < {seq}",
                 indexed_seq.max_seq
             );
         }
         cmp::Ordering::Equal => {}
         cmp::Ordering::Greater => {
-            eprintln!("[{pubkey}] indexer error: {} > {seq}", indexed_seq.max_seq);
+            error!("[{pubkey}] indexer error: {} > {seq}", indexed_seq.max_seq);
         }
     }
 
     // Check completeness
     if indexed_seq.max_seq != indexed_seq.cnt_seq {
-        eprintln!(
+        error!(
             "[{pubkey}] tree has gaps {} != {}",
             indexed_seq.max_seq, indexed_seq.cnt_seq
         );
     }
 
     if indexed_seq.max_seq == seq && indexed_seq.max_seq == indexed_seq.cnt_seq {
-        println!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
+        info!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
     } else {
-        eprintln!("[{pubkey}] indexing is failed, seq={seq} max_seq={indexed_seq:?}");
+        error!("[{pubkey}] indexing is failed, seq={seq} max_seq={indexed_seq:?}");
         match get_missing_seq(pubkey, seq, conn).await {
-            Ok(seqs) => eprintln!("[{pubkey}] missing seq: {seqs:?}"),
-            Err(error) => eprintln!("[{pubkey}] failed to query missing seq: {error:?}"),
+            Ok(seqs) => error!("[{pubkey}] missing seq: {seqs:?}"),
+            Err(error) => error!("[{pubkey}] failed to query missing seq: {error:?}"),
         }
     }
 
@@ -364,15 +381,17 @@ async fn check_tree_leafs(
 ) -> anyhow::Result<()> {
     let (fetch_fut, mut leafs_rx) = read_tree_start(pubkey, client_url, concurrency, max_retries);
     try_join(fetch_fut, async move {
-        // collect max seq per leaf from transactions
+        // collect max seq per leaf index from transactions
         let mut leafs = HashMap::new();
         while let Some((_id, _signature, vec)) = leafs_rx.recv().await {
             for (seq, maybe_leaf) in vec.unwrap_or_default() {
-                if let Some((leaf_idx, leaf)) = maybe_leaf {
-                    let entry = leafs.entry(leaf).or_insert((seq, leaf_idx));
-                    if entry.0 < seq {
-                        *entry = (seq, leaf_idx);
-                    }
+                if let Some(LeafNode {
+                    index: leaf_idx,
+                    leaf: _leaf,
+                }) = maybe_leaf
+                {
+                    let entry_seq = leafs.entry(leaf_idx).or_insert(seq);
+                    *entry_seq = seq.max(*entry_seq);
                 }
             }
         }
@@ -382,47 +401,43 @@ async fn check_tree_leafs(
             DbBackend::Postgres,
             "
 SELECT
-    leaf, MAX(seq) AS seq
+    cl_items.leaf_idx, MAX(asset.seq) AS seq
 FROM
     asset
+INNER JOIN
+    cl_items ON
+        cl_items.tree = asset.tree_id AND
+        cl_items.seq = asset.seq
 WHERE
-    tree_id = $1
+    asset.tree_id = $1 AND
+    cl_items.leaf_idx IS NOT NULL
 GROUP BY
-    leaf
+    cl_items.leaf_idx
 ",
             [Value::Bytes(Some(Box::new(pubkey.as_ref().to_vec())))],
         );
 
+        debug!("send query to database...");
         let leafs_db = conn.query_all(query).await?;
+
         for leaf_db in leafs_db.iter() {
             let leaf_db = AssetMaxSeq::from_query_result(leaf_db, "").unwrap();
-            match leafs.remove(&leaf_db.leaf) {
-                Some(leaf) => {
-                    if leaf_db.seq != leaf.0 as i64 {
-                        eprintln!(
-                            "{} {}: invalid seq {} vs {} (db vs blockchain)",
-                            hex::encode(leaf_db.leaf),
-                            leaf.1,
-                            leaf_db.seq,
-                            leaf.0
+            match leafs.remove(&leaf_db.leaf_idx) {
+                Some(seq) => {
+                    if leaf_db.seq != seq as i64 {
+                        error!(
+                            "leaf index {}: invalid seq {} vs {} (db vs blockchain)",
+                            leaf_db.leaf_idx, leaf_db.seq, seq
                         );
                     }
                 }
                 None => {
-                    eprintln!(
-                        "{} {{unknown leaf index}}: not found blockchain",
-                        hex::encode(leaf_db.leaf)
-                    );
+                    error!("leaf index {}: not found in blockchain", leaf_db.leaf_idx);
                 }
             }
         }
-        for (leaf, (seq, leaf_idx)) in leafs.into_iter() {
-            eprintln!(
-                "{} {}: not found in db, seq {}",
-                hex::encode(leaf),
-                leaf_idx,
-                seq
-            );
+        for (leaf_idx, seq) in leafs.into_iter() {
+            error!("leaf index {leaf_idx}: not found in db, seq {seq}");
         }
 
         Ok(())
@@ -438,11 +453,10 @@ async fn read_tree(
     concurrency: NonZeroUsize,
     max_retries: u8,
 ) -> anyhow::Result<()> {
-    #[allow(clippy::type_complexity)]
-    fn print_seqs(id: usize, sig: Signature, seqs: Option<Vec<(u64, Option<(i64, Vec<u8>)>)>>) {
+    fn print_seqs(id: usize, sig: Signature, seqs: Option<Vec<(u64, MaybeLeafNode)>>) {
         for (seq, leaf_idx) in seqs.unwrap_or_default() {
-            let leaf_idx = leaf_idx.map(|v| v.0.to_string()).unwrap_or_default();
-            println!("{seq} {leaf_idx} {sig} {id}");
+            let leaf_idx = leaf_idx.map(|v| v.index.to_string()).unwrap_or_default();
+            info!("{seq} {leaf_idx} {sig} {id}");
         }
     }
 
@@ -480,7 +494,7 @@ fn read_tree_start(
     max_retries: u8,
 ) -> (
     BoxFuture<'static, anyhow::Result<()>>,
-    mpsc::UnboundedReceiver<(usize, Signature, Option<Vec<(u64, Option<(i64, Vec<u8>)>)>>)>,
+    mpsc::UnboundedReceiver<(usize, Signature, Option<Vec<(u64, MaybeLeafNode)>>)>,
 ) {
     let sig_id = Arc::new(AtomicUsize::new(0));
     let rx_sig = Arc::new(Mutex::new(find_signatures(
@@ -503,6 +517,9 @@ fn read_tree_start(
                     let mut lock = rx_sig.lock().await;
                     let maybe_msg = lock.recv().await;
                     let id = sig_id.fetch_add(1, Ordering::SeqCst);
+                    if id > 0 && id % 10 == 0 {
+                        debug!("received {} transactions", id);
+                    }
                     drop(lock);
                     match maybe_msg {
                         Some(maybe_sig) => {
@@ -526,7 +543,7 @@ async fn process_txn(
     sig: Signature,
     client: &RpcClient,
     mut retries: u8,
-) -> anyhow::Result<HashMap<Pubkey, Vec<(u64, Option<(i64, Vec<u8>)>)>>> {
+) -> anyhow::Result<HashMap<Pubkey, Vec<(u64, MaybeLeafNode)>>> {
     let mut delay = Duration::from_millis(100);
     loop {
         let config = RpcTransactionConfig {
@@ -537,7 +554,7 @@ async fn process_txn(
         match client.get_transaction_with_config(&sig, config).await {
             Ok(tx) => return parse_txn_sequence(tx).map_err(Into::into),
             Err(error) => {
-                eprintln!("Retrying transaction {sig} retry no {retries}: {error}",);
+                error!("Retrying transaction {sig} retry no {retries}: {error}",);
                 anyhow::ensure!(retries > 0, "Failed to load transaction {sig}: {error}");
                 retries -= 1;
                 sleep(delay).await;
@@ -548,11 +565,10 @@ async fn process_txn(
 }
 
 // Parse the trasnaction data
-#[allow(clippy::type_complexity)]
 fn parse_txn_sequence(
     tx: EncodedConfirmedTransactionWithStatusMeta,
-) -> Result<HashMap<Pubkey, Vec<(u64, Option<(i64, Vec<u8>)>)>>, ParseError> {
-    let mut seq_updates = HashMap::<Pubkey, Vec<(u64, Option<(i64, Vec<u8>)>)>>::new();
+) -> Result<HashMap<Pubkey, Vec<(u64, MaybeLeafNode)>>, ParseError> {
+    let mut seq_updates = HashMap::<Pubkey, Vec<(u64, MaybeLeafNode)>>::new();
 
     // Get `UiTransaction` out of `EncodedTransactionWithStatusMeta`.
     let meta: UiTransactionStatusMeta = tx.transaction.meta.ok_or(ParseError::TransactionMeta)?;
@@ -589,14 +605,12 @@ fn parse_txn_sequence(
                                 AccountCompressionEvent::try_from_slice(&data)
                             {
                                 let ChangeLogEvent::V1(cl_data) = cl_data;
-                                let leaf = cl_data.path.get(0).map(|node| {
-                                    (
-                                        node_idx_to_leaf_idx(
-                                            node.index as i64,
-                                            cl_data.path.len() as u32 - 1,
-                                        ),
-                                        node.node.to_vec(),
-                                    )
+                                let leaf = cl_data.path.get(0).map(|node| LeafNode {
+                                    leaf: node.node.to_vec(),
+                                    index: node_idx_to_leaf_idx(
+                                        node.index as i64,
+                                        cl_data.path.len() as u32 - 1,
+                                    ),
                                 });
                                 seq_updates
                                     .entry(cl_data.id)

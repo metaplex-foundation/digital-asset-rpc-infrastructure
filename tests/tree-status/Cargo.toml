@@ -12,9 +12,11 @@ anyhow = "1.0.70"
 bs58 = "0.4.0"
 clap = { version = "4.1.4", features = ["derive"] }
 digital_asset_types = { path = "../../digital_asset_types", features = ["json_types", "sql_types"] }
+env_logger = "0.10.0"
 flatbuffers = "23.1.21"
 futures = "0.3.28"
 hex = "0.4.3"
+log = "0.4.17"
 sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 solana-client = "=1.14.15"
 solana-sdk = "=1.14.15"
