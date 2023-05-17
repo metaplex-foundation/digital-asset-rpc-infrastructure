@@ -501,17 +501,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-recursion"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e97ce7de6cf12de5d7226c73f5ba9811622f4db3a5b91b55c53e987e5f91cba"
-dependencies = [
- "proc-macro2 1.0.56",
- "quote 1.0.26",
- "syn 2.0.15",
-]
-
-[[package]]
 name = "async-stream"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5980,10 +5969,13 @@ dependencies = [
 name = "txn_forwarder"
 version = "0.6.9"
 dependencies = [
- "async-recursion",
+ "anyhow",
  "clap 4.2.7",
+ "env_logger 0.10.0",
  "figment",
  "flatbuffers",
+ "futures",
+ "log",
  "plerkle_messenger",
  "plerkle_serialization",
  "solana-client",
