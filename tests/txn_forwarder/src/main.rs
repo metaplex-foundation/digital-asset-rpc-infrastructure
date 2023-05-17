@@ -194,7 +194,10 @@ async fn send_txn(
     let mut delay = Duration::from_millis(100);
     loop {
         match client.get_transaction_with_config(&sig, CONFIG).await {
-            Ok(txn) => send(sig, txn, Arc::clone(&messenger)).await,
+            Ok(txn) => {
+                send(sig, txn, Arc::clone(&messenger)).await;
+                break;
+            }
             Err(error) => {
                 if retries > 0 {
                     info!("Retrying transaction {sig} retry no {retries}: {error}");

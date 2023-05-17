@@ -425,11 +425,11 @@ GROUP BY
         for leaf_db in leafs_db.iter() {
             let leaf_db = AssetMaxSeq::from_query_result(leaf_db, "").unwrap();
             match leafs.remove(&leaf_db.leaf_idx) {
-                Some(seq) => {
-                    if leaf_db.seq != seq.1 as i64 {
+                Some((signature, seq)) => {
+                    if leaf_db.seq != seq as i64 {
                         error!(
                             "leaf index {}: invalid seq {} vs {} (db vs blockchain, tx={:?})",
-                            leaf_db.leaf_idx, leaf_db.seq, seq.1, seq.0
+                            leaf_db.leaf_idx, leaf_db.seq, seq, signature
                         );
                     }
                 }
@@ -438,9 +438,9 @@ GROUP BY
                 }
             }
         }
-        for (leaf_idx, seq) in leafs.into_iter() {
-            error!("leaf index {leaf_idx}: not found in db, seq {} tx={:?}", seq.1, seq.0);
-            info!("{}", seq.0);
+        for (leaf_idx, (signature, seq)) in leafs.into_iter() {
+            error!("leaf index {leaf_idx}: not found in db, seq {seq} tx={signature:?}");
+            info!("{signature}");
         }
 
         Ok(())
