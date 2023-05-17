@@ -28,7 +28,8 @@ use {
  * Currently it will try every missing asset every run.
  */
 
-pub async fn main() {
+#[tokio::main]
+async fn main() {
     init_logger();
     info!("Starting bgtask creator");
 

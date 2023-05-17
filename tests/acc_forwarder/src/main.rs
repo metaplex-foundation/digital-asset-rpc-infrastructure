@@ -129,7 +129,7 @@ pub async fn send_account(
         .expect("Failed to get account");
     let account_data = get_account_response
         .value
-        .expect(&format!("Account {} not found", account));
+        .unwrap_or_else(|| panic!("Account {} not found", account));
     let slot = get_account_response.context.slot;
     send(account_key, account_data, slot, messenger).await
 }
@@ -158,5 +158,5 @@ pub async fn send(
     let bytes = fbb.finished_data();
 
     messenger.send(STREAM, bytes).await.unwrap();
-    println!("Sent account {} to stream", pubkey.to_string());
+    println!("Sent account {} to stream", pubkey);
 }
