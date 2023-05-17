@@ -151,8 +151,10 @@ async fn read_lines(path: &str) -> anyhow::Result<Vec<String>> {
     let content = tokio::fs::read_to_string(path).await?;
     Ok(content
         .lines()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+        .filter_map(|x| {
+            let x = x.trim();
+            (!x.is_empty()).then(|| x.to_string())
+        })
         .collect())
 }
 

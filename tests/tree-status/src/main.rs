@@ -37,6 +37,7 @@ use {
         collections::HashMap,
         env,
         num::NonZeroUsize,
+        path::PathBuf,
         str::FromStr,
         sync::{
             atomic::{AtomicUsize, Ordering},
@@ -44,6 +45,8 @@ use {
         },
     },
     tokio::{
+        fs::{File, OpenOptions},
+        io::AsyncWriteExt,
         sync::{mpsc, Mutex},
         time::{sleep, Duration},
     },
@@ -153,6 +156,8 @@ enum Action {
     CheckTreeLeafs {
         #[arg(short, long)]
         pg_url: String,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
         #[arg(short, long, help = "Tree pubkey")]
         tree: String,
     },
@@ -160,6 +165,8 @@ enum Action {
     CheckTreesLeafs {
         #[arg(short, long)]
         pg_url: String,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
         #[arg(short, long, help = "Path to file with trees pubkeys")]
         file: String,
     },
@@ -199,7 +206,7 @@ async fn main() -> anyhow::Result<()> {
         | Action::ShowTrees { file } => tokio::fs::read_to_string(&file)
             .await
             .with_context(|| format!("failed to read file with keys: {:?}", file))?
-            .split('\n')
+            .lines()
             .filter_map(|x| {
                 let x = x.trim();
                 (!x.is_empty()).then(|| x.to_string())
@@ -216,7 +223,7 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    match args.action {
+    match &args.action {
         Action::CheckTree { .. } | Action::CheckTrees { .. } => {
             let client = RpcClient::new(args.rpc.clone());
             let conn = args.get_pg_conn().await?;
@@ -227,15 +234,36 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Action::CheckTreeLeafs { .. } | Action::CheckTreesLeafs { .. } => {
+        Action::CheckTreeLeafs { output, .. } | Action::CheckTreesLeafs { output, .. } => {
             let conn = args.get_pg_conn().await?;
+            let mut file = None;
+            if let Some(output) = output {
+                file = Some(
+                    OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(output)
+                        .await?,
+                );
+            }
             for pubkey in pubkeys {
                 info!("checking tree leafs {pubkey}, hex: {}", hex::encode(pubkey));
-                if let Err(error) =
-                    check_tree_leafs(pubkey, &args.rpc, concurrency, args.max_retries, &conn).await
+                if let Err(error) = check_tree_leafs(
+                    pubkey,
+                    &args.rpc,
+                    concurrency,
+                    args.max_retries,
+                    &conn,
+                    file.as_mut(),
+                )
+                .await
                 {
                     error!("{:?}", error);
                 }
+            }
+            if let Some(mut file) = file {
+                file.flush().await?;
             }
         }
         Action::ShowTree { .. } | Action::ShowTrees { .. } => {
@@ -378,6 +406,7 @@ async fn check_tree_leafs(
     concurrency: NonZeroUsize,
     max_retries: u8,
     conn: &DatabaseConnection,
+    mut output: Option<&mut File>,
 ) -> anyhow::Result<()> {
     let (fetch_fut, mut leafs_rx) = read_tree_start(pubkey, client_url, concurrency, max_retries);
     try_join(fetch_fut, async move {
@@ -440,7 +469,9 @@ GROUP BY
         }
         for (leaf_idx, (signature, seq)) in leafs.into_iter() {
             error!("leaf index {leaf_idx}: not found in db, seq {seq} tx={signature:?}");
-            info!("{signature}");
+            if let Some(file) = output.as_mut() {
+                let _ = file.write(format!("{signature}\n").as_bytes()).await?;
+            }
         }
 
         Ok(())
