@@ -2,7 +2,10 @@ use {
     anyhow::Context,
     clap::Parser,
     figment::{util::map, value::Value},
-    futures::future::{try_join_all, BoxFuture, FutureExt},
+    futures::{
+        future::{try_join_all, BoxFuture, FutureExt},
+        stream::StreamExt,
+    },
     log::{error, info},
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
@@ -18,7 +21,7 @@ use {
         sync::{mpsc, Mutex},
         time::{sleep, Duration},
     },
-    txn_forwarder::find_signatures,
+    txn_forwarder::{find_signatures, read_lines},
 };
 
 #[derive(Parser)]
@@ -99,8 +102,9 @@ async fn main() -> anyhow::Result<()> {
             .map_err(|_| anyhow::anyhow!("failed to send job"))?;
         }
         Action::Addresses { file } => {
-            let lines = read_lines(&file).await?;
-            for line in lines {
+            let mut lines = read_lines(&file).await?;
+            while let Some(maybe_line) = lines.next().await {
+                let line = maybe_line?;
                 let pubkey = Pubkey::from_str(&line).context("failed to parse address")?;
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = Arc::clone(&messenger);
@@ -116,8 +120,9 @@ async fn main() -> anyhow::Result<()> {
                 .map_err(|_| anyhow::anyhow!("failed to send job"))?;
         }
         Action::Scenario { scenario_file } => {
-            let lines = read_lines(&scenario_file).await?;
-            for line in lines {
+            let mut lines = read_lines(&scenario_file).await?;
+            while let Some(maybe_line) = lines.next().await {
+                let line = maybe_line?;
                 let sig = Signature::from_str(&line).context("failed to parse signature")?;
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = Arc::clone(&messenger);
@@ -145,17 +150,6 @@ async fn main() -> anyhow::Result<()> {
     }))
     .await
     .map(|_| ())
-}
-
-async fn read_lines(path: &str) -> anyhow::Result<Vec<String>> {
-    let content = tokio::fs::read_to_string(path).await?;
-    Ok(content
-        .lines()
-        .filter_map(|x| {
-            let x = x.trim();
-            (!x.is_empty()).then(|| x.to_string())
-        })
-        .collect())
 }
 
 async fn send_address(

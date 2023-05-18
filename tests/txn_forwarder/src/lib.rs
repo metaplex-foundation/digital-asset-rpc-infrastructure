@@ -1,4 +1,6 @@
 use {
+    anyhow::Context,
+    futures::stream::{BoxStream, StreamExt},
     solana_client::{
         client_error::ClientError, nonblocking::rpc_client::RpcClient,
         rpc_client::GetConfirmedSignaturesForAddress2Config,
@@ -7,8 +9,13 @@ use {
         pubkey::Pubkey,
         signature::{ParseSignatureError, Signature},
     },
-    std::str::FromStr,
-    tokio::sync::mpsc,
+    std::{io::Result as IoResult, str::FromStr},
+    tokio::{
+        fs::File,
+        io::{stdin, AsyncBufReadExt, BufReader},
+        sync::mpsc,
+    },
+    tokio_stream::wrappers::LinesStream,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -63,4 +70,25 @@ pub fn find_signatures(
         Ok::<(), ()>(())
     });
     rx
+}
+
+pub async fn read_lines(path: &str) -> anyhow::Result<BoxStream<'static, IoResult<String>>> {
+    Ok(if path == "-" {
+        LinesStream::new(BufReader::new(stdin()).lines()).boxed()
+    } else {
+        let file = File::open(path)
+            .await
+            .with_context(|| format!("failed to read file: {:?}", path))?;
+        LinesStream::new(BufReader::new(file).lines()).boxed()
+    }
+    .filter_map(|line| async move {
+        match line {
+            Ok(line) => {
+                let line = line.trim();
+                (!line.is_empty()).then(|| Ok(line.to_string()))
+            }
+            Err(error) => Some(Err(error)),
+        }
+    })
+    .boxed())
 }

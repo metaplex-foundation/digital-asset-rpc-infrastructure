@@ -3,7 +3,10 @@ use {
     anyhow::Context,
     clap::{arg, Parser, Subcommand},
     digital_asset_types::dao::cl_items,
-    futures::future::{try_join, try_join_all, BoxFuture, FutureExt, TryFutureExt},
+    futures::{
+        future::{try_join, try_join_all, BoxFuture, FutureExt, TryFutureExt},
+        stream::{self, StreamExt},
+    },
     log::{debug, error, info},
     sea_orm::{
         sea_query::{Expr, Value},
@@ -37,7 +40,7 @@ use {
         collections::HashMap,
         env,
         num::NonZeroUsize,
-        path::PathBuf,
+        pin::Pin,
         str::FromStr,
         sync::{
             atomic::{AtomicUsize, Ordering},
@@ -45,12 +48,12 @@ use {
         },
     },
     tokio::{
-        fs::{File, OpenOptions},
-        io::AsyncWriteExt,
+        fs::OpenOptions,
+        io::{stdout, AsyncWrite, AsyncWriteExt},
         sync::{mpsc, Mutex},
         time::{sleep, Duration},
     },
-    txn_forwarder::find_signatures,
+    txn_forwarder::{find_signatures, read_lines},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -157,7 +160,7 @@ enum Action {
         #[arg(short, long)]
         pg_url: String,
         #[arg(short, long)]
-        output: Option<PathBuf>,
+        output: Option<String>,
         #[arg(short, long, help = "Tree pubkey")]
         tree: String,
     },
@@ -166,7 +169,7 @@ enum Action {
         #[arg(short, long)]
         pg_url: String,
         #[arg(short, long)]
-        output: Option<PathBuf>,
+        output: Option<String>,
         #[arg(short, long, help = "Path to file with trees pubkeys")]
         file: String,
     },
@@ -177,7 +180,7 @@ enum Action {
     },
     /// Shows a list of trees
     ShowTrees {
-        #[arg(short, long, help = "Takes a single tree as a parameter to check")]
+        #[arg(short, long, help = "Path to file with trees pubkeys")]
         file: String,
     },
 }
@@ -200,34 +203,29 @@ async fn main() -> anyhow::Result<()> {
     let pubkeys_str = match &args.action {
         Action::CheckTree { tree, .. }
         | Action::CheckTreeLeafs { tree, .. }
-        | Action::ShowTree { tree } => vec![tree.to_string()],
+        | Action::ShowTree { tree } => {
+            let tree = tree.to_string();
+            stream::once(async move { Ok(tree) }).boxed()
+        }
         Action::CheckTrees { file, .. }
         | Action::CheckTreesLeafs { file, .. }
-        | Action::ShowTrees { file } => tokio::fs::read_to_string(&file)
-            .await
-            .with_context(|| format!("failed to read file with keys: {:?}", file))?
-            .lines()
-            .filter_map(|x| {
-                let x = x.trim();
-                (!x.is_empty()).then(|| x.to_string())
-            })
-            .collect(),
+        | Action::ShowTrees { file } => read_lines(file).await?.boxed(),
     };
 
-    let mut pubkeys: Vec<Pubkey> = vec![];
-    for pubkey_str in pubkeys_str {
-        pubkeys.push(
+    let mut pubkeys = pubkeys_str.map(|maybe_pubkey_str| {
+        maybe_pubkey_str.map_err(Into::into).and_then(|pubkey_str| {
             pubkey_str
-                .parse()
-                .with_context(|| format!("failed to parse pubkey: {}", &pubkey_str))?,
-        );
-    }
+                .parse::<Pubkey>()
+                .with_context(|| format!("failed to parse pubkey: {}", &pubkey_str))
+        })
+    });
 
     match &args.action {
         Action::CheckTree { .. } | Action::CheckTrees { .. } => {
             let client = RpcClient::new(args.rpc.clone());
             let conn = args.get_pg_conn().await?;
-            for pubkey in pubkeys {
+            while let Some(maybe_pubkey) = pubkeys.next().await {
+                let pubkey = maybe_pubkey?;
                 info!("checking tree {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) = check_tree(pubkey, &client, &conn).await {
                     error!("{:?}", error);
@@ -236,18 +234,24 @@ async fn main() -> anyhow::Result<()> {
         }
         Action::CheckTreeLeafs { output, .. } | Action::CheckTreesLeafs { output, .. } => {
             let conn = args.get_pg_conn().await?;
-            let mut file = None;
-            if let Some(output) = output {
-                file = Some(
-                    OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(output)
-                        .await?,
-                );
-            }
-            for pubkey in pubkeys {
+            let mut output: Option<Pin<Box<dyn AsyncWrite>>> = if let Some(output) = output {
+                Some(if output == "-" {
+                    Box::pin(stdout())
+                } else {
+                    Box::pin(
+                        OpenOptions::new()
+                            .write(true)
+                            .create(true)
+                            .truncate(true)
+                            .open(output)
+                            .await?,
+                    )
+                })
+            } else {
+                None
+            };
+            while let Some(maybe_pubkey) = pubkeys.next().await {
+                let pubkey = maybe_pubkey?;
                 info!("checking tree leafs {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) = check_tree_leafs(
                     pubkey,
@@ -255,19 +259,20 @@ async fn main() -> anyhow::Result<()> {
                     concurrency,
                     args.max_retries,
                     &conn,
-                    file.as_mut(),
+                    output.as_mut(),
                 )
                 .await
                 {
                     error!("{:?}", error);
                 }
             }
-            if let Some(mut file) = file {
-                file.flush().await?;
+            if let Some(mut output) = output {
+                output.flush().await?;
             }
         }
         Action::ShowTree { .. } | Action::ShowTrees { .. } => {
-            for pubkey in pubkeys {
+            while let Some(maybe_pubkey) = pubkeys.next().await {
+                let pubkey = maybe_pubkey?;
                 info!("showing tree {pubkey}, hex: {}", hex::encode(pubkey));
                 if let Err(error) =
                     read_tree(pubkey, &args.rpc, concurrency, args.max_retries).await
@@ -406,7 +411,7 @@ async fn check_tree_leafs(
     concurrency: NonZeroUsize,
     max_retries: u8,
     conn: &DatabaseConnection,
-    mut output: Option<&mut File>,
+    mut output: Option<&mut Pin<Box<dyn AsyncWrite>>>,
 ) -> anyhow::Result<()> {
     let (fetch_fut, mut leafs_rx) = read_tree_start(pubkey, client_url, concurrency, max_retries);
     try_join(fetch_fut, async move {
@@ -469,8 +474,8 @@ GROUP BY
         }
         for (leaf_idx, (signature, seq)) in leafs.into_iter() {
             error!("leaf index {leaf_idx}: not found in db, seq {seq} tx={signature:?}");
-            if let Some(file) = output.as_mut() {
-                let _ = file.write(format!("{signature}\n").as_bytes()).await?;
+            if let Some(output) = output.as_mut() {
+                let _ = output.write(format!("{signature}\n").as_bytes()).await?;
             }
         }
 

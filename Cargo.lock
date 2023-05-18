@@ -16,9 +16,11 @@ dependencies = [
 name = "acc_forwarder"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "clap 4.2.7",
  "figment",
  "flatbuffers",
+ "futures",
  "mpl-token-metadata",
  "plerkle_messenger",
  "plerkle_serialization",
@@ -27,6 +29,7 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "tokio",
+ "txn_forwarder",
 ]
 
 [[package]]
@@ -5983,6 +5986,7 @@ dependencies = [
  "solana-transaction-status",
  "thiserror",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
