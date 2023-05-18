@@ -131,6 +131,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
+    drop(tx);
 
     let rx = Arc::new(Mutex::new(rx));
     try_join_all((0..cli.concurrency).map(|_| {
