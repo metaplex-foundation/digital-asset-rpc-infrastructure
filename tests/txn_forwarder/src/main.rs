@@ -218,6 +218,12 @@ async fn send(
     txn: EncodedConfirmedTransactionWithStatusMeta,
     messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
 ) {
+    // ignore if tx failed or meta is missed
+    let meta = txn.transaction.meta.as_ref();
+    if meta.map(|meta| meta.status.is_err()).unwrap_or(true) {
+        return;
+    }
+
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let fbb = seralize_encoded_transaction_with_status(fbb, txn);
 
