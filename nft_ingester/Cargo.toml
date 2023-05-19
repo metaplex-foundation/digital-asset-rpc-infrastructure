@@ -5,6 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+anyhow = "1.0.70"
 async-trait = "0.1.53"
 base64 = "0.21.0"
 blockbuster = "0.7.3"

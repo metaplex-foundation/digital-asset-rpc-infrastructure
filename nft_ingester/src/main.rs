@@ -1,3 +1,27 @@
+use {
+    crate::{
+        account_updates::account_worker,
+        ack::ack_worker,
+        backfiller::setup_backfiller,
+        config::{init_logger, rand_string, setup_config, IngesterRole},
+        database::setup_database,
+        error::IngesterError,
+        metrics::setup_metrics,
+        stream::StreamSizeTimer,
+        tasks::{BgTask, DownloadMetadataTask, TaskManager},
+        transaction_notifications::transaction_worker,
+    },
+    cadence_macros::{is_global_default_set, statsd_count},
+    chrono::Duration,
+    clap::{arg, command, value_parser},
+    log::{error, info},
+    plerkle_messenger::{
+        redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, TRANSACTION_STREAM,
+    },
+    std::{path::PathBuf, time},
+    tokio::{signal, task::JoinSet},
+};
+
 mod account_updates;
 mod ack;
 mod backfiller;
@@ -9,31 +33,6 @@ mod program_transformers;
 mod stream;
 pub mod tasks;
 mod transaction_notifications;
-
-use crate::{
-    account_updates::account_worker,
-    ack::ack_worker,
-    backfiller::setup_backfiller,
-    config::{init_logger, setup_config, IngesterRole},
-    database::setup_database,
-    error::IngesterError,
-    metrics::setup_metrics,
-    stream::StreamSizeTimer,
-    tasks::{BgTask, DownloadMetadataTask, TaskManager},
-    transaction_notifications::transaction_worker,
-};
-
-use crate::config::rand_string;
-use cadence_macros::{is_global_default_set, statsd_count};
-use chrono::Duration;
-use log::{error, info};
-use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, TRANSACTION_STREAM,
-};
-use tokio::{signal, task::JoinSet};
-
-use clap::{arg, command, value_parser};
-use std::{path::PathBuf, time};
 
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), IngesterError> {

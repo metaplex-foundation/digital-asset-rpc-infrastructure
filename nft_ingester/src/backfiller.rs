@@ -1,61 +1,61 @@
 //! Backfiller that fills gaps in trees by detecting gaps in sequence numbers
 //! in the `backfill_items` table.  Inspired by backfiller.ts/backfill.ts.
 
-use borsh::BorshDeserialize;
-use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
-use chrono::Utc;
-use digital_asset_types::dao::backfill_items;
-use flatbuffers::FlatBufferBuilder;
-use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, error, info};
-use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
+use {
+    crate::{
+        config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY},
+        error::IngesterError,
+        metric,
+    },
+    borsh::BorshDeserialize,
+    cadence_macros::{is_global_default_set, statsd_count, statsd_gauge},
+    chrono::Utc,
+    digital_asset_types::dao::backfill_items,
+    flatbuffers::FlatBufferBuilder,
+    futures::{stream::FuturesUnordered, StreamExt},
+    log::{debug, error, info},
+    plerkle_messenger::{Messenger, TRANSACTION_STREAM},
+    plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
+    sea_orm::{
+        entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr,
+        FromQueryResult, SqlxPostgresConnector,
+    },
+    solana_account_decoder::UiAccountEncoding,
+    solana_client::{
+        nonblocking::rpc_client::RpcClient,
+        rpc_client::GetConfirmedSignaturesForAddress2Config,
+        rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
+        rpc_filter::{Memcmp, RpcFilterType},
+    },
+    solana_sdk::{
+        account::Account,
+        commitment_config::{CommitmentConfig, CommitmentLevel},
+        pubkey,
+        pubkey::Pubkey,
+        signature::Signature,
+        slot_history::Slot,
+    },
+    solana_transaction_status::{
+        option_serializer::OptionSerializer, EncodedConfirmedBlock,
+        EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
+    },
+    spl_account_compression::state::{
+        merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+    },
+    sqlx::{Pool, Postgres},
+    std::{
+        cmp,
+        collections::{HashMap, HashSet},
+        str::FromStr,
+        sync::Arc,
+    },
+    stretto::{AsyncCache, AsyncCacheBuilder},
+    tokio::{
+        task::{JoinHandle, JoinSet},
+        time::{self, sleep, Duration},
+    },
+};
 
-use sea_orm::{
-    entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
-    SqlxPostgresConnector,
-};
-use solana_account_decoder::UiAccountEncoding;
-use solana_client::{
-    nonblocking::rpc_client::RpcClient,
-    rpc_client::GetConfirmedSignaturesForAddress2Config,
-    rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
-    rpc_filter::{Memcmp, RpcFilterType},
-};
-use solana_sdk::{
-    account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-    pubkey,
-    pubkey::Pubkey,
-    signature::Signature,
-    slot_history::Slot,
-};
-use solana_transaction_status::{
-    option_serializer::OptionSerializer, EncodedConfirmedBlock,
-    EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
-};
-use spl_account_compression::state::{
-    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-};
-use sqlx::{self, Pool, Postgres};
-use std::{
-    cmp,
-    collections::{HashMap, HashSet},
-    str::FromStr,
-    sync::Arc,
-};
-use stretto::{AsyncCache, AsyncCacheBuilder};
-use tokio::{
-    sync::Semaphore,
-    task::JoinSet,
-    time::{self, sleep, Duration},
-};
-
-use crate::{
-    config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY},
-    error::IngesterError,
-    metric,
-};
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
 const TREE_SYNC_INTERVAL: u64 = 60;
@@ -73,11 +73,12 @@ const VOTE: &str = "Vote111111111111111111111111111111111111111";
 pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
 
 struct SlotSeq(u64, u64);
+
 /// Main public entry point for backfiller task.
 pub fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
     config: IngesterConfig,
-) -> tokio::task::JoinHandle<()> {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         loop {
             let pool_cloned = pool.clone();
@@ -190,6 +191,7 @@ impl GapInfo {
 
 /// Main struct used for backfiller task.
 struct Backfiller<'a, T: Messenger> {
+    config: IngesterConfig,
     db: DatabaseConnection,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
@@ -269,6 +271,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .await;
 
         Self {
+            config,
             db,
             rpc_client,
             rpc_block_config,
@@ -279,26 +282,23 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     }
 
     async fn run_finder(&mut self) {
-        let mut interval = time::interval(tokio::time::Duration::from_secs(TREE_SYNC_INTERVAL));
-        let sem = Semaphore::new(1);
+        let mut interval = time::interval(time::Duration::from_secs(TREE_SYNC_INTERVAL));
         loop {
             interval.tick().await;
-            let _permit = sem.acquire().await.unwrap();
 
             info!("Looking for missing trees...");
 
             let missing = self.get_missing_trees(&self.db).await;
             match missing {
                 Ok(missing_trees) => {
-                    let txn = self.db.begin().await.unwrap();
                     let len = missing_trees.len();
                     metric! {
                         statsd_gauge!("ingester.backfiller.missing_trees", len as f64);
                     }
                     info!("Found {} missing trees", len);
                     if len > 0 {
+                        let txn = self.db.begin().await.unwrap();
                         let res = self.force_backfill_missing_trees(missing_trees, &txn).await;
-
                         let res2 = txn.commit().await;
                         match (res, res2) {
                             (Ok(_), Ok(_)) => {
@@ -321,8 +321,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     }
     /// Run the backfiller task.
     async fn run_filler(&mut self) {
-        let mut interval =
-            time::interval(tokio::time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
+        let mut interval = time::interval(time::Duration::from_millis(MAX_BACKFILL_CHECK_WAIT));
         loop {
             interval.tick().await;
             match self.get_trees_to_backfill().await {
@@ -465,6 +464,19 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
         info!("Number of Trees on Chain {}", all_trees.len());
 
+        if let Some(only_trees) = &self.config.backfiller_trees {
+            let mut trees = HashSet::with_capacity(only_trees.len());
+            for tree in only_trees {
+                trees.insert(Pubkey::try_from(tree.as_str()).expect("backfiller tree is invalid"));
+            }
+
+            all_trees.retain(|key, _value| trees.contains(key));
+            info!(
+                "Number of Trees to backfill (with only filter): {}",
+                all_trees.len()
+            );
+        }
+
         // Find all trees in local backfill_items DB that are either failed or locked and remove them from all trees
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
@@ -476,11 +488,13 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let locked_or_failed_trees = cn.query_all(get_locked_or_failed_trees).await?;
         for row in locked_or_failed_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::try_from(tree.tree.as_slice()).unwrap();
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with failed/locked filter): {}",
+            all_trees.len()
+        );
 
         // Get all the local trees already in cl_items and remove them
         let get_all_local_trees = Statement::from_string(
@@ -490,11 +504,13 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let local_trees = cn.query_all(get_all_local_trees).await?;
         for row in local_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::try_from(tree.tree.as_slice()).unwrap();
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with cl_items existed filter): {}",
+            all_trees.len()
+        );
 
         // After removing all the tres in backfill_itemsa nd the trees already in CL Items then return the list
         // of missing trees
