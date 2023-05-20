@@ -1,31 +1,49 @@
 name: Build & Test
 on:
-  push:
   pull_request:
     branches:
       - main
+      - triton
 env:
   RUST_TOOLCHAIN: stable
 jobs:
   build-api:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - name: Fmt
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets --tests
       - name: Build
         run: |
           cd das_api
-          cargo build
+          cargo build  --all-targets --tests
         shell: bash
-  build-ingest:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+  build-migration:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - name: Fmt
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets --tests
       - name: Build
         run: |
-          cd nft_ingester
-          cargo build
+          cd migration
+          cargo build --all-targets --tests
         shell: bash
-
-
+  build-ingest:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Fmt
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets --tests
+      - name: Build
+        run: |
+          cargo build  --all-targets --tests
+        shell: bash
 
 
