@@ -1,19 +1,23 @@
 use {
     anyhow::Context,
     futures::stream::{BoxStream, StreamExt},
+    log::error,
+    serde::de::DeserializeOwned,
     solana_client::{
-        client_error::ClientError, nonblocking::rpc_client::RpcClient,
-        rpc_client::GetConfirmedSignaturesForAddress2Config,
+        client_error::ClientError, client_error::Result as RpcClientResult,
+        nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
+        rpc_request::RpcRequest,
     },
     solana_sdk::{
         pubkey::Pubkey,
         signature::{ParseSignatureError, Signature},
     },
-    std::{io::Result as IoResult, str::FromStr},
+    std::{fmt, io::Result as IoResult, str::FromStr},
     tokio::{
         fs::File,
         io::{stdin, AsyncBufReadExt, BufReader},
         sync::mpsc,
+        time::{sleep, Duration},
     },
     tokio_stream::wrappers::LinesStream,
 };
@@ -70,6 +74,36 @@ pub fn find_signatures(
         Ok::<(), ()>(())
     });
     rx
+}
+
+pub async fn rpc_send_with_retries<T, E>(
+    client: &RpcClient,
+    request: RpcRequest,
+    value: serde_json::Value,
+    max_retries: u8,
+    error_key: E,
+) -> RpcClientResult<T>
+where
+    T: DeserializeOwned,
+    E: fmt::Debug,
+{
+    let mut retries = 0;
+    let mut delay = Duration::from_millis(500);
+    loop {
+        match client.send(request, value.clone()).await {
+            Ok(value) => return Ok(value),
+            Err(error) => {
+                if retries < max_retries {
+                    error!("retrying {request} {error_key:?}: {error}");
+                    sleep(delay).await;
+                    delay *= 2;
+                    retries += 1;
+                } else {
+                    return Err(error);
+                }
+            }
+        }
+    }
 }
 
 pub async fn read_lines(path: &str) -> anyhow::Result<BoxStream<'static, IoResult<String>>> {

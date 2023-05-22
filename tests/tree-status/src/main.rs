@@ -15,9 +15,12 @@ use {
     },
     // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
     // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
-    solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig},
+    solana_client::{
+        nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
+        rpc_request::RpcRequest,
+    },
     solana_sdk::{
-        commitment_config::CommitmentConfig,
+        commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::{ParsePubkeyError, Pubkey},
         signature::Signature,
         transaction::VersionedTransaction,
@@ -51,9 +54,8 @@ use {
         fs::OpenOptions,
         io::{stdout, AsyncWrite, AsyncWriteExt},
         sync::{mpsc, Mutex},
-        time::{sleep, Duration},
     },
-    txn_forwarder::{find_signatures, read_lines},
+    txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -563,7 +565,7 @@ fn read_tree_start(
                     match maybe_msg {
                         Some(maybe_sig) => {
                             let signature = maybe_sig?;
-                            let mut map = process_txn(signature, &client, max_retries).await?;
+                            let mut map = process_tx(signature, &client, max_retries).await?;
                             let _ = tx.send((id, signature, map.remove(&pubkey)));
                         }
                         None => return Ok::<(), anyhow::Error>(()),
@@ -578,33 +580,32 @@ fn read_tree_start(
 }
 
 // Process and individual transaction, fetching it and reading out the sequence numbers
-async fn process_txn(
-    sig: Signature,
+async fn process_tx(
+    signature: Signature,
     client: &RpcClient,
-    mut retries: u8,
+    max_retries: u8,
 ) -> anyhow::Result<HashMap<Pubkey, Vec<(u64, MaybeLeafNode)>>> {
-    let mut delay = Duration::from_millis(100);
-    loop {
-        let config = RpcTransactionConfig {
-            encoding: Some(UiTransactionEncoding::Base64),
-            commitment: Some(CommitmentConfig::confirmed()),
-            max_supported_transaction_version: Some(0),
-        };
-        match client.get_transaction_with_config(&sig, config).await {
-            Ok(tx) => return parse_txn_sequence(tx).map_err(Into::into),
-            Err(error) => {
-                error!("Retrying transaction {sig} retry no {retries}: {error}",);
-                anyhow::ensure!(retries > 0, "Failed to load transaction {sig}: {error}");
-                retries -= 1;
-                sleep(delay).await;
-                delay *= 2;
-            }
-        }
-    }
+    const CONFIG: RpcTransactionConfig = RpcTransactionConfig {
+        encoding: Some(UiTransactionEncoding::Base64),
+        commitment: Some(CommitmentConfig {
+            commitment: CommitmentLevel::Confirmed,
+        }),
+        max_supported_transaction_version: Some(0),
+    };
+
+    let tx: EncodedConfirmedTransactionWithStatusMeta = rpc_send_with_retries(
+        client,
+        RpcRequest::GetTransaction,
+        serde_json::json!([signature.to_string(), CONFIG]),
+        max_retries,
+        signature,
+    )
+    .await?;
+    parse_tx_sequence(tx).map_err(Into::into)
 }
 
 // Parse the trasnaction data
-fn parse_txn_sequence(
+fn parse_tx_sequence(
     tx: EncodedConfirmedTransactionWithStatusMeta,
 ) -> Result<HashMap<Pubkey, Vec<(u64, MaybeLeafNode)>>, ParseError> {
     let mut seq_updates = HashMap::<Pubkey, Vec<(u64, MaybeLeafNode)>>::new();

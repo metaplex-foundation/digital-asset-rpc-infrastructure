@@ -6,10 +6,13 @@ use {
         future::{try_join_all, BoxFuture, FutureExt},
         stream::StreamExt,
     },
-    log::{error, info},
+    log::info,
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
-    solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig},
+    solana_client::{
+        nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
+        rpc_request::RpcRequest,
+    },
     solana_sdk::{
         commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::Pubkey,
@@ -17,11 +20,8 @@ use {
     },
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     std::{env, str::FromStr, sync::Arc},
-    tokio::{
-        sync::{mpsc, Mutex},
-        time::{sleep, Duration},
-    },
-    txn_forwarder::{find_signatures, read_lines},
+    tokio::sync::{mpsc, Mutex},
+    txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries},
 };
 
 #[derive(Parser)]
@@ -116,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Action::Single { txn } => {
             let sig = Signature::from_str(&txn).context("failed to parse signature")?;
-            tx.send(send_txn(sig, cli.rpc_url, cli.max_retries, messenger).boxed())
+            tx.send(send_tx(sig, cli.rpc_url, cli.max_retries, messenger).boxed())
                 .map_err(|_| anyhow::anyhow!("failed to send job"))?;
         }
         Action::Scenario { scenario_file } => {
@@ -126,7 +126,7 @@ async fn main() -> anyhow::Result<()> {
                 let sig = Signature::from_str(&line).context("failed to parse signature")?;
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = Arc::clone(&messenger);
-                tx.send(send_txn(sig, rpc_url, cli.max_retries, messenger).boxed())
+                tx.send(send_tx(sig, rpc_url, cli.max_retries, messenger).boxed())
                     .map_err(|_| anyhow::anyhow!("failed to send job"))?;
             }
         }
@@ -155,27 +155,27 @@ async fn main() -> anyhow::Result<()> {
 
 async fn send_address(
     pubkey: Pubkey,
-    client_url: String,
+    rpc_url: String,
     messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
     max_retries: u8,
     tasks_tx: mpsc::UnboundedSender<BoxFuture<'static, anyhow::Result<()>>>,
 ) -> anyhow::Result<()> {
-    let client = RpcClient::new(client_url.clone());
+    let client = RpcClient::new(rpc_url.clone());
     let mut all_sig = find_signatures(pubkey, client, 2_000);
     while let Some(sig) = all_sig.recv().await {
-        let client_url = client_url.clone();
+        let rpc_url = rpc_url.clone();
         let messenger = Arc::clone(&messenger);
         tasks_tx
-            .send(send_txn(sig?, client_url, max_retries, messenger).boxed())
+            .send(send_tx(sig?, rpc_url, max_retries, messenger).boxed())
             .map_err(|_| anyhow::anyhow!("failed to send job"))?;
     }
     Ok(())
 }
 
-async fn send_txn(
-    sig: Signature,
+async fn send_tx(
+    signature: Signature,
     rpc_url: String,
-    mut retries: u8,
+    max_retries: u8,
     messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
 ) -> anyhow::Result<()> {
     const CONFIG: RpcTransactionConfig = RpcTransactionConfig {
@@ -187,55 +187,36 @@ async fn send_txn(
     };
 
     let client = RpcClient::new(rpc_url);
-
-    let mut delay = Duration::from_millis(100);
-    loop {
-        match client.get_transaction_with_config(&sig, CONFIG).await {
-            Ok(txn) => {
-                send(sig, txn, Arc::clone(&messenger)).await;
-                break;
-            }
-            Err(error) => {
-                if retries > 0 {
-                    info!("Retrying transaction {sig} retry no {retries}: {error}");
-                    retries -= 1;
-                    sleep(delay).await;
-                    delay *= 2;
-                } else {
-                    info!("Could not load transaction {sig}: {error}");
-                    error!("{sig}");
-                    break;
-                }
-            }
-        }
-    }
-
-    Ok(())
+    let tx: EncodedConfirmedTransactionWithStatusMeta = rpc_send_with_retries(
+        &client,
+        RpcRequest::GetTransaction,
+        serde_json::json!([signature.to_string(), CONFIG,]),
+        max_retries,
+        signature,
+    )
+    .await?;
+    send(signature, tx, Arc::clone(&messenger)).await
 }
 
 async fn send(
-    sig: Signature,
-    txn: EncodedConfirmedTransactionWithStatusMeta,
+    signature: Signature,
+    tx: EncodedConfirmedTransactionWithStatusMeta,
     messenger: Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
-) {
+) -> anyhow::Result<()> {
     // ignore if tx failed or meta is missed
-    let meta = txn.transaction.meta.as_ref();
+    let meta = tx.transaction.meta.as_ref();
     if meta.map(|meta| meta.status.is_err()).unwrap_or(true) {
-        return;
+        return Ok(());
     }
 
     let fbb = flatbuffers::FlatBufferBuilder::new();
-    let fbb = seralize_encoded_transaction_with_status(fbb, txn);
+    let fbb = seralize_encoded_transaction_with_status(fbb, tx)
+        .with_context(|| format!("failed to serialize transaction with {signature}"))?;
+    let bytes = fbb.finished_data();
 
-    match fbb {
-        Ok(fb_tx) => {
-            let bytes = fb_tx.finished_data();
-            let mut locked = messenger.lock().await;
-            locked.send(TRANSACTION_STREAM, bytes).await.unwrap();
-            info!("Sent txn to stream {sig}");
-        }
-        Err(error) => {
-            info!("Failed to send txn {sig} to stream ({error:?})");
-        }
-    }
+    let mut locked = messenger.lock().await;
+    locked.send(TRANSACTION_STREAM, bytes).await?;
+    info!("Sent transaction to stream {signature}");
+
+    Ok(())
 }
