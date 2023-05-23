@@ -3,7 +3,7 @@ use {
     clap::Parser,
     figment::{map, value::Value},
     futures::{future::try_join_all, stream::StreamExt},
-    log::info,
+    log::{info, warn},
     mpl_token_metadata::{pda::find_metadata_account, state::Metadata},
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM},
     plerkle_serialization::{
@@ -126,10 +126,15 @@ async fn main() -> anyhow::Result<()> {
             let mint =
                 Pubkey::from_str(&mint).with_context(|| format!("failed to parse mint {mint}"))?;
             let metadata_account = find_metadata_account(&mint).0;
-            let token_account = get_token_largest_account(&client, mint).await?;
+            let token_account = get_token_largest_account(&client, mint).await;
 
-            for pubkey in &[mint, metadata_account, token_account] {
-                fetch_and_send_account(*pubkey, &client, &messenger).await?;
+            match token_account {
+                Ok(token_account) => {
+                    for pubkey in &[mint, metadata_account, token_account] {
+                        fetch_and_send_account(*pubkey, &client, &messenger).await?;
+                    }
+                }
+                Err(e) => warn!("Failed to find mint account: {:?}", e),
             }
         }
         Action::Collection {
@@ -172,7 +177,12 @@ async fn main() -> anyhow::Result<()> {
                         drop(locked);
 
                         if inserted {
-                            fetch_metadata_and_send_accounts(account, &client, &messenger).await?;
+                            match fetch_metadata_and_send_accounts(account, &client, &messenger)
+                                .await
+                            {
+                                Ok(_) => info!("Uploaded {:?}", account),
+                                Err(e) => warn!("Could not insert {:?}: {:?}", account, e),
+                            }
                         }
                     }
                 }
@@ -277,6 +287,7 @@ async fn fetch_metadata_and_send_accounts(
     let metadata: Metadata = try_from_slice_unchecked(&account.data)
         .with_context(|| anyhow::anyhow!("failed to parse data for metadata account {pubkey}"))?;
 
+    info!("Fetching token largest accounts: {:?}", metadata.mint);
     let token_account = get_token_largest_account(client, metadata.mint).await?;
 
     for pubkey in &[metadata.mint, pubkey, token_account] {
@@ -301,7 +312,7 @@ async fn get_token_largest_account(client: &RpcClient, mint: Pubkey) -> anyhow::
     match response.value.first() {
         Some(account) => Pubkey::from_str(&account.address)
             .with_context(|| format!("failed to parse account for mint {mint}")),
-        None => anyhow::bail!("no accounts for mint {mint}"),
+        None => anyhow::bail!("no accounts for mint {mint}: burned nft?"),
     }
 }
 
