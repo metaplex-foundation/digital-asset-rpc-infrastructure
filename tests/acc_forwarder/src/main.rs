@@ -218,6 +218,12 @@ async fn collection_get_tx_info(
     .await?;
     info!("fetch transaction {signature:?}");
 
+    // ignore if tx failed or meta is missed
+    let meta = tx.transaction.meta.as_ref();
+    if meta.map(|meta| meta.status.is_err()).unwrap_or(true) {
+        return Ok(None);
+    }
+
     let tx = match tx.transaction.transaction {
         EncodedTransaction::Json(tx) => tx,
         _ => anyhow::bail!("invalid encoded tx: {signature}"),

@@ -612,6 +612,12 @@ fn parse_tx_sequence(
 ) -> Result<HashMap<Pubkey, Vec<(u64, MaybeLeafNode)>>, ParseError> {
     let mut seq_updates = HashMap::<Pubkey, Vec<(u64, MaybeLeafNode)>>::new();
 
+    // ignore if tx failed or meta is missed
+    let meta = tx.transaction.meta.as_ref();
+    if meta.map(|meta| meta.status.is_err()).unwrap_or(true) {
+        return Ok(seq_updates);
+    }
+
     // Get `UiTransaction` out of `EncodedTransactionWithStatusMeta`.
     let meta: UiTransactionStatusMeta = tx.transaction.meta.ok_or(ParseError::TransactionMeta)?;
 
