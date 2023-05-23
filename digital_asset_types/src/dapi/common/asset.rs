@@ -191,18 +191,7 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                                 );
                             } else {
                                 warn!("URI is not string: {:?}", u);
-                            }     
-                           /*  let str_uri = u.as_str().unwrap_or("").to_string();
-                            let str_mime = m.as_str().unwrap_or("").to_string();
-                            actual_files.insert(
-                                str_uri.clone(),
-                                File {
-                                    uri: Some(str_uri),
-                                    mime: Some(str_mime),
-                                    quality: None,
-                                    contexts: None,
-                                },
-                            );*/
+                            }
                         }
                         (Some(u), None) => {
                             let str_uri = serde_json::to_string(u).unwrap_or_else(|_|String::new());
