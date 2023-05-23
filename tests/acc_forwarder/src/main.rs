@@ -203,7 +203,7 @@ async fn collection_get_tx_info(
     const CONFIG: RpcTransactionConfig = RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::JsonParsed),
         commitment: Some(CommitmentConfig {
-            commitment: CommitmentLevel::Confirmed,
+            commitment: CommitmentLevel::Finalized,
         }),
         max_supported_transaction_version: Some(u8::MAX),
     };
@@ -321,7 +321,7 @@ async fn fetch_account(pubkey: Pubkey, client: &RpcClient) -> anyhow::Result<(Ac
     const CONFIG: RpcAccountInfoConfig = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64Zstd),
         commitment: Some(CommitmentConfig {
-            commitment: CommitmentLevel::Confirmed,
+            commitment: CommitmentLevel::Finalized,
         }),
         data_slice: None,
         min_context_slot: None,

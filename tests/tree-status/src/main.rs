@@ -588,7 +588,7 @@ async fn process_tx(
     const CONFIG: RpcTransactionConfig = RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Base64),
         commitment: Some(CommitmentConfig {
-            commitment: CommitmentLevel::Confirmed,
+            commitment: CommitmentLevel::Finalized,
         }),
         max_supported_transaction_version: Some(0),
     };
