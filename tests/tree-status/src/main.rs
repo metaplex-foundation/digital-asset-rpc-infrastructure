@@ -434,6 +434,8 @@ async fn check_tree_leafs(
             }
         }
 
+        info!("Found {:?} leaves", leafs.len());
+
         // fetch from database in chunks
         let query = Statement::from_sql_and_values(
             DbBackend::Postgres,
