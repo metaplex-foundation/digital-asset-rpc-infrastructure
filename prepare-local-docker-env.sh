@@ -28,10 +28,6 @@ pushd solana_program_library/account-compression/programs/noop
   mv ./here/spl_noop.so $CWD/programs/noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV.so
 popd
 
-pushd solana_program_library
-  rm -rf Cargo.toml
-popd
-
 pushd solana_program_library/associated-token-account/program
   cargo build-bpf --bpf-out-dir ./here
   mv ./here/spl_associated_token_account.so $CWD/programs/ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL.so
@@ -49,4 +45,3 @@ popd
 
 rm -rf solana_program_library
 rm -rf metaplex_program_library
-
