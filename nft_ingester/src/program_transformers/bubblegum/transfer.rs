@@ -1,7 +1,4 @@
-use crate::{
-    program_transformers::bubblegum::{update_asset},
-    error::IngesterError,
-};
+use crate::{error::IngesterError, program_transformers::bubblegum::update_asset};
 
 use super::save_changelog_event;
 use blockbuster::{
