@@ -1,12 +1,10 @@
-use crate::{error::IngesterError, program_transformers::bubblegum::update_asset};
-
 use super::save_changelog_event;
+use crate::{error::IngesterError, program_transformers::bubblegum::upsert_asset_with_leaf_schema};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema},
 };
-use digital_asset_types::dao::asset;
-use sea_orm::{entity::*, ConnectionTrait, TransactionTrait};
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn transfer<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -18,6 +16,7 @@ where
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        #[allow(unreachable_patterns)]
         return match le.schema {
             LeafSchema::V1 {
                 id,
@@ -32,15 +31,15 @@ where
                     Some(delegate.to_bytes().to_vec())
                 };
                 let owner_bytes = owner.to_bytes().to_vec();
-                let asset_to_update = asset::ActiveModel {
-                    id: Unchanged(id_bytes.clone()),
-                    leaf: Set(Some(le.leaf_hash.to_vec())),
-                    delegate: Set(delegate),
-                    owner: Set(Some(owner_bytes)),
-                    seq: Set(seq as i64), // gummyroll seq
-                    ..Default::default()
-                };
-                update_asset(txn, id_bytes, Some(seq), asset_to_update).await
+                upsert_asset_with_leaf_schema(
+                    txn,
+                    id_bytes.clone(),
+                    le.leaf_hash.to_vec(),
+                    delegate,
+                    owner_bytes,
+                    seq as i64,
+                )
+                .await
             }
             _ => Err(IngesterError::NotImplemented),
         };

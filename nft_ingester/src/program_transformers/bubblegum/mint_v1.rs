@@ -1,15 +1,16 @@
 use super::save_changelog_event;
 use crate::{
     error::IngesterError,
+    program_transformers::bubblegum::upsert_asset_with_leaf_schema,
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
-};
-use blockbuster::token_metadata::{
-    pda::find_master_edition_account,
-    state::{TokenStandard, UseMethod, Uses},
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+    token_metadata::{
+        pda::find_master_edition_account,
+        state::{TokenStandard, UseMethod, Uses},
+    },
 };
 use chrono::Utc;
 use digital_asset_types::{
@@ -48,6 +49,7 @@ where
     ) {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let metadata = args;
+        #[allow(unreachable_patterns)]
         return match le.schema {
             LeafSchema::V1 {
                 id,
@@ -92,7 +94,6 @@ where
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),
-                    ..Default::default()
                 };
 
                 let mut query = asset_data::Entity::insert(data)
@@ -130,11 +131,12 @@ where
                     .unwrap_or("".to_string())
                     .trim()
                     .to_string();
-                let model = asset::ActiveModel {
+
+                let asset_model = asset::ActiveModel {
                     id: Set(id_bytes.to_vec()),
-                    owner: Set(Some(owner.to_bytes().to_vec())),
+                    //owner: Set(Some(owner.to_bytes().to_vec())),
                     owner_type: Set(OwnerType::Single),
-                    delegate: Set(delegate),
+                    //delegate: Set(delegate),
                     frozen: Set(false),
                     supply: Set(1),
                     supply_mint: Set(None),
@@ -143,28 +145,56 @@ where
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
                     nonce: Set(nonce as i64),
-                    leaf: Set(Some(le.leaf_hash.to_vec())),
+                    //leaf: Set(Some(le.leaf_hash.to_vec())),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
-                    seq: Set(seq as i64), // gummyroll seq
+                    //seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(slot_i),
                     data_hash: Set(Some(data_hash)),
                     creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 
-                // Do not attempt to modify any existing values:
-                // `ON CONFLICT ('id') DO NOTHING`.
-                let query = asset::Entity::insert(model)
+                // Upsert asset table.
+                let query = asset::Entity::insert(asset_model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
-                            .do_nothing()
+                            .update_columns([
+                                asset::Column::OwnerType,
+                                asset::Column::Frozen,
+                                asset::Column::Supply,
+                                asset::Column::SupplyMint,
+                                asset::Column::Compressed,
+                                asset::Column::TreeId,
+                                asset::Column::SpecificationVersion,
+                                asset::Column::SpecificationAssetClass,
+                                asset::Column::Nonce,
+                                asset::Column::RoyaltyTargetType,
+                                asset::Column::RoyaltyTarget,
+                                asset::Column::RoyaltyAmount,
+                                asset::Column::AssetData,
+                                //TODO maybe handle slot updated differently.
+                                asset::Column::SlotUpdated,
+                                asset::Column::DataHash,
+                                asset::Column::CreatorHash,
+                            ])
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
+
+                // Partial update of asset table with just leaf schema elements.
+                upsert_asset_with_leaf_schema(
+                    txn,
+                    id_bytes.to_vec(),
+                    le.leaf_hash.to_vec(),
+                    delegate,
+                    owner.to_bytes().to_vec(),
+                    seq as i64,
+                )
+                .await?;
 
                 let attachment = asset_v1_account_attachments::ActiveModel {
                     id: Set(edition_attachment_address.to_bytes().to_vec()),

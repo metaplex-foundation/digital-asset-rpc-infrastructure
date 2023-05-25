@@ -2,10 +2,10 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
-use digital_asset_types::dao::{asset, asset_grouping};
-use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set, Unchanged};
+use digital_asset_types::dao::asset_grouping;
+use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set};
 
-use super::{save_changelog_event, update_asset};
+use super::{save_changelog_event, upsert_asset_with_leaf_schema};
 use crate::error::IngesterError;
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -20,6 +20,7 @@ where
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        #[allow(unreachable_patterns)]
         match le.schema {
             LeafSchema::V1 {
                 id,
@@ -34,15 +35,15 @@ where
                     Some(delegate.to_bytes().to_vec())
                 };
                 let owner_bytes = owner.to_bytes().to_vec();
-                let asset_to_update = asset::ActiveModel {
-                    id: Unchanged(id_bytes.clone()),
-                    leaf: Set(Some(le.leaf_hash.to_vec())),
-                    delegate: Set(delegate),
-                    owner: Set(Some(owner_bytes)),
-                    seq: Set(seq as i64), // gummyroll seq
-                    ..Default::default()
-                };
-                update_asset(txn, id_bytes.clone(), Some(seq), asset_to_update).await?;
+                upsert_asset_with_leaf_schema(
+                    txn,
+                    id_bytes.clone(),
+                    le.leaf_hash.to_vec(),
+                    delegate,
+                    owner_bytes,
+                    seq as i64,
+                )
+                .await?;
 
                 if verify {
                     if let Some(Payload::SetAndVerifyCollection { collection }) =
