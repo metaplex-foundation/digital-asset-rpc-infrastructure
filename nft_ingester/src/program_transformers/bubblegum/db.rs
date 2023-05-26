@@ -155,6 +155,53 @@ where
     Ok(())
 }
 
+pub async fn upsert_asset_with_compression_info<T>(
+    txn: &T,
+    id: Vec<u8>,
+    compressed: bool,
+    compressible: bool,
+    supply: i64,
+    supply_mint: Option<Vec<u8>>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        compressed: Set(compressed),
+        compressible: Set(compressible),
+        supply: Set(supply),
+        supply_mint: Set(supply_mint),
+        seq: Set(seq), // gummyroll seq
+        ..Default::default()
+    };
+
+    // TODO I think we can re-run it, it would be indexing same data but that's fine.
+    // // Do not run this command if the asset is already marked as
+    // // decompressed.
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([
+                    asset::Column::Compressed,
+                    asset::Column::Compressible,
+                    asset::Column::Supply,
+                    asset::Column::SupplyMint,
+                    //TODO maybe handle slot updated.
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        query.sql
+    );
+    txn.execute(query).await?;
+
+    Ok(())
+}
+
 pub async fn update_creator<T>(
     txn: &T,
     asset_id: Vec<u8>,

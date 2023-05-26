@@ -1,7 +1,9 @@
 use super::save_changelog_event;
 use crate::{
     error::IngesterError,
-    program_transformers::bubblegum::upsert_asset_with_leaf_schema,
+    program_transformers::bubblegum::{
+        upsert_asset_with_compression_info, upsert_asset_with_leaf_schema,
+    },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
 use blockbuster::{
@@ -138,9 +140,9 @@ where
                     owner_type: Set(OwnerType::Single),
                     //delegate: Set(delegate),
                     frozen: Set(false),
-                    supply: Set(1),
-                    supply_mint: Set(None),
-                    compressed: Set(true),
+                    //supply: Set(1),
+                    //supply_mint: Set(None),
+                    //compressed: Set(true),
                     tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
                     specification_version: Set(SpecificationVersions::V1),
                     specification_asset_class: Set(SpecificationAssetClass::Nft),
@@ -157,7 +159,7 @@ where
                     ..Default::default()
                 };
 
-                // Upsert asset table.
+                // Upsert asset table base info.
                 let query = asset::Entity::insert(asset_model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
@@ -184,6 +186,18 @@ where
                     )
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
+
+                // Partial update of asset table with just compression info elements.
+                upsert_asset_with_compression_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    true,
+                    false,
+                    1,
+                    None,
+                    cl.seq as i64,
+                )
+                .await?;
 
                 // Partial update of asset table with just leaf schema elements.
                 upsert_asset_with_leaf_schema(

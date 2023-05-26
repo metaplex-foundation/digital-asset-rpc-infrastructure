@@ -1,41 +1,61 @@
+use super::{upsert_asset_with_compression_info, upsert_asset_with_leaf_schema};
 use crate::error::IngesterError;
-use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use digital_asset_types::dao::asset;
-use sea_orm::{entity::*, query::*, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait};
+use blockbuster::{
+    instruction::InstructionBundle,
+    programs::bubblegum::{BubblegumInstruction, LeafSchema},
+};
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn decompress<'c, T>(
-    _parsing_result: &BubblegumInstruction,
-    bundle: &InstructionBundle<'c>,
+    parsing_result: &BubblegumInstruction,
+    _bundle: &InstructionBundle<'c>,
     txn: &'c T,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let id_bytes = bundle.keys.get(3).unwrap().0.as_slice().to_vec();
+    if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
+        #[allow(unreachable_patterns)]
+        return match le.schema {
+            LeafSchema::V1 {
+                id,
+                delegate,
+                owner,
+                ..
+            } => {
+                let id_bytes = id.to_bytes();
+                upsert_asset_with_compression_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    false,
+                    false,
+                    1,
+                    Some(id_bytes.to_vec()),
+                    cl.seq as i64,
+                )
+                .await?;
 
-    let model = asset::ActiveModel {
-        id: Unchanged(id_bytes.clone()),
-        leaf: Set(None),
-        compressed: Set(false),
-        compressible: Set(false),
-        supply: Set(1),
-        supply_mint: Set(Some(id_bytes.clone())),
-        ..Default::default()
-    };
-
-    // After the decompress instruction runs, the asset is no longer managed
-    // by Bubblegum and Gummyroll, so there will not be any other instructions
-    // after this one.
-    //
-    // Do not run this command if the asset is already marked as
-    // decompressed.
-    let query = asset::Entity::update(model)
-        .filter(
-            Condition::all()
-                .add(asset::Column::Id.eq(id_bytes.clone()))
-                .add(asset::Column::Compressed.eq(true)),
-        )
-        .build(DbBackend::Postgres);
-
-    txn.execute(query).await.map(|_| ()).map_err(Into::into)
+                // Partial update of asset table with just leaf schema elements.
+                let delegate = if owner == delegate {
+                    None
+                } else {
+                    Some(delegate.to_bytes().to_vec())
+                };
+                let owner_bytes = owner.to_bytes().to_vec();
+                upsert_asset_with_leaf_schema(
+                    txn,
+                    id_bytes.to_vec(),
+                    le.leaf_hash.to_vec(),
+                    delegate,
+                    owner_bytes,
+                    cl.seq as i64,
+                )
+                .await
+            }
+            _ => Err(IngesterError::NotImplemented),
+        };
+    }
+    Err(IngesterError::ParsingError(
+        "Ix not parsed correctly".to_string(),
+    ))
 }
