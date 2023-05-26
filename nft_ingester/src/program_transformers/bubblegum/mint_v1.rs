@@ -195,7 +195,7 @@ where
                     false,
                     1,
                     None,
-                    cl.seq as i64,
+                    seq as i64,
                 )
                 .await?;
 

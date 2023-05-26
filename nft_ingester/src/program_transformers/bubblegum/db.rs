@@ -188,13 +188,14 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
+                    asset::Column::CompressedSeq,
                     //TODO maybe handle slot updated.
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        "{} WHERE excluded.seq > asset.compressed_seq OR asset.compressed_seq IS NULL",
         query.sql
     );
     txn.execute(query).await?;
