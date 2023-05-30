@@ -267,8 +267,8 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+        .and_then(|v| v.as_u64());
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
