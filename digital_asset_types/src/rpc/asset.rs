@@ -331,7 +331,7 @@ pub struct Uses {
 pub struct Supply {
     pub print_max_supply: u64,
     pub print_current_supply: u64,
-    pub edition_nonce: u64,
+    pub edition_nonce: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
