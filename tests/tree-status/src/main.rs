@@ -63,6 +63,11 @@ lazy_static::lazy_static! {
         &["tree"]
     ).unwrap();
 
+    pub static ref TREE_STATUS_MISSING_SEQ: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("tree_status_missing_seq", "Number of missing sequences of the tree"),
+        &["tree"]
+    ).unwrap();
+
     pub static ref TREE_STATUS_LEAVES_COMPLETED: IntCounter = IntCounter::new(
         "tree_status_leaves_completed", "Number of complete trees"
     ).unwrap();
@@ -227,6 +232,7 @@ async fn main() -> anyhow::Result<()> {
         };
     }
     register!(TREE_STATUS_MAX_SEQ);
+    register!(TREE_STATUS_MISSING_SEQ);
     register!(TREE_STATUS_LEAVES_COMPLETED);
     register!(TREE_STATUS_LEAVES_INCOMPLETE);
     register!(TREE_STATUS_MISSED_LEAVES);
@@ -367,8 +373,9 @@ async fn check_tree(
             indexed_seq.max_seq, indexed_seq.cnt_seq
         );
     }
+    let pubkey_str = pubkey.to_string();
     TREE_STATUS_MAX_SEQ
-        .with_label_values(&[&pubkey.to_string()])
+        .with_label_values(&[&pubkey_str])
         .set(indexed_seq.max_seq);
 
     if indexed_seq.max_seq == seq && indexed_seq.max_seq == indexed_seq.cnt_seq {
@@ -376,7 +383,12 @@ async fn check_tree(
     } else {
         error!("[{pubkey}] indexing is failed, seq={seq} max_seq={indexed_seq:?}");
         match get_missing_seq(pubkey, seq, conn).await {
-            Ok(seqs) => error!("[{pubkey}] missing seq: {seqs:?}"),
+            Ok(seqs) => {
+                TREE_STATUS_MISSING_SEQ
+                    .with_label_values(&[&pubkey_str])
+                    .set(seqs.len() as i64);
+                error!("[{pubkey}] missing seq: {seqs:?}")
+            }
             Err(error) => error!("[{pubkey}] failed to query missing seq: {error:?}"),
         }
     }
