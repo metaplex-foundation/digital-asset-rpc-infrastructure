@@ -8,13 +8,12 @@ use {
         stream::{self, StreamExt},
     },
     log::{debug, error, info},
+    prometheus::{IntCounter, IntGaugeVec, Opts, Registry, TextEncoder},
     sea_orm::{
         sea_query::{Expr, Value},
         ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
         FromQueryResult, QueryFilter, QuerySelect, QueryTrait, SqlxPostgresConnector, Statement,
     },
-    // plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
-    // solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config,
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
@@ -29,8 +28,6 @@ use {
         option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
         UiTransactionEncoding, UiTransactionStatusMeta,
     },
-    // solana_sdk::signature::Signature,
-    // solana_transaction_status::UiTransactionEncoding,
     spl_account_compression::{
         state::{
             merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
@@ -51,12 +48,34 @@ use {
         },
     },
     tokio::{
-        fs::OpenOptions,
+        fs::{self, OpenOptions},
         io::{stdout, AsyncWrite, AsyncWriteExt},
         sync::{mpsc, Mutex},
     },
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries},
 };
+
+lazy_static::lazy_static! {
+    pub static ref REGISTRY: Registry = Registry::new();
+
+    pub static ref TREE_STATUS_MAX_SEQ: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("tree_status_max_seq", "Maximum sequence of the tree"),
+        &["tree"]
+    ).unwrap();
+
+    pub static ref TREE_STATUS_LEAVES_COMPLETED: IntCounter = IntCounter::new(
+        "tree_status_leaves_completed", "Number of complete trees"
+    ).unwrap();
+
+    pub static ref TREE_STATUS_LEAVES_INCOMPLETE: IntCounter = IntCounter::new(
+        "tree_status_leaves_incomplete", "Number of incomplete trees"
+    ).unwrap();
+
+    pub static ref TREE_STATUS_MISSED_LEAVES: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("tree_status_missed_leaves", "Number of missed leaves"),
+        &["tree"]
+    ).unwrap();
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
@@ -110,6 +129,10 @@ struct Args {
     /// Maximum number of retries for transaction fetching.
     #[arg(long, short, default_value_t = 3)]
     max_retries: u8,
+
+    /// Path to prometheus output
+    #[arg(long)]
+    prom: Option<String>,
 
     #[command(subcommand)]
     action: Action,
@@ -196,6 +219,18 @@ async fn main() -> anyhow::Result<()> {
     );
     env_logger::init();
 
+    macro_rules! register {
+        ($collector:ident) => {
+            REGISTRY
+                .register(Box::new($collector.clone()))
+                .expect("collector can't be registered");
+        };
+    }
+    register!(TREE_STATUS_MAX_SEQ);
+    register!(TREE_STATUS_LEAVES_COMPLETED);
+    register!(TREE_STATUS_LEAVES_INCOMPLETE);
+    register!(TREE_STATUS_MISSED_LEAVES);
+
     let args = Args::parse();
 
     let concurrency = NonZeroUsize::new(args.concurrency)
@@ -206,7 +241,7 @@ async fn main() -> anyhow::Result<()> {
         Action::CheckTree { tree, .. }
         | Action::CheckTreeLeafs { tree, .. }
         | Action::ShowTree { tree } => {
-            let tree = tree.to_string();
+            let tree = tree.clone();
             stream::once(async move { Ok(tree) }).boxed()
         }
         Action::CheckTrees { file, .. }
@@ -285,6 +320,13 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    if let Some(prom) = args.prom {
+        let metrics = TextEncoder::new()
+            .encode_to_string(&REGISTRY.gather())
+            .context("could not encode custom metrics")?;
+        fs::write(prom, metrics).await?;
+    }
+
     Ok(())
 }
 
@@ -325,6 +367,9 @@ async fn check_tree(
             indexed_seq.max_seq, indexed_seq.cnt_seq
         );
     }
+    TREE_STATUS_MAX_SEQ
+        .with_label_values(&[&pubkey.to_string()])
+        .set(indexed_seq.max_seq);
 
     if indexed_seq.max_seq == seq && indexed_seq.max_seq == indexed_seq.cnt_seq {
         info!("[{:?}] indexing is complete, seq={:?}", pubkey, seq)
@@ -419,8 +464,8 @@ async fn check_tree_leafs(
     try_join(fetch_fut, async move {
         // collect max seq per leaf index from transactions
         let mut leafs = HashMap::new();
-        while let Some((_id, signature, vec)) = leafs_rx.recv().await {
-            for (seq, maybe_leaf) in vec.unwrap_or_default() {
+        while let Some((_id, signature, seqs)) = leafs_rx.recv().await {
+            for (seq, maybe_leaf) in seqs {
                 if let Some(LeafNode {
                     index: leaf_idx,
                     leaf: _leaf,
@@ -476,11 +521,21 @@ GROUP BY
                 }
             }
         }
+
+        if leafs.is_empty() {
+            TREE_STATUS_LEAVES_COMPLETED.inc();
+        } else {
+            TREE_STATUS_LEAVES_INCOMPLETE.inc();
+        }
+
         for (leaf_idx, (signature, seq)) in leafs.into_iter() {
             error!("leaf index {leaf_idx}: not found in db, seq {seq} tx={signature:?}");
             if let Some(output) = output.as_mut() {
                 let _ = output.write(format!("{signature}\n").as_bytes()).await?;
             }
+            TREE_STATUS_MISSED_LEAVES
+                .with_label_values(&[&pubkey.to_string()])
+                .inc();
         }
 
         Ok(())
@@ -496,8 +551,8 @@ async fn read_tree(
     concurrency: NonZeroUsize,
     max_retries: u8,
 ) -> anyhow::Result<()> {
-    fn print_seqs(id: usize, sig: Signature, seqs: Option<Vec<(u64, MaybeLeafNode)>>) {
-        for (seq, leaf_idx) in seqs.unwrap_or_default() {
+    fn print_seqs(id: usize, sig: Signature, seqs: Vec<(u64, MaybeLeafNode)>) {
+        for (seq, leaf_idx) in seqs {
             let leaf_idx = leaf_idx.map(|v| v.index.to_string()).unwrap_or_default();
             info!("{seq} {leaf_idx} {sig} {id}");
         }
@@ -537,7 +592,7 @@ fn read_tree_start(
     max_retries: u8,
 ) -> (
     BoxFuture<'static, anyhow::Result<()>>,
-    mpsc::UnboundedReceiver<(usize, Signature, Option<Vec<(u64, MaybeLeafNode)>>)>,
+    mpsc::UnboundedReceiver<(usize, Signature, Vec<(u64, MaybeLeafNode)>)>,
 ) {
     let sig_id = Arc::new(AtomicUsize::new(0));
     let rx_sig = Arc::new(Mutex::new(find_signatures(
@@ -568,7 +623,8 @@ fn read_tree_start(
                         Some(maybe_sig) => {
                             let signature = maybe_sig?;
                             let mut map = process_tx(signature, &client, max_retries).await?;
-                            let _ = tx.send((id, signature, map.remove(&pubkey)));
+                            let _ =
+                                tx.send((id, signature, map.remove(&pubkey).unwrap_or_default()));
                         }
                         None => return Ok::<(), anyhow::Error>(()),
                     }

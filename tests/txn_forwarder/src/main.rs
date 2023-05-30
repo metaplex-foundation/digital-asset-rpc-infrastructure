@@ -9,6 +9,7 @@ use {
     log::info,
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
+    prometheus::{IntCounter, Registry, TextEncoder},
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
@@ -20,9 +21,20 @@ use {
     },
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     std::{env, str::FromStr, sync::Arc},
-    tokio::sync::{mpsc, Mutex},
+    tokio::{
+        fs,
+        sync::{mpsc, Mutex},
+    },
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries},
 };
+
+lazy_static::lazy_static! {
+    pub static ref REGISTRY: Registry = Registry::new();
+
+    pub static ref TXN_FORWARDER_SENT: IntCounter = IntCounter::new(
+        "txn_forwarder_sent", "Number of sent transactions"
+    ).unwrap();
+}
 
 #[derive(Parser)]
 #[command(next_line_help = true)]
@@ -35,6 +47,9 @@ struct Cli {
     concurrency: usize,
     #[arg(long, short, default_value_t = 3)]
     max_retries: u8,
+    /// Path to prometheus output
+    #[arg(long)]
+    prom: Option<String>,
     #[command(subcommand)]
     action: Action,
 }
@@ -68,6 +83,10 @@ async fn main() -> anyhow::Result<()> {
         env::var_os(env_logger::DEFAULT_FILTER_ENV).unwrap_or_else(|| "info".into()),
     );
     env_logger::init();
+
+    REGISTRY
+        .register(Box::new(TXN_FORWARDER_SENT.clone()))
+        .unwrap();
 
     let cli = Cli::parse();
     let config_wrapper = Value::from(map! {
@@ -144,13 +163,21 @@ async fn main() -> anyhow::Result<()> {
 
                 match maybe_fut {
                     Some(fut) => fut.await?,
-                    None => return Ok(()),
+                    None => return Ok::<(), anyhow::Error>(()),
                 }
             }
         }
     }))
-    .await
-    .map(|_| ())
+    .await?;
+
+    if let Some(prom) = cli.prom {
+        let metrics = TextEncoder::new()
+            .encode_to_string(&REGISTRY.gather())
+            .context("could not encode custom metrics")?;
+        fs::write(prom, metrics).await?;
+    }
+
+    Ok(())
 }
 
 async fn send_address(
@@ -217,6 +244,7 @@ async fn send(
     let mut locked = messenger.lock().await;
     locked.send(TRANSACTION_STREAM, bytes).await?;
     info!("Sent transaction to stream {signature}");
+    TXN_FORWARDER_SENT.inc();
 
     Ok(())
 }

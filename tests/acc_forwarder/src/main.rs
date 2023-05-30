@@ -9,6 +9,7 @@ use {
     plerkle_serialization::{
         serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
     },
+    prometheus::{IntCounter, Registry, TextEncoder},
     solana_account_decoder::{UiAccount, UiAccountEncoding},
     solana_client::{
         nonblocking::rpc_client::RpcClient,
@@ -28,9 +29,17 @@ use {
         UiParsedInstruction, UiTransactionEncoding,
     },
     std::{collections::HashSet, env, str::FromStr, sync::Arc},
-    tokio::sync::Mutex,
+    tokio::{fs, sync::Mutex},
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries},
 };
+
+lazy_static::lazy_static! {
+    pub static ref REGISTRY: Registry = Registry::new();
+
+    pub static ref ACC_FORWARDER_SENT: IntCounter = IntCounter::new(
+        "acc_forwarder_sent", "Number of sent accounts"
+    ).unwrap();
+}
 
 #[derive(Parser)]
 #[command(next_line_help = true)]
@@ -39,6 +48,9 @@ struct Args {
     redis_url: String,
     #[arg(long)]
     rpc_url: String,
+    /// Path to prometheus output
+    #[arg(long)]
+    prom: Option<String>,
     #[command(subcommand)]
     action: Action,
 }
@@ -87,6 +99,10 @@ async fn main() -> anyhow::Result<()> {
         env::var_os(env_logger::DEFAULT_FILTER_ENV).unwrap_or_else(|| "info".into()),
     );
     env_logger::init();
+
+    REGISTRY
+        .register(Box::new(ACC_FORWARDER_SENT.clone()))
+        .unwrap();
 
     let args = Args::parse();
     let config_wrapper = Value::from(map! {
@@ -189,6 +205,13 @@ async fn main() -> anyhow::Result<()> {
             }))
             .await?;
         }
+    }
+
+    if let Some(prom) = args.prom {
+        let metrics = TextEncoder::new()
+            .encode_to_string(&REGISTRY.gather())
+            .context("could not encode custom metrics")?;
+        fs::write(prom, metrics).await?;
     }
 
     Ok(())
@@ -388,6 +411,7 @@ async fn send_account(
 
     messenger.lock().await.send(ACCOUNT_STREAM, bytes).await?;
     info!("sent account {} to stream", pubkey);
+    ACC_FORWARDER_SENT.inc();
 
     Ok(())
 }
