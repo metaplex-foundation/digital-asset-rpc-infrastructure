@@ -289,8 +289,8 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .and_then(|v| v.as_u64());
+    let edition_nonce =
+        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
 
     Ok(RpcAsset {
         interface: interface.clone(),

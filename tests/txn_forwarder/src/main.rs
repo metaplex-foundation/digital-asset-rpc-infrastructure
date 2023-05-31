@@ -9,7 +9,7 @@ use {
     log::info,
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
-    prometheus::{IntCounter, Registry, TextEncoder},
+    prometheus::{IntCounterVec, Opts, Registry, TextEncoder},
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
@@ -31,8 +31,9 @@ use {
 lazy_static::lazy_static! {
     pub static ref REGISTRY: Registry = Registry::new();
 
-    pub static ref TXN_FORWARDER_SENT: IntCounter = IntCounter::new(
-        "txn_forwarder_sent", "Number of sent transactions"
+    pub static ref TXN_FORWARDER_SENT: IntCounterVec = IntCounterVec::new(
+        Opts::new("txn_forwarder_sent", "Number of sent transactions"),
+        &["tree"]
     ).unwrap();
 }
 
@@ -112,6 +113,7 @@ impl MessengerPool {
 
     async fn send(
         &self,
+        pubkey: Option<Pubkey>,
         signature: Signature,
         tx: EncodedConfirmedTransactionWithStatusMeta,
     ) -> anyhow::Result<()> {
@@ -140,7 +142,13 @@ impl MessengerPool {
         result?;
 
         info!("Sent transaction to stream {signature}");
-        TXN_FORWARDER_SENT.inc();
+        if let Some(pubkey) = pubkey {
+            TXN_FORWARDER_SENT
+                .with_label_values(&[&pubkey.to_string()])
+                .inc();
+        } else {
+            TXN_FORWARDER_SENT.with_label_values(&["undefined"]).inc();
+        }
 
         Ok(())
     }
@@ -193,7 +201,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Action::Single { txn } => {
             let sig = Signature::from_str(&txn).context("failed to parse signature")?;
-            tx.send(send_tx(sig, cli.rpc_url, cli.max_retries, messenger).boxed())
+            tx.send(send_tx(None, sig, cli.rpc_url, cli.max_retries, messenger).boxed())
                 .map_err(|_| anyhow::anyhow!("failed to send job"))?;
         }
         Action::Scenario { scenario_file } => {
@@ -203,7 +211,7 @@ async fn main() -> anyhow::Result<()> {
                 let sig = Signature::from_str(&line).context("failed to parse signature")?;
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = messenger.clone();
-                tx.send(send_tx(sig, rpc_url, cli.max_retries, messenger).boxed())
+                tx.send(send_tx(None, sig, rpc_url, cli.max_retries, messenger).boxed())
                     .map_err(|_| anyhow::anyhow!("failed to send job"))?;
             }
         }
@@ -251,13 +259,14 @@ async fn send_address(
         let rpc_url = rpc_url.clone();
         let messenger = messenger.clone();
         tasks_tx
-            .send(send_tx(sig?, rpc_url, max_retries, messenger).boxed())
+            .send(send_tx(Some(pubkey), sig?, rpc_url, max_retries, messenger).boxed())
             .map_err(|_| anyhow::anyhow!("failed to send job"))?;
     }
     Ok(())
 }
 
 async fn send_tx(
+    pubkey: Option<Pubkey>,
     signature: Signature,
     rpc_url: String,
     max_retries: u8,
@@ -280,5 +289,5 @@ async fn send_tx(
         signature,
     )
     .await?;
-    messenger.send(signature, tx).await
+    messenger.send(pubkey, signature, tx).await
 }
