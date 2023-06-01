@@ -6,7 +6,7 @@ use {
         future::{try_join_all, BoxFuture, FutureExt},
         stream::StreamExt,
     },
-    log::info,
+    log::{error, info},
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
     prometheus::{IntCounterVec, Opts, Registry},
@@ -202,25 +202,37 @@ async fn main() -> anyhow::Result<()> {
             include_failed: _include_failed,
             address,
         } => {
-            let pubkey = Pubkey::from_str(&address).context("failed to parse address")?;
-            tx.send(
-                send_address(
-                    pubkey,
-                    cli.rpc_url,
-                    messenger,
-                    cli.signatures_history_queue,
-                    cli.max_retries,
-                    tx.clone(),
-                )
-                .boxed(),
-            )
-            .map_err(|_| anyhow::anyhow!("failed to send job"))?;
+            match Pubkey::from_str(&address) {
+                Ok(pubkey) => {
+                    tx.send(
+                        send_address(
+                            pubkey,
+                            cli.rpc_url,
+                            messenger,
+                            cli.signatures_history_queue,
+                            cli.max_retries,
+                            tx.clone(),
+                        )
+                        .boxed(),
+                    )
+                    .map_err(|_| anyhow::anyhow!("failed to send job"))?;
+                }
+                Err(_error) => {
+                    error!("failed to parse a pubkey: {address:?}");
+                }
+            };
         }
         Action::Addresses { file } => {
             let mut lines = read_lines(&file).await?;
             while let Some(maybe_line) = lines.next().await {
                 let line = maybe_line?;
-                let pubkey = Pubkey::from_str(&line).context("failed to parse address")?;
+                let pubkey = match Pubkey::from_str(&line) {
+                    Ok(pubkey) => pubkey,
+                    Err(_error) => {
+                        error!("failed to parse a line as pubkey: {line:?}");
+                        continue;
+                    }
+                };
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = messenger.clone();
                 tx.send(
@@ -238,15 +250,26 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Action::Single { txn } => {
-            let sig = Signature::from_str(&txn).context("failed to parse signature")?;
-            tx.send(send_tx(None, sig, cli.rpc_url, cli.max_retries, messenger).boxed())
-                .map_err(|_| anyhow::anyhow!("failed to send job"))?;
+            match Signature::from_str(&txn) {
+                Ok(sig) => tx
+                    .send(send_tx(None, sig, cli.rpc_url, cli.max_retries, messenger).boxed())
+                    .map_err(|_| anyhow::anyhow!("failed to send job"))?,
+                Err(_error) => {
+                    error!("failed to parse signature: {txn:?}");
+                }
+            };
         }
         Action::Scenario { scenario_file } => {
             let mut lines = read_lines(&scenario_file).await?;
             while let Some(maybe_line) = lines.next().await {
                 let line = maybe_line?;
-                let sig = Signature::from_str(&line).context("failed to parse signature")?;
+                let sig = match Signature::from_str(&line) {
+                    Ok(sig) => sig,
+                    Err(_error) => {
+                        error!("failed to parse a line as signature: {line:?}");
+                        continue;
+                    }
+                };
                 let rpc_url = cli.rpc_url.clone();
                 let messenger = messenger.clone();
                 tx.send(send_tx(None, sig, rpc_url, cli.max_retries, messenger).boxed())
