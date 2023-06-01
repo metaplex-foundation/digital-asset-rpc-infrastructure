@@ -57,8 +57,6 @@ use {
 };
 
 lazy_static::lazy_static! {
-    pub static ref REGISTRY: Registry = Registry::new();
-
     pub static ref TREE_STATUS_MAX_SEQ: IntGaugeVec = IntGaugeVec::new(
         Opts::new("tree_status_max_seq", "Maximum sequence of the tree"),
         &["tree"]
@@ -143,6 +141,10 @@ struct Args {
     /// Path to prometheus output
     #[arg(long)]
     prom: Option<String>,
+
+    // Optional prometheus group
+    #[arg(long)]
+    prom_group: Option<String>,
 
     /// Prometheus metrics file update interval
     #[arg(long, default_value_t = 1_000)]
@@ -236,20 +238,18 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // metrics
-    macro_rules! register {
-        ($collector:ident) => {
-            REGISTRY
-                .register(Box::new($collector.clone()))
-                .expect("collector can't be registered");
-        };
+    let mut labels: HashMap<String, String> = HashMap::new();
+    if let Some(group) = args.prom_group.clone() {
+        labels.insert("group".to_owned(), group);
     }
-    register!(TREE_STATUS_MAX_SEQ);
-    register!(TREE_STATUS_MISSING_SEQ);
-    register!(TREE_STATUS_LEAVES_COMPLETED);
-    register!(TREE_STATUS_LEAVES_INCOMPLETE);
-    register!(TREE_STATUS_MISSED_LEAVES);
+    let registry = Registry::new_custom(None, Some(labels)).unwrap();
+    registry.register(Box::new(TREE_STATUS_MAX_SEQ.clone()))?;
+    registry.register(Box::new(TREE_STATUS_MISSING_SEQ.clone()))?;
+    registry.register(Box::new(TREE_STATUS_LEAVES_COMPLETED.clone()))?;
+    registry.register(Box::new(TREE_STATUS_LEAVES_INCOMPLETE.clone()))?;
+    registry.register(Box::new(TREE_STATUS_MISSED_LEAVES.clone()))?;
     let metrics_jh = save_metrics(
-        &REGISTRY,
+        registry,
         args.prom.clone(),
         Duration::from_millis(args.prom_save_interval),
     );

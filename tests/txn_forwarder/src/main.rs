@@ -9,7 +9,7 @@ use {
     log::info,
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
-    prometheus::{IntCounterVec, Opts, Registry},
+    prometheus::{IntGaugeVec, Opts, Registry},
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
@@ -20,7 +20,12 @@ use {
         signature::Signature,
     },
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
-    std::{collections::BTreeMap, env, str::FromStr, sync::Arc},
+    std::{
+        collections::{BTreeMap, HashMap},
+        env,
+        str::FromStr,
+        sync::Arc,
+    },
     tokio::{
         sync::{mpsc, Mutex},
         time::Duration,
@@ -29,9 +34,7 @@ use {
 };
 
 lazy_static::lazy_static! {
-    pub static ref REGISTRY: Registry = Registry::new();
-
-    pub static ref TXN_FORWARDER_SENT: IntCounterVec = IntCounterVec::new(
+    pub static ref TXN_FORWARDER_SENT: IntGaugeVec = IntGaugeVec::new(
         Opts::new("txn_forwarder_sent", "Number of sent transactions"),
         &["tree"]
     ).unwrap();
@@ -54,6 +57,8 @@ struct Cli {
     signatures_history_queue: usize,
     #[arg(long, short, default_value_t = 3)]
     max_retries: u8,
+    #[arg(long)]
+    prom_group: Option<String>,
     /// Path to prometheus output
     #[arg(long)]
     prom: Option<String>,
@@ -170,6 +175,20 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let cli = Cli::parse();
+
+    // metrics
+    let mut labels = HashMap::new();
+    if let Some(group) = cli.prom_group {
+        labels.insert("group".to_owned(), group);
+    }
+    let registry = Registry::new_custom(None, Some(labels)).unwrap();
+    registry.register(Box::new(TXN_FORWARDER_SENT.clone()))?;
+    let metrics_jh = save_metrics(
+        registry,
+        cli.prom,
+        Duration::from_millis(cli.prom_save_interval),
+    );
+
     let config_wrapper = Value::from(map! {
         "redis_connection_str" => cli.redis_url,
         "pipeline_size_bytes" => 1u128.to_string(),
@@ -177,16 +196,6 @@ async fn main() -> anyhow::Result<()> {
     let config = config_wrapper.into_dict().unwrap();
     let messenger = MessengerPool::new(cli.concurrency_redis, &config).await?;
     let (tx, rx) = mpsc::unbounded_channel();
-
-    // metrics
-    REGISTRY
-        .register(Box::new(TXN_FORWARDER_SENT.clone()))
-        .unwrap();
-    let metrics_jh = save_metrics(
-        &REGISTRY,
-        cli.prom,
-        Duration::from_millis(cli.prom_save_interval),
-    );
 
     match cli.action {
         Action::Address {

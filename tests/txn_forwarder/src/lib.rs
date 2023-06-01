@@ -142,7 +142,7 @@ pub async fn read_lines(path: &str) -> anyhow::Result<BoxStream<'static, IoResul
 }
 
 pub fn save_metrics(
-    registry: &'static Registry,
+    registry: Registry,
     path: Option<String>,
     period: Duration,
 ) -> BoxFuture<'static, anyhow::Result<()>> {
