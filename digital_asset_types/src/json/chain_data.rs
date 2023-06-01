@@ -20,7 +20,7 @@ pub struct ChainDataV1 {
 
 impl ChainDataV1 {
     pub fn sanitize(&mut self) {
-        self.name = self.name.trim().replace('\0', "");
-        self.symbol = self.symbol.trim().replace('\0', "");
+        self.name = self.name.replace('\0', "");
+        self.symbol = self.symbol.replace('\0', "");
     }
 }
