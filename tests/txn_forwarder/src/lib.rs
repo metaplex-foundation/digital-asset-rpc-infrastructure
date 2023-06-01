@@ -16,11 +16,11 @@ use {
         pubkey::Pubkey,
         signature::{ParseSignatureError, Signature},
     },
-    std::{fmt, io::Result as IoResult, str::FromStr},
+    std::{fmt, io::Result as IoResult, str::FromStr, sync::Arc},
     tokio::{
         fs::{self, File},
         io::{stdin, AsyncBufReadExt, BufReader},
-        sync::{mpsc, oneshot},
+        sync::{mpsc, Notify},
         time::{interval, sleep, Duration},
     },
     tokio_stream::wrappers::LinesStream,
@@ -147,14 +147,15 @@ pub fn save_metrics(
     period: Duration,
 ) -> BoxFuture<'static, anyhow::Result<()>> {
     if let Some(path) = path {
-        let (tx, mut rx) = oneshot::channel();
+        let notify_loop = Arc::new(Notify::new());
+        let notify_shutdown = Arc::clone(&notify_loop);
         let jh = tokio::spawn(async move {
             let mut interval = interval(period);
             let mut alive = true;
             while alive {
                 tokio::select! {
                     _ = interval.tick() => {},
-                    _ = &mut rx => {
+                    _ = notify_loop.notified() => {
                         alive = false;
                     }
                 };
@@ -169,7 +170,7 @@ pub fn save_metrics(
             Ok::<(), anyhow::Error>(())
         });
         async move {
-            let _ = tx.send(());
+            notify_shutdown.notify_one();
             jh.await?
         }
         .boxed()
