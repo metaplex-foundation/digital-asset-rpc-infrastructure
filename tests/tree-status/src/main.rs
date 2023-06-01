@@ -8,7 +8,7 @@ use {
         stream::{self, StreamExt},
     },
     log::{debug, error, info},
-    prometheus::{IntCounter, IntGaugeVec, Opts, Registry},
+    prometheus::{IntGauge, IntGaugeVec, Opts, Registry},
     sea_orm::{
         sea_query::{Expr, Value},
         ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait,
@@ -67,11 +67,11 @@ lazy_static::lazy_static! {
         &["tree"]
     ).unwrap();
 
-    pub static ref TREE_STATUS_LEAVES_COMPLETED: IntCounter = IntCounter::new(
+    pub static ref TREE_STATUS_LEAVES_COMPLETED: IntGauge = IntGauge::new(
         "tree_status_leaves_completed", "Number of complete trees"
     ).unwrap();
 
-    pub static ref TREE_STATUS_LEAVES_INCOMPLETE: IntCounter = IntCounter::new(
+    pub static ref TREE_STATUS_LEAVES_INCOMPLETE: IntGauge = IntGauge::new(
         "tree_status_leaves_incomplete", "Number of incomplete trees"
     ).unwrap();
 
@@ -246,7 +246,7 @@ async fn main() -> anyhow::Result<()> {
     if let Some(group) = args.prom_group.clone() {
         labels.insert("group".to_owned(), group);
     }
-    let registry = Registry::new_custom(None, Some(labels)).unwrap();
+    let registry = Registry::new_custom(None, Some(labels))?;
     registry.register(Box::new(TREE_STATUS_MAX_SEQ.clone()))?;
     registry.register(Box::new(TREE_STATUS_MISSING_SEQ.clone()))?;
     registry.register(Box::new(TREE_STATUS_LEAVES_COMPLETED.clone()))?;

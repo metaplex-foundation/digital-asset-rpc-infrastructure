@@ -17,4 +17,5 @@ sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "s
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
 solana-sdk = "1.14.10"
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
-tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "fs"] }
+tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread"] }
+txn_forwarder = { path = "../txn_forwarder" }

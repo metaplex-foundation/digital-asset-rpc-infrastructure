@@ -9,7 +9,7 @@ use {
     log::info,
     plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
-    prometheus::{IntGaugeVec, Opts, Registry},
+    prometheus::{IntCounterVec, Opts, Registry},
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
@@ -34,7 +34,7 @@ use {
 };
 
 lazy_static::lazy_static! {
-    pub static ref TXN_FORWARDER_SENT: IntGaugeVec = IntGaugeVec::new(
+    pub static ref TXN_FORWARDER_SENT: IntCounterVec = IntCounterVec::new(
         Opts::new("txn_forwarder_sent", "Number of sent transactions"),
         &["tree"]
     ).unwrap();

@@ -633,6 +633,7 @@ dependencies = [
  "solana-sdk",
  "sqlx",
  "tokio",
+ "txn_forwarder",
 ]
 
 [[package]]

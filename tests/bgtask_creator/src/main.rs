@@ -1,5 +1,4 @@
 use {
-    anyhow::Context,
     clap::{value_parser, Arg, ArgAction, Command},
     digital_asset_types::dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
@@ -14,19 +13,18 @@ use {
         metrics::setup_metrics,
         tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
     },
-    prometheus::{IntGaugeVec, Opts, Registry, TextEncoder},
+    prometheus::{IntGaugeVec, Opts, Registry},
     sea_orm::{
         entity::*, query::*, DbBackend, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector,
     },
     solana_sdk::pubkey::Pubkey,
     sqlx::types::chrono::Utc,
     std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time},
-    tokio::fs,
+    tokio::time::Duration,
+    txn_forwarder::save_metrics,
 };
 
 lazy_static::lazy_static! {
-    pub static ref REGISTRY: Registry = Registry::new();
-
     pub static ref BGTASK_SHOW: IntGaugeVec = IntGaugeVec::new(
         Opts::new("bgtask_show", "Number of assets in tasks"),
         &["type", "kind"]
@@ -49,9 +47,6 @@ lazy_static::lazy_static! {
 async fn main() -> anyhow::Result<()> {
     init_logger();
     info!("Starting bgtask creator");
-
-    REGISTRY.register(Box::new(BGTASK_SHOW.clone())).unwrap();
-    REGISTRY.register(Box::new(BGTASK_CREATE.clone())).unwrap();
 
     let matches = Command::new("bgtaskcreator")
         .arg(
@@ -112,6 +107,13 @@ async fn main() -> anyhow::Result<()> {
                 .required(false)
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("prom_save_interval")
+                .long("prom-save-interval")
+                .help("Prometheus metrics file update interval")
+                .required(false)
+                .action(ArgAction::Set),
+        )
         .subcommand(
             Command::new("show").about("Show tasks").arg(
                 Arg::new("print")
@@ -131,6 +133,20 @@ async fn main() -> anyhow::Result<()> {
         )
         .subcommand(Command::new("delete").about("Delete ALL pending background tasks"))
         .get_matches();
+
+    let registry = Registry::new();
+    registry.register(Box::new(BGTASK_SHOW.clone()))?;
+    registry.register(Box::new(BGTASK_CREATE.clone()))?;
+    let metrics_jh = save_metrics(
+        registry,
+        matches.get_one::<String>("prom").cloned(),
+        Duration::from_millis(
+            matches
+                .get_one::<u64>("prom_save_interval")
+                .cloned()
+                .unwrap_or(1_000),
+        ),
+    );
 
     let config_path = matches.get_one::<PathBuf>("config");
     if let Some(config_path) = config_path {
@@ -389,14 +405,7 @@ WHERE
         }
     }
 
-    if let Some(prom) = matches.get_one::<String>("prom") {
-        let metrics = TextEncoder::new()
-            .encode_to_string(&REGISTRY.gather())
-            .context("could not encode custom metrics")?;
-        fs::write(prom, metrics).await?;
-    }
-
-    Ok(())
+    metrics_jh.await
 }
 
 fn find_by_type<'a>(
