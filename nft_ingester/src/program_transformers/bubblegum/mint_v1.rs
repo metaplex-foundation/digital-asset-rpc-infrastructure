@@ -59,7 +59,7 @@ where
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
-                let uri = metadata.uri.trim().replace('\0', "");
+                let uri = metadata.uri.replace('\0', "");
                 let mut chain_data = ChainDataV1 {
                     name: metadata.name.clone(),
                     symbol: metadata.symbol.clone(),
