@@ -1,6 +1,6 @@
 [package]
 name = "acc_forwarder"
-version = "0.0.1"
+version = "0.7.12"
 edition = "2021"
 publish = false
 

@@ -1,6 +1,6 @@
 [package]
 name = "tree-status"
-version = "0.1.0"
+version = "0.7.12"
 authors = ["Triton One"]
 edition = "2021"
 description = "Test state of the sprcified tree"

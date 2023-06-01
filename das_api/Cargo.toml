@@ -1,6 +1,6 @@
 [package]
 name = "das_api"
-version = "0.7.1"
+version = "0.7.12"
 edition = "2021"
 publish = false
 
