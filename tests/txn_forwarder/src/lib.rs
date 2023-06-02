@@ -9,8 +9,8 @@ use {
     serde::de::DeserializeOwned,
     solana_client::{
         client_error::ClientError, client_error::Result as RpcClientResult,
-        nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
-        rpc_request::RpcRequest,
+        nonblocking::rpc_client::RpcClient, rpc_config::RpcSignaturesForAddressConfig,
+        rpc_request::RpcRequest, rpc_response::RpcConfirmedTransactionStatusWithSignature,
     },
     solana_sdk::{
         pubkey::Pubkey,
@@ -26,6 +26,21 @@ use {
     tokio_stream::wrappers::LinesStream,
 };
 
+pub fn rpc_client_with_header(url: String, header: Option<String>) -> anyhow::Result<RpcClient> {
+    Ok(if let Some(header) = header {
+        let mut items = header.splitn(2, ':');
+        let name = items
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("expect header name"))?;
+        let value = items
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("expect header value"))?;
+        RpcClient::new_with_header(url, name, value)
+    } else {
+        RpcClient::new(url)
+    })
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum FindSignaturesError {
     #[error("Failed to fetch signatures: {0}")]
@@ -37,24 +52,32 @@ pub enum FindSignaturesError {
 pub fn find_signatures(
     address: Pubkey,
     client: RpcClient,
+    max_retries: u8,
     buffer: usize,
 ) -> mpsc::Receiver<Result<Signature, FindSignaturesError>> {
     let (chan, rx) = mpsc::channel(buffer);
     tokio::spawn(async move {
-        let mut last_signature = None;
+        let mut last_signature: Option<Signature> = None;
         loop {
             info!(
                 "fetching signatures for {} before {:?}",
                 address, last_signature
             );
-            let config = GetConfirmedSignaturesForAddress2Config {
-                before: last_signature,
+            let config = RpcSignaturesForAddressConfig {
+                before: last_signature.map(|sig| sig.to_string()),
                 until: None,
-                ..Default::default()
+                limit: None,
+                commitment: None,
+                min_context_slot: None,
             };
-            match client
-                .get_signatures_for_address_with_config(&address, config)
-                .await
+            match rpc_send_with_retries::<Vec<RpcConfirmedTransactionStatusWithSignature>, _>(
+                &client,
+                RpcRequest::GetSignaturesForAddress,
+                serde_json::json!([address.to_string(), config]),
+                max_retries,
+                format!("gSFA: {address}"),
+            )
+            .await
             {
                 Ok(vec) => {
                     info!(

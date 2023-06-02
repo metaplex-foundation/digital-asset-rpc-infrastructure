@@ -14,6 +14,13 @@ exclude = [
   "migration",
 ]
 
+[patch.crates-io]
+solana-account-decoder = { git = "https://github.com/rpcpool/solana-public.git", tag = "v1.14.15-client-custom-header" }
+solana-client = { git = "https://github.com/rpcpool/solana-public.git", tag = "v1.14.15-client-custom-header" }
+solana-program = { git = "https://github.com/rpcpool/solana-public.git", tag = "v1.14.15-client-custom-header" }
+solana-sdk = { git = "https://github.com/rpcpool/solana-public.git", tag = "v1.14.15-client-custom-header" }
+solana-transaction-status = { git = "https://github.com/rpcpool/solana-public.git", tag = "v1.14.15-client-custom-header" }
+
 [profile.release]
 lto = true
 codegen-units = 1
