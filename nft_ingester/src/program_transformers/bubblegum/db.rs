@@ -173,7 +173,7 @@ where
         compressible: Set(compressible),
         supply: Set(supply),
         supply_mint: Set(supply_mint),
-        seq: Set(seq), // gummyroll seq
+        compressed_seq: Set(Some(seq)), // gummyroll seq
         ..Default::default()
     };
 
@@ -188,16 +188,16 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
-                    //asset::Column::CompressedSeq,
+                    asset::Column::CompressedSeq,
                     //TODO maybe handle slot updated.
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    // query.sql = format!(
-    //     "{} WHERE excluded.seq > asset.compressed_seq OR asset.compressed_seq IS NULL",
-    //     query.sql
-    // );
+    query.sql = format!(
+        "{} WHERE excluded.compressed_seq > asset.compressed_seq OR asset.compressed_seq IS NULL",
+        query.sql
+    );
     txn.execute(query).await?;
 
     Ok(())

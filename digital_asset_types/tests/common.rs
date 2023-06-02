@@ -142,7 +142,7 @@ pub fn create_asset(
             royalty_target_type,
             royalty_target,
             royalty_amount,
-            asset_data: Some(id.clone()),
+            asset_data: Some(id),
             burnt: false,
             created_at: None,
             specification_asset_class: SpecificationAssetClass::Nft,
@@ -150,6 +150,7 @@ pub fn create_asset(
             data_hash: None,
             alt_id: None,
             creator_hash: None,
+            compressed_seq: Some(0),
         },
     )
 }
