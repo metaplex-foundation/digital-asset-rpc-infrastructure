@@ -63,8 +63,8 @@ where
             ..Default::default()
         };
 
-        let mut audit_item: cl_audits::ActiveModel = item.clone().into();
-        audit_item.tx = Set(txn_id.to_string());
+        //let mut audit_item: cl_audits::ActiveModel = item.clone().into();
+        //audit_item.tx = Set(txn_id.to_string());
 
         i += 1;
         let mut query = cl_items::Entity::insert(item)
@@ -89,7 +89,8 @@ where
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
         // Insert the audit item after the insert into cl_items have been completed
-        cl_audits::Entity::insert(audit_item).exec(txn).await?;
+        // Disabling cl_audits for now
+        //cl_audits::Entity::insert(audit_item).exec(txn).await?;
     }
 
     // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
