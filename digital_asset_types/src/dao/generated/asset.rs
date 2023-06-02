@@ -43,6 +43,7 @@ pub struct Model {
     pub slot_updated: i64,
     pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
+    pub compressed_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -72,6 +73,7 @@ pub enum Column {
     SlotUpdated,
     DataHash,
     CreatorHash,
+    CompressedSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -124,6 +126,7 @@ impl ColumnTrait for Column {
             Self::SlotUpdated => ColumnType::BigInteger.def(),
             Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::CompressedSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }

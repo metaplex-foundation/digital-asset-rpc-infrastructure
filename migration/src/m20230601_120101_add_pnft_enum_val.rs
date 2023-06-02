@@ -14,7 +14,8 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "ALTER TYPE specification_asset_class ADD VALUE IF NOT EXISTS 'PNFT';".to_string(),
+                "ALTER TYPE specification_asset_class ADD VALUE IF NOT EXISTS 'PROGRAMMABLE_NFT';"
+                    .to_string(),
             ))
             .await?;
 
