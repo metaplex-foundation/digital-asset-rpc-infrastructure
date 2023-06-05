@@ -74,6 +74,7 @@ pub struct SearchAssets {
     pub royalty_target: Option<String>,
     pub royalty_amount: Option<u32>,
     pub burnt: Option<bool>,
+    pub json_uri: Option<String>,
     pub sort_by: Option<AssetSorting>,
     pub limit: Option<u32>,
     pub page: Option<u32>,
@@ -83,7 +84,6 @@ pub struct SearchAssets {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-
 pub struct GetAssetsByAuthority {
     pub authority_address: String,
     pub sort_by: Option<AssetSorting>,

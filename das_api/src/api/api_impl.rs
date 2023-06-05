@@ -271,6 +271,7 @@ impl ApiContract for DasApi {
             royalty_target,
             royalty_amount,
             burnt,
+            json_uri,
             sort_by,
             limit,
             page,
