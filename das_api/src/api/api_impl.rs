@@ -325,6 +325,7 @@ impl ApiContract for DasApi {
             royalty_target,
             royalty_amount,
             burnt,
+            json_uri,
         };
         let sort_by = sort_by.unwrap_or_default();
         // Execute query
