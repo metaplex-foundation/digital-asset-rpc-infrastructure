@@ -173,32 +173,37 @@ pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
+    let asset_ids = assets.iter().map(|a| a.id.clone())
+        .collect::<Vec<_>>();
+
     let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
         .filter(asset_data::Column::Id.is_in(asset_ids))
         .all(conn)
         .await?;
-
-    let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut x, ad| {
-        x.insert(ad.id.clone(), ad);
-        x
-    });
+    let asset_data_map = asset_data
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, ad| {
+            acc.insert(ad.id.clone(), ad);
+            acc
+        });
 
     // Using BTreeMap to preserve order.
-    let mut assets_map = assets.into_iter().fold(BTreeMap::new(), |mut x, asset| {
-        if let Some(ad) = asset_data_map.get(&asset.id) {
-            let id = asset.id.clone();
-            let fa = FullAsset {
-                asset: asset,
-                data: ad.clone(),
-                authorities: vec![],
-                creators: vec![],
-                groups: vec![],
+    let mut assets_map = assets
+        .into_iter()
+        .fold(BTreeMap::new(), |mut acc, asset| {
+            if let Some(ad) = asset.asset_data.clone().and_then(|ad_id| asset_data_map.get(&ad_id)) {
+                let id = asset.id.clone();
+                let fa = FullAsset {
+                    asset: asset,
+                    data: ad.clone(),
+                    authorities: vec![],
+                    creators: vec![],
+                    groups: vec![],
+                };
+                acc.insert(id, fa);
             };
-            x.insert(id.clone(), fa);
-        }
-        x
-    });
+            acc
+        });
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
