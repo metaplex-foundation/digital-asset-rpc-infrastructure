@@ -79,6 +79,7 @@ pub struct SearchAssets {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
     pub json_uri: Option<String>,
 }
 
