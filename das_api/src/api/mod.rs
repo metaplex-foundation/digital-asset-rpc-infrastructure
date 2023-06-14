@@ -74,12 +74,12 @@ pub struct SearchAssets {
     pub royalty_target: Option<String>,
     pub royalty_amount: Option<u32>,
     pub burnt: Option<bool>,
-    pub json_uri: Option<String>,
     pub sort_by: Option<AssetSorting>,
     pub limit: Option<u32>,
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    pub json_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
