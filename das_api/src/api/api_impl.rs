@@ -271,12 +271,12 @@ impl ApiContract for DasApi {
             royalty_target,
             royalty_amount,
             burnt,
-            json_uri,
             sort_by,
             limit,
             page,
             before,
             after,
+            json_uri
         } = payload;
         // Deserialize search assets query
         self.validate_pagination(&limit, &page, &before, &after)?;
