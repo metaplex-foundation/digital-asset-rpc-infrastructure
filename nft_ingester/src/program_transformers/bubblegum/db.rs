@@ -1,6 +1,6 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_audits, cl_items};
-use log::{debug, info};
+use log::{debug, info, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr, EntityTrait,
 };
@@ -140,11 +140,11 @@ where
     let update_one = if let Some(seq) = seq {
         asset::Entity::update(model).filter(
             Condition::all()
-                .add(asset::Column::Id.eq(id))
+                .add(asset::Column::Id.eq(id.clone()))
                 .add(asset::Column::Seq.lte(seq)),
         )
     } else {
-        asset::Entity::update(model).filter(asset::Column::Id.eq(id))
+        asset::Entity::update(model).filter(asset::Column::Id.eq(id.clone()))
     };
 
     match update_one.exec(txn).await {
@@ -152,6 +152,10 @@ where
         Err(err) => match err {
             DbErr::RecordNotFound(ref s) => {
                 if s.contains("None of the database rows are affected") {
+                    warn!(
+                        "Update failed. No asset found for id {}.",
+                        bs58::encode(id).into_string()
+                    );
                     Ok(())
                 } else {
                     Err(IngesterError::from(err))
