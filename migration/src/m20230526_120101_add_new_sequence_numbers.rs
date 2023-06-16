@@ -15,7 +15,18 @@ impl MigrationTrait for Migration {
                     .add_column(ColumnDef::new(Alias::new("compressed_seq")).big_integer())
                     .to_owned(),
             )
-            .await
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(asset::Entity)
+                    .add_column(ColumnDef::new(Alias::new("owner_delegate_seq")).big_integer())
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -27,6 +38,17 @@ impl MigrationTrait for Migration {
                     .drop_column(Alias::new("compressed_seq"))
                     .to_owned(),
             )
-            .await
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(asset::Entity)
+                    .drop_column(Alias::new("owner_delegate_seq"))
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
     }
 }

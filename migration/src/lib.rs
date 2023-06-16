@@ -16,8 +16,9 @@ mod m20230203_205959_improve_upsert_perf;
 mod m20230224_093722_performance_improvements;
 mod m20230310_162227_add_indexes_to_bg;
 mod m20230317_121944_remove_indexes_for_perf;
-mod m20230526_120101_add_compressed_seq;
+mod m20230526_120101_add_new_sequence_numbers;
 mod m20230601_120101_add_pnft_enum_val;
+mod m20230615_120101_remove_asset_null_constraints;
 
 pub struct Migrator;
 
@@ -41,8 +42,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20230224_093722_performance_improvements::Migration),
             Box::new(m20230310_162227_add_indexes_to_bg::Migration),
             Box::new(m20230317_121944_remove_indexes_for_perf::Migration),
-            Box::new(m20230526_120101_add_compressed_seq::Migration),
+            Box::new(m20230526_120101_add_new_sequence_numbers::Migration),
             Box::new(m20230601_120101_add_pnft_enum_val::Migration),
+            Box::new(m20230615_120101_remove_asset_null_constraints::Migration),
         ]
     }
 }
