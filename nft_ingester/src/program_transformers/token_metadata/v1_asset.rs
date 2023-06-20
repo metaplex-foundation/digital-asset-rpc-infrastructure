@@ -45,7 +45,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let slot_i = slot as i64;
     let model = asset::ActiveModel {
         id: Set(id.to_vec()),
-        slot_updated: Set(slot_i),
+        slot_updated: Set(Some(slot_i)),
         burnt: Set(true),
         ..Default::default()
     };
@@ -226,11 +226,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         frozen: Set(false),
         supply,
         supply_mint,
-        specification_version: Set(SpecificationVersions::V1),
-        specification_asset_class: Set(class),
+        specification_version: Set(Some(SpecificationVersions::V1)),
+        specification_asset_class: Set(Some(class)),
         tree_id: Set(None),
-        nonce: Set(0),
-        seq: Set(0),
+        nonce: Set(Some(0)),
+        seq: Set(Some(0)),
         leaf: Set(None),
         compressed: Set(false),
         compressible: Set(false),
@@ -238,7 +238,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         royalty_target: Set(None),
         royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
         asset_data: Set(Some(id.to_vec())),
-        slot_updated: Set(slot_i),
+        slot_updated: Set(Some(slot_i)),
         burnt: Set(false),
         ..Default::default()
     };

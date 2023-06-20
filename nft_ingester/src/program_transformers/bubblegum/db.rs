@@ -127,7 +127,7 @@ where
         leaf: Set(Some(leaf)),
         delegate: Set(delegate),
         owner: Set(Some(owner)),
-        seq: Set(seq), // gummyroll seq
+        seq: Set(Some(seq)), // gummyroll seq
         ..Default::default()
     };
 

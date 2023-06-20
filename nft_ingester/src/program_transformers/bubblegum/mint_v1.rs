@@ -144,16 +144,16 @@ where
                     //supply_mint: Set(None),
                     //compressed: Set(true),
                     tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
-                    specification_version: Set(SpecificationVersions::V1),
-                    specification_asset_class: Set(SpecificationAssetClass::Nft),
-                    nonce: Set(nonce as i64),
+                    specification_version: Set(Some(SpecificationVersions::V1)),
+                    specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
+                    nonce: Set(Some(nonce as i64)),
                     //leaf: Set(Some(le.leaf_hash.to_vec())),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
                     //seq: Set(seq as i64), // gummyroll seq
-                    slot_updated: Set(slot_i),
+                    slot_updated: Set(Some(slot_i)),
                     data_hash: Set(Some(data_hash)),
                     creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
