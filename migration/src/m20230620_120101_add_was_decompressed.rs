@@ -12,16 +12,12 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(asset::Entity)
-                    .add_column(ColumnDef::new(Alias::new("compressed_seq")).big_integer())
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(asset::Entity)
-                    .add_column(ColumnDef::new(Alias::new("owner_delegate_seq")).big_integer())
+                    .add_column(
+                        ColumnDef::new(Alias::new("was_decompressed"))
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -35,16 +31,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(asset::Entity)
-                    .drop_column(Alias::new("compressed_seq"))
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(asset::Entity)
-                    .drop_column(Alias::new("owner_delegate_seq"))
+                    .drop_column(Alias::new("was_decompressed"))
                     .to_owned(),
             )
             .await?;

@@ -59,7 +59,7 @@ where
                     txn,
                     id_bytes.to_vec(),
                     Some(le.leaf_hash.to_vec()),
-                    seq as i64,
+                    Some(seq as i64),
                 )
                 .await?;
 

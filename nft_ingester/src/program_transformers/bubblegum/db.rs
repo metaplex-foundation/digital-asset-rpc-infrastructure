@@ -115,7 +115,7 @@ pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,
     leaf: Option<Vec<u8>>,
-    seq: i64,
+    seq: Option<i64>,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -123,7 +123,7 @@ where
     let model = asset::ActiveModel {
         id: Set(id),
         leaf: Set(leaf),
-        seq: Set(Some(seq)),
+        seq: Set(seq),
         ..Default::default()
     };
 
@@ -135,7 +135,7 @@ where
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        "{} WHERE (asset.was_decompressed = 0) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
         query.sql
     );
 
@@ -194,7 +194,7 @@ pub async fn upsert_asset_with_compression_info<T>(
     compressible: bool,
     supply: i64,
     supply_mint: Option<Vec<u8>>,
-    seq: i64,
+    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -205,7 +205,7 @@ where
         compressible: Set(compressible),
         supply: Set(supply),
         supply_mint: Set(supply_mint),
-        compressed_seq: Set(Some(seq)), // gummyroll seq
+        //was_decompressed: Set(was_decompressed),
         ..Default::default()
     };
 
@@ -220,16 +220,12 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
-                    asset::Column::CompressedSeq,
-                    //TODO maybe handle slot updated.
+                    //asset::Column::WasDecompressed,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.compressed_seq > asset.compressed_seq OR asset.compressed_seq IS NULL",
-        query.sql
-    );
+    query.sql = format!("{} WHERE asset.was_decompressed = 0", query.sql);
     txn.execute(query).await?;
 
     Ok(())
