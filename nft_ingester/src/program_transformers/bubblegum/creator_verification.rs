@@ -7,7 +7,9 @@ use sea_orm::{ConnectionTrait, Set, TransactionTrait};
 
 use crate::{
     error::IngesterError,
-    program_transformers::bubblegum::{update_creator, upsert_asset_with_leaf_schema},
+    program_transformers::bubblegum::{
+        update_creator, upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
+    },
 };
 
 use super::save_changelog_event;
@@ -40,28 +42,38 @@ where
         let asset_id_bytes = match le.schema {
             LeafSchema::V1 {
                 id,
-                delegate,
                 owner,
+                delegate,
                 ..
             } => {
-                let id_bytes = id.to_bytes().to_vec();
+                let id_bytes = id.to_bytes();
+                let owner_bytes = owner.to_bytes().to_vec();
                 let delegate = if owner == delegate {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let owner_bytes = owner.to_bytes().to_vec();
 
-                upsert_asset_with_leaf_schema(
+                // Partial update of asset table with just leaf.
+                upsert_asset_with_leaf_info(
                     txn,
-                    id_bytes.clone(),
-                    le.leaf_hash.to_vec(),
-                    delegate,
-                    owner_bytes,
+                    id_bytes.to_vec(),
+                    Some(le.leaf_hash.to_vec()),
                     seq as i64,
                 )
                 .await?;
-                id_bytes
+
+                // Partial update of asset table with just leaf owner and delegate.
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    owner_bytes,
+                    delegate,
+                    seq as i64,
+                )
+                .await?;
+
+                id_bytes.to_vec()
             }
             _ => return Err(IngesterError::NotImplemented),
         };

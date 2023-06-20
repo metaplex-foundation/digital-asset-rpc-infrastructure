@@ -111,12 +111,10 @@ where
     //TODO -> set maximum size of path and break into multiple statements
 }
 
-pub async fn upsert_asset_with_leaf_schema<T>(
+pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,
-    leaf: Vec<u8>,
-    delegate: Option<Vec<u8>>,
-    owner: Vec<u8>,
+    leaf: Option<Vec<u8>>,
     seq: i64,
 ) -> Result<(), IngesterError>
 where
@@ -124,10 +122,45 @@ where
 {
     let model = asset::ActiveModel {
         id: Set(id),
-        leaf: Set(Some(leaf)),
-        delegate: Set(delegate),
+        leaf: Set(leaf),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::Leaf, asset::Column::Seq])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_owner_and_delegate_info<T>(
+    txn: &T,
+    id: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
         owner: Set(Some(owner)),
-        seq: Set(Some(seq)), // gummyroll seq
+        delegate: Set(delegate),
+        owner_delegate_seq: Set(Some(seq)), // gummyroll seq
         ..Default::default()
     };
 
@@ -135,16 +168,15 @@ where
         .on_conflict(
             OnConflict::column(asset::Column::Id)
                 .update_columns([
-                    asset::Column::Leaf,
-                    asset::Column::Delegate,
                     asset::Column::Owner,
-                    asset::Column::Seq,
+                    asset::Column::Delegate,
+                    asset::Column::OwnerDelegateSeq,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        "{} WHERE excluded.owner_delegate_seq > asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL",
         query.sql
     );
 

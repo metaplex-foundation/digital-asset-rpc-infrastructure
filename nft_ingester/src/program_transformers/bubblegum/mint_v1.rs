@@ -2,7 +2,8 @@ use super::save_changelog_event;
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_schema,
+        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -134,25 +135,19 @@ where
                     .trim()
                     .to_string();
 
+                // Set initial mint info.
                 let asset_model = asset::ActiveModel {
                     id: Set(id_bytes.to_vec()),
-                    //owner: Set(Some(owner.to_bytes().to_vec())),
                     owner_type: Set(OwnerType::Single),
-                    //delegate: Set(delegate),
                     frozen: Set(false),
-                    //supply: Set(1),
-                    //supply_mint: Set(None),
-                    //compressed: Set(true),
                     tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
                     specification_version: Set(Some(SpecificationVersions::V1)),
                     specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
                     nonce: Set(Some(nonce as i64)),
-                    //leaf: Set(Some(le.leaf_hash.to_vec())),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
-                    //seq: Set(seq as i64), // gummyroll seq
                     slot_updated: Set(Some(slot_i)),
                     data_hash: Set(Some(data_hash)),
                     creator_hash: Set(Some(creator_hash)),
@@ -199,13 +194,21 @@ where
                 )
                 .await?;
 
-                // Partial update of asset table with just leaf schema elements.
-                upsert_asset_with_leaf_schema(
+                // Partial update of asset table with just leaf.
+                upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
-                    le.leaf_hash.to_vec(),
-                    delegate,
+                    Some(le.leaf_hash.to_vec()),
+                    seq as i64,
+                )
+                .await?;
+
+                // Partial update of asset table with just leaf owner and delegate.
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
                     owner.to_bytes().to_vec(),
+                    delegate,
                     seq as i64,
                 )
                 .await?;

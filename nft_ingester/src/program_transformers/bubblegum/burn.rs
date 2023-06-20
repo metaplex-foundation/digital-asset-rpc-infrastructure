@@ -1,5 +1,7 @@
-use super::save_changelog_event;
-use crate::error::IngesterError;
+use crate::{
+    error::IngesterError,
+    program_transformers::bubblegum::{save_changelog_event, u32_to_u8_array},
+};
 use anchor_lang::prelude::Pubkey;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
 use digital_asset_types::dao::asset;
@@ -18,7 +20,7 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(cl) = &parsing_result.tree_update {
-        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let _seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let leaf_index = cl.index;
         let (asset_id, _) = Pubkey::find_program_address(
             &[
@@ -29,10 +31,10 @@ where
             &mpl_bubblegum::ID,
         );
         debug!("Indexing burn for asset id: {:?}", asset_id);
-        let id_bytes = asset_id.to_bytes().to_vec();
+        let id_bytes = asset_id.to_bytes();
 
         let asset_model = asset::ActiveModel {
-            id: Set(id_bytes.clone()),
+            id: Set(id_bytes.to_vec()),
             burnt: Set(true),
             ..Default::default()
         };
@@ -54,12 +56,4 @@ where
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
-}
-
-// PDA lookup requires an 8-byte array.
-fn u32_to_u8_array(value: u32) -> [u8; 8] {
-    let bytes: [u8; 4] = value.to_le_bytes();
-    let mut result: [u8; 8] = [0; 8];
-    result[..4].copy_from_slice(&bytes);
-    result
 }

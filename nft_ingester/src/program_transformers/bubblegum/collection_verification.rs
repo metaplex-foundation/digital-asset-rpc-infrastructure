@@ -1,3 +1,10 @@
+use crate::{
+    error::IngesterError,
+    program_transformers::bubblegum::{
+        save_changelog_event, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info,
+    },
+};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -5,8 +12,6 @@ use blockbuster::{
 use digital_asset_types::dao::asset_grouping;
 use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set};
 
-use super::{save_changelog_event, upsert_asset_with_leaf_schema};
-use crate::error::IngesterError;
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
@@ -24,23 +29,33 @@ where
         match le.schema {
             LeafSchema::V1 {
                 id,
-                delegate,
                 owner,
+                delegate,
                 ..
             } => {
-                let id_bytes = id.to_bytes().to_vec();
+                let id_bytes = id.to_bytes();
+                let owner_bytes = owner.to_bytes().to_vec();
                 let delegate = if owner == delegate {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let owner_bytes = owner.to_bytes().to_vec();
-                upsert_asset_with_leaf_schema(
+
+                // Partial update of asset table with just leaf.
+                upsert_asset_with_leaf_info(
                     txn,
-                    id_bytes.clone(),
-                    le.leaf_hash.to_vec(),
-                    delegate,
+                    id_bytes.to_vec(),
+                    Some(le.leaf_hash.to_vec()),
+                    seq as i64,
+                )
+                .await?;
+
+                // Partial update of asset table with just leaf owner and delegate.
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
                     owner_bytes,
+                    delegate,
                     seq as i64,
                 )
                 .await?;
@@ -50,7 +65,7 @@ where
                         parsing_result.payload
                     {
                         let grouping = asset_grouping::ActiveModel {
-                            asset_id: Set(id_bytes.clone()),
+                            asset_id: Set(id_bytes.to_vec()),
                             group_key: Set("collection".to_string()),
                             group_value: Set(collection.to_string()),
                             seq: Set(seq as i64),

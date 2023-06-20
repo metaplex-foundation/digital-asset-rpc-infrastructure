@@ -1,10 +1,12 @@
-use crate::{error::IngesterError, program_transformers::bubblegum::upsert_asset_with_leaf_schema};
-
-use super::save_changelog_event;
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema},
+use crate::{
+    error::IngesterError,
+    program_transformers::bubblegum::{
+        save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info,
+    },
 };
+use anchor_lang::prelude::Pubkey;
+use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
+use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn redeem<'c, T>(
@@ -15,35 +17,23 @@ pub async fn redeem<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
+    if let Some(cl) = &parsing_result.tree_update {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
-        #[allow(unreachable_patterns)]
-        return match le.schema {
-            LeafSchema::V1 {
-                id,
-                delegate,
-                owner,
-                ..
-            } => {
-                let id_bytes = id.to_bytes().to_vec();
-                let delegate = if owner == delegate {
-                    None
-                } else {
-                    Some(delegate.to_bytes().to_vec())
-                };
-                let owner_bytes = owner.to_bytes().to_vec();
-                upsert_asset_with_leaf_schema(
-                    txn,
-                    id_bytes.clone(),
-                    vec![0; 32],
-                    delegate,
-                    owner_bytes,
-                    seq as i64,
-                )
-                .await
-            }
-            _ => Err(IngesterError::NotImplemented),
-        };
+        let leaf_index = cl.index;
+        let (asset_id, _) = Pubkey::find_program_address(
+            &[
+                "asset".as_bytes(),
+                cl.id.as_ref(),
+                u32_to_u8_array(leaf_index).as_ref(),
+            ],
+            &mpl_bubblegum::ID,
+        );
+        debug!("Indexing burn for asset id: {:?}", asset_id);
+        let id_bytes = asset_id.to_bytes();
+
+        // Partial update of asset table with just leaf.
+        upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), Some(vec![0; 32]), seq as i64).await?;
+        return Ok(());
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),
