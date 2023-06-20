@@ -140,7 +140,7 @@ where
     // indexed decompression and regardless of seq.
     if !was_decompressed {
         query.sql = format!(
-            "{} WHERE (asset.was_decompressed = 0) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
+            "{} WHERE (NOT asset.was_decompressed) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
             query.sql
         );
     }
@@ -228,7 +228,7 @@ where
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!("{} WHERE asset.was_decompressed = 0", query.sql);
+    query.sql = format!("{} WHERE NOT asset.was_decompressed", query.sql);
     txn.execute(query).await?;
 
     Ok(())
