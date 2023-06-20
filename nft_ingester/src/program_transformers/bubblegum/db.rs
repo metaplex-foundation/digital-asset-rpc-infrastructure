@@ -116,6 +116,7 @@ pub async fn upsert_asset_with_leaf_info<T>(
     id: Vec<u8>,
     leaf: Option<Vec<u8>>,
     seq: Option<i64>,
+    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -134,10 +135,15 @@ where
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE (asset.was_decompressed = 0) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
-        query.sql
-    );
+
+    // If we are indexing decompression we will update the leaf regardless of if we have previously
+    // indexed decompression and regardless of seq.
+    if !was_decompressed {
+        query.sql = format!(
+            "{} WHERE (asset.was_decompressed = 0) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
+            query.sql
+        );
+    }
 
     txn.execute(query)
         .await
@@ -205,13 +211,10 @@ where
         compressible: Set(compressible),
         supply: Set(supply),
         supply_mint: Set(supply_mint),
-        //was_decompressed: Set(was_decompressed),
+        was_decompressed: Set(was_decompressed),
         ..Default::default()
     };
 
-    // TODO I think we can re-run it, it would be indexing same data but that's fine.
-    // // Do not run this command if the asset is already marked as
-    // // decompressed.
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
@@ -220,7 +223,7 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
-                    //asset::Column::WasDecompressed,
+                    asset::Column::WasDecompressed,
                 ])
                 .to_owned(),
         )

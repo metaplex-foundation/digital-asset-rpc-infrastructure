@@ -60,6 +60,7 @@ where
                     id_bytes.to_vec(),
                     Some(le.leaf_hash.to_vec()),
                     Some(seq as i64),
+                    false,
                 )
                 .await?;
 

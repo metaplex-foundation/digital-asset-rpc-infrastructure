@@ -32,8 +32,14 @@ where
         let id_bytes = asset_id.to_bytes();
 
         // Partial update of asset table with just leaf.
-        upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), Some(vec![0; 32]), Some(seq as i64))
-            .await?;
+        upsert_asset_with_leaf_info(
+            txn,
+            id_bytes.to_vec(),
+            Some(vec![0; 32]),
+            Some(seq as i64),
+            false,
+        )
+        .await?;
 
         return Ok(());
     }

@@ -20,7 +20,7 @@ where
     // Partial update of asset table with just leaf.  Note this needs to be done
     // first because it only updates the leaf if the `was_decompressed` flag is
     // false, and `upsert_asset_with_compression_info` sets the flag.
-    upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), None, None).await?;
+    upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), None, None, true).await?;
 
     upsert_asset_with_compression_info(
         txn,

@@ -151,8 +151,8 @@ pub fn create_asset(
             data_hash: None,
             alt_id: None,
             creator_hash: None,
-            compressed_seq: Some(0),
             owner_delegate_seq: Some(0),
+            was_decompressed: false,
         },
     )
 }
