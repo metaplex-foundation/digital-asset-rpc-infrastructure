@@ -161,9 +161,6 @@ where
                             .update_columns([
                                 asset::Column::OwnerType,
                                 asset::Column::Frozen,
-                                asset::Column::Supply,
-                                asset::Column::SupplyMint,
-                                asset::Column::Compressed,
                                 asset::Column::TreeId,
                                 asset::Column::SpecificationVersion,
                                 asset::Column::SpecificationAssetClass,
