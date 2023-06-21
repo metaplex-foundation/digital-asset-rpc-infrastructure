@@ -79,11 +79,12 @@ pub struct SearchAssets {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub json_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-
 pub struct GetAssetsByAuthority {
     pub authority_address: String,
     pub sort_by: Option<AssetSorting>,
