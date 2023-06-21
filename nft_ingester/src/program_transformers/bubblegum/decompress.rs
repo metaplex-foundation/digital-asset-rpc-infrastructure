@@ -15,11 +15,11 @@ pub async fn decompress<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    solana_sdk::msg!("HI I AM DECOMPRESSING \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",);
+
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice();
 
-    // Partial update of asset table with just leaf.  Note this needs to be done
-    // first because it only updates the leaf if the `was_decompressed` flag is
-    // false, and `upsert_asset_with_compression_info` sets the flag.
+    // Partial update of asset table with just leaf.
     upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), None, None, true).await?;
 
     upsert_asset_with_compression_info(
