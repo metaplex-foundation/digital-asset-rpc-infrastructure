@@ -280,7 +280,7 @@ impl ApiContract for DasApi {
             page,
             before,
             after,
-            json_uri
+            json_uri,
         } = payload;
         // Deserialize search assets query
         self.validate_pagination(&limit, &page, &before, &after)?;
