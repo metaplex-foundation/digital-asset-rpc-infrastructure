@@ -15,8 +15,6 @@ pub async fn decompress<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    solana_sdk::msg!("HI I AM DECOMPRESSING \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",);
-
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice();
 
     // Partial update of asset table with just leaf.
