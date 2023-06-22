@@ -7,7 +7,7 @@ use sea_orm::{
     DatabaseConnection, DbBackend, EntityTrait,
 };
 use solana_sdk::program_option::COption;
-use spl_token::state::{AccountState, Mint, Account};
+use spl_token::state::{AccountState};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
