@@ -1,7 +1,7 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info,
+        save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info, upsert_asset_with_seq,
     },
 };
 use anchor_lang::prelude::Pubkey;
@@ -40,6 +40,8 @@ where
             false,
         )
         .await?;
+
+        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
         return Ok(());
     }

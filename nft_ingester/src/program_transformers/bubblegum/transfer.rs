@@ -3,6 +3,7 @@ use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
+        upsert_asset_with_seq,
     },
 };
 use blockbuster::{
@@ -55,7 +56,9 @@ where
                     delegate,
                     seq as i64,
                 )
-                .await
+                .await?;
+
+                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await
             }
             _ => Err(IngesterError::NotImplemented),
         };

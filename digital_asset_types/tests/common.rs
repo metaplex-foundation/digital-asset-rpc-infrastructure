@@ -153,6 +153,7 @@ pub fn create_asset(
             creator_hash: None,
             owner_delegate_seq: Some(0),
             was_decompressed: false,
+            leaf_seq: Some(0),
         },
     )
 }

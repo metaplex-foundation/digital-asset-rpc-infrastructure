@@ -3,7 +3,7 @@ use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -210,6 +210,8 @@ where
                     seq as i64,
                 )
                 .await?;
+
+                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
                 let attachment = asset_v1_account_attachments::ActiveModel {
                     id: Set(edition_attachment_address.to_bytes().to_vec()),

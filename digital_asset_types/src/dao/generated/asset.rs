@@ -45,6 +45,7 @@ pub struct Model {
     pub creator_hash: Option<String>,
     pub owner_delegate_seq: Option<i64>,
     pub was_decompressed: bool,
+    pub leaf_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -76,6 +77,7 @@ pub enum Column {
     CreatorHash,
     OwnerDelegateSeq,
     WasDecompressed,
+    LeafSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -130,6 +132,7 @@ impl ColumnTrait for Column {
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
             Self::WasDecompressed => ColumnType::Boolean.def(),
+            Self::LeafSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }

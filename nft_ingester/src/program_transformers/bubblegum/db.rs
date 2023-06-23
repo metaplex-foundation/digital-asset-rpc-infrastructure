@@ -124,14 +124,14 @@ where
     let model = asset::ActiveModel {
         id: Set(id),
         leaf: Set(leaf),
-        seq: Set(seq),
+        leaf_seq: Set(seq),
         ..Default::default()
     };
 
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
-                .update_columns([asset::Column::Leaf, asset::Column::Seq])
+                .update_columns([asset::Column::Leaf, asset::Column::LeafSeq])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -140,7 +140,7 @@ where
     // indexed decompression and regardless of seq.
     if !was_decompressed {
         query.sql = format!(
-            "{} WHERE (NOT asset.was_decompressed) AND (excluded.seq > asset.seq OR asset.seq IS NULL)",
+            "{} WHERE (NOT asset.was_decompressed) AND (excluded.leaf_seq > asset.leaf_seq OR asset.leaf_seq IS NULL)",
             query.sql
         );
     }
@@ -230,6 +230,36 @@ where
         .build(DbBackend::Postgres);
     query.sql = format!("{} WHERE NOT asset.was_decompressed", query.sql);
     txn.execute(query).await?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_seq<T>(txn: &T, id: Vec<u8>, seq: i64) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::Seq])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }

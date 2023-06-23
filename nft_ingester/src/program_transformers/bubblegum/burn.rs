@@ -1,6 +1,8 @@
 use crate::{
     error::IngesterError,
-    program_transformers::bubblegum::{save_changelog_event, u32_to_u8_array},
+    program_transformers::bubblegum::{
+        save_changelog_event, u32_to_u8_array, upsert_asset_with_seq,
+    },
 };
 use anchor_lang::prelude::Pubkey;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
@@ -20,7 +22,7 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(cl) = &parsing_result.tree_update {
-        let _seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
         let leaf_index = cl.index;
         let (asset_id, _) = Pubkey::find_program_address(
             &[
@@ -51,6 +53,9 @@ where
             )
             .build(DbBackend::Postgres);
         txn.execute(query).await?;
+
+        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+
         return Ok(());
     }
     Err(IngesterError::ParsingError(
