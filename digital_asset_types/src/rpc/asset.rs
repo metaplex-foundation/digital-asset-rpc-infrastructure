@@ -185,7 +185,7 @@ pub struct Compression {
     pub creator_hash: String,
     pub asset_hash: String,
     pub tree: String,
-    pub seq: Option<i64>,
+    pub seq: i64,
     pub leaf_id: i64,
 }
 
