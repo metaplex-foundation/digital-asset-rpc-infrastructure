@@ -16,7 +16,7 @@ pushd metaplex_program_library/bubblegum/program
 popd
 
 mkdir solana_program_library || true
-curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarball | tar -xz --strip-components=1 -C ./solana_program_library
+curl -LkSs https://api.github.com/repos/solana-labs/solana-program-library/tarball/token-swap-js-v0.4.0 | tar -xz --strip-components=1 -C ./solana_program_library
 tar -zxf -C /solana_program_library solana-program-library.tar.gz
 pushd solana_program_library/account-compression/programs/account-compression
   cargo build-bpf --bpf-out-dir ./here
