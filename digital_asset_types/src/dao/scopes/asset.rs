@@ -2,8 +2,9 @@ use crate::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
     Pagination,
 };
+use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
 where
@@ -158,8 +159,6 @@ where
     let mut stmt = asset::Entity::find()
         .filter(condition)
         .join(JoinType::LeftJoin, relation.def())
-        .distinct_on([(asset::Entity, asset::Column::Id)])
-        .order_by(asset::Column::Id, Order::Desc)
         .order_by(sort_by, sort_direction);
 
     stmt = paginate(pagination, limit, stmt);
@@ -173,37 +172,36 @@ pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let asset_ids = assets.iter().map(|a| a.id.clone())
-        .collect::<Vec<_>>();
+    let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
     let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
         .filter(asset_data::Column::Id.is_in(asset_ids))
         .all(conn)
         .await?;
-    let asset_data_map = asset_data
-        .into_iter()
-        .fold(HashMap::new(), |mut acc, ad| {
-            acc.insert(ad.id.clone(), ad);
-            acc
-        });
+    let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
+        acc.insert(ad.id.clone(), ad);
+        acc
+    });
 
-    // Using BTreeMap to preserve order.
-    let mut assets_map = assets
-        .into_iter()
-        .fold(BTreeMap::new(), |mut acc, asset| {
-            if let Some(ad) = asset.asset_data.clone().and_then(|ad_id| asset_data_map.get(&ad_id)) {
-                let id = asset.id.clone();
-                let fa = FullAsset {
-                    asset: asset,
-                    data: ad.clone(),
-                    authorities: vec![],
-                    creators: vec![],
-                    groups: vec![],
-                };
-                acc.insert(id, fa);
+    // Using IndexMap to preserve order.
+    let mut assets_map = assets.into_iter().fold(IndexMap::new(), |mut acc, asset| {
+        if let Some(ad) = asset
+            .asset_data
+            .clone()
+            .and_then(|ad_id| asset_data_map.get(&ad_id))
+        {
+            let id = asset.id.clone();
+            let fa = FullAsset {
+                asset: asset,
+                data: ad.clone(),
+                authorities: vec![],
+                creators: vec![],
+                groups: vec![],
             };
-            acc
-        });
+            acc.insert(id, fa);
+        };
+        acc
+    });
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
@@ -250,14 +248,11 @@ pub async fn get_assets_by_condition(
     pagination: &Pagination,
     limit: u64,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let mut stmt = asset::Entity::find().distinct_on([(asset::Entity, asset::Column::Id)]);
+    let mut stmt = asset::Entity::find();
     for def in joins {
         stmt = stmt.join(JoinType::LeftJoin, def);
     }
-    stmt = stmt
-        .filter(condition)
-        .order_by(asset::Column::Id, Order::Desc)
-        .order_by(sort_by, sort_direction);
+    stmt = stmt.filter(condition).order_by(sort_by, sort_direction);
 
     stmt = paginate(pagination, limit, stmt);
     let asset_list = stmt.all(conn).await?;
