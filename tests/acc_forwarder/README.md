@@ -12,9 +12,13 @@ To forward information about a single account, run the following command:
 
 ### Send mint, metadata, and owned token account
 
-To forward mint, metadata, and owned token account information for a specific mint, use the following command:
+To forward mint, metadata, and owned token account information for a specific mint, use the following commands.
 
-`cargo run -- --redis-url <REDIS_URL> --rpc-url <RPC_URL> mint --mint <ACCOUNT>`
+Locally:
+`cargo run -- --redis-url redis://localhost:6379 --rpc-url $RPC_URL mint --mint t8nGUrFQozLtgiqnc5Pu8yiodbrJCaFyE3CGeubAvky`
+
+Dev/Prod:
+`cargo run -- --redis-url $REDIS_URL --rpc-url $RPC_URL mint --mint t8nGUrFQozLtgiqnc5Pu8yiodbrJCaFyE3CGeubAvky`
 
 ### Process accounts from a file
 

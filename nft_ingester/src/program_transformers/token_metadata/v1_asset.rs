@@ -16,6 +16,8 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+
+use log::warn;
 use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
@@ -70,7 +72,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     id: FBPubkey,
     slot: u64,
     metadata: &Metadata,
-) -> Result<TaskData, IngesterError> {
+) -> Result<Option<TaskData>, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
     let meta_mint_pubkey = metadata.mint;
@@ -80,11 +82,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let id = id.0;
     let slot_i = slot as i64;
     let uri = data.uri.trim().replace('\0', "");
-    if uri.is_empty() {
-        return Err(IngesterError::DeserializationError(
-            "URI is empty".to_string(),
-        ));
-    }
     let _spec = SpecificationVersions::V1;
     let class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
@@ -192,7 +189,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let asset_data_model = asset_data::ActiveModel {
         chain_data_mutability: Set(chain_mutability),
         chain_data: Set(chain_data_json),
-        metadata_url: Set(data.uri.trim().replace('\0', "")),
+        metadata_url: Set(uri.clone()),
         metadata: Set(JsonValue::String("processing".to_string())),
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
@@ -406,14 +403,24 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 );
                 txn.execute(query).await?;
             }
-            txn.commit().await?;
         }
     }
+
+    txn.commit().await?;
+    if uri.is_empty() {
+        warn!(
+            "URI is empty for mint {}. Skipping background task.",
+            bs58::encode(mint).into_string()
+        );
+        return Ok(None);
+    }
+
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
         created_at: Some(Utc::now().naive_utc()),
     };
     task.sanitize();
-    task.into_task_data()
+    let t = task.into_task_data()?;
+    Ok(Some(t))
 }
