@@ -28,7 +28,7 @@ where
             ],
             &mpl_bubblegum::ID,
         );
-        debug!("Indexing burn for asset id: {:?}", asset_id);
+        debug!("Indexing redeem for asset id: {:?}", asset_id);
         let id_bytes = asset_id.to_bytes();
 
         // Partial update of asset table with just leaf.
