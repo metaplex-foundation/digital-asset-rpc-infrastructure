@@ -39,16 +39,47 @@ async fn simple_v1_content() {
         test_json("https://arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string())
             .await;
     assert_eq!(
-        c.files,
-        Some(vec![File {
-            uri: Some(
-                "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY".to_string()
-            ),
-            mime: None,
-            quality: None,
-            contexts: None,
-        },])
-    )
+        parsed.files,
+        Some(vec![
+            File {
+                uri: Some("https://madlads.s3.us-west-2.amazonaws.com/images/1.png".to_string()),
+                mime: Some("image/png".to_string()),
+                quality: None,
+                contexts: None,
+            },
+            File {
+                uri: Some(
+                    "https://arweave.net/qJ5B6fx5hEt4P7XbicbJQRyTcbyLaV-OQNA1KjzdqOQ/1.png"
+                        .to_string(),
+                ),
+                mime: Some("image/png".to_string()),
+                quality: None,
+                contexts: None,
+            }
+        ])
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("image")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://madlads.s3.us-west-2.amazonaws.com/images/1.png"
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("external_url")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://madlads.com"
+    );
 }
 
 #[tokio::test]
@@ -66,19 +97,63 @@ async fn more_complex_content_v1() {
                 uri: Some(
                     "https://arweave.net/hdtrCCqLXF2UWwf3h6YEFj8VF1ObDMGfGeQheVuXuG4".to_string()
                 ),
-                mime: None,
-                quality: None,
-                contexts: None,
-            },
-            File {
-                uri: Some(
-                    "https://arweave.net/hdtrCCqLXF2UWwf3h6YEFj8VF1ObDMGfGeQheVuXuG4?ext=png"
-                        .to_string(),
-                ),
                 mime: Some("image/png".to_string()),
                 quality: None,
                 contexts: None,
             }
         ])
-    )
+    );
+}
+
+#[tokio::test]
+async fn complex_content() {
+    let cdn_prefix = None;
+    let j = load_test_json("infinite_fungi.json").await;
+    let parsed = parse_offchain_json(j, cdn_prefix).await;
+    assert_eq!(
+        parsed.files,
+        Some(vec![
+            File {
+                uri: Some(
+                    "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif"
+                        .to_string(),
+                ),
+                cdn_uri: None,
+                mime: Some("image/gif".to_string()),
+                quality: None,
+                contexts: None,
+            },
+            File {
+                uri: Some(
+                    "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4"
+                        .to_string()
+                ),
+                mime: Some("video/mp4".to_string()),
+                quality: None,
+                contexts: None,
+            },
+        ])
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("image")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif"
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("animation_url")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4"
+    );
 }

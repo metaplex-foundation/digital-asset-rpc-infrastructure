@@ -15,6 +15,7 @@ use sea_orm::DbErr;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
+use std::cmp::Ordering;
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
@@ -148,13 +149,14 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     if let Some(symbol) = symbol {
         meta.set_item("attributes", symbol.clone());
     }
-    let image = safe_select(selector, "$.image");
-    let animation = safe_select(selector, "$.animation_url");
-    let external_url = safe_select(selector, "$.external_url").map(|val| {
-        let mut links = HashMap::new();
-        links.insert("external_url".to_string(), val[0].to_owned());
-        links
-    });
+    let mut links = HashMap::new();
+    let link_fields = vec!["image", "animation_url", "external_url"];
+    for f in link_fields {
+        let l = safe_select(selector, format!("$.{}", f).as_str());
+        if let Some(l) = l {
+            links.insert(f.to_string(), l.to_owned());
+        }
+    }
     let _metadata = safe_select(selector, "description");
     let mut actual_files: HashMap<String, File> = HashMap::new();
     selector("$.properties.files[*]")
@@ -202,16 +204,29 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
             }
         });
 
-    track_top_level_file(&mut actual_files, image);
-    track_top_level_file(&mut actual_files, animation);
-    let files: Vec<File> = actual_files.into_values().collect();
+    track_top_level_file(&mut actual_files, links.get("image"));
+    track_top_level_file(&mut actual_files, links.get("animation_url"));
+
+    let mut files: Vec<File> = actual_files.into_values().collect();
+
+    // List the defined image file before the other files (if one exists).
+    files.sort_by(|a, _: &File| match (a.uri.as_ref(), links.get("image")) {
+        (Some(x), Some(y)) => {
+            if x == y {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        }
+        _ => Ordering::Equal,
+    });
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         json_uri,
         files: Some(files),
         metadata: meta,
-        links: external_url,
+        links: Some(links),
     })
 }
 
