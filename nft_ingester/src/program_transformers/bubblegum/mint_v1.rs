@@ -233,6 +233,7 @@ where
                 let creators = &metadata.creators;
                 if !creators.is_empty() {
                     let mut db_creators = Vec::with_capacity(creators.len());
+                    let mut db_verified_creators = Vec::with_capacity(creators.len());
                     let mut creators_set = HashSet::new();
                     for (i, c) in creators.iter().enumerate() {
                         if creators_set.contains(&c.address) {
@@ -241,13 +242,20 @@ where
                         db_creators.push(asset_creators::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
-                            share: Set(c.share as i32),
-                            verified: Set(c.verified),
-                            seq: Set(seq as i64), // do we need this here @micheal-danenberg?
-                            slot_updated: Set(slot_i),
                             position: Set(i as i16),
+                            share: Set(c.share as i32),
+                            slot_updated: Set(slot_i),
                             ..Default::default()
                         });
+
+                        db_verified_creators.push(asset_creators::ActiveModel {
+                            asset_id: Set(id_bytes.to_vec()),
+                            creator: Set(c.address.to_bytes().to_vec()),
+                            verified: Set(c.verified),
+                            seq: Set(seq as i64),
+                            ..Default::default()
+                        });
+
                         creators_set.insert(c.address);
                     }
 
@@ -255,20 +263,35 @@ where
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
-                                asset_creators::Column::Position,
+                                asset_creators::Column::Creator,
                             ])
                             .update_columns([
-                                asset_creators::Column::Creator,
+                                asset_creators::Column::Position,
                                 asset_creators::Column::Share,
-                                asset_creators::Column::Verified,
-                                asset_creators::Column::Seq,
                                 asset_creators::Column::SlotUpdated,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
                     txn.execute(query).await?;
+
+                    let mut query = asset_creators::Entity::insert_many(db_verified_creators)
+                        .on_conflict(
+                            OnConflict::columns([
+                                asset_creators::Column::AssetId,
+                                asset_creators::Column::Creator,
+                            ])
+                            .update_columns([
+                                asset_creators::Column::Verified,
+                                asset_creators::Column::Seq,
+                            ])
+                            .to_owned(),
+                        )
+                        .build(DbBackend::Postgres);
+                    query.sql = format!("{} WHERE excluded.seq > asset_creators.seq", query.sql);
+                    txn.execute(query).await?;
                 }
+
                 // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
                     asset_id: Set(id_bytes.to_vec()),

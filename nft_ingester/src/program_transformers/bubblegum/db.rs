@@ -264,30 +264,43 @@ where
     Ok(())
 }
 
-pub async fn update_creator<T>(
+pub async fn upsert_creator<T>(
     txn: &T,
     asset_id: Vec<u8>,
     creator: Vec<u8>,
-    seq: u64,
-    model: asset_creators::ActiveModel,
+    verified: bool,
+    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    // Using `update_many` to avoid having to supply the primary key as well within `model`.
-    // We still effectively end up updating a single row at most, which is uniquely identified
-    // by the `(asset_id, creator)` pair. Is there any reason why we should not use
-    // `update_many` here?
-    let update = asset_creators::Entity::update_many()
-        .filter(
-            Condition::all()
-                .add(asset_creators::Column::AssetId.eq(asset_id))
-                .add(asset_creators::Column::Creator.eq(creator))
-                .add(asset_creators::Column::Seq.lte(seq)),
-        )
-        .set(model);
+    let model = asset_creators::ActiveModel {
+        asset_id: Set(asset_id),
+        creator: Set(creator),
+        verified: Set(verified),
+        seq: Set(seq),
+        ..Default::default()
+    };
 
-    update.exec(txn).await.map_err(IngesterError::from)?;
+    let mut query = asset_creators::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_creators::Column::AssetId,
+                asset_creators::Column::Creator,
+            ])
+            .update_columns([
+                asset_creators::Column::Verified,
+                asset_creators::Column::Seq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!("{} WHERE excluded.seq > asset_creators.seq", query.sql);
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
