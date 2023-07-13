@@ -179,8 +179,8 @@ pub fn create_asset_creator(
             creator,
             share,
             verified,
-            seq: 0,
-            slot_updated: 0,
+            seq: Some(0),
+            slot_updated: Some(0),
             position: 0,
         },
     )

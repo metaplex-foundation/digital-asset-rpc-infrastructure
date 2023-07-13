@@ -278,7 +278,7 @@ where
         asset_id: Set(asset_id),
         creator: Set(creator),
         verified: Set(verified),
-        seq: Set(seq),
+        seq: Set(Some(seq)),
         ..Default::default()
     };
 

@@ -244,7 +244,7 @@ where
                             creator: Set(c.address.to_bytes().to_vec()),
                             position: Set(i as i16),
                             share: Set(c.share as i32),
-                            slot_updated: Set(slot_i),
+                            slot_updated: Set(Some(slot_i)),
                             ..Default::default()
                         });
 
@@ -252,7 +252,7 @@ where
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             verified: Set(c.verified),
-                            seq: Set(seq as i64),
+                            seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
