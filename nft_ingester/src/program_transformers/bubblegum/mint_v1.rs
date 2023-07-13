@@ -288,7 +288,10 @@ where
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
-                    query.sql = format!("{} WHERE excluded.seq > asset_creators.seq", query.sql);
+                    query.sql = format!(
+                        "{} WHERE excluded.seq > asset_creators.seq OR asset_creators.seq IS NULL",
+                        query.sql
+                    );
                     txn.execute(query).await?;
                 }
 
