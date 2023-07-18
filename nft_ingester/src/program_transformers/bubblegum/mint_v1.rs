@@ -232,14 +232,20 @@ where
                 // Insert into `asset_creators` table.
                 let creators = &metadata.creators;
                 if !creators.is_empty() {
-                    let mut db_creators = Vec::with_capacity(creators.len());
-                    let mut db_verified_creators = Vec::with_capacity(creators.len());
+                    // Vec to hold base creator information.
+                    let mut db_creator_infos = Vec::with_capacity(creators.len());
+
+                    // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
+                    let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+
+                    // Set to prevent duplicates.
                     let mut creators_set = HashSet::new();
+
                     for (i, c) in creators.iter().enumerate() {
                         if creators_set.contains(&c.address) {
                             continue;
                         }
-                        db_creators.push(asset_creators::ActiveModel {
+                        db_creator_infos.push(asset_creators::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             position: Set(i as i16),
@@ -248,7 +254,7 @@ where
                             ..Default::default()
                         });
 
-                        db_verified_creators.push(asset_creators::ActiveModel {
+                        db_creator_verified_infos.push(asset_creators::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             verified: Set(c.verified),
@@ -259,7 +265,8 @@ where
                         creators_set.insert(c.address);
                     }
 
-                    let query = asset_creators::Entity::insert_many(db_creators)
+                    // This statement will update base information for each creator.
+                    let query = asset_creators::Entity::insert_many(db_creator_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
@@ -275,7 +282,10 @@ where
                         .build(DbBackend::Postgres);
                     txn.execute(query).await?;
 
-                    let mut query = asset_creators::Entity::insert_many(db_verified_creators)
+                    // This statement will update whether the creator is verified and the `seq`
+                    // number.  `seq` is used to protect the `verified` field, allowing for `mint`
+                    // and `verifyCreator` to be processed out of order.
+                    let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
