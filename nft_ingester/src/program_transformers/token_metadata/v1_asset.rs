@@ -367,7 +367,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     creator: Set(c.address.to_bytes().to_vec()),
                     share: Set(c.share as i32),
                     verified: Set(c.verified),
-                    seq: Set(Some(0)), // do we need this here @micheal-danenberg?
+                    seq: Set(Some(0)),
                     slot_updated: Set(Some(slot_i)),
                     position: Set(i as i16),
                     ..Default::default()
