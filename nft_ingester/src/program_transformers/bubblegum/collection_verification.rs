@@ -70,9 +70,9 @@ where
                         let grouping = asset_grouping::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             group_key: Set("collection".to_string()),
-                            group_value: Set(collection.to_string()),
-                            seq: Set(seq as i64),
-                            slot_updated: Set(bundle.slot as i64),
+                            group_value: Set(Some(collection.to_string())),
+                            seq: Set(Some(seq as i64)),
+                            slot_updated: Set(Some(bundle.slot as i64)),
                             ..Default::default()
                         };
                         let mut query = asset_grouping::Entity::insert(grouping)

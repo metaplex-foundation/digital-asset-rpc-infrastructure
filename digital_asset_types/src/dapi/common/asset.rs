@@ -2,23 +2,20 @@ use crate::dao::sea_orm_active_enums::SpecificationVersions;
 use crate::dao::FullAsset;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, Ownership, Royalty, Scope, Supply, Uses,
 };
-
 use jsonpath_lib::JsonPathError;
+use log::warn;
 use mime_guess::Mime;
 use sea_orm::DbErr;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
-
-use log::{debug, info, warn};
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&*uri).ok()
@@ -30,7 +27,9 @@ pub fn get_mime(url: Url) -> Option<Mime> {
 
 pub fn get_mime_type_from_uri(uri: String) -> String {
     let default_mime_type = "image/png".to_string();
-    to_uri(uri).and_then(get_mime).map_or(default_mime_type, |m| m.to_string())
+    to_uri(uri)
+        .and_then(get_mime)
+        .map_or(default_mime_type, |m| m.to_string())
 }
 
 pub fn file_from_str(str: String) -> File {
@@ -173,28 +172,25 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
                     match (uri, mime_type) {
                         (Some(u), Some(m)) => {
                             if let Some(str_uri) = u.as_str() {
-                                let file = 
-                                    if let Some(str_mime) = m.as_str() {
-                                        File {
-                                             uri: Some(str_uri.to_string()),
-                                             mime: Some(str_mime.to_string()),
-                                             quality: None,
-                                             contexts: None,
-                                        }
-                                    } else {
-                                        warn!("Mime is not string: {:?}", m); 
-                                        file_from_str(str_uri.to_string())
-                                    };
-                                actual_files.insert(
-                                   str_uri.to_string().clone(),
-                                   file,
-                                );
+                                let file = if let Some(str_mime) = m.as_str() {
+                                    File {
+                                        uri: Some(str_uri.to_string()),
+                                        mime: Some(str_mime.to_string()),
+                                        quality: None,
+                                        contexts: None,
+                                    }
+                                } else {
+                                    warn!("Mime is not string: {:?}", m);
+                                    file_from_str(str_uri.to_string())
+                                };
+                                actual_files.insert(str_uri.to_string().clone(), file);
                             } else {
                                 warn!("URI is not string: {:?}", u);
                             }
                         }
                         (Some(u), None) => {
-                            let str_uri = serde_json::to_string(u).unwrap_or_else(|_|String::new());
+                            let str_uri =
+                                serde_json::to_string(u).unwrap_or_else(|_| String::new());
                             actual_files.insert(str_uri.clone(), file_from_str(str_uri));
                         }
                         _ => {}
@@ -250,14 +246,18 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
         .collect()
 }
 
-pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
-    groups
-        .iter()
-        .map(|a| Group {
-            group_key: a.group_key.clone(),
-            group_value: a.group_value.clone(),
+pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Result<Vec<Group>, DbErr> {
+    fn find_group(model: &asset_grouping::Model) -> Result<Group, DbErr> {
+        Ok(Group {
+            group_key: model.group_key.clone(),
+            group_value: model
+                .group_value
+                .clone()
+                .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
         })
-        .collect()
+    }
+
+    groups.iter().map(find_group).collect()
 }
 
 pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
@@ -286,7 +286,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
-    let rpc_groups = to_grouping(groups);
+    let rpc_groups = to_grouping(groups)?;
     let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
