@@ -22,6 +22,7 @@ mod m20230615_120101_remove_asset_null_constraints;
 mod m20230620_120101_add_was_decompressed;
 mod m20230623_120101_add_leaf_sequence_number;
 mod m20230712_120101_remove_asset_creators_null_constraints;
+mod m20230720_120101_add_asset_grouping_verified;
 
 pub struct Migrator;
 
@@ -51,6 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230620_120101_add_was_decompressed::Migration),
             Box::new(m20230623_120101_add_leaf_sequence_number::Migration),
             Box::new(m20230712_120101_remove_asset_creators_null_constraints::Migration),
+            Box::new(m20230720_120101_add_asset_grouping_verified::Migration),
         ]
     }
 }
