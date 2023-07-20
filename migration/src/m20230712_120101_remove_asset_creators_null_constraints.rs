@@ -31,7 +31,7 @@ impl MigrationTrait for Migration {
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
                 "
-                ALTER TABLE asset
+                ALTER TABLE asset_creators
                 ALTER COLUMN seq SET NOT NULL,
                 ALTER COLUMN slot_updated SET NOT NULL;
                 "
