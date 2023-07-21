@@ -253,7 +253,7 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Result<Vec<Group>, DbE
             group_value: model
                 .group_value
                 .clone()
-                .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+                .ok_or(DbErr::Custom("Group value not found".to_string()))?,
         })
     }
 
