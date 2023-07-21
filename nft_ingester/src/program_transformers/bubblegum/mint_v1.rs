@@ -1,9 +1,8 @@
-use super::save_changelog_event;
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+        save_changelog_event, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -325,33 +324,35 @@ where
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
 
-                // Insert into `asset_grouping` table.
+                // Upsert into `asset_grouping` table with base collection info.
                 if let Some(c) = &metadata.collection {
-                    if c.verified {
-                        let model = asset_grouping::ActiveModel {
-                            asset_id: Set(id_bytes.to_vec()),
-                            group_key: Set("collection".to_string()),
-                            group_value: Set(Some(c.key.to_string())),
-                            seq: Set(Some(seq as i64)), // gummyroll seq
-                            slot_updated: Set(Some(slot_i)),
-                            ..Default::default()
-                        };
+                    let model = asset_grouping::ActiveModel {
+                        asset_id: Set(id_bytes.to_vec()),
+                        group_key: Set("collection".to_string()),
+                        group_value: Set(Some(c.key.to_string())),
+                        slot_updated: Set(Some(slot_i)),
+                        ..Default::default()
+                    };
 
-                        // Do not attempt to modify any existing values:
-                        // `ON CONFLICT ('asset_id') DO NOTHING`.
-                        let query = asset_grouping::Entity::insert(model)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    asset_grouping::Column::AssetId,
-                                    asset_grouping::Column::GroupKey,
-                                ])
-                                .do_nothing()
-                                .to_owned(),
-                            )
-                            .build(DbBackend::Postgres);
-                        txn.execute(query).await?;
-                    }
+                    let query = asset_grouping::Entity::insert(model)
+                        .on_conflict(
+                            OnConflict::columns([
+                                asset_grouping::Column::AssetId,
+                                asset_grouping::Column::GroupKey,
+                            ])
+                            .update_columns([
+                                asset_grouping::Column::GroupValue,
+                                asset_grouping::Column::SlotUpdated,
+                            ])
+                            .to_owned(),
+                        )
+                        .build(DbBackend::Postgres);
+                    txn.execute(query).await?;
+
+                    // Partial update with whether collection is verified and the `seq` number.
+                    upsert_collection(txn, id_bytes.to_vec(), c.verified, seq as i64).await?;
                 }
+
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),

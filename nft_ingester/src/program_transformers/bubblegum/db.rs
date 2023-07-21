@@ -1,5 +1,5 @@
 use crate::error::IngesterError;
-use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
+use digital_asset_types::dao::{asset, asset_creators, asset_grouping, backfill_items, cl_items};
 use log::{debug, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
@@ -297,6 +297,46 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!("{} WHERE excluded.seq > asset_creators.seq", query.sql);
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_collection<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    verified: bool,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_grouping::ActiveModel {
+        asset_id: Set(asset_id),
+        group_key: Set("collection".to_string()),
+        verified: Set(verified),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset_grouping::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_grouping::Column::AssetId,
+                asset_grouping::Column::GroupKey,
+            ])
+            .update_columns([
+                asset_grouping::Column::Verified,
+                asset_grouping::Column::Seq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!("{} WHERE excluded.seq > asset_grouping.seq", query.sql);
 
     txn.execute(query)
         .await
