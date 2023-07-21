@@ -217,6 +217,7 @@ pub async fn get_related_for_assets(
     let creators = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_creators::Column::AssetId)
+        .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
     for c in creators.into_iter() {
@@ -282,6 +283,7 @@ pub async fn get_by_id(
         .await?;
     let creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
+        .order_by(asset_creators::Column::Position, Order::Asc)
         .all(conn)
         .await?;
     let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
