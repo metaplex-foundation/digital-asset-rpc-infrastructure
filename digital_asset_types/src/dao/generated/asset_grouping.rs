@@ -20,7 +20,7 @@ pub struct Model {
     pub group_value: Option<String>,
     pub seq: Option<i64>,
     pub slot_updated: Option<i64>,
-    pub verified: Option<bool>,
+    pub verified: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -61,7 +61,7 @@ impl ColumnTrait for Column {
             Self::GroupValue => ColumnType::Text.def().null(),
             Self::Seq => ColumnType::BigInteger.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def().null(),
-            Self::Verified => ColumnType::Boolean.def().null(),
+            Self::Verified => ColumnType::Boolean.def(),
         }
     }
 }

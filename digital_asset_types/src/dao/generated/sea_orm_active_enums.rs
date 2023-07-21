@@ -20,8 +20,20 @@ pub enum SpecificationVersions {
     V2,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
+pub enum TaskStatus {
+    #[sea_orm(string_value = "failed")]
+    Failed,
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "running")]
+    Running,
+    #[sea_orm(string_value = "success")]
+    Success,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
+pub enum Mutability {
     #[sea_orm(string_value = "immutable")]
     Immutable,
     #[sea_orm(string_value = "mutable")]
@@ -46,6 +58,16 @@ pub enum RoyaltyTargetType {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
+pub enum OwnerType {
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "token")]
+    Token,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
@@ -64,30 +86,8 @@ pub enum V1AccountAttachments {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
-pub enum TaskStatus {
-    #[sea_orm(string_value = "failed")]
-    Failed,
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "running")]
-    Running,
-    #[sea_orm(string_value = "success")]
-    Success,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
     #[sea_orm(string_value = "immutable")]
     Immutable,
     #[sea_orm(string_value = "mutable")]

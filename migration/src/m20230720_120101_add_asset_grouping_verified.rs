@@ -12,7 +12,12 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(asset_grouping::Entity)
-                    .add_column(ColumnDef::new(Alias::new("verified")).boolean())
+                    .add_column(
+                        ColumnDef::new(Alias::new("verified"))
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await
