@@ -83,7 +83,8 @@ pub async fn get_by_grouping(
 ) -> Result<Vec<FullAsset>, DbErr> {
     let condition = asset_grouping::Column::GroupKey
         .eq(group_key)
-        .and(asset_grouping::Column::GroupValue.eq(group_value));
+        .and(asset_grouping::Column::GroupValue.eq(group_value))
+        .and(asset_grouping::Column::Verified.eq(true));
     get_by_related_condition(
         conn,
         Condition::all()
