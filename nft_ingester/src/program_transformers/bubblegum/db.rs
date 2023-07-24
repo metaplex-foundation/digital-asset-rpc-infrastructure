@@ -320,7 +320,7 @@ where
         group_key: Set("collection".to_string()),
         group_value: Set(Some(group_value)),
         slot_updated: Set(Some(slot_updated)),
-        //base_info_seq: seq: Set(Some(seq)),
+        //group_info_seq: seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -340,7 +340,7 @@ where
         .build(DbBackend::Postgres);
 
     // query.sql = format!(
-    //     "{} WHERE excluded.base_info_seq > asset_grouping.base_info_seq",
+    //     "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq",
     //     query.sql
     // );
 
