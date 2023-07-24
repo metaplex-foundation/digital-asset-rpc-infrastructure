@@ -310,7 +310,7 @@ pub async fn upsert_collection_info<T>(
     asset_id: Vec<u8>,
     group_value: String,
     slot_updated: i64,
-    _seq: i64,
+    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -320,11 +320,11 @@ where
         group_key: Set("collection".to_string()),
         group_value: Set(Some(group_value)),
         slot_updated: Set(Some(slot_updated)),
-        //group_info_seq: seq: Set(Some(seq)),
+        group_info_seq: Set(Some(seq)),
         ..Default::default()
     };
 
-    let query = asset_grouping::Entity::insert(model)
+    let mut query = asset_grouping::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([
                 asset_grouping::Column::AssetId,
@@ -333,16 +333,16 @@ where
             .update_columns([
                 asset_grouping::Column::GroupValue,
                 asset_grouping::Column::SlotUpdated,
-                //asset_grouping::Column::BaseInfoSeq,
+                asset_grouping::Column::GroupInfoSeq,
             ])
             .to_owned(),
         )
         .build(DbBackend::Postgres);
 
-    // query.sql = format!(
-    //     "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq",
-    //     query.sql
-    // );
+    query.sql = format!(
+        "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq",
+        query.sql
+    );
 
     txn.execute(query)
         .await

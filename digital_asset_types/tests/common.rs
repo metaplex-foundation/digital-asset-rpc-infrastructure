@@ -229,6 +229,7 @@ pub fn create_asset_grouping(
             group_key: "collection".to_string(),
             slot_updated: Some(0),
             verified: false,
+            group_info_seq: Some(0),
         },
     )
 }
