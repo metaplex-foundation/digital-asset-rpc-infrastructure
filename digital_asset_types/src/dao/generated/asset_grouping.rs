@@ -21,6 +21,7 @@ pub struct Model {
     pub seq: Option<i64>,
     pub slot_updated: Option<i64>,
     pub verified: bool,
+    pub group_info_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -32,6 +33,7 @@ pub enum Column {
     Seq,
     SlotUpdated,
     Verified,
+    GroupInfoSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -62,6 +64,7 @@ impl ColumnTrait for Column {
             Self::Seq => ColumnType::BigInteger.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def().null(),
             Self::Verified => ColumnType::Boolean.def(),
+            Self::GroupInfoSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
