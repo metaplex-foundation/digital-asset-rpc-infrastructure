@@ -340,7 +340,7 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq",
+        "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq OR asset_grouping.group_info_seq IS NULL",
         query.sql
     );
 
@@ -382,7 +382,10 @@ where
         )
         .build(DbBackend::Postgres);
 
-    query.sql = format!("{} WHERE excluded.seq > asset_grouping.seq", query.sql);
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset_grouping.seq OR asset_grouping.seq IS NULL",
+        query.sql
+    );
 
     txn.execute(query)
         .await
