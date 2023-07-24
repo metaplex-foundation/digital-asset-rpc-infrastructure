@@ -2,15 +2,15 @@ use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         save_changelog_event, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        upsert_collection_verified,
     },
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
-use digital_asset_types::dao::asset_grouping;
-use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set};
+use sea_orm::query::*;
 
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -63,40 +63,22 @@ where
 
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
-                if verify {
-                    if let Some(Payload::SetAndVerifyCollection { collection }) =
-                        parsing_result.payload
-                    {
-                        let grouping = asset_grouping::ActiveModel {
-                            asset_id: Set(id_bytes.to_vec()),
-                            group_key: Set("collection".to_string()),
-                            group_value: Set(Some(collection.to_string())),
-                            seq: Set(Some(seq as i64)),
-                            slot_updated: Set(Some(bundle.slot as i64)),
-                            ..Default::default()
-                        };
-                        let mut query = asset_grouping::Entity::insert(grouping)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    asset_grouping::Column::AssetId,
-                                    asset_grouping::Column::GroupKey,
-                                ])
-                                .update_columns([
-                                    asset_grouping::Column::GroupKey,
-                                    asset_grouping::Column::GroupValue,
-                                    asset_grouping::Column::Seq,
-                                    asset_grouping::Column::SlotUpdated,
-                                ])
-                                .to_owned(),
-                            )
-                            .build(DbBackend::Postgres);
-                        query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_grouping.slot_updated AND excluded.seq >= asset_grouping.seq",
-                    query.sql
-                );
-                        txn.execute(query).await?;
-                    }
+                if let Some(Payload::SetAndVerifyCollection { collection }) = parsing_result.payload
+                {
+                    // Upsert into `asset_grouping` table with base collection info.
+                    upsert_collection_info(
+                        txn,
+                        id_bytes.to_vec(),
+                        collection.to_string(),
+                        bundle.slot as i64,
+                        seq as i64,
+                    )
+                    .await?;
                 }
+
+                // Partial update with whether collection is verified and the `seq` number.
+                upsert_collection_verified(txn, id_bytes.to_vec(), verify, seq as i64).await?;
+
                 id_bytes
             }
             _ => return Err(IngesterError::NotImplemented),

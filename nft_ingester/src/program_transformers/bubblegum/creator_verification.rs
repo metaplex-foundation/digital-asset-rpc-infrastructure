@@ -2,7 +2,7 @@ use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         save_changelog_event, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_creator,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_creator_verified,
     },
 };
 use blockbuster::{
@@ -78,7 +78,7 @@ where
             _ => return Err(IngesterError::NotImplemented),
         };
 
-        upsert_creator(
+        upsert_creator_verified(
             txn,
             asset_id_bytes,
             creator.to_bytes().to_vec(),

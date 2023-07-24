@@ -264,7 +264,7 @@ where
     Ok(())
 }
 
-pub async fn upsert_creator<T>(
+pub async fn upsert_creator_verified<T>(
     txn: &T,
     asset_id: Vec<u8>,
     creator: Vec<u8>,
@@ -305,7 +305,53 @@ where
     Ok(())
 }
 
-pub async fn upsert_collection<T>(
+pub async fn upsert_collection_info<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    group_value: String,
+    slot_updated: i64,
+    _seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_grouping::ActiveModel {
+        asset_id: Set(asset_id),
+        group_key: Set("collection".to_string()),
+        group_value: Set(Some(group_value)),
+        slot_updated: Set(Some(slot_updated)),
+        //base_info_seq: seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let query = asset_grouping::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_grouping::Column::AssetId,
+                asset_grouping::Column::GroupKey,
+            ])
+            .update_columns([
+                asset_grouping::Column::GroupValue,
+                asset_grouping::Column::SlotUpdated,
+                //asset_grouping::Column::BaseInfoSeq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    // query.sql = format!(
+    //     "{} WHERE excluded.base_info_seq > asset_grouping.base_info_seq",
+    //     query.sql
+    // );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_collection_verified<T>(
     txn: &T,
     asset_id: Vec<u8>,
     verified: bool,

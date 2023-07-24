@@ -2,7 +2,8 @@ use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         save_changelog_event, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        upsert_collection_verified,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -17,8 +18,7 @@ use blockbuster::{
 use chrono::Utc;
 use digital_asset_types::{
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        asset_v1_account_attachments,
+        asset, asset_authority, asset_creators, asset_data, asset_v1_account_attachments,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
@@ -324,33 +324,20 @@ where
                     .build(DbBackend::Postgres);
                 txn.execute(query).await?;
 
-                // Upsert into `asset_grouping` table with base collection info.
                 if let Some(c) = &metadata.collection {
-                    let model = asset_grouping::ActiveModel {
-                        asset_id: Set(id_bytes.to_vec()),
-                        group_key: Set("collection".to_string()),
-                        group_value: Set(Some(c.key.to_string())),
-                        slot_updated: Set(Some(slot_i)),
-                        ..Default::default()
-                    };
-
-                    let query = asset_grouping::Entity::insert(model)
-                        .on_conflict(
-                            OnConflict::columns([
-                                asset_grouping::Column::AssetId,
-                                asset_grouping::Column::GroupKey,
-                            ])
-                            .update_columns([
-                                asset_grouping::Column::GroupValue,
-                                asset_grouping::Column::SlotUpdated,
-                            ])
-                            .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    txn.execute(query).await?;
+                    // Upsert into `asset_grouping` table with base collection info.
+                    upsert_collection_info(
+                        txn,
+                        id_bytes.to_vec(),
+                        c.key.to_string(),
+                        slot_i,
+                        seq as i64,
+                    )
+                    .await?;
 
                     // Partial update with whether collection is verified and the `seq` number.
-                    upsert_collection(txn, id_bytes.to_vec(), c.verified, seq as i64).await?;
+                    upsert_collection_verified(txn, id_bytes.to_vec(), c.verified, seq as i64)
+                        .await?;
                 }
 
                 let mut task = DownloadMetadata {
