@@ -47,7 +47,7 @@ where
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id,  txn).await?;
         let metadata = args;
         #[allow(unreachable_patterns)]
         return match le.schema {

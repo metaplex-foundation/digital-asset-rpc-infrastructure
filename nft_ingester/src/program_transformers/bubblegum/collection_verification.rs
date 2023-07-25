@@ -36,7 +36,7 @@ where
             "Handling collection verification event for {} (verify: {}): {}",
             collection, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn).await?;
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };

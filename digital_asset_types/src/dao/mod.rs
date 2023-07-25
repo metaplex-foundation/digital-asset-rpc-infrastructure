@@ -1,8 +1,8 @@
+#![allow(ambiguous_glob_reexports)]
 mod full_asset;
 mod generated;
 pub mod scopes;
 pub use full_asset::*;
-#[allow(ambiguous_glob_reexports)]
 pub use generated::*;
 
 use self::sea_orm_active_enums::{

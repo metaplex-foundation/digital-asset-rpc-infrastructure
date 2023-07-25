@@ -40,7 +40,7 @@ where
             "Handling creator verification event for creator {} (verify: {}): {}",
             creator, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn).await?;
 
         let asset_id_bytes = match le.schema {
             LeafSchema::V1 {
