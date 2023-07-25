@@ -25,16 +25,6 @@ use sea_orm::{
 use std::collections::HashSet;
 
 use crate::tasks::{DownloadMetadata, IntoTaskData};
-use sea_orm::{FromQueryResult, JoinType};
-
-#[derive(FromQueryResult)]
-struct OwnershipTokenModel {
-    supply: i64,
-    mint: Vec<u8>,
-    owner: Vec<u8>,
-    delegate: Option<Vec<u8>>,
-    token_account_amount: i64,
-}
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
@@ -98,78 +88,40 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         _ => OwnerType::Single,
     };
 
-    let token_result: Option<(tokens::Model, Option<token_accounts::Model>)> = match ownership_type
-    {
-        OwnerType::Single => {
-            let result: Option<OwnershipTokenModel> = tokens::Entity::find_by_id(mint.clone())
-                .column_as(token_accounts::Column::Amount, "token_account_amount")
-                .column_as(token_accounts::Column::Owner, "owner")
-                .column_as(token_accounts::Column::Delegate, "delegate")
-                .join(
-                    JoinType::InnerJoin,
-                    tokens::Entity::belongs_to(token_accounts::Entity)
-                        .from(tokens::Column::Mint)
-                        .to(token_accounts::Column::Mint)
-                        .into(),
-                )
-                .into_model::<OwnershipTokenModel>()
-                .one(conn)
-                .await?;
+    // gets the token and token account for the mint to populate the asset. This is required when the token and token account are indexed, but not the metadata account. If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data
 
-            Ok(result.map(|t| {
-                let token = tokens::Model {
-                    mint: t.mint.clone(),
-                    supply: t.supply,
-                    //Not Needed here
-                    decimals: 0,
-                    token_program: vec![],
-                    mint_authority: None,
-                    freeze_authority: None,
-                    close_authority: None,
-                    extension_data: None,
-                    slot_updated: 0,
-                };
-                let token_account = token_accounts::Model {
-                    pubkey: vec![],
-                    mint: t.mint,
-                    owner: t.owner,
-                    amount: t.token_account_amount,
-                    delegate: t.delegate,
-                    //Not Needed here
-                    frozen: false,
-                    close_authority: None,
-                    delegated_amount: 0,
-                    slot_updated: 0,
-                    token_program: vec![],
-                };
-                (token, Some(token_account))
-            }))
+    let (token, token_account): (Option<tokens::Model>, Option<token_accounts::Model>) =
+        match ownership_type {
+            OwnerType::Single => {
+                let token: Option<tokens::Model> =
+                    tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
+                // query for token account associated with mint with positive balance
+                let token_account: Option<token_accounts::Model> = token_accounts::Entity::find()
+                    .filter(token_accounts::Column::Mint.eq(mint.clone()))
+                    .filter(token_accounts::Column::Amount.gt(0))
+                    .one(conn)
+                    .await?;
+                Ok((token, token_account))
+            }
+            _ => {
+                let token = tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
+                Ok((token, None))
+            }
         }
-        _ => {
-            let token = tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
-            Ok(token.map(|t| (t, None)))
-        }
-    }
-    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
 
-    let (supply, supply_mint) = match token_result.clone() {
-        Some((token, token_account)) => {
-            let supply = match token_account {
-                Some(ta) => ta.amount,
-                None => token.supply,
-            };
-            (Set(supply), Set(Some(mint)))
-        }
+    // get supply of token, default to 1 since most cases will be NFTs. Token mint ingester will properly set supply if token_result is None
+    let (supply, supply_mint) = match token {
+        Some(t) => (Set(t.supply), Set(Some(t.mint))),
         None => (Set(1), NotSet),
     };
 
-    let (owner, delegate) = match token_result {
-        Some((_token, token_account)) => match token_account {
-            Some(account) => (Set(Some(account.owner)), Set(account.delegate)),
-            None => (NotSet, NotSet),
-        },
+    // owner and delegate should be from the token account with the mint
+    let (owner, delegate) = match token_account {
+        Some(ta) => (Set(Some(ta.owner)), Set(ta.delegate)),
         None => (NotSet, NotSet),
     };
+
     let mut chain_data = ChainDataV1 {
         name: data.name,
         symbol: data.symbol,
