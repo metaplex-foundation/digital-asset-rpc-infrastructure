@@ -14,11 +14,12 @@ pub async fn save_changelog_event<'c, T>(
     slot: u64,
     txn_id: &str,
     txn: &T,
+    cl_audits: bool,
 ) -> Result<u64, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn_id, txn).await?;
+    insert_change_log(change_log_event, slot, txn_id, txn, cl_audits).await?;
     Ok(change_log_event.seq)
 }
 
@@ -31,6 +32,7 @@ pub async fn insert_change_log<'c, T>(
     slot: u64,
     txn_id: &str,
     txn: &T,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -65,8 +67,11 @@ where
             ..Default::default()
         };
 
-        let mut audit_item : cl_audits::ActiveModel = item.clone().into();
-        audit_item.tx = Set(txn_id.to_string());
+        let mut audit_item : Option<cl_audits::ActiveModel> = if(cl_audits) {
+            let mut ai : cl_audits::ActiveModel = item.clone().into();
+            ai.tx = Set(txn_id.to_string());
+            Some(ai)
+        } else { None };
 
         i += 1;
         let mut query = cl_items::Entity::insert(item)
@@ -88,7 +93,9 @@ where
 
 
         // Insert the audit item after the insert into cl_items have been completed
-        cl_audits::Entity::insert(audit_item).exec(txn).await?;
+        if let Some(audit_item) = audit_item {
+            cl_audits::Entity::insert(audit_item).exec(txn).await?;
+        }
     }
 
     // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert

@@ -17,6 +17,7 @@ pub async fn process<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     value: bool,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -40,7 +41,7 @@ where
             "Handling creator verification event for creator {} (verify: {}): {}",
             creator, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
 
         let asset_id_bytes = match le.schema {
             LeafSchema::V1 {

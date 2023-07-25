@@ -38,6 +38,7 @@ pub async fn mint_v1<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
+    cl_audits: bool,
 ) -> Result<TaskData, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -47,7 +48,7 @@ where
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id,  txn).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
         let metadata = args;
         #[allow(unreachable_patterns)]
         return match le.schema {

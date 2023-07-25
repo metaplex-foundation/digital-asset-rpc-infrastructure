@@ -25,7 +25,7 @@ pub fn account_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
+            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, false));
             loop {
                 let e = msg.recv(ACCOUNT_STREAM, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();
