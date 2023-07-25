@@ -187,6 +187,7 @@ impl GapInfo {
 
 /// Main struct used for backfiller task.
 struct Backfiller<'a, T: Messenger> {
+    config: IngesterConfig,
     db: DatabaseConnection,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
@@ -266,6 +267,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .await;
 
         Self {
+            config,
             db,
             rpc_client,
             rpc_block_config,
@@ -460,6 +462,19 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
         debug!("Number of Trees on Chain {}", all_trees.len());
+
+        if let Some(only_trees) = &self.config.backfiller_trees {
+            let mut trees = HashSet::with_capacity(only_trees.len());
+            for tree in only_trees {
+                trees.insert(Pubkey::try_from(tree.as_str()).expect("backfiller tree is invalid"));
+            }
+
+            all_trees.retain(|key, _value| trees.contains(key));
+            info!(
+                "Number of Trees to backfill (with only filter): {}",
+                all_trees.len()
+            );
+        }
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
@@ -469,11 +484,15 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let locked_trees = cn.query_all(get_locked_or_failed_trees).await?;
         for row in locked_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::new(&tree.tree);
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with failed/locked filter): {}",
+            all_trees.len()
+        );
+
+        // Get all the local trees already in cl_items and remove them
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
@@ -481,11 +500,16 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let force_chk_trees = cn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::new(&tree.tree);
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with cl_items existed filter): {}",
+            all_trees.len()
+        );
+
+        // After removing all the tres in backfill_itemsa nd the trees already in CL Items then return the list
+        // of missing trees
         let missing_trees = all_trees
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
