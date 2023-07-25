@@ -22,9 +22,10 @@ pub enum DasApiError {
     DeserializationError(#[from] serde_json::Error),
 }
 
-impl Into<RpcError> for DasApiError {
-    fn into(self) -> RpcError {
-        println!("{}", self);
-        RpcError::Call(CallError::from_std_error(self))
+
+impl From<DasApiError> for RpcError {
+    fn from(value: DasApiError) -> Self {
+        println!("{}", value);
+        RpcError::Call(CallError::from_std_error(value))
     }
 }
