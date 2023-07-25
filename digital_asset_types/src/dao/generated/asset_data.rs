@@ -23,6 +23,7 @@ pub struct Model {
     pub metadata_mutability: Mutability,
     pub metadata: Json,
     pub slot_updated: i64,
+    pub reindex: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -34,6 +35,7 @@ pub enum Column {
     MetadataMutability,
     Metadata,
     SlotUpdated,
+    Reindex,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -64,6 +66,7 @@ impl ColumnTrait for Column {
             Self::MetadataMutability => Mutability::db_type(),
             Self::Metadata => ColumnType::JsonBinary.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
+            Self::Reindex => ColumnType::Boolean.def(),
         }
     }
 }

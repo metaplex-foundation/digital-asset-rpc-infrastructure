@@ -92,6 +92,7 @@ where
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),
+                    reindex: Set(Some(true)),
                     ..Default::default()
                 };
 
@@ -102,9 +103,9 @@ where
                                 asset_data::Column::ChainDataMutability,
                                 asset_data::Column::ChainData,
                                 asset_data::Column::MetadataUrl,
-                                asset_data::Column::Metadata,
                                 asset_data::Column::MetadataMutability,
                                 asset_data::Column::SlotUpdated,
+                                asset_data::Column::Reindex,
                             ])
                             .to_owned(),
                     )

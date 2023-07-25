@@ -25,3 +25,10 @@ programs
 *.iml
 skaffold-state.json
 test-programs
+
+# Rust build dirs
+/das_api/target
+/migration/target
+/tests/*/target
+/*/target
+/target
