@@ -1,5 +1,6 @@
 use {jsonrpsee::core::Error as RpcError, jsonrpsee::types::error::CallError, thiserror::Error};
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 pub enum DasApiError {
     #[error("Config Missing or Error {0}")]
