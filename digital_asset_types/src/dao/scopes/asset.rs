@@ -65,7 +65,8 @@ pub async fn get_grouping(
         .filter(
             Condition::all()
                 .add(asset_grouping::Column::GroupKey.eq(group_key))
-                .add(asset_grouping::Column::GroupValue.eq(group_value)),
+                .add(asset_grouping::Column::GroupValue.eq(group_value))
+                .add(asset_grouping::Column::Verified.eq(true)),
         )
         .count(conn)
         .await?;
@@ -193,7 +194,7 @@ pub async fn get_related_for_assets(
         {
             let id = asset.id.clone();
             let fa = FullAsset {
-                asset: asset,
+                asset,
                 data: ad.clone(),
                 authorities: vec![],
                 creators: vec![],
@@ -229,6 +230,7 @@ pub async fn get_related_for_assets(
 
     let grouping = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_grouping::Column::Verified.eq(true))
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
         .await?;
@@ -289,6 +291,7 @@ pub async fn get_by_id(
         .await?;
     let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
+        .filter(asset_grouping::Column::Verified.eq(true))
         .all(conn)
         .await?;
     Ok(FullAsset {
