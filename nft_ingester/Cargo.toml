@@ -2,6 +2,7 @@
 name = "nft_ingester"
 version = "0.7.1"
 edition = "2021"
+publish = false
 
 [dependencies]
 hex = "0.4.3"
