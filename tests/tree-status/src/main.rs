@@ -53,9 +53,7 @@ use {
         task::JoinSet,
         time::Duration,
     },
-    txn_forwarder::{
-        find_signatures, read_lines, rpc_client_with_header, rpc_send_with_retries, save_metrics,
-    },
+    txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
 
 lazy_static::lazy_static! {
@@ -127,9 +125,6 @@ struct Args {
     /// Solana RPC endpoint.
     #[arg(long, short, alias = "rpc-url")]
     rpc: String,
-    /// Custom header in request to Solana RPC.
-    #[arg(long)]
-    rpc_custom_header: Option<String>,
 
     /// Number of concurrent requests for fetching transactions.
     #[arg(long, default_value_t = 25)]
@@ -340,7 +335,6 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 let rpc = args.rpc.clone();
-                let rpc_custom_header = args.rpc_custom_header.clone();
                 let concurrency_tx = concurrency_tx.clone();
                 let conn = args.get_pg_conn().await?;
                 let tx = Arc::clone(&tx);
@@ -349,7 +343,6 @@ async fn main() -> anyhow::Result<()> {
                     if let Err(error) = check_tree_leafs(
                         pubkey,
                         &rpc,
-                        rpc_custom_header,
                         signatures_history_queue,
                         concurrency_tx,
                         max_retries,
@@ -377,14 +370,12 @@ async fn main() -> anyhow::Result<()> {
                     tasks_tree.join_next().await;
                 }
                 let rpc = args.rpc.clone();
-                let rpc_custom_header = args.rpc_custom_header.clone();
                 let concurrency_tx = concurrency_tx.clone();
                 tasks_tree.spawn(async move {
                     info!("showing tree {pubkey}, hex: {}", hex::encode(pubkey));
                     if let Err(error) = read_tree(
                         pubkey,
                         &rpc,
-                        rpc_custom_header,
                         signatures_history_queue,
                         concurrency_tx,
                         max_retries,
@@ -530,11 +521,9 @@ WHERE
         .collect())
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn check_tree_leafs(
     pubkey: Pubkey,
-    rpc: &str,
-    rpc_custom_header: Option<String>,
+    client_url: &str,
     signatures_history_queue: usize,
     concurrency_tx: (usize, Arc<Semaphore>),
     max_retries: u8,
@@ -543,12 +532,11 @@ async fn check_tree_leafs(
 ) -> anyhow::Result<()> {
     let (fetch_fut, mut leafs_rx) = read_tree_start(
         pubkey,
-        rpc,
-        rpc_custom_header,
+        client_url,
         signatures_history_queue,
         concurrency_tx,
         max_retries,
-    )?;
+    );
     try_join(fetch_fut, async move {
         // collect max seq per leaf index from transactions
         let mut leafs = HashMap::new();
@@ -633,8 +621,7 @@ GROUP BY
 // Fetches all the transactions referencing a specific trees
 async fn read_tree(
     pubkey: Pubkey,
-    rpc: &str,
-    rpc_custom_header: Option<String>,
+    client_url: &str,
     signatures_history_queue: usize,
     concurrency_tx: (usize, Arc<Semaphore>),
     max_retries: u8,
@@ -648,12 +635,11 @@ async fn read_tree(
 
     let (fetch_fut, mut print_rx) = read_tree_start(
         pubkey,
-        rpc,
-        rpc_custom_header,
+        client_url,
         signatures_history_queue,
         concurrency_tx,
         max_retries,
-    )?;
+    );
     try_join(fetch_fut, async move {
         let mut next_id = 0;
         let mut map = HashMap::new();
@@ -682,19 +668,18 @@ async fn read_tree(
 #[allow(clippy::type_complexity)]
 fn read_tree_start(
     pubkey: Pubkey,
-    rpc: &str,
-    rpc_custom_header: Option<String>,
+    client_url: &str,
     signatures_history_queue: usize,
     (concurrency_tx_max, concurrency_tx): (usize, Arc<Semaphore>),
     max_retries: u8,
-) -> anyhow::Result<(
+) -> (
     BoxFuture<'static, anyhow::Result<()>>,
     mpsc::UnboundedReceiver<(usize, Signature, Vec<(u64, MaybeLeafNode)>)>,
-)> {
+) {
     let sig_id = Arc::new(AtomicUsize::new(0));
     let rx_sig = Arc::new(Mutex::new(find_signatures(
         pubkey,
-        rpc_client_with_header(rpc.to_owned(), rpc_custom_header)?,
+        RpcClient::new(client_url.to_owned()),
         max_retries,
         signatures_history_queue,
     )));
@@ -706,7 +691,7 @@ fn read_tree_start(
         .map(|_| {
             let sig_id = Arc::clone(&sig_id);
             let rx_sig = Arc::clone(&rx_sig);
-            let client = RpcClient::new(rpc.to_owned());
+            let client = RpcClient::new(client_url.to_owned());
             let concurrency_tx = Arc::clone(&concurrency_tx);
             let tx = Arc::clone(&tx);
             async move {
@@ -734,7 +719,7 @@ fn read_tree_start(
         .collect::<Vec<_>>();
     drop(tx);
 
-    Ok((try_join_all(fetch_futs).map_ok(|_| ()).boxed(), rx))
+    (try_join_all(fetch_futs).map_ok(|_| ()).boxed(), rx)
 }
 
 // Process and individual transaction, fetching it and reading out the sequence numbers
