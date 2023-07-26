@@ -30,9 +30,7 @@ use {
         sync::{mpsc, Mutex},
         time::Duration,
     },
-    txn_forwarder::{
-        find_signatures, read_lines, rpc_client_with_header, rpc_send_with_retries, save_metrics,
-    },
+    txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
 
 lazy_static::lazy_static! {
@@ -47,28 +45,18 @@ lazy_static::lazy_static! {
 struct Cli {
     #[arg(long)]
     redis_url: String,
-
-    /// Solana RPC endpoint.
-    #[arg(long, alias = "rpc-url")]
-    rpc: String,
-    /// Custom header in request to Solana RPC.
     #[arg(long)]
-    rpc_custom_header: Option<String>,
-
+    rpc_url: String,
     #[arg(long, short, default_value_t = 25)]
     concurrency: usize,
-
     /// Size of Redis connections pool
     #[arg(long, default_value_t = 25)]
     concurrency_redis: usize,
-
     /// Size of signatures queue
     #[arg(long, default_value_t = 25_000)]
     signatures_history_queue: usize,
-
     #[arg(long, short, default_value_t = 3)]
     max_retries: u8,
-
     #[arg(long)]
     prom_group: Option<String>,
     /// Path to prometheus output
@@ -77,7 +65,6 @@ struct Cli {
     /// Prometheus metrics file update interval
     #[arg(long, default_value_t = 1_000)]
     prom_save_interval: u64,
-
     #[command(subcommand)]
     action: Action,
 }
@@ -220,8 +207,7 @@ async fn main() -> anyhow::Result<()> {
                     tx.send(
                         send_address(
                             pubkey,
-                            cli.rpc,
-                            cli.rpc_custom_header,
+                            cli.rpc_url,
                             messenger,
                             cli.signatures_history_queue,
                             cli.max_retries,
@@ -247,14 +233,12 @@ async fn main() -> anyhow::Result<()> {
                         continue;
                     }
                 };
-                let rpc_url = cli.rpc.clone();
-                let rpc_custom_header = cli.rpc_custom_header.clone();
+                let rpc_url = cli.rpc_url.clone();
                 let messenger = messenger.clone();
                 tx.send(
                     send_address(
                         pubkey,
                         rpc_url,
-                        rpc_custom_header,
                         messenger,
                         cli.signatures_history_queue,
                         cli.max_retries,
@@ -268,7 +252,7 @@ async fn main() -> anyhow::Result<()> {
         Action::Single { txn } => {
             match Signature::from_str(&txn) {
                 Ok(sig) => tx
-                    .send(send_tx(None, sig, cli.rpc, cli.max_retries, messenger).boxed())
+                    .send(send_tx(None, sig, cli.rpc_url, cli.max_retries, messenger).boxed())
                     .map_err(|_| anyhow::anyhow!("failed to send job"))?,
                 Err(_error) => {
                     error!("failed to parse signature: {txn:?}");
@@ -286,7 +270,7 @@ async fn main() -> anyhow::Result<()> {
                         continue;
                     }
                 };
-                let rpc_url = cli.rpc.clone();
+                let rpc_url = cli.rpc_url.clone();
                 let messenger = messenger.clone();
                 tx.send(send_tx(None, sig, rpc_url, cli.max_retries, messenger).boxed())
                     .map_err(|_| anyhow::anyhow!("failed to send job"))?;
@@ -319,13 +303,12 @@ async fn main() -> anyhow::Result<()> {
 async fn send_address(
     pubkey: Pubkey,
     rpc_url: String,
-    rpc_custom_header: Option<String>,
     messenger: MessengerPool,
     signatures_history_queue: usize,
     max_retries: u8,
     tasks_tx: mpsc::UnboundedSender<BoxFuture<'static, anyhow::Result<()>>>,
 ) -> anyhow::Result<()> {
-    let client = rpc_client_with_header(rpc_url.clone(), rpc_custom_header)?;
+    let client = RpcClient::new(rpc_url.clone());
     let mut all_sig = find_signatures(pubkey, client, max_retries, signatures_history_queue);
     while let Some(sig) = all_sig.recv().await {
         let rpc_url = rpc_url.clone();

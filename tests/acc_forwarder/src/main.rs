@@ -30,9 +30,7 @@ use {
     },
     std::{collections::HashSet, env, str::FromStr, sync::Arc},
     tokio::{sync::Mutex, time::Duration},
-    txn_forwarder::{
-        find_signatures, read_lines, rpc_client_with_header, rpc_send_with_retries, save_metrics,
-    },
+    txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
 
 lazy_static::lazy_static! {
@@ -46,25 +44,17 @@ lazy_static::lazy_static! {
 struct Args {
     #[arg(long)]
     redis_url: String,
-
-    /// Solana RPC endpoint.
-    #[arg(long, alias = "rpc-url")]
-    rpc: String,
-    /// Custom header in request to Solana RPC.
     #[arg(long)]
-    rpc_custom_header: Option<String>,
-
+    rpc_url: String,
     /// Size of signatures queue
     #[arg(long, default_value_t = 25_000)]
     signatures_history_queue: usize,
-
     /// Path to prometheus output
     #[arg(long)]
     prom: Option<String>,
     /// Prometheus metrics file update interval
     #[arg(long, default_value_t = 1_000)]
     prom_save_interval: u64,
-
     #[command(subcommand)]
     action: Action,
 }
@@ -142,7 +132,7 @@ async fn main() -> anyhow::Result<()> {
         Duration::from_millis(args.prom_save_interval),
     );
 
-    let client = RpcClient::new(args.rpc.clone());
+    let client = RpcClient::new(args.rpc_url.clone());
 
     match args.action {
         Action::Single { account } => {
@@ -182,7 +172,7 @@ async fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("failed to parse collection {collection}"))?;
             let stream = Arc::new(Mutex::new(find_signatures(
                 collection,
-                rpc_client_with_header(args.rpc.clone(), args.rpc_custom_header)?,
+                client,
                 3, // max_retries
                 args.signatures_history_queue,
             )));
@@ -190,7 +180,7 @@ async fn main() -> anyhow::Result<()> {
             try_join_all((0..concurrency).map(|_| {
                 let metadata_accounts = Arc::clone(&metadata_accounts);
                 let stream = Arc::clone(&stream);
-                let client = RpcClient::new(args.rpc.clone());
+                let client = RpcClient::new(args.rpc_url.clone());
                 let messenger = Arc::clone(&messenger);
                 async move {
                     loop {

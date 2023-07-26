@@ -26,21 +26,6 @@ use {
     tokio_stream::wrappers::LinesStream,
 };
 
-pub fn rpc_client_with_header(url: String, header: Option<String>) -> anyhow::Result<RpcClient> {
-    Ok(if let Some(header) = header {
-        let mut items = header.splitn(2, ':');
-        let name = items
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("expect header name"))?;
-        let value = items
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("expect header value"))?;
-        RpcClient::new_with_header(url, name, value)
-    } else {
-        RpcClient::new(url)
-    })
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum FindSignaturesError {
     #[error("Failed to fetch signatures: {0}")]
