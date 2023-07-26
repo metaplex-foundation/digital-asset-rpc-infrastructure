@@ -1,21 +1,20 @@
-use mpl_token_metadata::state::Creator;
-use solana_client::client_error::ClientError;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_request::RpcError;
-use solana_client::rpc_request::RpcError::RpcRequestError;
-use solana_program::native_token::LAMPORTS_PER_SOL;
-use solana_program::pubkey::Pubkey;
-use solana_sdk::signature::keypair_from_seed;
-use solana_sdk::signature::Signer;
-use solana_sdk::signer::keypair::Keypair;
-use solana_sdk::system_instruction;
-use solana_sdk::transaction::Transaction;
-use spl_token::solana_program::program_pack::Pack;
-use std::env;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Semaphore;
-use tokio::time::{sleep, Duration as td};
+use {
+    mpl_token_metadata::state::Creator,
+    solana_client::{
+        client_error::ClientError, nonblocking::rpc_client::RpcClient,
+        rpc_request::RpcError::RpcRequestError,
+    },
+    solana_program::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey},
+    solana_sdk::{
+        signature::{keypair_from_seed, Signer},
+        signer::keypair::Keypair,
+        system_instruction,
+        transaction::Transaction,
+    },
+    spl_token::solana_program::program_pack::Pack,
+    std::{env, sync::Arc, time::Duration},
+    tokio::{sync::Semaphore, time::sleep},
+};
 
 #[tokio::main]
 async fn main() {
@@ -35,18 +34,17 @@ async fn main() {
         keypair_from_seed(sow_thy_seed.as_ref())
             .expect("Thy Keypair is not available, I humbly suggest you look for it."),
     );
-    let kp_new = Arc::new(
-       Keypair::new()
-    );
+    let kp_new = Arc::new(Keypair::new());
     let semaphore = Arc::new(Semaphore::new(carnage));
-    check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    let nft_collection_thing = make_a_nft_thing(le_blockchain.clone(), kp.clone(), kp.clone(), None)
-        .await
-        .unwrap();
+    let _ = check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
+    let nft_collection_thing =
+        make_a_nft_thing(le_blockchain.clone(), kp.clone(), kp.clone(), None)
+            .await
+            .unwrap();
     println!("NFT Collection Thing: {:?}", nft_collection_thing);
     loop {
         let mut tasks = vec![];
-        for _ in (0..carnage) {
+        for _ in 0..carnage {
             let kp = kp.clone();
             let kp_new = kp_new.clone();
             let le_clone = le_blockchain.clone();
@@ -55,12 +53,12 @@ async fn main() {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
                                                                   // MINT A MASTER EDITION:
                 sleep(Duration::from_millis(1000)).await;
-                make_a_nft_thing(le_clone, kp, kp_new, Some(nft_collection_thing.clone())).await
+                make_a_nft_thing(le_clone, kp, kp_new, Some(nft_collection_thing)).await
             }));
         }
         for task in tasks {
             match task.await.unwrap() {
-                Ok(e) => {
+                Ok(_) => {
                     println!("Lo! and Behold ! Successfully minted a NFT");
                     continue;
                 }
@@ -70,7 +68,7 @@ async fn main() {
                 }
             }
         }
-        check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
+        let _ = check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
     }
 }
 
@@ -102,9 +100,9 @@ pub async fn make_a_token_thing(
 ) -> Result<(Pubkey, Pubkey), ClientError> {
     let mint = Keypair::new();
     let ta_ix = spl_associated_token_account::instruction::create_associated_token_account(
-        &payer.pubkey().into(),
-        &owner.pubkey().into(),
-        &mint.pubkey().into(),
+        &payer.pubkey(),
+        &owner.pubkey(),
+        &mint.pubkey(),
         &spl_token::id(),
     );
     let ta = ta_ix.accounts[1].pubkey;
@@ -121,9 +119,9 @@ pub async fn make_a_token_thing(
             ),
             spl_token::instruction::initialize_mint(
                 &spl_token::id(),
-                &mint.pubkey().into(),
-                &payer.pubkey().into(),
-                Some(&payer.pubkey().into()),
+                &mint.pubkey(),
+                &payer.pubkey(),
+                Some(&payer.pubkey()),
                 0,
             )
             .unwrap(),
@@ -142,7 +140,7 @@ pub async fn make_a_token_thing(
         &[&payer, &mint],
         solana_client.get_latest_blockhash().await?,
     );
-    let res = solana_client.send_and_confirm_transaction(&tx).await?;
+    let _res = solana_client.send_and_confirm_transaction(&tx).await?;
     Ok((mint.pubkey(), ta))
 }
 
@@ -152,9 +150,10 @@ pub async fn make_a_nft_thing(
     owner: Arc<Keypair>,
     collection_mint: Option<Pubkey>,
 ) -> Result<Pubkey, ClientError> {
-    let (mint, token_account) = make_a_token_thing(solana_client.clone(), payer.clone(), owner.clone(), 1).await?;
+    let (mint, _token_account) =
+        make_a_token_thing(solana_client.clone(), payer.clone(), owner.clone(), 1).await?;
     let prg_uid = mpl_token_metadata::id();
-    let metadata_seeds = &[
+    let _metadata_seeds = &[
         mpl_token_metadata::state::PREFIX.as_bytes(),
         prg_uid.to_bytes().as_ref(),
         mint.as_ref(),
@@ -162,29 +161,31 @@ pub async fn make_a_nft_thing(
     let (pubkey, _) = mpl_token_metadata::pda::find_metadata_account(&mint);
     let (edition_pubkey, _) = mpl_token_metadata::pda::find_master_edition_account(&mint);
     let tx = Transaction::new_signed_with_payer(
-        &[mpl_token_metadata::instruction::create_metadata_accounts_v3(
-            prg_uid,
-            pubkey,
-            mint,
-            payer.pubkey(),
-            payer.pubkey(),
-            payer.pubkey(),
-            "fake".to_string(),
-            "fake".to_string(),
-            "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
-            Some(vec![Creator {
-                address: payer.pubkey(),
-                verified: true,
-                share: 100,
-            }]),
-            0,
-            true,
-            true,
-            None,
-            None,
-            None,
-        ),
-            mpl_token_metadata::instruction::create_master_edition(
+        &[
+            mpl_token_metadata::instruction::create_metadata_accounts_v3(
+                prg_uid,
+                pubkey,
+                mint,
+                payer.pubkey(),
+                payer.pubkey(),
+                payer.pubkey(),
+                "fake".to_string(),
+                "fake".to_string(),
+                "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
+                Some(vec![Creator {
+                    address: payer.pubkey(),
+                    verified: true,
+                    share: 100,
+                }]),
+                0,
+                true,
+                true,
+                None,
+                None,
+                None,
+            ),
+            #[allow(deprecated)]
+            mpl_token_metadata::deprecated_instruction::create_master_edition(
                 prg_uid,
                 edition_pubkey,
                 mint,
@@ -213,9 +214,9 @@ pub async fn make_a_nft_thing(
     ];
 
     if let Some(collection_mint) = collection_mint {
-        let (collection_metadata, u8) =
+        let (collection_metadata, _u8) =
             mpl_token_metadata::pda::find_metadata_account(&collection_mint);
-        let (collection_master_edition, u8) =
+        let (collection_master_edition, _u8) =
             mpl_token_metadata::pda::find_master_edition_account(&collection_mint);
         ix.push(mpl_token_metadata::instruction::set_and_verify_collection(
             prg_uid,
