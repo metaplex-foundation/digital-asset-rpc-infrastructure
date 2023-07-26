@@ -1,13 +1,15 @@
 use crate::{
     error::IngesterError,
+    program_transformers::bubblegum::{
+        save_changelog_event, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+    },
 };
-use super::{update_asset, save_changelog_event};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema},
 };
-use digital_asset_types::dao::asset;
-use sea_orm::{entity::*, ConnectionTrait, TransactionTrait};
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn delegate<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -19,29 +21,43 @@ where
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        #[allow(unreachable_patterns)]
         return match le.schema {
             LeafSchema::V1 {
                 id,
-                delegate,
                 owner,
+                delegate,
                 ..
             } => {
-                let id_bytes = id.to_bytes().to_vec();
+                let id_bytes = id.to_bytes();
+                let owner_bytes = owner.to_bytes().to_vec();
                 let delegate = if owner == delegate {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let owner_bytes = owner.to_bytes().to_vec();
-                let asset_to_update = asset::ActiveModel {
-                    id: Unchanged(id_bytes.clone()),
-                    leaf: Set(Some(le.leaf_hash.to_vec())),
-                    delegate: Set(delegate),
-                    owner: Set(Some(owner_bytes)),
-                    seq: Set(seq as i64), // gummyroll seq
-                    ..Default::default()
-                };
-                update_asset(txn, id_bytes, Some(seq), asset_to_update).await
+
+                // Partial update of asset table with just leaf.
+                upsert_asset_with_leaf_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    Some(le.leaf_hash.to_vec()),
+                    Some(seq as i64),
+                    false,
+                )
+                .await?;
+
+                // Partial update of asset table with just leaf owner and delegate.
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    owner_bytes,
+                    delegate,
+                    seq as i64,
+                )
+                .await?;
+
+                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await
             }
             _ => Err(IngesterError::NotImplemented),
         };

@@ -1,8 +1,8 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
-use log::{debug, info, warn};
+use log::{debug, info};
 use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ColumnTrait, DbBackend, DbErr, EntityTrait,
+    query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
 
@@ -14,7 +14,7 @@ pub async fn save_changelog_event<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn, false).await?;
+    insert_change_log(change_log_event, slot, txn).await?;
     Ok(change_log_event.seq)
 }
 
@@ -26,7 +26,6 @@ pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn: &T,
-    filling: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -71,9 +70,7 @@ where
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        if !filling {
-            query.sql = format!("{} WHERE excluded.seq > cl_items.seq", query.sql);
-        }
+        query.sql = format!("{} WHERE excluded.seq > cl_items.seq", query.sql);
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
@@ -114,42 +111,157 @@ where
     //TODO -> set maximum size of path and break into multiple statements
 }
 
-pub async fn update_asset<T>(
+pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,
-    seq: Option<u64>,
-    model: asset::ActiveModel,
+    leaf: Option<Vec<u8>>,
+    seq: Option<i64>,
+    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let update_one = if let Some(seq) = seq {
-        asset::Entity::update(model).filter(
-            Condition::all()
-                .add(asset::Column::Id.eq(id.clone()))
-                .add(asset::Column::Seq.lte(seq)),
-        )
-    } else {
-        asset::Entity::update(model).filter(asset::Column::Id.eq(id.clone()))
+    let model = asset::ActiveModel {
+        id: Set(id),
+        leaf: Set(leaf),
+        leaf_seq: Set(seq),
+        ..Default::default()
     };
 
-    match update_one.exec(txn).await {
-        Ok(_) => Ok(()),
-        Err(err) => match err {
-            DbErr::RecordNotFound(ref s) => {
-                if s.contains("None of the database rows are affected") {
-                    warn!(
-                        "Update failed. No asset found for id {}.",
-                        bs58::encode(id).into_string()
-                    );
-                    Ok(())
-                } else {
-                    Err(IngesterError::from(err))
-                }
-            }
-            _ => Err(IngesterError::from(err)),
-        },
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::Leaf, asset::Column::LeafSeq])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    // If we are indexing decompression we will update the leaf regardless of if we have previously
+    // indexed decompression and regardless of seq.
+    if !was_decompressed {
+        query.sql = format!(
+            "{} WHERE (NOT asset.was_decompressed) AND (excluded.leaf_seq > asset.leaf_seq OR asset.leaf_seq IS NULL)",
+            query.sql
+        );
     }
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_owner_and_delegate_info<T>(
+    txn: &T,
+    id: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        owner: Set(Some(owner)),
+        delegate: Set(delegate),
+        owner_delegate_seq: Set(Some(seq)), // gummyroll seq
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([
+                    asset::Column::Owner,
+                    asset::Column::Delegate,
+                    asset::Column::OwnerDelegateSeq,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.owner_delegate_seq > asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_compression_info<T>(
+    txn: &T,
+    id: Vec<u8>,
+    compressed: bool,
+    compressible: bool,
+    supply: i64,
+    supply_mint: Option<Vec<u8>>,
+    was_decompressed: bool,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        compressed: Set(compressed),
+        compressible: Set(compressible),
+        supply: Set(supply),
+        supply_mint: Set(supply_mint),
+        was_decompressed: Set(was_decompressed),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([
+                    asset::Column::Compressed,
+                    asset::Column::Compressible,
+                    asset::Column::Supply,
+                    asset::Column::SupplyMint,
+                    asset::Column::WasDecompressed,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!("{} WHERE NOT asset.was_decompressed", query.sql);
+    txn.execute(query).await?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_seq<T>(txn: &T, id: Vec<u8>, seq: i64) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::Seq])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset.seq OR asset.seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
 }
 
 pub async fn update_creator<T>(
