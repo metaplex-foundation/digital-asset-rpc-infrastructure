@@ -317,9 +317,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             let model = asset_grouping::ActiveModel {
                 asset_id: Set(id.to_vec()),
                 group_key: Set("collection".to_string()),
-                group_value: Set(c.key.to_string()),
-                seq: Set(0),
-                slot_updated: Set(slot_i),
+                group_value: Set(Some(c.key.to_string())),
+                seq: Set(Some(0)),
+                slot_updated: Set(Some(slot_i)),
                 ..Default::default()
             };
             let mut query = asset_grouping::Entity::insert(model)
