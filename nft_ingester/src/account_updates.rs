@@ -1,10 +1,7 @@
-use std::{
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
-    metric, metrics::capture_result,
-    program_transformers::ProgramTransformer, tasks::TaskData,
+    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;

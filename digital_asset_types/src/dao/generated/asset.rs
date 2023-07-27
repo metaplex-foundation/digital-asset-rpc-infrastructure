@@ -20,8 +20,8 @@ impl EntityName for Entity {
 pub struct Model {
     pub id: Vec<u8>,
     pub alt_id: Option<Vec<u8>>,
-    pub specification_version: SpecificationVersions,
-    pub specification_asset_class: SpecificationAssetClass,
+    pub specification_version: Option<SpecificationVersions>,
+    pub specification_asset_class: Option<SpecificationAssetClass>,
     pub owner: Option<Vec<u8>>,
     pub owner_type: OwnerType,
     pub delegate: Option<Vec<u8>>,
@@ -30,19 +30,22 @@ pub struct Model {
     pub supply_mint: Option<Vec<u8>>,
     pub compressed: bool,
     pub compressible: bool,
-    pub seq: i64,
+    pub seq: Option<i64>,
     pub tree_id: Option<Vec<u8>>,
     pub leaf: Option<Vec<u8>>,
-    pub nonce: i64,
+    pub nonce: Option<i64>,
     pub royalty_target_type: RoyaltyTargetType,
     pub royalty_target: Option<Vec<u8>>,
     pub royalty_amount: i32,
     pub asset_data: Option<Vec<u8>>,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub burnt: bool,
-    pub slot_updated: i64,
+    pub slot_updated: Option<i64>,
     pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
+    pub owner_delegate_seq: Option<i64>,
+    pub was_decompressed: bool,
+    pub leaf_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -72,6 +75,9 @@ pub enum Column {
     SlotUpdated,
     DataHash,
     CreatorHash,
+    OwnerDelegateSeq,
+    WasDecompressed,
+    LeafSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -91,8 +97,8 @@ pub enum Relation {
     AssetData,
     AssetV1AccountAttachments,
     AssetCreators,
-    AssetGrouping,
     AssetAuthority,
+    AssetGrouping,
 }
 
 impl ColumnTrait for Column {
@@ -101,8 +107,8 @@ impl ColumnTrait for Column {
         match self {
             Self::Id => ColumnType::Binary.def(),
             Self::AltId => ColumnType::Binary.def().null(),
-            Self::SpecificationVersion => SpecificationVersions::db_type(),
-            Self::SpecificationAssetClass => SpecificationAssetClass::db_type(),
+            Self::SpecificationVersion => SpecificationVersions::db_type().null(),
+            Self::SpecificationAssetClass => SpecificationAssetClass::db_type().null(),
             Self::Owner => ColumnType::Binary.def().null(),
             Self::OwnerType => OwnerType::db_type(),
             Self::Delegate => ColumnType::Binary.def().null(),
@@ -111,19 +117,22 @@ impl ColumnTrait for Column {
             Self::SupplyMint => ColumnType::Binary.def().null(),
             Self::Compressed => ColumnType::Boolean.def(),
             Self::Compressible => ColumnType::Boolean.def(),
-            Self::Seq => ColumnType::BigInteger.def(),
+            Self::Seq => ColumnType::BigInteger.def().null(),
             Self::TreeId => ColumnType::Binary.def().null(),
             Self::Leaf => ColumnType::Binary.def().null(),
-            Self::Nonce => ColumnType::BigInteger.def(),
+            Self::Nonce => ColumnType::BigInteger.def().null(),
             Self::RoyaltyTargetType => RoyaltyTargetType::db_type(),
             Self::RoyaltyTarget => ColumnType::Binary.def().null(),
             Self::RoyaltyAmount => ColumnType::Integer.def(),
             Self::AssetData => ColumnType::Binary.def().null(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::Burnt => ColumnType::Boolean.def(),
-            Self::SlotUpdated => ColumnType::BigInteger.def(),
+            Self::SlotUpdated => ColumnType::BigInteger.def().null(),
             Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
+            Self::WasDecompressed => ColumnType::Boolean.def(),
+            Self::LeafSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
@@ -139,8 +148,8 @@ impl RelationTrait for Relation {
                 Entity::has_many(super::asset_v1_account_attachments::Entity).into()
             }
             Self::AssetCreators => Entity::has_many(super::asset_creators::Entity).into(),
-            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
             Self::AssetAuthority => Entity::has_many(super::asset_authority::Entity).into(),
+            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
         }
     }
 }
@@ -163,15 +172,15 @@ impl Related<super::asset_creators::Entity> for Entity {
     }
 }
 
-impl Related<super::asset_grouping::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetGrouping.def()
-    }
-}
-
 impl Related<super::asset_authority::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AssetAuthority.def()
+    }
+}
+
+impl Related<super::asset_grouping::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AssetGrouping.def()
     }
 }
 
