@@ -1,7 +1,7 @@
 use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::FullAsset;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::FullAsset;
 
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::response::{AssetError, AssetList};
@@ -221,9 +221,11 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
 
 pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
-        SpecificationVersions::V1 => v1_content_from_json(data),
-        SpecificationVersions::V0 => v1_content_from_json(data),
-        _ => Err(DbErr::Custom("Version Not Implemented".to_string())),
+        Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
+            v1_content_from_json(data)
+        }
+        Some(_) => Err(DbErr::Custom("Version Not Implemented".to_string())),
+        None => Err(DbErr::Custom("Specification version not found".to_string())),
     }
 }
 
@@ -258,11 +260,19 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
         .collect()
 }
 
-pub fn get_interface(asset: &asset::Model) -> Interface {
-    Interface::from((
-        &asset.specification_version,
-        &asset.specification_asset_class,
-    ))
+pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
+    Ok(Interface::from((
+        asset
+            .specification_version
+            .as_ref()
+            .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+        asset
+            .specification_asset_class
+            .as_ref()
+            .ok_or(DbErr::Custom(
+                "Specification asset class not found".to_string(),
+            ))?,
+    )))
 }
 
 //TODO -> impl custom erro type
@@ -277,15 +287,15 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups);
-    let interface = get_interface(&asset);
+    let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .and_then(|v| v.as_u64());
+    let edition_nonce =
+        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
 
     Ok(RpcAsset {
         interface: interface.clone(),
@@ -296,8 +306,12 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset.nonce,
-            seq: asset.seq,
+            leaf_id: asset
+                .nonce
+                .ok_or(DbErr::Custom("Nonce not found".to_string()))?,
+            seq: asset
+                .seq
+                .ok_or(DbErr::Custom("Seq not found".to_string()))?,
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())
@@ -337,7 +351,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         },
         supply: match interface {
             Interface::V1NFT => Some(Supply {
-                edition_nonce: edition_nonce,
+                edition_nonce,
                 print_current_supply: 0,
                 print_max_supply: 0,
             }),
