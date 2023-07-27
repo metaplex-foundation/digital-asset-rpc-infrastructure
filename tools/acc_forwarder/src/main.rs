@@ -5,7 +5,7 @@ use {
     futures::{future::try_join_all, stream::StreamExt},
     log::{info, warn},
     mpl_token_metadata::{pda::find_metadata_account, state::Metadata},
-    plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM},
+    plerkle_messenger::{MessengerConfig, ACCOUNT_BACKFILL_STREAM},
     plerkle_serialization::{
         serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
     },
@@ -117,9 +117,9 @@ async fn main() -> anyhow::Result<()> {
     let mut messenger = plerkle_messenger::select_messenger(messenger_config)
         .await
         .unwrap();
-    messenger.add_stream(ACCOUNT_STREAM).await.unwrap();
+    messenger.add_stream(ACCOUNT_BACKFILL_STREAM).await.unwrap();
     messenger
-        .set_buffer_size(ACCOUNT_STREAM, 10000000000000000)
+        .set_buffer_size(ACCOUNT_BACKFILL_STREAM, 10000000000000000)
         .await;
     let messenger = Arc::new(Mutex::new(messenger));
 
@@ -416,7 +416,7 @@ async fn send_account(
     let fbb = serialize_account(fbb, &account_info, slot, is_startup);
     let bytes = fbb.finished_data();
 
-    messenger.lock().await.send(ACCOUNT_STREAM, bytes).await?;
+    messenger.lock().await.send(ACCOUNT_BACKFILL_STREAM, bytes).await?;
     info!("sent account {} to stream", pubkey);
     ACC_FORWARDER_SENT.inc();
 
