@@ -17,9 +17,11 @@ pub struct Model {
     pub id: i64,
     pub asset_id: Vec<u8>,
     pub group_key: String,
-    pub group_value: String,
-    pub seq: i64,
-    pub slot_updated: i64,
+    pub group_value: Option<String>,
+    pub seq: Option<i64>,
+    pub slot_updated: Option<i64>,
+    pub verified: bool,
+    pub group_info_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -30,6 +32,8 @@ pub enum Column {
     GroupValue,
     Seq,
     SlotUpdated,
+    Verified,
+    GroupInfoSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -56,9 +60,11 @@ impl ColumnTrait for Column {
             Self::Id => ColumnType::BigInteger.def(),
             Self::AssetId => ColumnType::Binary.def(),
             Self::GroupKey => ColumnType::Text.def(),
-            Self::GroupValue => ColumnType::Text.def(),
-            Self::Seq => ColumnType::BigInteger.def(),
-            Self::SlotUpdated => ColumnType::BigInteger.def(),
+            Self::GroupValue => ColumnType::Text.def().null(),
+            Self::Seq => ColumnType::BigInteger.def().null(),
+            Self::SlotUpdated => ColumnType::BigInteger.def().null(),
+            Self::Verified => ColumnType::Boolean.def(),
+            Self::GroupInfoSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }

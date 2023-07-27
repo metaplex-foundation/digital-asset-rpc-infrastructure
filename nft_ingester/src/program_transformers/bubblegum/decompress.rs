@@ -1,43 +1,33 @@
-use crate::error::IngesterError;
-use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use digital_asset_types::dao::asset;
-use sea_orm::{
-    entity::*, query::*, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
+use crate::{
+    error::IngesterError,
+    program_transformers::bubblegum::{
+        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+    },
 };
+use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn decompress<'c, T>(
-    parsing_result: &BubblegumInstruction,
+    _parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let id_bytes = bundle.keys.get(3).unwrap().0.as_slice().to_vec();
+    let id_bytes = bundle.keys.get(3).unwrap().0.as_slice();
 
-    let model = asset::ActiveModel {
-        id: Unchanged(id_bytes.clone()),
-        leaf: Set(None),
-        compressed: Set(false),
-        compressible: Set(false),
-        supply: Set(1),
-        supply_mint: Set(Some(id_bytes.clone())),
-        ..Default::default()
-    };
+    // Partial update of asset table with just leaf.
+    upsert_asset_with_leaf_info(txn, id_bytes.to_vec(), None, None, true).await?;
 
-    // After the decompress instruction runs, the asset is no longer managed
-    // by Bubblegum and Gummyroll, so there will not be any other instructions
-    // after this one.
-    //
-    // Do not run this command if the asset is already marked as
-    // decompressed.
-    let query = asset::Entity::update(model)
-        .filter(
-            Condition::all()
-                .add(asset::Column::Id.eq(id_bytes.clone()))
-                .add(asset::Column::Compressed.eq(true)),
-        )
-        .build(DbBackend::Postgres);
-
-    txn.execute(query).await.map(|_| ()).map_err(Into::into)
+    upsert_asset_with_compression_info(
+        txn,
+        id_bytes.to_vec(),
+        false,
+        false,
+        1,
+        Some(id_bytes.to_vec()),
+        true,
+    )
+    .await
 }

@@ -95,7 +95,7 @@ services:
     - ./ledger:/config:rw
     - ./solana-test-validator-geyser-config:/plugin-config:rw
     environment:
-      RUST_LOG: info
+      RUST_LOG: error
       PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
       PLUGIN_MESSENGER_CONFIG.connection_config: '{redis_connection_str="redis://redis"}'
     ports:

@@ -66,8 +66,8 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         true,
         false,
         None,
-        SpecificationVersions::V1,
-        0 as i64,
+        Some(SpecificationVersions::V1),
+        Some(0_i64),
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -119,8 +119,8 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         true,
         false,
         None,
-        SpecificationVersions::V1,
-        0 as i64,
+        Some(SpecificationVersions::V1),
+        Some(0_i64),
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -141,7 +141,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         2,
     );
 
-    let asset_grouping_2 = create_asset_grouping(id_2.to_bytes().to_vec(), collection.clone(), 1);
+    let asset_grouping_2 = create_asset_grouping(id_2.to_bytes().to_vec(), collection, 1);
 
     let metadata_3 = MockMetadataArgs {
         name: String::from("Test #3"),
@@ -181,8 +181,8 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         true,
         false,
         None,
-        SpecificationVersions::V1,
-        0 as i64,
+        Some(SpecificationVersions::V1),
+        Some(0_i64),
         None,
         RoyaltyTargetType::Creators,
         None,
@@ -211,7 +211,7 @@ async fn get_assets_by_group() -> Result<(), DbErr> {
         3,
     );
 
-    let asset_grouping_3 = create_asset_grouping(id_3.to_bytes().to_vec(), collection.clone(), 2);
+    let asset_grouping_3 = create_asset_grouping(id_3.to_bytes().to_vec(), collection, 2);
 
     let db = MockDatabase::new(DatabaseBackend::Postgres)
         .append_query_results(vec![vec![asset_data_1.1]])
