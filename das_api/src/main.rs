@@ -4,7 +4,7 @@ mod config;
 mod error;
 mod validation;
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use {
     crate::api::DasApi,
     crate::builder::RpcApiBuilder,
@@ -17,7 +17,7 @@ use {
     std::net::UdpSocket,
 };
 
-use hyper::{http, Method};
+use hyper::Method;
 use log::{debug, info};
 use tower_http::cors::{Any, CorsLayer};
 

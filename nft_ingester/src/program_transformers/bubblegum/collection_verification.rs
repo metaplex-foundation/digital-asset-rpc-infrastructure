@@ -1,14 +1,17 @@
+use crate::{
+    error::IngesterError,
+    program_transformers::bubblegum::{
+        save_changelog_event, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        upsert_collection_verified,
+    },
+};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
-use digital_asset_types::dao::{asset, asset_grouping};
-use sea_orm::{entity::*, query::*, sea_query::OnConflict, DbBackend, Set, Unchanged};
+use sea_orm::query::*;
 
-use crate::{
-    error::IngesterError,
-};
-use super::{update_asset, save_changelog_event};
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
@@ -22,52 +25,60 @@ where
         // Do we need to update the `slot_updated` field as well as part of the table
         // updates below?
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
+        #[allow(unreachable_patterns)]
         match le.schema {
-            LeafSchema::V1 { id, .. } => {
-                let id_bytes = id.to_bytes().to_vec();
-
-                let asset_to_update = asset::ActiveModel {
-                    id: Unchanged(id_bytes.clone()),
-                    leaf: Set(Some(le.leaf_hash.to_vec())),
-                    seq: Set(seq as i64),
-                    ..Default::default()
+            LeafSchema::V1 {
+                id,
+                owner,
+                delegate,
+                ..
+            } => {
+                let id_bytes = id.to_bytes();
+                let owner_bytes = owner.to_bytes().to_vec();
+                let delegate = if owner == delegate {
+                    None
+                } else {
+                    Some(delegate.to_bytes().to_vec())
                 };
-                update_asset(txn, id_bytes.clone(), Some(seq), asset_to_update).await?;
 
-                if verify {
-                    if let Some(Payload::SetAndVerifyCollection { collection }) =
-                        parsing_result.payload
-                    {
-                        let grouping = asset_grouping::ActiveModel {
-                            asset_id: Set(id_bytes.clone()),
-                            group_key: Set("collection".to_string()),
-                            group_value: Set(collection.to_string()),
-                            seq: Set(seq as i64),
-                            slot_updated: Set(bundle.slot as i64),
-                            ..Default::default()
-                        };
-                        let mut query = asset_grouping::Entity::insert(grouping)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    asset_grouping::Column::AssetId,
-                                    asset_grouping::Column::GroupKey,
-                                ])
-                                .update_columns([
-                                    asset_grouping::Column::GroupKey,
-                                    asset_grouping::Column::GroupValue,
-                                    asset_grouping::Column::Seq,
-                                    asset_grouping::Column::SlotUpdated,
-                                ])
-                                .to_owned(),
-                            )
-                            .build(DbBackend::Postgres);
-                        query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_grouping.slot_updated AND excluded.seq >= asset_grouping.seq",
-                    query.sql
-                );
-                        txn.execute(query).await?;
-                    }
+                // Partial update of asset table with just leaf.
+                upsert_asset_with_leaf_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    Some(le.leaf_hash.to_vec()),
+                    Some(seq as i64),
+                    false,
+                )
+                .await?;
+
+                // Partial update of asset table with just leaf owner and delegate.
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    owner_bytes,
+                    delegate,
+                    seq as i64,
+                )
+                .await?;
+
+                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+
+                if let Some(Payload::SetAndVerifyCollection { collection }) = parsing_result.payload
+                {
+                    // Upsert into `asset_grouping` table with base collection info.
+                    upsert_collection_info(
+                        txn,
+                        id_bytes.to_vec(),
+                        collection.to_string(),
+                        bundle.slot as i64,
+                        seq as i64,
+                    )
+                    .await?;
                 }
+
+                // Partial update with whether collection is verified and the `seq` number.
+                upsert_collection_verified(txn, id_bytes.to_vec(), verify, seq as i64).await?;
+
                 id_bytes
             }
             _ => return Err(IngesterError::NotImplemented),
