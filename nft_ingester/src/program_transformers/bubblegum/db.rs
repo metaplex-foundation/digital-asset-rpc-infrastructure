@@ -1,5 +1,5 @@
 use crate::error::IngesterError;
-use digital_asset_types::dao::{asset, asset_creators, backfill_items, cl_items};
+use digital_asset_types::dao::{asset, asset_creators, asset_grouping, backfill_items, cl_items};
 use log::{debug, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
@@ -264,30 +264,132 @@ where
     Ok(())
 }
 
-pub async fn update_creator<T>(
+pub async fn upsert_creator_verified<T>(
     txn: &T,
     asset_id: Vec<u8>,
     creator: Vec<u8>,
-    seq: u64,
-    model: asset_creators::ActiveModel,
+    verified: bool,
+    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    // Using `update_many` to avoid having to supply the primary key as well within `model`.
-    // We still effectively end up updating a single row at most, which is uniquely identified
-    // by the `(asset_id, creator)` pair. Is there any reason why we should not use
-    // `update_many` here?
-    let update = asset_creators::Entity::update_many()
-        .filter(
-            Condition::all()
-                .add(asset_creators::Column::AssetId.eq(asset_id))
-                .add(asset_creators::Column::Creator.eq(creator))
-                .add(asset_creators::Column::Seq.lte(seq)),
-        )
-        .set(model);
+    let model = asset_creators::ActiveModel {
+        asset_id: Set(asset_id),
+        creator: Set(creator),
+        verified: Set(verified),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
 
-    update.exec(txn).await.map_err(IngesterError::from)?;
+    let mut query = asset_creators::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_creators::Column::AssetId,
+                asset_creators::Column::Creator,
+            ])
+            .update_columns([
+                asset_creators::Column::Verified,
+                asset_creators::Column::Seq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!("{} WHERE excluded.seq > asset_creators.seq", query.sql);
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_collection_info<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    group_value: String,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_grouping::ActiveModel {
+        asset_id: Set(asset_id),
+        group_key: Set("collection".to_string()),
+        group_value: Set(Some(group_value)),
+        slot_updated: Set(Some(slot_updated)),
+        group_info_seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset_grouping::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_grouping::Column::AssetId,
+                asset_grouping::Column::GroupKey,
+            ])
+            .update_columns([
+                asset_grouping::Column::GroupValue,
+                asset_grouping::Column::SlotUpdated,
+                asset_grouping::Column::GroupInfoSeq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.group_info_seq > asset_grouping.group_info_seq OR asset_grouping.group_info_seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_collection_verified<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    verified: bool,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_grouping::ActiveModel {
+        asset_id: Set(asset_id),
+        group_key: Set("collection".to_string()),
+        verified: Set(verified),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset_grouping::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_grouping::Column::AssetId,
+                asset_grouping::Column::GroupKey,
+            ])
+            .update_columns([
+                asset_grouping::Column::Verified,
+                asset_grouping::Column::Seq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.seq > asset_grouping.seq OR asset_grouping.seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
