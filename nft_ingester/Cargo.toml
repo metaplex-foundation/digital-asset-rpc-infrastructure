@@ -23,7 +23,7 @@ tokio-postgres = "0.7.7"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { version = "1.5.2", features = ['redis'] }
+plerkle_messenger = { version = "1.6.0", features = ['redis'] }
 plerkle_serialization = { version = "1.5.2" }
 flatbuffers = "23.1.21"
 lazy_static = "1.4.0"
