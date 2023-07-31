@@ -1,5 +1,3 @@
-use std::vec;
-
 use digital_asset_types::{
     dao::{
         scopes::asset::get_grouping,
@@ -9,8 +7,8 @@ use digital_asset_types::{
         SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_assets_by_authority, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, search_assets, get_assets_by_creator,
+        get_asset, get_assets_by_authority, get_assets_by_creator, get_assets_by_group,
+        get_assets_by_owner, get_proof_for_asset, search_assets,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -66,7 +64,11 @@ impl DasApi {
             }
         }
 
-        if let Some(_page) = page {
+        if let Some(page) = page {
+            if *page == 0 {
+                return Err(DasApiError::PaginationEmptyError);
+            }
+
             // make config item
             if before.is_some() || after.is_some() {
                 return Err(DasApiError::PaginationError);
@@ -148,8 +150,8 @@ impl ApiContract for DasApi {
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
-            before.map(|x| x.as_bytes().to_vec()),
-            after.map(|x| x.as_bytes().to_vec()),
+            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
         )
         .await
         .map_err(Into::into)
@@ -179,8 +181,8 @@ impl ApiContract for DasApi {
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
-            before.map(|x| x.as_bytes().to_vec()),
-            after.map(|x| x.as_bytes().to_vec()),
+            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
         )
         .await
         .map_err(Into::into)
@@ -212,8 +214,8 @@ impl ApiContract for DasApi {
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
-            before.map(|x| x.as_bytes().to_vec()),
-            after.map(|x| x.as_bytes().to_vec()),
+            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
         )
         .await
         .map_err(Into::into)
@@ -242,8 +244,8 @@ impl ApiContract for DasApi {
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
-            before.map(|x| x.as_bytes().to_vec()),
-            after.map(|x| x.as_bytes().to_vec()),
+            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
         )
         .await
         .map_err(Into::into)
@@ -276,6 +278,7 @@ impl ApiContract for DasApi {
             page,
             before,
             after,
+            json_uri,
         } = payload;
         // Deserialize search assets query
         self.validate_pagination(&limit, &page, &before, &after)?;
@@ -324,6 +327,7 @@ impl ApiContract for DasApi {
             royalty_target,
             royalty_amount,
             burnt,
+            json_uri,
         };
         let sort_by = sort_by.unwrap_or_default();
         // Execute query
@@ -333,8 +337,8 @@ impl ApiContract for DasApi {
             sort_by,
             limit.map(|x| x as u64).unwrap_or(1000),
             page.map(|x| x as u64),
-            before.map(|x| x.as_bytes().to_vec()),
-            after.map(|x| x.as_bytes().to_vec()),
+            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
         )
         .await
         .map_err(Into::into)
@@ -350,7 +354,7 @@ impl ApiContract for DasApi {
         } = payload;
         let gs = get_grouping(&self.db_connection, group_key.clone(), group_value.clone()).await?;
         Ok(GetGroupingResponse {
-            group_key: group_key,
+            group_key,
             group_name: group_value,
             group_size: gs.size,
         })

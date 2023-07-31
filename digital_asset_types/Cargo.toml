@@ -33,3 +33,4 @@ tokio = { version = "1.22.0", features = ["full"] }
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
 log = "0.4.17"
+indexmap = "1.9.3"

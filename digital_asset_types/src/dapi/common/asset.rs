@@ -1,21 +1,19 @@
-use crate::dao::sea_orm_active_enums::{SpecificationAssetClass, SpecificationVersions};
+use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::FullAsset;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::dao::{FullAsset, FullAssetList};
-
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, Ownership, Royalty, Scope, Supply, Uses,
 };
-
 use jsonpath_lib::JsonPathError;
+use log::warn;
 use mime_guess::Mime;
-use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, query::*, DbErr};
+use sea_orm::DbErr;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
 
@@ -27,15 +25,18 @@ pub fn get_mime(url: Url) -> Option<Mime> {
     mime_guess::from_path(Path::new(url.path())).first()
 }
 
-pub fn get_mime_type_from_uri(uri: String) -> Option<String> {
-    to_uri(uri).and_then(get_mime).map(|m| m.to_string())
+pub fn get_mime_type_from_uri(uri: String) -> String {
+    let default_mime_type = "image/png".to_string();
+    to_uri(uri)
+        .and_then(get_mime)
+        .map_or(default_mime_type, |m| m.to_string())
 }
 
 pub fn file_from_str(str: String) -> File {
     let mime = get_mime_type_from_uri(str.clone());
     File {
         uri: Some(str),
-        mime,
+        mime: Some(mime),
         quality: None,
         contexts: None,
     }
@@ -101,10 +102,12 @@ pub fn track_top_level_file(
 ) {
     if top_level_file.is_some() {
         let img = top_level_file.and_then(|x| x.as_str());
-        let entry = img.map(|i| file_map.get(i));
-        if entry.is_none() && img.is_some() {
+        if img.is_some() {
             let img = img.unwrap();
-            file_map.insert(img.to_string(), file_from_str(img.to_string()));
+            let entry = file_map.get(img);
+            if entry.is_none() {
+                file_map.insert(img.to_string(), file_from_str(img.to_string()));
+            }
         }
     }
 }
@@ -160,24 +163,34 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
         .map(|files| {
             for v in files.iter() {
                 if v.is_object() {
-                    let uri = v.get("uri");
+                    // Some assets don't follow the standard and specifiy 'url' instead of 'uri'
+                    let mut uri = v.get("uri");
+                    if uri.is_none() {
+                        uri = v.get("url");
+                    }
                     let mime_type = v.get("type");
                     match (uri, mime_type) {
                         (Some(u), Some(m)) => {
-                            let str_uri = u.as_str().unwrap().to_string();
-                            let str_mime = m.as_str().unwrap().to_string();
-                            actual_files.insert(
-                                str_uri.clone(),
-                                File {
-                                    uri: Some(str_uri),
-                                    mime: Some(str_mime),
-                                    quality: None,
-                                    contexts: None,
-                                },
-                            );
+                            if let Some(str_uri) = u.as_str() {
+                                let file = if let Some(str_mime) = m.as_str() {
+                                    File {
+                                        uri: Some(str_uri.to_string()),
+                                        mime: Some(str_mime.to_string()),
+                                        quality: None,
+                                        contexts: None,
+                                    }
+                                } else {
+                                    warn!("Mime is not string: {:?}", m);
+                                    file_from_str(str_uri.to_string())
+                                };
+                                actual_files.insert(str_uri.to_string().clone(), file);
+                            } else {
+                                warn!("URI is not string: {:?}", u);
+                            }
                         }
                         (Some(u), None) => {
-                            let str_uri = serde_json::to_string(u).unwrap();
+                            let str_uri =
+                                serde_json::to_string(u).unwrap_or_else(|_| String::new());
                             actual_files.insert(str_uri.clone(), file_from_str(str_uri));
                         }
                         _ => {}
@@ -204,9 +217,11 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
 
 pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
-        SpecificationVersions::V1 => v1_content_from_json(data),
-        SpecificationVersions::V0 => v1_content_from_json(data),
-        _ => Err(DbErr::Custom("Version Not Implemented".to_string())),
+        Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
+            v1_content_from_json(data)
+        }
+        Some(_) => Err(DbErr::Custom("Version Not Implemented".to_string())),
+        None => Err(DbErr::Custom("Specification version not found".to_string())),
     }
 }
 
@@ -231,21 +246,33 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
         .collect()
 }
 
-pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Vec<Group> {
-    groups
-        .iter()
-        .map(|a| Group {
-            group_key: a.group_key.clone(),
-            group_value: a.group_value.clone(),
+pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Result<Vec<Group>, DbErr> {
+    fn find_group(model: &asset_grouping::Model) -> Result<Group, DbErr> {
+        Ok(Group {
+            group_key: model.group_key.clone(),
+            group_value: model
+                .group_value
+                .clone()
+                .ok_or(DbErr::Custom("Group value not found".to_string()))?,
         })
-        .collect()
+    }
+
+    groups.iter().map(find_group).collect()
 }
 
-pub fn get_interface(asset: &asset::Model) -> Interface {
-    Interface::from((
-        &asset.specification_version,
-        &asset.specification_asset_class,
-    ))
+pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
+    Ok(Interface::from((
+        asset
+            .specification_version
+            .as_ref()
+            .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+        asset
+            .specification_asset_class
+            .as_ref()
+            .ok_or(DbErr::Custom(
+                "Specification asset class not found".to_string(),
+            ))?,
+    )))
 }
 
 //TODO -> impl custom erro type
@@ -259,17 +286,17 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
-    let rpc_groups = to_grouping(groups);
-    let interface = get_interface(&asset);
+    let rpc_groups = to_grouping(groups)?;
+    let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let edition_nonce = safe_select(chain_data_selector, "$.edition_nonce")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let edition_nonce =
+        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
@@ -279,8 +306,12 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset.nonce,
-            seq: asset.seq,
+            leaf_id: asset
+                .nonce
+                .ok_or(DbErr::Custom("Nonce not found".to_string()))?,
+            seq: asset
+                .seq
+                .ok_or(DbErr::Custom("Seq not found".to_string()))?,
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())
@@ -320,7 +351,7 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         },
         supply: match interface {
             Interface::V1NFT => Some(Supply {
-                edition_nonce: edition_nonce,
+                edition_nonce,
                 print_current_supply: 0,
                 print_max_supply: 0,
             }),

@@ -14,7 +14,7 @@ use crate::{
     account_updates::account_worker,
     ack::ack_worker,
     backfiller::setup_backfiller,
-    config::{init_logger, setup_config, IngesterRole},
+    config::{init_logger, rand_string, setup_config, IngesterRole},
     database::setup_database,
     error::IngesterError,
     metrics::setup_metrics,
@@ -22,32 +22,51 @@ use crate::{
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
     transaction_notifications::transaction_worker,
 };
-
-use crate::config::rand_string;
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
+use clap::{arg, command, value_parser};
 use log::{error, info};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, TRANSACTION_STREAM,
 };
-use tokio::{
-    signal,
-    task::{JoinSet},
-};
+use std::{path::PathBuf, time};
+use tokio::{signal, task::JoinSet};
 
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), IngesterError> {
     init_logger();
     info!("Starting nft_ingester");
+
+    let matches = command!()
+        .arg(
+            arg!(
+                -c --config <FILE> "Sets a custom config file"
+            )
+            // We don't have syntax yet for optional options, so manually calling `required`
+            .required(false)
+            .value_parser(value_parser!(PathBuf)),
+        )
+        .get_matches();
+
+    let config_path = matches.get_one::<PathBuf>("config");
+    if let Some(config_path) = config_path {
+        println!("Loading config from: {}", config_path.display());
+    }
+
     // Setup Configuration and Metrics ---------------------------------------------
+
     // Pull Env variables into config struct
-    let config = setup_config();
+    let config = setup_config(config_path);
+
     // Optionally setup metrics if config demands it
     setup_metrics(&config);
+
     // One pool many clones, this thing is thread safe and send sync
     let database_pool = setup_database(config.clone()).await;
+
     // The role determines the processes that get run.
     let role = config.clone().role.unwrap_or(IngesterRole::All);
+
     info!("Starting Program with Role {}", role);
     // Tasks Setup -----------------------------------------------
     // This joinset maages all the tasks that are spawned.
@@ -56,7 +75,17 @@ pub async fn main() -> Result<(), IngesterError> {
 
     // BACKGROUND TASKS --------------------------------------------
     //Setup definitions for background tasks
-    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {})];
+    let task_runner_config = config
+        .background_task_runner_config
+        .clone()
+        .unwrap_or_default();
+    let bg_task_definitions: Vec<Box<dyn BgTask>> = vec![Box::new(DownloadMetadataTask {
+        lock_duration: task_runner_config.lock_duration,
+        max_attempts: task_runner_config.max_attempts,
+        timeout: Some(time::Duration::from_secs(
+            task_runner_config.timeout.unwrap_or(3),
+        )),
+    })];
 
     let mut background_task_manager =
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
@@ -74,7 +103,7 @@ pub async fn main() -> Result<(), IngesterError> {
         ACCOUNT_STREAM,
     )?;
     let mut timer_txn = StreamSizeTimer::new(
-        stream_metrics_timer.clone(),
+        stream_metrics_timer,
         config.messenger_config.clone(),
         TRANSACTION_STREAM,
     )?;
@@ -88,10 +117,10 @@ pub async fn main() -> Result<(), IngesterError> {
 
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
-        let (ack_task, ack_sender) =
+        let (_ack_task, ack_sender) =
             ack_worker::<RedisMessenger>(config.get_messneger_client_config());
         for i in 0..config.get_account_stream_worker_count() {
-            let account = account_worker::<RedisMessenger>(
+            let _account = account_worker::<RedisMessenger>(
                 database_pool.clone(),
                 config.get_messneger_client_config(),
                 bg_task_sender.clone(),
@@ -104,7 +133,7 @@ pub async fn main() -> Result<(), IngesterError> {
             );
         }
         for i in 0..config.get_transaction_stream_worker_count() {
-            let txn = transaction_worker::<RedisMessenger>(
+            let _txn = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
                 config.get_messneger_client_config(),
                 bg_task_sender.clone(),
@@ -121,7 +150,8 @@ pub async fn main() -> Result<(), IngesterError> {
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
     // If metrics are disabled, these will not run.
     if role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All {
-        tasks.spawn(background_task_manager.start_runner());
+        let background_runner_config = config.clone().background_task_runner_config;
+        tasks.spawn(background_task_manager.start_runner(background_runner_config));
     }
     // Backfiller Setup ------------------------------------------
     if role == IngesterRole::Backfiller || role == IngesterRole::All {

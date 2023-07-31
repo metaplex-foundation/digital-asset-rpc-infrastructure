@@ -3,19 +3,16 @@ mod generated;
 pub mod scopes;
 pub use full_asset::*;
 pub use generated::*;
-use solana_sdk::pubkey::Pubkey;
 
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
 use sea_orm::{
     entity::*,
-    query::*,
     sea_query::Expr,
     sea_query::{ConditionType, IntoCondition},
     Condition, DbErr, RelationDef,
 };
-use serde::{self, Deserialize, Serialize};
 
 pub struct GroupingSize {
     pub size: u64,
@@ -55,6 +52,7 @@ pub struct SearchAssetsQuery {
     pub royalty_target: Option<Vec<u8>>,
     pub royalty_amount: Option<u32>,
     pub burnt: Option<bool>,
+    pub json_uri: Option<String>,
 }
 
 impl SearchAssetsQuery {
@@ -111,6 +109,9 @@ impl SearchAssetsQuery {
             num_conditions += 1;
         }
         if self.grouping.is_some() {
+            num_conditions += 1;
+        }
+        if self.json_uri.is_some() {
             num_conditions += 1;
         }
 
@@ -220,6 +221,21 @@ impl SearchAssetsQuery {
                 .on_condition(|left, right| {
                     Expr::tbl(right, asset_grouping::Column::AssetId)
                         .eq(Expr::tbl(left, asset::Column::Id))
+                        .into_condition()
+                });
+            joins.push(rel);
+        }
+
+        if let Some(ju) = self.json_uri.to_owned() {
+            let cond = Condition::all()
+                .add(asset_data::Column::MetadataUrl.eq(ju));
+            conditions = conditions.add(cond);
+            let rel = asset_data::Relation::Asset
+                .def()
+                .rev()
+                .on_condition(|left, right| {
+                    Expr::tbl(right, asset_data::Column::Id)
+                        .eq(Expr::tbl(left, asset::Column::AssetData))
                         .into_condition()
                 });
             joins.push(rel);

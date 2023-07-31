@@ -38,6 +38,10 @@ Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=pos
 
 If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
 
+Note: The current SeaORM types were generated using version 0.9.3 so unless you want to upgrade you can install using `cargo install sea-orm-cli --version 0.9.3`.
+
+Also note: The migration `m20230224_093722_performance_improvements` needs to be commented out of the migration lib.rs in order for the Sea ORM `Relations` to generate correctly.
+
 #### Developing Locally
  *Prerequisites*
  * A Postgres Server running with the database setup according to ./init.sql
@@ -153,25 +157,40 @@ And a Metrics System on
 http://localhost:3000
 ```
 
-Here is an example request to the API
+Here are some example requests to the Read API:
 
 ```bash
-curl --request POST \
-  --url http://localhost:9090 \
-  --header 'Content-Type: application/json' \
-  --data '{
-	"jsonrpc": "2.0",
-"method":"get_assets_by_owner",
-	"id": "rpd-op-123",
-	"params": [
-    "CMvMqPNKHikuGi7mrngvQzFeQ4rndDnopx3kc9drne8M",
-    "created",
-    50,
-    1,
-    "",
-    ""
-  ]
-}'
+curl --request POST --url http://localhost:9090 --header 'Content-Type: application/json' --data '{
+    "jsonrpc": "2.0",
+    "method": "getAssetsByOwner",
+    "params": [
+      "CMvMqPNKHikuGi7mrngvQzFeQ4rndDnopx3kc9drne8M",
+      { "sortBy": "created", "sortDirection": "asc"},
+      50,
+      1,
+      "",
+      ""
+    ],
+    "id": 0
+}' | json_pp
+
+curl --request POST --url http://localhost:9090 --header 'Content-Type: application/json' --data '{
+    "jsonrpc": "2.0",
+    "method": "getAsset",
+    "params": [
+      "8vw7tdLGE3FBjaetsJrZAarwsbc8UESsegiLyvWXxs5A"
+    ],
+    "id": 0
+}' | json_p
+
+curl --request POST --url http://localhost:9090 --header 'Content-Type: application/json' --data '{
+    "jsonrpc": "2.0",
+    "method": "getAssetProof",
+    "params": [
+      "8vw7tdLGE3FBjaetsJrZAarwsbc8UESsegiLyvWXxs5A"
+    ],
+    "id": 0
+}' | json_pp
 ```
 
 # Deploying to Kubernetes 

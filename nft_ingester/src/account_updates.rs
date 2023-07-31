@@ -1,16 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use crate::{
-    config::rand_string, error::IngesterError, metric, metrics::capture_result,
-    program_transformers::ProgramTransformer, tasks::TaskData,
+    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
 };
-use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge, statsd_time};
+use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
-use futures::{stream::FuturesUnordered, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData, ACCOUNT_STREAM};
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};

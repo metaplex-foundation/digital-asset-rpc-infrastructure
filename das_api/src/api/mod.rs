@@ -1,4 +1,4 @@
-use crate::{DasApiError, RpcModule};
+use crate::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::SearchConditionType;
 use digital_asset_types::rpc::response::AssetList;
@@ -12,7 +12,7 @@ mod api_impl;
 pub use api_impl::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByGroup {
     pub group_key: String,
     pub group_value: String,
@@ -24,7 +24,7 @@ pub struct GetAssetsByGroup {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByOwner {
     pub owner_address: String,
     pub sort_by: Option<AssetSorting>,
@@ -35,12 +35,12 @@ pub struct GetAssetsByOwner {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 
 pub struct GetAssetsByCreator {
     pub creator_address: String,
@@ -53,7 +53,7 @@ pub struct GetAssetsByCreator {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SearchAssets {
     pub negate: Option<bool>,
     pub condition_type: Option<SearchConditionType>,
@@ -79,11 +79,12 @@ pub struct SearchAssets {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub json_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByAuthority {
     pub authority_address: String,
     pub sort_by: Option<AssetSorting>,
@@ -94,7 +95,7 @@ pub struct GetAssetsByAuthority {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetGrouping {
     pub group_key: String,
     pub group_value: String,

@@ -35,7 +35,7 @@ uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
 blockbuster = { version = "0.7.3" }
-figment = { version = "0.10.6", features = ["env"] }
+figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 solana-sdk = "~1.14"
@@ -57,6 +57,7 @@ tracing-subscriber = { version = "0.3.16", features = [
   "env-filter",
   "ansi",
 ] }
+clap = { version = "4.2.2", features = ["derive", "cargo"] }
 
 [dependencies.num-integer] 
 version = "0.1.44"

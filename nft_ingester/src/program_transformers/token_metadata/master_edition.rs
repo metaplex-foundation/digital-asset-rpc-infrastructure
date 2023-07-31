@@ -74,7 +74,7 @@ pub async fn save_master_edition(
     if let Some((_me, Some(asset))) = master_edition {
         let mut updatable: asset::ActiveModel = asset.into();
         updatable.supply = Set(1);
-        updatable.specification_asset_class = Set(SpecificationAssetClass::Nft);
+        updatable.specification_asset_class = Set(Some(SpecificationAssetClass::Nft));
         updatable.update(txn).await?;
     }
 

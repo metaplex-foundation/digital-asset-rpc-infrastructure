@@ -1,13 +1,17 @@
 use crate::{
     error::IngesterError,
+    program_transformers::bubblegum::{
+        save_changelog_event, u32_to_u8_array, upsert_asset_with_seq,
+    },
 };
-use super::{update_asset, save_changelog_event};
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema},
-};
+use anchor_lang::prelude::Pubkey;
+use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
 use digital_asset_types::dao::asset;
-use sea_orm::{entity::*, ConnectionTrait, TransactionTrait};
+use log::debug;
+use sea_orm::{
+    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait,
+    TransactionTrait,
+};
 
 pub async fn burn<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -17,23 +21,42 @@ pub async fn burn<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
+    if let Some(cl) = &parsing_result.tree_update {
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
-        return match le.schema {
-            LeafSchema::V1 { id, .. } => {
-                let id_bytes = id.to_bytes().to_vec();
-                let asset_to_update = asset::ActiveModel {
-                    id: Unchanged(id_bytes.clone()),
-                    burnt: Set(true),
-                    seq: Set(seq as i64), // gummyroll seq
-                    ..Default::default()
-                };
-                // Don't send sequence number with this update, because we will always
-                // run this update even if it's from a backfill/replay.
-                update_asset(txn, id_bytes, None, asset_to_update).await
-            }
-            _ => Err(IngesterError::NotImplemented),
+        let leaf_index = cl.index;
+        let (asset_id, _) = Pubkey::find_program_address(
+            &[
+                "asset".as_bytes(),
+                cl.id.as_ref(),
+                u32_to_u8_array(leaf_index).as_ref(),
+            ],
+            &mpl_bubblegum::ID,
+        );
+        debug!("Indexing burn for asset id: {:?}", asset_id);
+        let id_bytes = asset_id.to_bytes();
+
+        let asset_model = asset::ActiveModel {
+            id: Set(id_bytes.to_vec()),
+            burnt: Set(true),
+            ..Default::default()
         };
+
+        // Upsert asset table `burnt` column.
+        let query = asset::Entity::insert(asset_model)
+            .on_conflict(
+                OnConflict::columns([asset::Column::Id])
+                    .update_columns([
+                        asset::Column::Burnt,
+                        //TODO maybe handle slot updated.
+                    ])
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+
+        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+
+        return Ok(());
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),

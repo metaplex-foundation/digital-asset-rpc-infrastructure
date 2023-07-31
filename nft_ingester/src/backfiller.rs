@@ -37,7 +37,7 @@ use solana_transaction_status::{
 use spl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
 };
-use sqlx::{self, postgres::PgListener, Pool, Postgres};
+use sqlx::{self, Pool, Postgres};
 use std::{
     cmp,
     collections::{HashMap, HashSet},
@@ -206,7 +206,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
 
         // Get database listener channel.
-        let channel = config
+        let _channel = config
             .database_config
             .get(DATABASE_LISTENER_CHANNEL_KEY)
             .and_then(|u| u.clone().into_string())

@@ -1,5 +1,6 @@
 use {jsonrpsee::core::Error as RpcError, jsonrpsee::types::error::CallError, thiserror::Error};
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 pub enum DasApiError {
     #[error("Config Missing or Error {0}")]
@@ -22,9 +23,10 @@ pub enum DasApiError {
     DeserializationError(#[from] serde_json::Error),
 }
 
-impl Into<RpcError> for DasApiError {
-    fn into(self) -> RpcError {
-        println!("{}", self);
-        RpcError::Call(CallError::from_std_error(self))
+
+impl From<DasApiError> for RpcError {
+    fn from(value: DasApiError) -> Self {
+        println!("{}", value);
+        RpcError::Call(CallError::from_std_error(value))
     }
 }
