@@ -1,4 +1,4 @@
-FROM rust:1.65-bullseye AS chef
+FROM rust:1.69-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
 COPY das_api /rust/das_api/
@@ -19,7 +19,7 @@ COPY das_api .
 # Build application
 RUN cargo build --release
 
-FROM rust:1.65-slim-bullseye
+FROM rust:1.69-slim-bullseye
 ARG APP=/usr/src/app
 RUN apt update \
     && apt install -y curl ca-certificates tzdata \
