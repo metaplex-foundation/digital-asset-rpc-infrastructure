@@ -22,7 +22,7 @@ solana-sdk = { version = "1.14.10" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { version = "0.7.3"}
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "e39c5bf2" }
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.3.1"

@@ -20,11 +20,3 @@ features = [
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ]
-
-[patch.crates-io]
-blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster", branch="1.14" }
-anchor-lang = { git="https://github.com/metaplex-foundation/anchor" }
-mpl-token-metadata = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-machine-core = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-bubblegum = { git="https://github.com/metaplex-foundation/metaplex-program-library", branch="update-deps"}
-mpl-candy-guard = { git="https://github.com/metaplex-foundation/mpl-candy-guard", branch="update-deps"}
