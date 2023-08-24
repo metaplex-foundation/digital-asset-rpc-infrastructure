@@ -12,49 +12,51 @@ pub enum IngesterError {
     ChangeLogEventMalformed,
     #[error("Compressed Asset Event Malformed")]
     CompressedAssetEventMalformed,
-    #[error("Error downloading batch files")]
-    BatchInitNetworkingError,
+    #[error("Network Error: {0}")]
+    BatchInitNetworkingError(String),
     #[error("Error writing batch files")]
     BatchInitIOError,
     #[error("Storage listener error: ({msg})")]
     StorageListenerError { msg: String },
-    #[error("Storage Write Error {0}")]
+    #[error("Storage Write Error: {0}")]
     StorageWriteError(String),
     #[error("NotImplemented")]
     NotImplemented,
-    #[error("Deserialization Error {0}")]
+    #[error("Deserialization Error: {0}")]
     DeserializationError(String),
-    #[error("Task Manager Error {0}")]
+    #[error("Task Manager Error: {0}")]
     TaskManagerError(String),
     #[error("Missing or invalid configuration: ({msg})")]
     ConfigurationError { msg: String },
-    #[error("Error getting RPC data {0}")]
+    #[error("Error getting RPC data: {0}")]
     RpcGetDataError(String),
-    #[error("RPC returned data in unsupported format {0}")]
+    #[error("RPC returned data in unsupported format: {0}")]
     RpcDataUnsupportedFormat(String),
-    #[error("Data serializaton error {0}")]
+    #[error("Data serializaton error: {0}")]
     SerializatonError(String),
-    #[error("Messenger error {0}")]
+    #[error("Messenger error; {0}")]
     MessengerError(String),
-    #[error("Blockbuster Parsing error {0}")]
+    #[error("Blockbuster Parsing error: {0}")]
     ParsingError(String),
-    #[error("Data Base Error {0}")]
+    #[error("Database Error: {0}")]
     DatabaseError(String),
-    #[error("Unknown Task Type {0}")]
+    #[error("Unknown Task Type: {0}")]
     UnknownTaskType(String),
     #[error("BG Task Manager Not Started")]
     TaskManagerNotStarted,
-    #[error("Unrecoverable task error")]
-    UnrecoverableTaskError,
-    #[error("Cache Storage Write Error {0}")]
+    #[error("Unrecoverable task error: {0}")]
+    UnrecoverableTaskError(String),
+    #[error("Cache Storage Write Error: {0}")]
     CacheStorageWriteError(String),
     #[error("HttpError {status_code}")]
     HttpError { status_code: String },
+    #[error("AssetIndex Error {0}")]
+    AssetIndexError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {
-    fn from(_err: reqwest::Error) -> Self {
-        IngesterError::BatchInitNetworkingError
+    fn from(err: reqwest::Error) -> Self {
+        IngesterError::BatchInitNetworkingError(err.to_string())
     }
 }
 

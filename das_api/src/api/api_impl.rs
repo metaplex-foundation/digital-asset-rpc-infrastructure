@@ -104,7 +104,10 @@ impl ApiContract for DasApi {
         Ok(())
     }
 
-    async fn get_asset_proof(self: &DasApi, payload: GetAsset) -> Result<AssetProof, DasApiError> {
+    async fn get_asset_proof(
+        self: &DasApi,
+        payload: GetAssetProof,
+    ) -> Result<AssetProof, DasApiError> {
         let id = validate_pubkey(payload.id.clone())?;
         let id_bytes = id.to_bytes().to_vec();
         get_proof_for_asset(&self.db_connection, id_bytes)

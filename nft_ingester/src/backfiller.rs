@@ -29,7 +29,6 @@ use solana_sdk::{
     signature::Signature,
     slot_history::Slot,
 };
-use solana_sdk_macro::pubkey;
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
@@ -66,9 +65,6 @@ const MAX_FAILURE_DELAY_MS: u64 = 10_000;
 const BLOCK_CACHE_SIZE: usize = 300_000;
 const MAX_CACHE_COST: i64 = 32;
 const BLOCK_CACHE_DURATION: u64 = 172800;
-// Account key used to determine if transaction is a simple vote.
-const VOTE: &str = "Vote111111111111111111111111111111111111111";
-pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
 
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
@@ -722,8 +718,8 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
             let merkle_tree_size = merkle_tree_get_size(&header)
                 .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
-            let (tree_bytes, canopy_bytes) = rest.split_at_mut(merkle_tree_size);
-            let seq_bytes = tree_bytes[0..8].try_into().map_err(|e| {
+            let (tree_bytes, _canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+            let seq_bytes = tree_bytes[0..8].try_into().map_err(|_e| {
                 IngesterError::RpcGetDataError("Failed to convert seq bytes to array".to_string())
             })?;
             let seq = u64::from_le_bytes(seq_bytes);

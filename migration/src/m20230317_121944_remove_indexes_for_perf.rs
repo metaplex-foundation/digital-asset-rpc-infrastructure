@@ -1,6 +1,5 @@
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::{
-    prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
 };
 
@@ -77,7 +76,7 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Ok(())
     }
 }

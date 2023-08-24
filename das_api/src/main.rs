@@ -13,12 +13,13 @@ use {
     crate::error::DasApiError,
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     cadence_macros::set_global_default,
+    std::env,
     std::net::SocketAddr,
     std::net::UdpSocket,
 };
 
 use hyper::Method;
-use log::{debug, info};
+use log::debug;
 use tower_http::cors::{Any, CorsLayer};
 
 use jsonrpsee::server::{
@@ -72,7 +73,7 @@ impl Logger for MetricMiddleware {
             true => "success",
             false => "failure",
         };
-        info!(
+        debug!(
             "Call to '{}' {} took {:?}",
             name,
             stat,
@@ -97,23 +98,29 @@ impl Logger for MetricMiddleware {
         &self,
         method_name: &str,
         params: jsonrpsee::types::Params,
-        kind: jsonrpsee::server::logger::MethodKind,
-        transport: TransportProtocol,
+        _kind: jsonrpsee::server::logger::MethodKind,
+        _transport: TransportProtocol,
     ) {
         debug!("Call: {} {:?}", method_name, params);
     }
 
-    fn on_response(&self, result: &str, started_at: Self::Instant, transport: TransportProtocol) {
+    fn on_response(&self, result: &str, _started_at: Self::Instant, _transport: TransportProtocol) {
         debug!("Response: {}", result);
     }
 
-    fn on_disconnect(&self, remote_addr: SocketAddr, transport: TransportProtocol) {
+    fn on_disconnect(&self, remote_addr: SocketAddr, _transport: TransportProtocol) {
         debug!("Disconnecting from {}", remote_addr);
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), DasApiError> {
+    env::set_var(
+        env_logger::DEFAULT_FILTER_ENV,
+        env::var_os(env_logger::DEFAULT_FILTER_ENV)
+            .unwrap_or_else(|| "info,sqlx::query=warn,jsonrpsee_server::server=warn".into()),
+    );
+    env_logger::init();
     let config = load_config()?;
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
     let cors = CorsLayer::new()

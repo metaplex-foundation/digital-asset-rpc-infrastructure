@@ -9,6 +9,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
+use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn process<'c, T>(
@@ -20,22 +21,27 @@ pub async fn process<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let maybe_creator = match parsing_result.payload {
-        Some(Payload::VerifyCreator { creator }) => Some(creator),
-        Some(Payload::UnverifyCreator { creator }) => Some(creator),
-        _ => None,
-    };
-
-    if let (Some(le), Some(cl), Some(creator)) = (
+    if let (Some(le), Some(cl), Some(payload)) = (
         &parsing_result.leaf_update,
         &parsing_result.tree_update,
-        maybe_creator,
+        &parsing_result.payload,
     ) {
-        // Do we need to update the `slot_updated` field as well as part of the table
-        // updates below?
-
+        let (creator, verify) = match payload {
+            Payload::CreatorVerification {
+                creator, verify, ..
+            } => (creator, verify),
+            _ => {
+                return Err(IngesterError::ParsingError(
+                    "Ix not parsed correctly".to_string(),
+                ));
+            }
+        };
+        debug!(
+            "Handling creator verification event for creator {} (verify: {}): {}",
+            creator, verify, bundle.txn_id
+        );
         let seq = save_changelog_event(cl, bundle.slot, txn).await?;
-        #[allow(unreachable_patterns)]
+
         let asset_id_bytes = match le.schema {
             LeafSchema::V1 {
                 id,
@@ -45,18 +51,24 @@ where
             } => {
                 let id_bytes = id.to_bytes();
                 let owner_bytes = owner.to_bytes().to_vec();
-                let delegate = if owner == delegate {
+                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
+                let tree_id = cl.id.to_bytes();
+                let nonce = cl.index as i64;
 
-                // Partial update of asset table with just leaf.
+                // Partial update of asset table with just leaf info.
                 upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
-                    Some(le.leaf_hash.to_vec()),
-                    Some(seq as i64),
+                    nonce,
+                    tree_id.to_vec(),
+                    le.leaf_hash.to_vec(),
+                    le.schema.data_hash(),
+                    le.schema.creator_hash(),
+                    seq as i64,
                     false,
                 )
                 .await?;
@@ -75,7 +87,6 @@ where
 
                 id_bytes.to_vec()
             }
-            _ => return Err(IngesterError::NotImplemented),
         };
 
         upsert_creator_verified(

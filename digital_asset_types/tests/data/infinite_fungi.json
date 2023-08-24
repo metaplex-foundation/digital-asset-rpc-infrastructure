@@ -1,0 +1,18 @@
+{
+    "animation_url": "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4",
+    "attributes": [],
+    "collection": { "family": "", "name": "CH:LL" },
+    "description": "Infinite Fungi\n*****\n“Fungi are the interface organisms between life and death.”\n*****\n[CH:LL, 2022]",
+    "image": "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif",
+    "name": "Infinite Fungi",
+    "properties": {
+        "category": "video",
+        "creators": [{ "address": "DmTb7yS95mEdJiMFhSE8pG4c5bUngBWQjSWb4YY4BR9i", "share": 100, "verified": true }],
+        "files": [
+            { "type": "video/mp4", "uri": "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4" },
+            { "type": "image/gif", "uri": "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif" }
+        ]
+    },
+    "seller_fee_basis_points": 500,
+    "symbol": ""
+}
