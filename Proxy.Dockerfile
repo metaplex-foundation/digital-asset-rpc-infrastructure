@@ -1,4 +1,4 @@
-FROM rust:1.69-bullseye AS builder
+FROM rust:1.70-bullseye AS builder
 COPY ./metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 WORKDIR /rust/metaplex-rpc-proxy
 RUN cargo install wasm-pack
