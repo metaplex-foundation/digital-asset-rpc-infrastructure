@@ -48,10 +48,17 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
         burnt: Set(true),
         ..Default::default()
     };
-    // If the asset hasn't been indexed yet, we don't do anything.
-    let query = asset::Entity::update(model)
-        .filter(asset::Column::SlotUpdated.lt(slot_i))
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([asset::Column::SlotUpdated, asset::Column::Burnt])
+                .to_owned(),
+        )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset.slot_updated",
+        query.sql
+    );
     conn.execute(query).await?;
     Ok(())
 }

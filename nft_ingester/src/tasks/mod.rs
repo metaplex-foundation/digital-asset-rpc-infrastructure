@@ -142,6 +142,20 @@ impl TaskManager {
                 task.locked_by = Set(None);
             }
             Err(e) => {
+                let err_msg = e.to_string();
+                match e {
+                    IngesterError::UnrecoverableTaskError(_) => {
+                        task.attempts = Set(task_def.max_attempts() + 1);
+                        task.locked_by = Set(Some("permanent failure".to_string()));
+                    }
+                    _ => {
+                        task.locked_by = Set(None);
+                    }
+                }
+                task.status = Set(TaskStatus::Failed);
+                task.errors = Set(Some(err_msg));
+                task.locked_until = Set(None);
+
                 match e {
                     IngesterError::BatchInitNetworkingError(msg) => {
                         // Network errors are common for off-chain JSONs.

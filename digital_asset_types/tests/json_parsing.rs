@@ -16,9 +16,7 @@ pub async fn load_test_json(file_name: &str) -> serde_json::Value {
     serde_json::from_str(&json).unwrap()
 }
 
-pub async fn parse_onchain_json(
-    json: serde_json::Value
-) -> Content {
+pub async fn parse_onchain_json(json: serde_json::Value) -> Content {
     let asset_data = asset_data::Model {
         id: Keypair::new().pubkey().to_bytes().to_vec(),
         chain_data_mutability: ChainMutability::Mutable,
@@ -35,16 +33,16 @@ pub async fn parse_onchain_json(
         metadata_mutability: Mutability::Mutable,
         metadata: json,
         slot_updated: 0,
-        reindex: None
+        reindex: None,
     };
 
-    v1_content_from_json(&asset_data, cdn_prefix, raw_data).unwrap()
+    v1_content_from_json(&asset_data).unwrap()
 }
 
 #[tokio::test]
 async fn simple_content() {
     let j = load_test_json("mad_lad.json").await;
-    let mut parsed = parse_onchain_json(j.clone(), Some(true)).await;
+    let parsed = parse_onchain_json(j.clone()).await;
     assert_eq!(
         parsed.files,
         Some(vec![
@@ -65,40 +63,6 @@ async fn simple_content() {
             }
         ])
     );
-
-    match parsed.metadata.get_item("name") {
-        Some(serde_json::Value::String(name)) => assert_eq!(name, "Handalf  "),
-        _ => panic!("name key not found or not a string"),
-    }
-
-    match parsed.metadata.get_item("symbol") {
-        Some(serde_json::Value::String(symbol)) => assert_eq!(symbol, "  "),
-        _ => panic!("symbol key not found or not a string"),
-    }
-
-    parsed = parse_onchain_json(j.clone(), cdn_prefix.clone(), Some(false)).await;
-
-    match parsed.metadata.get_item("name") {
-        Some(serde_json::Value::String(name)) => assert_eq!(name, "Handalf"),
-        _ => panic!("name key not found or not a string"),
-    }
-
-    match parsed.metadata.get_item("symbol") {
-        Some(serde_json::Value::String(symbol)) => assert_eq!(symbol, ""),
-        _ => panic!("symbol key not found or not a string"),
-    }
-
-    parsed = parse_onchain_json(j, cdn_prefix, None).await;
-
-    match parsed.metadata.get_item("name") {
-        Some(serde_json::Value::String(name)) => assert_eq!(name, "Handalf"),
-        _ => panic!("name key not found or not a string"),
-    }
-
-    match parsed.metadata.get_item("symbol") {
-        Some(serde_json::Value::String(symbol)) => assert_eq!(symbol, ""),
-        _ => panic!("symbol key not found or not a string"),
-    }
 
     assert_eq!(
         parsed
@@ -127,7 +91,7 @@ async fn simple_content() {
 #[tokio::test]
 async fn complex_content() {
     let j = load_test_json("infinite_fungi.json").await;
-    let parsed = parse_onchain_json(j, cdn_prefix).await;
+    let parsed = parse_onchain_json(j).await;
     assert_eq!(
         parsed.files,
         Some(vec![

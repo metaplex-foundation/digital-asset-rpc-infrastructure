@@ -82,7 +82,7 @@ pub fn create_asset_data(
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
             slot_updated: 0,
-            reindex: None
+            reindex: None,
         },
     )
 }
@@ -229,7 +229,7 @@ pub fn create_asset_grouping(
             id: row_num,
             group_key: "collection".to_string(),
             slot_updated: Some(0),
-            verified: false,
+            verified: Some(false),
             group_info_seq: Some(0),
         },
     )

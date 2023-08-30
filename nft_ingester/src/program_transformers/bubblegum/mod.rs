@@ -53,7 +53,7 @@ where
         InstructionName::UnverifyCollection => "UnverifyCollection",
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
     };
-    info!("BGUM instruction txn={:?}", bundle.txn_id);
+    info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     match ix_type {
         InstructionName::Transfer => {
