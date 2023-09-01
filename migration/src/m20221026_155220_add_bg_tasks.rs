@@ -1,4 +1,4 @@
-use crate::sea_orm::strum::Display;
+
 use enum_iterator::{all, Sequence};
 use sea_orm_migration::prelude::extension::postgres::Type;
 use sea_orm_migration::prelude::*;

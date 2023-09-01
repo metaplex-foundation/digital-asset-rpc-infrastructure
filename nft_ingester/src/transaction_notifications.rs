@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    metric, metrics::capture_result,
-    program_transformers::ProgramTransformer, tasks::TaskData,
+    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
 };
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
@@ -84,21 +83,29 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData) ->
             statsd_count!("ingester.seen", 1, "stream" => TRANSACTION_STREAM);
         }
         let seen_at = Utc::now();
-        statsd_time!(
-            "ingester.bus_ingest_time",
-            (seen_at.timestamp_millis() - tx.seen_at()) as u64,
-            "stream" => TRANSACTION_STREAM
-        );
+        metric! {
+            statsd_time!(
+                "ingester.bus_ingest_time",
+                (seen_at.timestamp_millis() - tx.seen_at()) as u64,
+                "stream" => TRANSACTION_STREAM
+            );
+        }
+
         let begin = Instant::now();
         let res = manager.handle_transaction(&tx).await;
-        ret_id = capture_result(
-            id,
+        let should_ack = capture_result(
+            id.clone(),
             TRANSACTION_STREAM,
             ("txn", "txn"),
             item.tries,
             res,
             begin,
+            tx.signature(),
+            None,
         );
+        if should_ack {
+            ret_id = Some(id);
+        }
     }
     ret_id
 }

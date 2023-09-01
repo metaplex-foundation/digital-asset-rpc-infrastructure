@@ -1,12 +1,13 @@
+use anchor_lang::prelude::Pubkey;
+use log::debug;
+
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
         save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info, upsert_asset_with_seq,
     },
 };
-use anchor_lang::prelude::Pubkey;
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn redeem<'c, T>(
@@ -30,13 +31,19 @@ where
         );
         debug!("Indexing redeem for asset id: {:?}", asset_id);
         let id_bytes = asset_id.to_bytes();
+        let tree_id = cl.id.to_bytes();
+        let nonce = cl.index as i64;
 
         // Partial update of asset table with just leaf.
         upsert_asset_with_leaf_info(
             txn,
             id_bytes.to_vec(),
-            Some(vec![0; 32]),
-            Some(seq as i64),
+            nonce,
+            tree_id.to_vec(),
+            vec![0; 32],
+            [0; 32],
+            [0; 32],
+            seq as i64,
             false,
         )
         .await?;

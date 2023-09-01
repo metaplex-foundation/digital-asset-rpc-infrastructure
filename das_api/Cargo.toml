@@ -1,6 +1,6 @@
 [package]
 name = "das_api"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -28,6 +28,7 @@ tokio-postgres = "0.7.7"
 solana-sdk = { version = "~1.14.14" }
 bs58 = "0.4.0"
 log = "0.4.17"
+env_logger = "0.10"
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
 open-rpc-derive = { version = "0.0.4"}

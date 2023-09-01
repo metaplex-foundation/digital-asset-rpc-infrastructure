@@ -470,7 +470,7 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "0.7.3"
-source = "git+https://github.com/metaplex-foundation/blockbuster.git?rev=e39c5bf2#e39c5bf259bf0c956998659641c461fff8cfc401"
+source = "git+https://github.com/metaplex-foundation/blockbuster.git?rev=552aba6a#552aba6a0d91867abf1d3d0ddaa94ef9620eeb3e"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -478,6 +478,7 @@ dependencies = [
  "bs58 0.4.0",
  "flatbuffers",
  "lazy_static",
+ "log",
  "mpl-bubblegum",
  "mpl-candy-guard",
  "mpl-candy-machine-core",
@@ -1026,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "digital_asset_types"
-version = "0.6.8"
+version = "0.7.2"
 dependencies = [
  "async-trait",
  "blockbuster",

@@ -16,6 +16,8 @@ mod m20230203_205959_improve_upsert_perf;
 mod m20230224_093722_performance_improvements;
 mod m20230310_162227_add_indexes_to_bg;
 mod m20230317_121944_remove_indexes_for_perf;
+mod m20230510_183736_add_indices_to_assets;
+mod m20230516_185005_add_reindex_to_assets;
 mod m20230526_120101_add_owner_delegate_sequence_number;
 mod m20230601_120101_add_pnft_enum_val;
 mod m20230615_120101_remove_asset_null_constraints;
@@ -25,6 +27,7 @@ mod m20230712_120101_remove_asset_creators_null_constraints;
 mod m20230720_120101_add_asset_grouping_verified;
 mod m20230720_130101_remove_asset_grouping_null_constraints;
 mod m20230724_120101_add_group_info_seq;
+mod m20230726_013107_remove_not_null_constraint_from_group_value;
 
 pub struct Migrator;
 
@@ -48,11 +51,14 @@ impl MigratorTrait for Migrator {
             Box::new(m20230224_093722_performance_improvements::Migration),
             Box::new(m20230310_162227_add_indexes_to_bg::Migration),
             Box::new(m20230317_121944_remove_indexes_for_perf::Migration),
+            Box::new(m20230510_183736_add_indices_to_assets::Migration),
+            Box::new(m20230516_185005_add_reindex_to_assets::Migration),
             Box::new(m20230526_120101_add_owner_delegate_sequence_number::Migration),
             Box::new(m20230601_120101_add_pnft_enum_val::Migration),
             Box::new(m20230615_120101_remove_asset_null_constraints::Migration),
             Box::new(m20230620_120101_add_was_decompressed::Migration),
             Box::new(m20230623_120101_add_leaf_sequence_number::Migration),
+            Box::new(m20230726_013107_remove_not_null_constraint_from_group_value::Migration),
             Box::new(m20230712_120101_remove_asset_creators_null_constraints::Migration),
             Box::new(m20230720_120101_add_asset_grouping_verified::Migration),
             Box::new(m20230720_130101_remove_asset_grouping_null_constraints::Migration),

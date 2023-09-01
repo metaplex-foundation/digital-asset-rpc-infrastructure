@@ -31,18 +31,24 @@ where
             } => {
                 let id_bytes = id.to_bytes();
                 let owner_bytes = owner.to_bytes().to_vec();
-                let delegate = if owner == delegate {
+                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
+                let tree_id = cl.id.to_bytes();
+                let nonce = cl.index as i64;
 
                 // Partial update of asset table with just leaf.
                 upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
-                    Some(le.leaf_hash.to_vec()),
-                    Some(seq as i64),
+                    nonce,
+                    tree_id.to_vec(),
+                    le.leaf_hash.to_vec(),
+                    le.schema.data_hash(),
+                    le.schema.creator_hash(),
+                    seq as i64,
                     false,
                 )
                 .await?;
@@ -59,7 +65,6 @@ where
 
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await
             }
-            _ => Err(IngesterError::NotImplemented),
         };
     }
     Err(IngesterError::ParsingError(

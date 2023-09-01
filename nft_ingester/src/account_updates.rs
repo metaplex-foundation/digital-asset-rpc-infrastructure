@@ -87,16 +87,25 @@ async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData) -> Opt
                 "stream" => ACCOUNT_STREAM
             );
         }
+        let mut account = None;
+        if let Some(pubkey) = account_update.pubkey() {
+            account = Some(bs58::encode(pubkey.0.as_slice()).into_string());
+        }
         let begin_processing = Instant::now();
         let res = manager.handle_account_update(account_update).await;
-        ret_id = capture_result(
-            id,
+        let should_ack = capture_result(
+            id.clone(),
             ACCOUNT_STREAM,
             ("owner", &str_program_id),
             item.tries,
             res,
             begin_processing,
+            None,
+            account,
         );
+        if should_ack {
+            ret_id = Some(id);
+        }
     }
     ret_id
 }
