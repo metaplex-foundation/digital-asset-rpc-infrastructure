@@ -1,4 +1,4 @@
-use digital_asset_types::dao::token_accounts;
+
 use sea_orm_migration::{
     prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},

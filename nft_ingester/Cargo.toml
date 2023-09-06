@@ -1,6 +1,6 @@
 [package]
 name = "nft_ingester"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 publish = false
 
@@ -29,13 +29,13 @@ flatbuffers = "23.1.21"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = "0.7.0"
+mpl-bubblegum = { git = "https://github.com/metaplex-foundation/mpl-bubblegum.git", rev = "3cb3976d", features = ["no-entrypoint"] }
 spl-account-compression = "0.1.8"
 spl-concurrent-merkle-tree = "0.1.3"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { version = "0.7.3" }
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "552aba6a" }
 figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
@@ -60,6 +60,6 @@ tracing-subscriber = { version = "0.3.16", features = [
 ] }
 clap = { version = "4.2.2", features = ["derive", "cargo"] }
 
-[dependencies.num-integer] 
+[dependencies.num-integer]
 version = "0.1.44"
 default-features = false

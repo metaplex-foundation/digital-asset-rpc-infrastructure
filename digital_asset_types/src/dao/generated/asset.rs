@@ -97,8 +97,8 @@ pub enum Relation {
     AssetData,
     AssetV1AccountAttachments,
     AssetCreators,
-    AssetGrouping,
     AssetAuthority,
+    AssetGrouping,
 }
 
 impl ColumnTrait for Column {
@@ -148,8 +148,8 @@ impl RelationTrait for Relation {
                 Entity::has_many(super::asset_v1_account_attachments::Entity).into()
             }
             Self::AssetCreators => Entity::has_many(super::asset_creators::Entity).into(),
-            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
             Self::AssetAuthority => Entity::has_many(super::asset_authority::Entity).into(),
+            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
         }
     }
 }
@@ -172,15 +172,15 @@ impl Related<super::asset_creators::Entity> for Entity {
     }
 }
 
-impl Related<super::asset_grouping::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetGrouping.def()
-    }
-}
-
 impl Related<super::asset_authority::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::AssetAuthority.def()
+    }
+}
+
+impl Related<super::asset_grouping::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AssetGrouping.def()
     }
 }
 

@@ -42,8 +42,8 @@ pub fn create_asset_data(
     row_num: Vec<u8>,
 ) -> (asset_data::ActiveModel, asset_data::Model) {
     let chain_data = ChainDataV1 {
-        name: metadata.name,
-        symbol: metadata.symbol,
+        name: metadata.name.clone(),
+        symbol: metadata.symbol.clone(),
         edition_nonce: metadata.edition_nonce,
         primary_sale_happened: metadata.primary_sale_happened,
         token_standard: metadata.token_standard,
@@ -82,6 +82,7 @@ pub fn create_asset_data(
             metadata_mutability: Mutability::Mutable,
             metadata: JsonValue::String("processing".to_string()),
             slot_updated: 0,
+            reindex: None,
         },
     )
 }
@@ -179,8 +180,8 @@ pub fn create_asset_creator(
             creator,
             share,
             verified,
-            seq: 0,
-            slot_updated: 0,
+            seq: Some(0),
+            slot_updated: Some(0),
             position: 0,
         },
     )
@@ -218,16 +219,18 @@ pub fn create_asset_grouping(
         asset_grouping::ActiveModel {
             asset_id: Set(asset_id.clone()),
             group_key: Set(String::from("collection")),
-            group_value: Set(bs58::encode(collection).into_string()),
+            group_value: Set(Some(bs58::encode(collection).into_string())),
             ..Default::default()
         },
         asset_grouping::Model {
             asset_id,
-            group_value: bs58::encode(collection).into_string(),
-            seq: 0,
+            group_value: Some(bs58::encode(collection).into_string()),
+            seq: Some(0),
             id: row_num,
             group_key: "collection".to_string(),
-            slot_updated: 0,
+            slot_updated: Some(0),
+            verified: Some(false),
+            group_info_seq: Some(0),
         },
     )
 }

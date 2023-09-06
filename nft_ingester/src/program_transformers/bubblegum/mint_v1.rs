@@ -1,9 +1,8 @@
-use super::save_changelog_event;
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+        save_changelog_event, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -18,8 +17,7 @@ use blockbuster::{
 use chrono::Utc;
 use digital_asset_types::{
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        asset_v1_account_attachments,
+        asset, asset_authority, asset_creators, asset_data, asset_v1_account_attachments,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
@@ -33,7 +31,6 @@ use std::collections::HashSet;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
-use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -119,30 +116,23 @@ where
                     "{} WHERE excluded.slot_updated > asset_data.slot_updated",
                     query.sql
                 );
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
                 // Insert into `asset` table.
-                let delegate = if owner == delegate {
+                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let data_hash = hash_metadata(args)
-                    .map(|e| bs58::encode(e).into_string())
-                    .unwrap_or("".to_string())
-                    .trim()
-                    .to_string();
-                let creator_hash = hash_creators(&args.creators)
-                    .map(|e| bs58::encode(e).into_string())
-                    .unwrap_or("".to_string())
-                    .trim()
-                    .to_string();
+                let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
 
                 // Set initial mint info.
                 let asset_model = asset::ActiveModel {
                     id: Set(id_bytes.to_vec()),
                     owner_type: Set(OwnerType::Single),
                     frozen: Set(false),
-                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
+                    tree_id: Set(Some(tree_id.clone())),
                     specification_version: Set(Some(SpecificationVersions::V1)),
                     specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
                     nonce: Set(Some(nonce as i64)),
@@ -151,35 +141,35 @@ where
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
                     slot_updated: Set(Some(slot_i)),
-                    data_hash: Set(Some(data_hash)),
-                    creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 
                 // Upsert asset table base info.
-                let query = asset::Entity::insert(asset_model)
+                let mut query = asset::Entity::insert(asset_model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
                             .update_columns([
                                 asset::Column::OwnerType,
                                 asset::Column::Frozen,
-                                asset::Column::TreeId,
                                 asset::Column::SpecificationVersion,
                                 asset::Column::SpecificationAssetClass,
-                                asset::Column::Nonce,
                                 asset::Column::RoyaltyTargetType,
                                 asset::Column::RoyaltyTarget,
                                 asset::Column::RoyaltyAmount,
                                 asset::Column::AssetData,
-                                //TODO maybe handle slot updated differently.
-                                asset::Column::SlotUpdated,
-                                asset::Column::DataHash,
-                                asset::Column::CreatorHash,
                             ])
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+
+                // Do not overwrite changes that happened after the asset was decompressed.
+                query.sql = format!(
+                    "{} WHERE excluded.slot_updated > asset.slot_updated OR asset.slot_updated IS NULL",
+                    query.sql
+                );
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
@@ -197,8 +187,12 @@ where
                 upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
-                    Some(le.leaf_hash.to_vec()),
-                    Some(seq as i64),
+                    nonce as i64,
+                    tree_id,
+                    le.leaf_hash.to_vec(),
+                    le.schema.data_hash(),
+                    le.schema.creator_hash(),
+                    seq as i64,
                     false,
                 )
                 .await?;
@@ -229,48 +223,86 @@ where
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
                 // Insert into `asset_creators` table.
                 let creators = &metadata.creators;
                 if !creators.is_empty() {
-                    let mut db_creators = Vec::with_capacity(creators.len());
+                    // Vec to hold base creator information.
+                    let mut db_creator_infos = Vec::with_capacity(creators.len());
+
+                    // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
+                    let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+
+                    // Set to prevent duplicates.
                     let mut creators_set = HashSet::new();
+
                     for (i, c) in creators.iter().enumerate() {
                         if creators_set.contains(&c.address) {
                             continue;
                         }
-                        db_creators.push(asset_creators::ActiveModel {
+                        db_creator_infos.push(asset_creators::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
-                            share: Set(c.share as i32),
-                            verified: Set(c.verified),
-                            seq: Set(seq as i64), // do we need this here @micheal-danenberg?
-                            slot_updated: Set(slot_i),
                             position: Set(i as i16),
+                            share: Set(c.share as i32),
+                            slot_updated: Set(Some(slot_i)),
                             ..Default::default()
                         });
+
+                        db_creator_verified_infos.push(asset_creators::ActiveModel {
+                            asset_id: Set(id_bytes.to_vec()),
+                            creator: Set(c.address.to_bytes().to_vec()),
+                            verified: Set(c.verified),
+                            seq: Set(Some(seq as i64)),
+                            ..Default::default()
+                        });
+
                         creators_set.insert(c.address);
                     }
 
-                    let query = asset_creators::Entity::insert_many(db_creators)
+                    // This statement will update base information for each creator.
+                    let query = asset_creators::Entity::insert_many(db_creator_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
-                                asset_creators::Column::Position,
+                                asset_creators::Column::Creator,
                             ])
                             .update_columns([
-                                asset_creators::Column::Creator,
+                                asset_creators::Column::Position,
                                 asset_creators::Column::Share,
-                                asset_creators::Column::Verified,
-                                asset_creators::Column::Seq,
                                 asset_creators::Column::SlotUpdated,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
                     txn.execute(query).await?;
+
+                    // This statement will update whether the creator is verified and the `seq`
+                    // number.  `seq` is used to protect the `verified` field, allowing for `mint`
+                    // and `verifyCreator` to be processed out of order.
+                    let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
+                        .on_conflict(
+                            OnConflict::columns([
+                                asset_creators::Column::AssetId,
+                                asset_creators::Column::Creator,
+                            ])
+                            .update_columns([
+                                asset_creators::Column::Verified,
+                                asset_creators::Column::Seq,
+                            ])
+                            .to_owned(),
+                        )
+                        .build(DbBackend::Postgres);
+                    query.sql = format!(
+                        "{} WHERE excluded.seq > asset_creators.seq OR asset_creators.seq IS NULL",
+                        query.sql
+                    );
+                    txn.execute(query).await?;
                 }
+
                 // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
                     asset_id: Set(id_bytes.to_vec()),
@@ -289,35 +321,20 @@ where
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
-                // Insert into `asset_grouping` table.
-                if let Some(c) = &metadata.collection {
-                    if c.verified {
-                        let model = asset_grouping::ActiveModel {
-                            asset_id: Set(id_bytes.to_vec()),
-                            group_key: Set("collection".to_string()),
-                            group_value: Set(c.key.to_string()),
-                            seq: Set(seq as i64), // gummyroll seq
-                            slot_updated: Set(slot_i),
-                            ..Default::default()
-                        };
+                // Upsert into `asset_grouping` table with base collection info.
+                upsert_collection_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    metadata.collection.clone(),
+                    slot_i,
+                    seq as i64,
+                )
+                .await?;
 
-                        // Do not attempt to modify any existing values:
-                        // `ON CONFLICT ('asset_id') DO NOTHING`.
-                        let query = asset_grouping::Entity::insert(model)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    asset_grouping::Column::AssetId,
-                                    asset_grouping::Column::GroupKey,
-                                ])
-                                .do_nothing()
-                                .to_owned(),
-                            )
-                            .build(DbBackend::Postgres);
-                        txn.execute(query).await?;
-                    }
-                }
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
