@@ -3,11 +3,11 @@ members = [
   "digital_asset_types",
   "metaplex-rpc-proxy",
   "nft_ingester",
-  "tools/acc_forwarder",
-  "tools/bgtask_creator",
-  "tools/load_generation",
-  "tools/tree-status",
-  "tools/txn_forwarder",
+  "tests/acc_forwarder",
+  "tests/bgtask_creator",
+  "tests/load_generation",
+  "tests/tree-status",
+  "tests/txn_forwarder",
 ]
 exclude = [
   "das_api",
