@@ -3,7 +3,6 @@ use crate::{
     program_transformers::bubblegum::{
         save_changelog_event, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
         upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
-        upsert_collection_verified,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -32,7 +31,6 @@ use std::collections::HashSet;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions, V1AccountAttachments,
 };
-use mpl_bubblegum::{hash_creators, hash_metadata};
 
 // TODO -> consider moving structs into these functions to avoid clone
 
@@ -118,30 +116,23 @@ where
                     "{} WHERE excluded.slot_updated > asset_data.slot_updated",
                     query.sql
                 );
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
                 // Insert into `asset` table.
-                let delegate = if owner == delegate {
+                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let data_hash = hash_metadata(args)
-                    .map(|e| bs58::encode(e).into_string())
-                    .unwrap_or("".to_string())
-                    .trim()
-                    .to_string();
-                let creator_hash = hash_creators(&args.creators)
-                    .map(|e| bs58::encode(e).into_string())
-                    .unwrap_or("".to_string())
-                    .trim()
-                    .to_string();
+                let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
 
                 // Set initial mint info.
                 let asset_model = asset::ActiveModel {
                     id: Set(id_bytes.to_vec()),
                     owner_type: Set(OwnerType::Single),
                     frozen: Set(false),
-                    tree_id: Set(Some(bundle.keys.get(3).unwrap().0.to_vec())),
+                    tree_id: Set(Some(tree_id.clone())),
                     specification_version: Set(Some(SpecificationVersions::V1)),
                     specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
                     nonce: Set(Some(nonce as i64)),
@@ -150,35 +141,35 @@ where
                     royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
                     slot_updated: Set(Some(slot_i)),
-                    data_hash: Set(Some(data_hash)),
-                    creator_hash: Set(Some(creator_hash)),
                     ..Default::default()
                 };
 
                 // Upsert asset table base info.
-                let query = asset::Entity::insert(asset_model)
+                let mut query = asset::Entity::insert(asset_model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
                             .update_columns([
                                 asset::Column::OwnerType,
                                 asset::Column::Frozen,
-                                asset::Column::TreeId,
                                 asset::Column::SpecificationVersion,
                                 asset::Column::SpecificationAssetClass,
-                                asset::Column::Nonce,
                                 asset::Column::RoyaltyTargetType,
                                 asset::Column::RoyaltyTarget,
                                 asset::Column::RoyaltyAmount,
                                 asset::Column::AssetData,
-                                //TODO maybe handle slot updated differently.
-                                asset::Column::SlotUpdated,
-                                asset::Column::DataHash,
-                                asset::Column::CreatorHash,
                             ])
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+
+                // Do not overwrite changes that happened after the asset was decompressed.
+                query.sql = format!(
+                    "{} WHERE excluded.slot_updated > asset.slot_updated OR asset.slot_updated IS NULL",
+                    query.sql
+                );
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
@@ -196,8 +187,12 @@ where
                 upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
-                    Some(le.leaf_hash.to_vec()),
-                    Some(seq as i64),
+                    nonce as i64,
+                    tree_id,
+                    le.leaf_hash.to_vec(),
+                    le.schema.data_hash(),
+                    le.schema.creator_hash(),
+                    seq as i64,
                     false,
                 )
                 .await?;
@@ -228,7 +223,9 @@ where
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
                 // Insert into `asset_creators` table.
                 let creators = &metadata.creators;
@@ -324,23 +321,19 @@ where
                             .to_owned(),
                     )
                     .build(DbBackend::Postgres);
-                txn.execute(query).await?;
+                txn.execute(query)
+                    .await
+                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
-                if let Some(c) = &metadata.collection {
-                    // Upsert into `asset_grouping` table with base collection info.
-                    upsert_collection_info(
-                        txn,
-                        id_bytes.to_vec(),
-                        c.key.to_string(),
-                        slot_i,
-                        seq as i64,
-                    )
-                    .await?;
-
-                    // Partial update with whether collection is verified and the `seq` number.
-                    upsert_collection_verified(txn, id_bytes.to_vec(), c.verified, seq as i64)
-                        .await?;
-                }
+                // Upsert into `asset_grouping` table with base collection info.
+                upsert_collection_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    metadata.collection.clone(),
+                    slot_i,
+                    seq as i64,
+                )
+                .await?;
 
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),

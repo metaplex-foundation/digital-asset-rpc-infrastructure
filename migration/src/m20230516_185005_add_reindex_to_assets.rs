@@ -1,4 +1,4 @@
-use digital_asset_types::dao::asset;
+use digital_asset_types::dao::asset_data;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -9,26 +9,28 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .alter_table(
-                Table::alter()
-                    .table(asset::Entity)
-                    .add_column(ColumnDef::new(Alias::new("owner_delegate_seq")).big_integer())
+                sea_query::Table::alter()
+                    .table(asset_data::Entity)
+                    .add_column(
+                        ColumnDef::new(Alias::new("reindex"))
+                            .boolean()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
-
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .alter_table(
-                Table::alter()
-                    .table(asset::Entity)
-                    .drop_column(Alias::new("owner_delegate_seq"))
+                sea_query::Table::alter()
+                    .table(asset_data::Entity)
+                    .drop_column(Alias::new("reindex"))
                     .to_owned(),
             )
             .await?;
-
         Ok(())
     }
 }

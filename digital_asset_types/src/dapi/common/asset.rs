@@ -11,8 +11,10 @@ use crate::rpc::{
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
+
 use sea_orm::DbErr;
 use serde_json::Value;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
@@ -68,13 +70,14 @@ pub fn build_asset_response(
     }
 }
 
-pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, asset::Column) {
+pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, Option<asset::Column>) {
     let sort_column = match sorting.sort_by {
-        AssetSortBy::Created => asset::Column::CreatedAt,
-        AssetSortBy::Updated => asset::Column::SlotUpdated,
-        AssetSortBy::RecentAction => asset::Column::SlotUpdated,
+        AssetSortBy::Created => Some(asset::Column::CreatedAt),
+        AssetSortBy::Updated => Some(asset::Column::SlotUpdated),
+        AssetSortBy::RecentAction => Some(asset::Column::SlotUpdated),
+        AssetSortBy::None => None,
     };
-    let sort_direction = match sorting.sort_direction {
+    let sort_direction = match sorting.sort_direction.unwrap_or_default() {
         AssetSortDirection::Desc => sea_orm::query::Order::Desc,
         AssetSortDirection::Asc => sea_orm::query::Order::Asc,
     };
@@ -102,8 +105,7 @@ pub fn track_top_level_file(
 ) {
     if top_level_file.is_some() {
         let img = top_level_file.and_then(|x| x.as_str());
-        if img.is_some() {
-            let img = img.unwrap();
+        if let Some(img) = img {
             let entry = file_map.get(img);
             if entry.is_none() {
                 file_map.insert(img.to_string(), file_from_str(img.to_string()));
@@ -136,86 +138,103 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     if let Some(name) = name {
         meta.set_item("name", name.clone());
     }
-    let desc = safe_select(selector, "$.description");
-    if let Some(desc) = desc {
-        meta.set_item("description", desc.clone());
-    }
     let symbol = safe_select(chain_data_selector, "$.symbol");
     if let Some(symbol) = symbol {
         meta.set_item("symbol", symbol.clone());
+    }
+    let desc = safe_select(selector, "$.description");
+    if let Some(desc) = desc {
+        meta.set_item("description", desc.clone());
     }
     let symbol = safe_select(selector, "$.attributes");
     if let Some(symbol) = symbol {
         meta.set_item("attributes", symbol.clone());
     }
-    let image = safe_select(selector, "$.image");
-    let animation = safe_select(selector, "$.animation_url");
-    let external_url = safe_select(selector, "$.external_url").map(|val| {
-        let mut links = HashMap::new();
-        links.insert("external_url".to_string(), val[0].to_owned());
-        links
-    });
+    let mut links = HashMap::new();
+    let link_fields = vec!["image", "animation_url", "external_url"];
+    for f in link_fields {
+        let l = safe_select(selector, format!("$.{}", f).as_str());
+        if let Some(l) = l {
+            links.insert(f.to_string(), l.to_owned());
+        }
+    }
     let _metadata = safe_select(selector, "description");
     let mut actual_files: HashMap<String, File> = HashMap::new();
-    selector("$.properties.files[*]")
+    if let Some(files) = selector("$.properties.files[*]")
         .ok()
         .filter(|d| !Vec::is_empty(d))
-        .map(|files| {
-            for v in files.iter() {
-                if v.is_object() {
-                    // Some assets don't follow the standard and specifiy 'url' instead of 'uri'
-                    let mut uri = v.get("uri");
-                    if uri.is_none() {
-                        uri = v.get("url");
-                    }
-                    let mime_type = v.get("type");
-                    match (uri, mime_type) {
-                        (Some(u), Some(m)) => {
-                            if let Some(str_uri) = u.as_str() {
-                                let file = if let Some(str_mime) = m.as_str() {
-                                    File {
-                                        uri: Some(str_uri.to_string()),
-                                        mime: Some(str_mime.to_string()),
-                                        quality: None,
-                                        contexts: None,
-                                    }
-                                } else {
-                                    warn!("Mime is not string: {:?}", m);
-                                    file_from_str(str_uri.to_string())
-                                };
-                                actual_files.insert(str_uri.to_string().clone(), file);
-                            } else {
-                                warn!("URI is not string: {:?}", u);
-                            }
-                        }
-                        (Some(u), None) => {
-                            let str_uri =
-                                serde_json::to_string(u).unwrap_or_else(|_| String::new());
-                            actual_files.insert(str_uri.clone(), file_from_str(str_uri));
-                        }
-                        _ => {}
-                    }
-                } else if v.is_string() {
-                    let str_uri = v.as_str().unwrap().to_string();
-                    actual_files.insert(str_uri.clone(), file_from_str(str_uri));
+    {
+        for v in files.iter() {
+            if v.is_object() {
+                // Some assets don't follow the standard and specifiy 'url' instead of 'uri'
+                let mut uri = v.get("uri");
+                if uri.is_none() {
+                    uri = v.get("url");
                 }
+                let mime_type = v.get("type");
+                match (uri, mime_type) {
+                    (Some(u), Some(m)) => {
+                        if let Some(str_uri) = u.as_str() {
+                            let file = if let Some(str_mime) = m.as_str() {
+                                File {
+                                    uri: Some(str_uri.to_string()),
+                                    mime: Some(str_mime.to_string()),
+                                    quality: None,
+                                    contexts: None,
+                                }
+                            } else {
+                                warn!("Mime is not string: {:?}", m);
+                                file_from_str(str_uri.to_string())
+                            };
+                            actual_files.insert(str_uri.to_string().clone(), file);
+                        } else {
+                            warn!("URI is not string: {:?}", u);
+                        }
+                    }
+                    (Some(u), None) => {
+                        let str_uri = serde_json::to_string(u).unwrap_or_else(|_| String::new());
+                        actual_files.insert(str_uri.clone(), file_from_str(str_uri));
+                    }
+                    _ => {}
+                }
+            } else if v.is_string() {
+                let str_uri = v.as_str().unwrap().to_string();
+                actual_files.insert(str_uri.clone(), file_from_str(str_uri));
             }
-        });
+        }
+    }
 
-    track_top_level_file(&mut actual_files, image);
-    track_top_level_file(&mut actual_files, animation);
-    let files: Vec<File> = actual_files.into_values().collect();
+    track_top_level_file(&mut actual_files, links.get("image"));
+    track_top_level_file(&mut actual_files, links.get("animation_url"));
+
+    let mut files: Vec<File> = actual_files.into_values().collect();
+
+    // List the defined image file before the other files (if one exists).
+    files.sort_by(|a, _: &File| match (a.uri.as_ref(), links.get("image")) {
+        (Some(x), Some(y)) => {
+            if x == y {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        }
+        _ => Ordering::Equal,
+    });
+
 
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         json_uri,
         files: Some(files),
         metadata: meta,
-        links: external_url,
+        links: Some(links),
     })
 }
 
-pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
+pub fn get_content(
+    asset: &asset::Model,
+    data: &asset_data::Model,
+) -> Result<Content, DbErr> {
     match asset.specification_version {
         Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
             v1_content_from_json(data)
@@ -250,10 +269,12 @@ pub fn to_grouping(groups: Vec<asset_grouping::Model>) -> Result<Vec<Group>, DbE
     fn find_group(model: &asset_grouping::Model) -> Result<Group, DbErr> {
         Ok(Group {
             group_key: model.group_key.clone(),
-            group_value: model
-                .group_value
-                .clone()
-                .ok_or(DbErr::Custom("Group value not found".to_string()))?,
+            group_value: Some(
+                model
+                    .group_value
+                    .clone()
+                    .ok_or(DbErr::Custom("Group value not found".to_string()))?,
+            ),
         })
     }
 
@@ -275,8 +296,10 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     )))
 }
 
-//TODO -> impl custom erro type
-pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
+//TODO -> impl custom error type
+pub fn asset_to_rpc(
+    asset: FullAsset
+) -> Result<RpcAsset, DbErr> {
     let FullAsset {
         asset,
         data,
@@ -296,7 +319,6 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         .unwrap_or(false);
     let edition_nonce =
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
-
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
@@ -306,12 +328,8 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset
-                .nonce
-                .ok_or(DbErr::Custom("Nonce not found".to_string()))?,
-            seq: asset
-                .seq
-                .ok_or(DbErr::Custom("Seq not found".to_string()))?,
+            leaf_id: asset.nonce.unwrap_or(0 as i64),
+            seq: asset.seq.unwrap_or(0 as i64),
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())
@@ -367,10 +385,13 @@ pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
             total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
+        burnt: asset.burnt,
     })
 }
 
-pub fn asset_list_to_rpc(asset_list: Vec<FullAsset>) -> (Vec<RpcAsset>, Vec<AssetError>) {
+pub fn asset_list_to_rpc(
+    asset_list: Vec<FullAsset>
+) -> (Vec<RpcAsset>, Vec<AssetError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {

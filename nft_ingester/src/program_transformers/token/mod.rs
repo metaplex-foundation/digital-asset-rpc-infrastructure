@@ -1,5 +1,6 @@
-use crate::{error::IngesterError, tasks::TaskData};
+use crate::{error::IngesterError, metric, tasks::TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
+use cadence_macros::{is_global_default_set, statsd_count};
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{
@@ -7,7 +8,7 @@ use sea_orm::{
     DatabaseConnection, DbBackend, EntityTrait,
 };
 use solana_sdk::program_option::COption;
-use spl_token::state::{AccountState};
+use spl_token::state::AccountState;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
@@ -34,7 +35,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),
                 mint: Set(mint.clone()),
-                delegate: Set(delegate),
+                delegate: Set(delegate.clone()),
                 owner: Set(owner.clone()),
                 frozen: Set(frozen),
                 delegated_amount: Set(ta.delegated_amount as i64),
@@ -72,10 +73,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 .one(&txn)
                 .await?;
             if let Some(asset) = asset_update {
-                let mut active: asset::ActiveModel = asset.into();
+                    let mut active: asset::ActiveModel = asset.into();
                 active.owner = Set(Some(owner));
-                active.save(&txn).await?;
-            }
+                        active.save(&txn).await?;
+                    }
             txn.commit().await?;
             Ok(())
         }
@@ -121,13 +122,14 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 query.sql
             );
             db.execute(query).await?;
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes)
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes.clone())
                 .filter(asset::Column::OwnerType.eq("single"))
                 .one(db)
                 .await?;
             if let Some(asset) = asset_update {
                 let mut active: asset::ActiveModel = asset.into();
                 active.supply = Set(m.supply as i64);
+                active.supply_mint = Set(Some(key_bytes));
                 active.save(db).await?;
             }
             Ok(())

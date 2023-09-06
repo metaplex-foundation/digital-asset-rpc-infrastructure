@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::{is_global_default_set, set_global_default, statsd_count, statsd_time};
-use log::error;
+use log::{error, warn};
 use tokio::time::Instant;
 
 use crate::{
@@ -40,6 +40,8 @@ pub fn setup_metrics(config: &IngesterConfig) {
     }
 }
 
+// Returns a boolean indicating whether the redis message should be ACK'd.
+// If the message is not ACK'd, it will be retried as long as it is under the retry limit.
 pub fn capture_result(
     id: String,
     stream: &str,
@@ -47,8 +49,10 @@ pub fn capture_result(
     tries: usize,
     res: Result<(), IngesterError>,
     proc: Instant,
-) -> Option<String> {
-    let mut ret_id = None;
+    txn_sig: Option<&str>,
+    account: Option<String>,
+) -> bool {
+    let mut should_ack = false;
     match res {
         Ok(_) => {
             metric! {
@@ -63,34 +67,77 @@ pub fn capture_result(
                     statsd_count!("ingester.redeliver_success", 1, label.0 => &label.1, "stream" => stream);
                 }
             }
-            ret_id = Some(id);
+            should_ack = true;
         }
         Err(err) if err == IngesterError::NotImplemented => {
             metric! {
                 statsd_count!("ingester.not_implemented", 1, label.0 => &label.1, "stream" => stream, "error" => "ni");
             }
-            ret_id = Some(id);
+            should_ack = true;
         }
         Err(IngesterError::DeserializationError(e)) => {
             metric! {
                 statsd_count!("ingester.ingest_error", 1, label.0 => &label.1, "stream" => stream, "error" => "de");
             }
-            error!("{}", e);
-            ret_id = Some(id);
+            if let Some(sig) = txn_sig {
+                warn!("Error deserializing txn {}: {:?}", sig, e);
+            } else if let Some(account) = account {
+                warn!("Error deserializing account {}: {:?}", account, e);
+            } else {
+                warn!("{}", e);
+            }
+            // Non-retryable error.
+            should_ack = true;
         }
         Err(IngesterError::ParsingError(e)) => {
             metric! {
                 statsd_count!("ingester.ingest_error", 1, label.0 => &label.1, "stream" => stream, "error" => "parse");
             }
-            error!("{}", e);
-            ret_id = Some(id);
+            if let Some(sig) = txn_sig {
+                warn!("Error parsing txn {}: {:?}", sig, e);
+            } else if let Some(account) = account {
+                warn!("Error parsing account {}: {:?}", account, e);
+            } else {
+                warn!("{}", e);
+            }
+            // Non-retryable error.
+            should_ack = true;
+        }
+        Err(IngesterError::DatabaseError(e)) => {
+            metric! {
+                statsd_count!("ingester.database_error", 1, label.0 => &label.1, "stream" => stream, "error" => "db");
+            }
+            if let Some(sig) = txn_sig {
+                warn!("Error database txn {}: {:?}", sig, e);
+            } else {
+                warn!("{}", e);
+            }
+            should_ack = false;
+        }
+        Err(IngesterError::AssetIndexError(e)) => {
+            metric! {
+                statsd_count!("ingester.index_error", 1, label.0 => &label.1, "stream" => stream, "error" => "index");
+            }
+            if let Some(sig) = txn_sig {
+                warn!("Error indexing transaction {}: {:?}", sig, e);
+            } else {
+                warn!("Error indexing account: {:?}", e);
+            }
+            should_ack = false;
         }
         Err(err) => {
-            error!("Error handling account update: {:?}", err);
+            if let Some(sig) = txn_sig {
+                error!("Error handling update for txn {}: {:?}", sig, err);
+            } else if let Some(account) = account {
+                error!("Error handling update for account {}: {:?}", account, err);
+            } else {
+                error!("Error handling update: {:?}", err);
+            }
             metric! {
                 statsd_count!("ingester.ingest_update_error", 1, label.0 => &label.1, "stream" => stream, "error" => "u");
             }
+            should_ack = false;
         }
     }
-    ret_id
+    should_ack
 }
