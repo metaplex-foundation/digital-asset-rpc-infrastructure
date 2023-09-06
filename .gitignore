@@ -29,6 +29,6 @@ test-programs
 # Rust build dirs
 /das_api/target
 /migration/target
-/tests/*/target
+/tools/*/target
 /*/target
 /target
