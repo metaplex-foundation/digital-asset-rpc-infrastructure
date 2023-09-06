@@ -340,9 +340,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             )
             .build(DbBackend::Postgres);
         query.sql = format!(
-                "{} WHERE excluded.slot_updated > asset_grouping.slot_updated AND excluded.seq >= asset_grouping.seq",
-                query.sql
-            );
+            "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
+            query.sql
+        );
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
