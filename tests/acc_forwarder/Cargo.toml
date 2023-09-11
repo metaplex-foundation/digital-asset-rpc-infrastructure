@@ -1,25 +1,29 @@
 [package]
 name = "acc_forwarder"
-version = "0.0.1"
+version = "0.7.12"
 edition = "2021"
+publish = false
 
 [dependencies]
-redis = { version = "0.22.3", features = ["aio", "tokio-comp", "streams", "tokio-native-tls-comp"] }
-futures = {version = "0.3.25"}
-futures-util = "0.3.0"
-base64 = "0.20.0"
-thiserror = "1.0.31"
-serde_json = "1.0.81"
-tokio = { version = "1.23.0", features = ["full", "tracing"] }
-plerkle_messenger = { version = "1.5.2", features = ['redis'] }
-plerkle_serialization = { version = "1.5.2" }
-flatbuffers = "23.1.21"
-clap = { version = "4.1.4", features = ["derive"] }
-solana-client = { version = "=1.14.15"}
-solana-sdk = { version = "=1.14.15"}
-solana-transaction-status = { version = "=1.14.15"}
-figment = { version = "0.10.8" }
+anyhow = "1.0.70"
 bs58 = "0.4.0"
-tokio-stream = "0.1.11"
-mpl-token-metadata = { version = "1.8.3"}
+clap = { version = "4.1.4", features = ["derive"] }
+env_logger = "0.10.0"
+figment = "0.10.8"
+flatbuffers = "23.1.21"
+futures = "0.3.28"
+lazy_static = "1.4.0"
+log = "0.4.17"
+mpl-token-metadata = "1.8.3"
+plerkle_messenger = { version = "1.5.2", features = ["redis"] }
+plerkle_serialization = "1.5.2"
+prometheus = "0.13.3"
 reqwest = { version = "0.11", features = ["json"] }
+serde_json = "1.0.81"
+solana-account-decoder = "=1.14.15"
+solana-client = "=1.14.15"
+solana-sdk = "=1.14.15"
+solana-transaction-status = "=1.14.15"
+spl-token = "3.5.0"
+tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "time"] }
+txn_forwarder = { path = "../txn_forwarder" }

@@ -248,7 +248,7 @@ impl TaskManager {
         }
     }
 
-    fn new_task_handler(
+    pub fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
         _name: String,
