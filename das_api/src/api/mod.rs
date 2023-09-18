@@ -70,7 +70,7 @@ pub struct SearchAssets {
     pub creator_verified: Option<bool>,
     pub authority_address: Option<String>,
     pub grouping: Option<(String, String)>,
-    pub delegate: Option<Vec<u8>>,
+    pub delegate: Option<String>,
     pub frozen: Option<bool>,
     pub supply: Option<u64>,
     pub supply_mint: Option<String>,
