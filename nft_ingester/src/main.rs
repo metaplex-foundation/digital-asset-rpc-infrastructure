@@ -161,7 +161,7 @@ pub async fn main() -> Result<(), IngesterError> {
 
     let roles_str = role.to_string();
     metric! {
-        statsd_count!("ingester.startup", 1, "role" => &roles_str);
+        statsd_count!("ingester.startup", 1, "role" => &roles_str, "version" => config.code_version.unwrap_or("unknown"));
     }
     match signal::ctrl_c().await {
         Ok(()) => {}

@@ -6,7 +6,7 @@ use log::{error, warn};
 use tokio::time::Instant;
 
 use crate::{
-    config::{IngesterConfig, CODE_VERSION},
+    config::IngesterConfig,
     error::IngesterError,
 };
 
@@ -34,7 +34,6 @@ pub fn setup_metrics(config: &IngesterConfig) {
         let builder = StatsdClient::builder("das_ingester", queuing_sink);
         let client = builder
             .with_tag("env", env)
-            .with_tag("version", CODE_VERSION)
             .build();
         set_global_default(client);
     }
