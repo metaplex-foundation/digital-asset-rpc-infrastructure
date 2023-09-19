@@ -15,8 +15,8 @@ futures = "0.3.28"
 lazy_static = "1.4.0"
 log = "0.4.17"
 mpl-token-metadata = "1.8.3"
-plerkle_messenger = { version = "1.5.2", features = ["redis"] }
-plerkle_serialization = "1.5.2"
+plerkle_serialization = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin.git", rev = "35a8801c" }
+plerkle_messenger = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin.git", rev = "35a8801c", features = ['redis'] }
 prometheus = "0.13.3"
 reqwest = { version = "0.11", features = ["json"] }
 serde_json = "1.0.81"

@@ -27,7 +27,7 @@ dependencies = [
  "log",
  "mpl-token-metadata",
  "plerkle_messenger",
- "plerkle_serialization",
+ "plerkle_serialization 1.5.3",
  "prometheus",
  "reqwest",
  "serde_json",
@@ -715,7 +715,7 @@ dependencies = [
  "mpl-candy-guard",
  "mpl-candy-machine-core",
  "mpl-token-metadata",
- "plerkle_serialization",
+ "plerkle_serialization 1.5.2",
  "solana-sdk",
  "spl-account-compression",
  "spl-noop",
@@ -2846,7 +2846,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "plerkle_messenger",
- "plerkle_serialization",
+ "plerkle_serialization 1.5.2",
  "rand 0.8.5",
  "redis",
  "regex",
@@ -3319,9 +3319,8 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "plerkle_messenger"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2f8e4e8975dcd2dbf94c7f84409096f0a0e5af287eabc9a212704e9e325ec84"
+version = "1.5.3"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin.git?rev=35a8801c#35a8801cebd2eba2a343e1c051dddcb506284061"
 dependencies = [
  "async-mutex",
  "async-trait",
@@ -3341,6 +3340,20 @@ name = "plerkle_serialization"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d61708e2c08f73cd7f0b264431d9a7810f3f981b80428553d26d37d730fc32d6"
+dependencies = [
+ "bs58 0.4.0",
+ "chrono",
+ "flatbuffers",
+ "serde",
+ "solana-sdk",
+ "solana-transaction-status",
+ "thiserror",
+]
+
+[[package]]
+name = "plerkle_serialization"
+version = "1.5.3"
+source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin.git?rev=35a8801c#35a8801cebd2eba2a343e1c051dddcb506284061"
 dependencies = [
  "bs58 0.4.0",
  "chrono",
@@ -6017,7 +6030,7 @@ dependencies = [
  "lazy_static",
  "log",
  "plerkle_messenger",
- "plerkle_serialization",
+ "plerkle_serialization 1.5.3",
  "prometheus",
  "serde",
  "serde_json",
