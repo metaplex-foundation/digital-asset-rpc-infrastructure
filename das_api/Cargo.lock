@@ -498,29 +498,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blockbuster"
-version = "0.7.3"
-source = "git+https://github.com/metaplex-foundation/blockbuster.git?rev=e39c5bf2#e39c5bf259bf0c956998659641c461fff8cfc401"
-dependencies = [
- "anchor-lang",
- "async-trait",
- "borsh",
- "bs58 0.4.0",
- "flatbuffers",
- "lazy_static",
- "mpl-bubblegum",
- "mpl-candy-guard",
- "mpl-candy-machine-core",
- "mpl-token-metadata",
- "plerkle_serialization",
- "solana-sdk",
- "spl-account-compression",
- "spl-noop",
- "spl-token",
- "thiserror",
-]
-
-[[package]]
 name = "borsh"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1016,7 +993,7 @@ version = "0.7.2"
 dependencies = [
  "anchor-lang",
  "async-trait",
- "blockbuster 0.7.3 (git+https://github.com/metaplex-foundation/blockbuster.git?rev=e39c5bf2)",
+ "blockbuster",
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
@@ -1080,7 +1057,7 @@ name = "digital_asset_types"
 version = "0.7.2"
 dependencies = [
  "async-trait",
- "blockbuster 0.7.3 (git+https://github.com/metaplex-foundation/blockbuster.git?rev=552aba6a)",
+ "blockbuster",
  "bs58 0.4.0",
  "futures",
  "indexmap",
