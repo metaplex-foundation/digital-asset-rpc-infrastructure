@@ -6,14 +6,14 @@ use serde::{Deserialize, Serialize};
 
 pub struct AssetSorting {
     pub sort_by: AssetSortBy,
-    pub sort_direction: AssetSortDirection,
+    pub sort_direction: Option<AssetSortDirection>,
 }
 
 impl Default for AssetSorting {
     fn default() -> AssetSorting {
         AssetSorting {
             sort_by: AssetSortBy::Created,
-            sort_direction: AssetSortDirection::Desc,
+            sort_direction: Some(AssetSortDirection::default()),
         }
     }
 }
@@ -27,6 +27,8 @@ pub enum AssetSortBy {
     Updated,
     #[serde(rename = "recent_action")]
     RecentAction,
+    #[serde(rename = "none")]
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -35,6 +37,12 @@ pub enum AssetSortDirection {
     Asc,
     #[serde(rename = "desc")]
     Desc,
+}
+
+impl Default for AssetSortDirection {
+    fn default() -> AssetSortDirection {
+        AssetSortDirection::Desc
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]

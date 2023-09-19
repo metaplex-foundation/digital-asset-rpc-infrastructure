@@ -7,7 +7,7 @@ use blockbuster::{
         token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_sdk::pubkey::Pubkey;
@@ -69,10 +69,12 @@ impl ProgramTransformer {
         &self,
         tx: &'a TransactionInfo<'a>,
     ) -> Result<(), IngesterError> {
-        info!("Handling Transaction: {:?}", tx.signature());
+        let sig: Option<&str> = tx.signature();
+        info!("Handling Transaction: {:?}", sig);
         let instructions = self.break_transaction(&tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
+        let txn_id = tx.signature().unwrap_or("");
         let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
         for k in accounts.into_iter() {
             keys.push(*k);
@@ -104,7 +106,7 @@ impl ProgramTransformer {
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id: "",
+                txn_id: txn_id,
                 program,
                 instruction: Some(instruction),
                 inner_ix,
@@ -124,7 +126,14 @@ impl ProgramTransformer {
                             &self.storage,
                             &self.task_sender,
                         )
-                        .await?;
+                        .await
+                        .map_err(|err| {
+                            error!(
+                                "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                                sig, err
+                            );
+                            return err;
+                        })?;
                     }
                     _ => {
                         not_impl += 1;

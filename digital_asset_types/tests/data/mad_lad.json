@@ -1,0 +1,30 @@
+{
+    "name": "Mad Lads #1",
+    "description": "Fock it.",
+    "symbol": "MAD",
+    "image": "https://madlads.s3.us-west-2.amazonaws.com/images/1.png",
+    "external_url": "https://madlads.com",
+    "seller_fee_basis_points": 500,
+    "attributes": [
+        { "trait_type": "Gender", "value": "Male" },
+        { "trait_type": "Type", "value": "Light" },
+        { "trait_type": "Expression", "value": "Joy" },
+        { "trait_type": "Hair", "value": "French Crop" },
+        { "trait_type": "Eyes", "value": "Closed" },
+        { "trait_type": "Clothing", "value": "Three Piece" },
+        { "trait_type": "Background", "value": "Purple" }
+    ],
+    "properties": {
+        "files": [
+            {
+                "id": "rug",
+                "uri": "https://arweave.net/qJ5B6fx5hEt4P7XbicbJQRyTcbyLaV-OQNA1KjzdqOQ/1.png",
+                "type": "image/png"
+            },
+            { "id": "portrait", "uri": "https://madlads.s3.us-west-2.amazonaws.com/images/1.png", "type": "image/png" }
+        ],
+        "category": "image",
+        "collection": { "name": "Mad Lads", "family": "MAD" },
+        "creators": [{ "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW", "share": 100 }]
+    }
+}

@@ -2,14 +2,11 @@
 
 - Generate a new migration file
     ```sh
-    cargo run -- migrate generate MIGRATION_NAME
+    DATABASE_URL=postgres://uname:passwd@host:5432/db cargo run -- generate MIGRATION_NAME
     ```
 - Apply all pending migrations
     ```sh
-    cargo run
-    ```
-    ```sh
-    cargo run -- up
+    INIT_FILE_PATH=../init.sql DATABASE_URL=postgres://uname:passwd@host:5432/db cargo run -- up
     ```
 - Apply first 10 pending migrations
     ```sh

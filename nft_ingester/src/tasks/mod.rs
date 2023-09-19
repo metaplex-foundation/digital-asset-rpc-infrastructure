@@ -4,11 +4,12 @@ use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{debug, info, error, warn};
+use log::{debug, error, info, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DeleteResult, SqlxPostgresConnector,
 };
+use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -16,8 +17,6 @@ use tokio::{
     task::JoinHandle,
     time,
 };
-use serde::Deserialize;
-use std::time::Duration as StdDuration;
 
 mod common;
 pub use common::*;
@@ -143,39 +142,50 @@ impl TaskManager {
                 task.locked_by = Set(None);
             }
             Err(e) => {
-                if e == IngesterError::UnrecoverableTaskError {
-                    task.attempts = Set(task_def.max_attempts() + 1);
-                    task.locked_by = Set(Some("permanent failure".to_string()));
-                // todo add new task status
-                } else {
-                    task.locked_by = Set(None);
+                let err_msg = e.to_string();
+                match e {
+                    IngesterError::UnrecoverableTaskError(_) => {
+                        task.attempts = Set(task_def.max_attempts() + 1);
+                        task.locked_by = Set(Some("permanent failure".to_string()));
+                    }
+                    _ => {
+                        task.locked_by = Set(None);
+                    }
                 }
                 task.status = Set(TaskStatus::Failed);
-                task.errors = Set(Some(e.to_string()));
+                task.errors = Set(Some(err_msg));
                 task.locked_until = Set(None);
 
                 match e {
-                    IngesterError::BatchInitNetworkingError => {
+                    IngesterError::BatchInitNetworkingError(msg) => {
                         // Network errors are common for off-chain JSONs.
                         // Logging these as errors is far too noisy.
                         metric! {
                             statsd_count!("ingester.bgtask.network_error", 1, "type" => task_name);
                         }
-                        warn!("Task failed due to network error: {}",  e);
-                    },
+                        warn!("Task failed due to network error: {}", msg);
+                    }
                     IngesterError::HttpError { ref status_code } => {
                         metric! {
-                            statsd_count!("ingester.bgtask.http_error", 1, 
-                                "status" => &status_code,
+                            statsd_count!("ingester.bgtask.http_error", 1,
+                                "status" => status_code,
                                 "type" => task_name);
                         }
-                        warn!("Task failed due to HTTP error: {}",  e);
-                    },
+                        warn!("Task failed due to HTTP error: {}", e);
+                    }
+                    IngesterError::UnrecoverableTaskError(_) => {
+                        // Unrecoverable errors are always going to be off-chain parsing failures at the moment.
+                        // We can't do anything about malformed JSONs.
+                        metric! {
+                            statsd_count!("ingester.bgtask.unrecoverable_error", 1, "type" => task_name);
+                        }
+                        warn!("{}", e);
+                    }
                     _ => {
                         metric! {
                             statsd_count!("ingester.bgtask.error", 1, "type" => task_name);
                         }
-                        error!("Task Run Error: {}",  e);
+                        error!("Task Run Error: {}", e);
                     }
                 }
             }
@@ -201,7 +211,8 @@ impl TaskManager {
                             .less_or_equal(Expr::col(tasks::Column::MaxAttempts)),
                     ),
             )
-            .order_by_desc(tasks::Column::CreatedAt)
+            .order_by(tasks::Column::Attempts, Order::Asc)
+            .order_by(tasks::Column::CreatedAt, Order::Desc)
             .limit(batch_size)
             .all(conn)
             .await
@@ -237,7 +248,7 @@ impl TaskManager {
         }
     }
 
-    fn new_task_handler(
+    pub fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
         _name: String,
@@ -276,8 +287,14 @@ impl TaskManager {
         })
     }
 
-    pub async fn purge_old_tasks(conn: &DatabaseConnection, task_max_age: time::Duration) -> Result<DeleteResult, IngesterError> {
-        let interval = format!("NOW() - created_at::timestamp > interval '{} seconds'", task_max_age.as_secs());
+    pub async fn purge_old_tasks(
+        conn: &DatabaseConnection,
+        task_max_age: time::Duration,
+    ) -> Result<DeleteResult, IngesterError> {
+        let interval = format!(
+            "NOW() - created_at::timestamp > interval '{} seconds'",
+            task_max_age.as_secs()
+        );
         let cod = Expr::cust(&interval);
         tasks::Entity::delete_many()
             .filter(Condition::all().add(cod))
@@ -351,25 +368,33 @@ impl TaskManager {
 
         let delete_interval = tokio::time::Duration::from_millis(
             config.delete_interval.unwrap_or(
-                BackgroundTaskRunnerConfig::default().delete_interval.unwrap()
-            ));
+                BackgroundTaskRunnerConfig::default()
+                    .delete_interval
+                    .unwrap(),
+            ),
+        );
 
         let retry_interval = tokio::time::Duration::from_millis(
             config.retry_interval.unwrap_or(
-                BackgroundTaskRunnerConfig::default().retry_interval.unwrap()));
+                BackgroundTaskRunnerConfig::default()
+                    .retry_interval
+                    .unwrap(),
+            ),
+        );
 
         let purge_time = tokio::time::Duration::from_secs(
-            config.purge_time.unwrap_or(
-                BackgroundTaskRunnerConfig::default().purge_time.unwrap()));
+            config
+                .purge_time
+                .unwrap_or(BackgroundTaskRunnerConfig::default().purge_time.unwrap()),
+        );
 
-        let batch_size = config.batch_size.unwrap_or(
-            BackgroundTaskRunnerConfig::default().batch_size.unwrap());
+        let batch_size = config
+            .batch_size
+            .unwrap_or(BackgroundTaskRunnerConfig::default().batch_size.unwrap());
 
-        // Loop to purge tasks
         let pool = self.pool.clone();
-        let task_name = instance_name.clone();
         tokio::spawn(async move {
-            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
             let mut interval = time::interval(delete_interval);
             loop {
                 interval.tick().await; // ticks immediately

@@ -38,6 +38,10 @@ Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=pos
 
 If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
 
+Note: The current SeaORM types were generated using version 0.9.3 so unless you want to upgrade you can install using `cargo install sea-orm-cli --version 0.9.3`.
+
+Also note: The migration `m20230224_093722_performance_improvements` needs to be commented out of the migration lib.rs in order for the Sea ORM `Relations` to generate correctly.
+
 #### Developing Locally
  *Prerequisites*
  * A Postgres Server running with the database setup according to ./init.sql

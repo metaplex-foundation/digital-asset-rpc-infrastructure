@@ -1,4 +1,4 @@
-FROM rust:1.65-bullseye AS chef
+FROM rust:1.70-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
 COPY tests/load_generation /rust/load_generation/

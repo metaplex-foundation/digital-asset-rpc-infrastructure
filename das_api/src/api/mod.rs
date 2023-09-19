@@ -1,4 +1,4 @@
-use crate::{DasApiError, RpcModule};
+use crate::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::SearchConditionType;
 use digital_asset_types::rpc::response::AssetList;
@@ -39,9 +39,15 @@ pub struct GetAssetsByOwner {
 pub struct GetAsset {
     pub id: String,
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssetProof {
+    pub id: String,
+}
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByCreator {
     pub creator_address: String,
     pub only_verified: Option<bool>,
@@ -64,7 +70,7 @@ pub struct SearchAssets {
     pub creator_verified: Option<bool>,
     pub authority_address: Option<String>,
     pub grouping: Option<(String, String)>,
-    pub delegate: Option<Vec<u8>>,
+    pub delegate: Option<String>,
     pub frozen: Option<bool>,
     pub supply: Option<u64>,
     pub supply_mint: Option<String>,
@@ -110,7 +116,7 @@ pub trait ApiContract: Send + Sync + 'static {
         params = "named",
         summary = "Get a merkle proof for a compressed asset by its ID"
     )]
-    async fn get_asset_proof(&self, payload: GetAsset) -> Result<AssetProof, DasApiError>;
+    async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
         name = "getAsset",
         params = "named",
