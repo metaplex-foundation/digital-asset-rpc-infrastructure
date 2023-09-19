@@ -24,6 +24,8 @@ pub struct Model {
     pub metadata: Json,
     pub slot_updated: i64,
     pub reindex: Option<bool>,
+    pub raw_name: Vec<u8>,
+    pub raw_symbol: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -36,6 +38,8 @@ pub enum Column {
     Metadata,
     SlotUpdated,
     Reindex,
+    RawName,
+    RawSymbol,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -67,6 +71,8 @@ impl ColumnTrait for Column {
             Self::Metadata => ColumnType::JsonBinary.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
             Self::Reindex => ColumnType::Boolean.def(),
+            Self::RawName => ColumnType::Binary.def(),
+            Self::RawSymbol => ColumnType::Binary.def(),
         }
     }
 }

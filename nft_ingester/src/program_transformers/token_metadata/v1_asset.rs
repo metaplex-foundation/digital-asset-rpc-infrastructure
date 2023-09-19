@@ -163,9 +163,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         },
         None => (NotSet, NotSet),
     };
+    let name = data.name.clone().into_bytes();
+    let symbol = data.symbol.clone().into_bytes();
     let mut chain_data = ChainDataV1 {
-        name: data.name,
-        symbol: data.symbol,
+        name: data.name.clone(),
+        symbol: data.symbol.clone(),
         edition_nonce: metadata.edition_nonce,
         primary_sale_happened: metadata.primary_sale_happened,
         token_standard: metadata.token_standard,
@@ -191,6 +193,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         slot_updated: Set(slot_i),
         reindex: Set(Some(true)),
         id: Set(id.to_vec()),
+        raw_name: Set(name.to_vec()),
+        raw_symbol: Set(symbol.to_vec()),
     };
     let txn = conn.begin().await?;
     let mut query = asset_data::Entity::insert(asset_data_model)
