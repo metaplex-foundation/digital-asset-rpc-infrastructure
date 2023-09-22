@@ -1,31 +1,114 @@
-name: Build & Test
+name: Build das api components
+  # This workflow uses github runners.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# This may be adjusted to whatever suits best your runners config.
+# Current config will build on manual trigger or pull-request (each push)
 on:
-  push:
   pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+
 env:
-  RUST_TOOLCHAIN: stable
+   CARGO_TERM_COLOR: always
+
 jobs:
   build-api:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+    runs-on: ["${{ matrix.os }}"]
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Build
+      - name: checkout repo
+        uses: actions/checkout@v3
+
+      - name: set build cache
+        uses: actions/cache@v3
+        with:
+            path: |
+                ~/.cargo/bin/
+                ~/.cargo/registry/index/
+                ~/.cargo/registry/cache/
+                ~/.cargo/git/db/
+                digital-asset-rpc-infrastructure/target/
+            key: ${{ matrix.os }}_digital-asset-rpc-infrastructure_${{ hashFiles('digital-asset-rpc-infrastructure/Cargo.lock') }}
+            restore-keys: |
+              ${{ matrix.os }}_digital-asset-rpc-infrastructure
+
+      - name: build digital asset rpc infra
+        working-directory: digital-asset-rpc-infrastructure/
+        run: cargo build --verbose --release
+
+      - name: build das_api
+        working-directory: digital-asset-rpc-infrastructure/das_api
+        run: cargo build --verbose --release
+
+      - name: build migration
+        working-directory: digital-asset-rpc-infrastructure/migration
+        run: cargo build --verbose --release
+
+      - name: rename binaries for ubuntu22 release
+        if: matrix.os == 'ubuntu-22.04'
         run: |
-          cd das_api
-          cargo build
-        shell: bash
-  build-ingest:
-    runs-on: buildjet-8vcpu-ubuntu-2204
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build
-        run: |
-          cd nft_ingester
-          cargo build
-        shell: bash
+          mv digital-asset-rpc-infrastructure/target/release/nft_ingester digital-asset-rpc-infrastructure/target/release/nft_ingester22
+          mv digital-asset-rpc-infrastructure/target/release/fetch-trees digital-asset-rpc-infrastructure/target/release/fetch-trees22 
+          mv digital-asset-rpc-infrastructure/das_api/target/release/das_api digital-asset-rpc-infrastructure/das_api/target/release/das_api22 
+          mv digital-asset-rpc-infrastructure/migration/target/release/migration digital-asset-rpc-infrastructure/migration/target/release/migration22
 
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: nft_ingester22
+          path: digital-asset-rpc-infrastructure/target/release/nft_ingester22
 
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: das_api22
+          path: digital-asset-rpc-infrastructure/das_api/target/release/das_api22
 
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: migration22
+          path: digital-asset-rpc-infrastructure/migration/target/release/migration22
 
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: fetch-trees22
+          path: digital-asset-rpc-infrastructure/migration/target/release/fetch-trees22
+
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-20.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: nft_ingester
+          path: digital-asset-rpc-infrastructure/target/release/nft_ingester
+
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-20.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: das_api
+          path: digital-asset-rpc-infrastructure/das_api/target/release/das_api
+
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-20.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: migration
+          path: digital-asset-rpc-infrastructure/migration/target/release/migration
+
+      - name: Publish artifact
+        if: matrix.os == 'ubuntu-20.04'
+        uses: actions/upload-artifact@v3.1.1
+        with:
+          name: fetch-trees
+          path: digital-asset-rpc-infrastructure/target/release/fetch-trees
