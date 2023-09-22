@@ -27,7 +27,7 @@ dependencies = [
  "log",
  "mpl-token-metadata",
  "plerkle_messenger",
- "plerkle_serialization 1.5.3",
+ "plerkle_serialization",
  "prometheus",
  "reqwest",
  "serde_json",
@@ -715,7 +715,7 @@ dependencies = [
  "mpl-candy-guard",
  "mpl-candy-machine-core",
  "mpl-token-metadata",
- "plerkle_serialization 1.5.2",
+ "plerkle_serialization",
  "solana-sdk",
  "spl-account-compression",
  "spl-noop",
@@ -1755,6 +1755,22 @@ name = "feature-probe"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835a3dc7d1ec9e75e2b5fb4ba75396837112d2060b03f7d43bc1897c7f7211da"
+
+[[package]]
+name = "fetch_trees"
+version = "0.7.12"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "borsh 0.9.3",
+ "clap 4.2.2",
+ "mpl-bubblegum",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "spl-account-compression",
+ "tokio",
+]
 
 [[package]]
 name = "figment"
@@ -2846,7 +2862,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "plerkle_messenger",
- "plerkle_serialization 1.5.2",
+ "plerkle_serialization",
  "rand 0.8.5",
  "redis",
  "regex",
@@ -3340,20 +3356,6 @@ name = "plerkle_serialization"
 version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d61708e2c08f73cd7f0b264431d9a7810f3f981b80428553d26d37d730fc32d6"
-dependencies = [
- "bs58 0.4.0",
- "chrono",
- "flatbuffers",
- "serde",
- "solana-sdk",
- "solana-transaction-status",
- "thiserror",
-]
-
-[[package]]
-name = "plerkle_serialization"
-version = "1.5.3"
-source = "git+https://github.com/metaplex-foundation/digital-asset-validator-plugin.git?rev=35a8801c#35a8801cebd2eba2a343e1c051dddcb506284061"
 dependencies = [
  "bs58 0.4.0",
  "chrono",
@@ -6030,7 +6032,7 @@ dependencies = [
  "lazy_static",
  "log",
  "plerkle_messenger",
- "plerkle_serialization 1.5.3",
+ "plerkle_serialization",
  "prometheus",
  "serde",
  "serde_json",

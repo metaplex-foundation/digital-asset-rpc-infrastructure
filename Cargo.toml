@@ -5,6 +5,7 @@ members = [
   "nft_ingester",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
+  "tools/fetch_trees",
   "tools/load_generation",
   "tools/tree-status",
   "tools/txn_forwarder",
