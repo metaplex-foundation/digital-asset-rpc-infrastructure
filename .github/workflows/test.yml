@@ -1,5 +1,5 @@
 name: Build das api components
-  # This workflow uses github runners.
+# This workflow uses github runners.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -7,6 +7,7 @@ concurrency:
 # This may be adjusted to whatever suits best your runners config.
 # Current config will build on manual trigger or pull-request (each push)
 on:
+  # pull_request can be removed, to save minutes on github runners
   pull_request:
   workflow_dispatch:
 
@@ -18,12 +19,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
+    # This can be also be runned on self-hosted github runners
     runs-on: ["${{ matrix.os }}"]
 
     steps:
       - name: checkout repo
         uses: actions/checkout@v3
-
+      # This step can be omited, to save storage space on the organization account
+      # Build process will take longer
       - name: set build cache
         uses: actions/cache@v3
         with:
@@ -57,6 +60,8 @@ jobs:
           mv digital-asset-rpc-infrastructure/das_api/target/release/das_api digital-asset-rpc-infrastructure/das_api/target/release/das_api22 
           mv digital-asset-rpc-infrastructure/migration/target/release/migration digital-asset-rpc-infrastructure/migration/target/release/migration22
 
+      # This steps can be omited to save space, are mostly in place to validate binaries (manually) and path to them 
+      # Omiting this will save on storage consumption on the account
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
         uses: actions/upload-artifact@v3.1.1
