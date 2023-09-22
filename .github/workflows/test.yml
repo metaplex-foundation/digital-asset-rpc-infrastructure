@@ -55,7 +55,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: |
           mv target/release/nft_ingester target/release/nft_ingester22
-          mv target/release/fetch-trees target/release/fetch-trees22 
+          mv target/release/fetch_trees target/release/fetch_trees22 
           mv das_api/target/release/das_api das_api/target/release/das_api22 
           mv migration/target/release/migration migration/target/release/migration22
 
@@ -87,7 +87,7 @@ jobs:
         uses: actions/upload-artifact@v3.1.1
         with:
           name: fetch-trees22
-          path: migration/target/release/fetch-trees22
+          path: migration/target/release/fetch_trees22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
@@ -115,4 +115,4 @@ jobs:
         uses: actions/upload-artifact@v3.1.1
         with:
           name: fetch-trees
-          path: target/release/fetch-trees
+          path: target/release/fetch_trees
