@@ -10,6 +10,9 @@ on:
   # pull_request can be removed, to save minutes on github runners
   pull_request:
   workflow_dispatch:
+  push:
+    branches:
+      - 'main'
 
 env:
    CARGO_TERM_COLOR: always
