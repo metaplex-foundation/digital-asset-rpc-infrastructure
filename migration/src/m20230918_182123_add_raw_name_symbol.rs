@@ -1,3 +1,4 @@
+use digital_asset_types::dao::asset_data;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
