@@ -1757,6 +1757,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835a3dc7d1ec9e75e2b5fb4ba75396837112d2060b03f7d43bc1897c7f7211da"
 
 [[package]]
+name = "fetch_trees"
+version = "0.7.12"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "borsh 0.9.3",
+ "clap 4.2.2",
+ "mpl-bubblegum",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "spl-account-compression",
+ "tokio",
+]
+
+[[package]]
 name = "figment"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
