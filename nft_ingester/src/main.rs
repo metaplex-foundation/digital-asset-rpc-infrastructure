@@ -27,7 +27,7 @@ use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
 use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, TRANSACTION_STREAM,
+    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, ACCOUNT_BACKFILL_STREAM, TRANSACTION_STREAM, TRANSACTION_BACKFILL_STREAM
 };
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
@@ -102,16 +102,33 @@ pub async fn main() -> Result<(), IngesterError> {
         config.messenger_config.clone(),
         ACCOUNT_STREAM,
     )?;
+    let mut timer_backfiller_acc = StreamSizeTimer::new(
+        stream_metrics_timer,
+        config.messenger_config.clone(),
+        ACCOUNT_BACKFILL_STREAM,
+    )?;
     let mut timer_txn = StreamSizeTimer::new(
         stream_metrics_timer,
         config.messenger_config.clone(),
         TRANSACTION_STREAM,
     )?;
+    let mut timer_backfiller_txn = StreamSizeTimer::new(
+        stream_metrics_timer,
+        config.messenger_config.clone(),
+        TRANSACTION_BACKFILL_STREAM,
+    )?;
+
 
     if let Some(t) = timer_acc.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
+    if let Some(t) = timer_backfiller_acc.start::<RedisMessenger>().await {
+        tasks.spawn(t);
+    }
     if let Some(t) = timer_txn.start::<RedisMessenger>().await {
+        tasks.spawn(t);
+    }
+    if let Some(t) = timer_backfiller_txn.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
 
@@ -130,6 +147,20 @@ pub async fn main() -> Result<(), IngesterError> {
                 } else {
                     ConsumptionType::New
                 },
+                ACCOUNT_STREAM,
+            );
+
+            let _account_backfill = account_worker::<RedisMessenger>(
+                database_pool.clone(),
+                config.get_messneger_client_config(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+                if i == 0 {
+                    ConsumptionType::Redeliver
+                } else {
+                    ConsumptionType::New
+                },
+                ACCOUNT_BACKFILL_STREAM,
             );
         }
         for i in 0..config.get_transaction_stream_worker_count() {
@@ -144,6 +175,20 @@ pub async fn main() -> Result<(), IngesterError> {
                     ConsumptionType::New
                 },
                 config.cl_audits.unwrap_or(false),
+                TRANSACTION_STREAM,
+            );
+
+            let _txn_backfill = transaction_worker::<RedisMessenger>(
+                database_pool.clone(),
+                config.get_messneger_client_config(),
+                bg_task_sender.clone(),
+                ack_sender.clone(),
+                if i == 0 {
+                    ConsumptionType::Redeliver
+                } else {
+                    ConsumptionType::New
+                },
+                TRANSACTION_BACKFILL_STREAM,
             );
         }
     }

@@ -7,7 +7,7 @@ use {
         stream::StreamExt,
     },
     log::{error, info},
-    plerkle_messenger::{MessengerConfig, ACCOUNT_STREAM, TRANSACTION_STREAM},
+    plerkle_messenger::{MessengerConfig, ACCOUNT_BACKFILL_STREAM, TRANSACTION_BACKFILL_STREAM},
     plerkle_serialization::serializer::seralize_encoded_transaction_with_status,
     prometheus::{IntCounterVec, Opts, Registry},
     solana_client::{
@@ -107,10 +107,10 @@ impl MessengerPool {
                 connection_config: config.clone(),
             };
             let mut messenger = plerkle_messenger::select_messenger(messenenger_config).await?;
-            messenger.add_stream(TRANSACTION_STREAM).await?;
-            messenger.add_stream(ACCOUNT_STREAM).await?;
+            messenger.add_stream(TRANSACTION_BACKFILL_STREAM).await?;
+            messenger.add_stream(ACCOUNT_BACKFILL_STREAM).await?;
             messenger
-                .set_buffer_size(TRANSACTION_STREAM, 10000000000000000)
+                .set_buffer_size(TRANSACTION_BACKFILL_STREAM, 10000000000000000)
                 .await;
             if tx.try_send(messenger).is_err() {
                 panic!("expect empty channel");
@@ -147,7 +147,7 @@ impl MessengerPool {
             .ok_or_else(|| anyhow::anyhow!("failed to ger messenger"))?;
         drop(rx);
 
-        let result = messenger.send(TRANSACTION_STREAM, bytes).await;
+        let result = messenger.send(TRANSACTION_BACKFILL_STREAM, bytes).await;
         if self.tx.try_send(messenger).is_err() {
             panic!("expect empty channel");
         }
