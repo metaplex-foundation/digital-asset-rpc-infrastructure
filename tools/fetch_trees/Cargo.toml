@@ -1,0 +1,17 @@
+[package]
+name = "fetch_trees"
+version = "0.7.12"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0.70"
+async-trait = "0.1.53"
+borsh = "0.9.1"
+clap = { version = "4.2.2", features = ["derive", "cargo"] }
+mpl-bubblegum = { git = "https://github.com/metaplex-foundation/mpl-bubblegum.git", rev = "3cb3976d", features = ["no-entrypoint"] }
+solana-account-decoder = "~1.14"
+solana-client = "~1.14"
+solana-sdk = "~1.14"
+spl-account-compression = "0.1.8"
+tokio = { version = "1.26.0", features = ["full", "tracing"] }

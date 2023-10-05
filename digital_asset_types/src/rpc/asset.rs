@@ -131,6 +131,10 @@ impl MetadataMap {
         self.0.insert(key.to_string(), value);
         self
     }
+
+    pub fn get_item(&self, key: &str) -> Option<&serde_json::Value> {
+        self.0.get(key)
+    }
 }
 
 // TODO sub schema support
@@ -195,7 +199,7 @@ pub type GroupValue = String;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Group {
     pub group_key: String,
-    pub group_value: String,
+    pub group_value: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
@@ -355,4 +359,5 @@ pub struct Asset {
     pub uses: Option<Uses>,
     pub supply: Option<Supply>,
     pub mutable: bool,
+    pub burnt: bool,
 }

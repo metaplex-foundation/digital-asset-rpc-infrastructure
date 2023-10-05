@@ -1,0 +1,26 @@
+[package]
+name = "txn_forwarder"
+version = "0.7.12"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.1.4", features = ["derive"] }
+env_logger = "0.10.0"
+figment = "0.10.8"
+flatbuffers = "23.1.21"
+futures = "0.3.28"
+lazy_static = "1.4.0"
+log = "0.4.17"
+plerkle_serialization = { version = "1.5.2" }
+plerkle_messenger = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin.git", rev = "35a8801c", features = ['redis'] }
+prometheus = "0.13.3"
+serde = "1.0.162"
+serde_json = "1.0.81"
+solana-client = "=1.14.15"
+solana-sdk = "=1.14.15"
+solana-transaction-status = "=1.14.15"
+thiserror = "1.0.31"
+tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
+tokio-stream = { version = "0.1.14", features = ["io-util"] }

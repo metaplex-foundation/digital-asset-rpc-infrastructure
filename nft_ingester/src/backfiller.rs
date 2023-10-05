@@ -8,7 +8,7 @@ use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
-use plerkle_messenger::{Messenger, TRANSACTION_STREAM};
+use plerkle_messenger::{Messenger, TRANSACTION_BACKFILL_STREAM};
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 
 use sea_orm::{
@@ -29,7 +29,6 @@ use solana_sdk::{
     signature::Signature,
     slot_history::Slot,
 };
-use solana_sdk_macro::pubkey;
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
@@ -66,9 +65,6 @@ const MAX_FAILURE_DELAY_MS: u64 = 10_000;
 const BLOCK_CACHE_SIZE: usize = 300_000;
 const MAX_CACHE_COST: i64 = 32;
 const BLOCK_CACHE_DURATION: u64 = 172800;
-// Account key used to determine if transaction is a simple vote.
-const VOTE: &str = "Vote111111111111111111111111111111111111111";
-pub const BUBBLEGUM_SIGNER: Pubkey = pubkey!("4ewWZC5gT6TGpm5LZNDs9wVonfUT2q5PP5sc9kVbwMAK");
 
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
@@ -187,6 +183,7 @@ impl GapInfo {
 
 /// Main struct used for backfiller task.
 struct Backfiller<'a, T: Messenger> {
+    config: IngesterConfig,
     db: DatabaseConnection,
     rpc_client: RpcClient,
     rpc_block_config: RpcBlockConfig,
@@ -260,12 +257,13 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         // Instantiate messenger.
         let mut messenger = T::new(config.get_messneger_client_config()).await.unwrap();
-        messenger.add_stream(TRANSACTION_STREAM).await.unwrap();
+        messenger.add_stream(TRANSACTION_BACKFILL_STREAM).await.unwrap();
         messenger
-            .set_buffer_size(TRANSACTION_STREAM, 10_000_000)
+            .set_buffer_size(TRANSACTION_BACKFILL_STREAM, 10_000_000)
             .await;
 
         Self {
+            config,
             db,
             rpc_client,
             rpc_block_config,
@@ -460,6 +458,19 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
     ) -> Result<Vec<MissingTree>, IngesterError> {
         let mut all_trees: HashMap<Pubkey, SlotSeq> = self.fetch_trees_by_gpa().await?;
         debug!("Number of Trees on Chain {}", all_trees.len());
+
+        if let Some(only_trees) = &self.config.backfiller_trees {
+            let mut trees = HashSet::with_capacity(only_trees.len());
+            for tree in only_trees {
+                trees.insert(Pubkey::try_from(tree.as_str()).expect("backfiller tree is invalid"));
+            }
+
+            all_trees.retain(|key, _value| trees.contains(key));
+            info!(
+                "Number of Trees to backfill (with only filter): {}",
+                all_trees.len()
+            );
+        }
         let get_locked_or_failed_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT tree FROM backfill_items WHERE failed = true\n\
@@ -469,11 +480,15 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let locked_trees = cn.query_all(get_locked_or_failed_trees).await?;
         for row in locked_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::new(&tree.tree);
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with failed/locked filter): {}",
+            all_trees.len()
+        );
+
+        // Get all the local trees already in cl_items and remove them
         let get_all_local_trees = Statement::from_string(
             DbBackend::Postgres,
             "SELECT DISTINCT cl_items.tree FROM cl_items".to_string(),
@@ -481,11 +496,16 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let force_chk_trees = cn.query_all(get_all_local_trees).await?;
         for row in force_chk_trees.into_iter() {
             let tree = UniqueTree::from_query_result(&row, "")?;
-            let key = &Pubkey::new(&tree.tree);
-            if all_trees.contains_key(key) {
-                all_trees.remove(key);
-            }
+            let key = Pubkey::try_from(tree.tree.as_slice()).unwrap();
+            all_trees.remove(&key);
         }
+        info!(
+            "Number of Trees to backfill (with cl_items existed filter): {}",
+            all_trees.len()
+        );
+
+        // After removing all the tres in backfill_itemsa nd the trees already in CL Items then return the list
+        // of missing trees
         let missing_trees = all_trees
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
@@ -722,8 +742,8 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
             let merkle_tree_size = merkle_tree_get_size(&header)
                 .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
-            let (tree_bytes, canopy_bytes) = rest.split_at_mut(merkle_tree_size);
-            let seq_bytes = tree_bytes[0..8].try_into().map_err(|e| {
+            let (tree_bytes, _canopy_bytes) = rest.split_at_mut(merkle_tree_size);
+            let seq_bytes = tree_bytes[0..8].try_into().map_err(|_e| {
                 IngesterError::RpcGetDataError("Failed to convert seq bytes to array".to_string())
             })?;
             let seq = u64::from_le_bytes(seq_bytes);
@@ -948,7 +968,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 };
                 let builder = seralize_encoded_transaction_with_status(builder, tx_wrap)?;
                 self.messenger
-                    .send(TRANSACTION_STREAM, builder.finished_data())
+                    .send(TRANSACTION_BACKFILL_STREAM, builder.finished_data())
                     .await?;
             }
             drop(block_ref);

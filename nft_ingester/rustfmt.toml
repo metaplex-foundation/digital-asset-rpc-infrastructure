@@ -1,3 +1,0 @@
-edition = "2021"
-imports_granularity="Crate"
-reorder_imports = true

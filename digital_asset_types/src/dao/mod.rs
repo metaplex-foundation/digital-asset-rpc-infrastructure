@@ -1,3 +1,4 @@
+#![allow(ambiguous_glob_reexports)]
 mod full_asset;
 mod generated;
 pub mod scopes;
@@ -179,13 +180,17 @@ impl SearchAssetsQuery {
             .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)));
 
         if let Some(c) = self.creator_address.to_owned() {
-            let mut cond = Condition::all().add(asset_creators::Column::Creator.eq(c));
-            if let Some(cv) = self.creator_verified {
-                cond = cond.add(asset_creators::Column::Verified.eq(cv));
-            }
+            conditions = conditions.add(asset_creators::Column::Creator.eq(c));
+        }
 
-            conditions = conditions.add(cond);
+        // Without specifying the creators themselves, there is no index being hit.
+        // So in some rare scenarios, this query could be very slow.
+        if let Some(cv) = self.creator_verified.to_owned() {
+            conditions = conditions.add(asset_creators::Column::Verified.eq(cv));
+        }
 
+        // If creator_address or creator_verified is set, join with asset_creators
+        if self.creator_address.is_some() || self.creator_verified.is_some() {
             let rel = asset_creators::Relation::Asset
                 .def()
                 .rev()
@@ -227,8 +232,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(ju) = self.json_uri.to_owned() {
-            let cond = Condition::all()
-                .add(asset_data::Column::MetadataUrl.eq(ju));
+            let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju));
             conditions = conditions.add(cond);
             let rel = asset_data::Relation::Asset
                 .def()

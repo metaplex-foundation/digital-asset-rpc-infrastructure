@@ -8,11 +8,15 @@ use digital_asset_types::rpc::Content;
 use digital_asset_types::rpc::File;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
-use tokio;
 
-pub async fn test_json(uri: String) -> Content {
-    let body: serde_json::Value = reqwest::get(&uri).await.unwrap().json().await.unwrap();
+pub async fn load_test_json(file_name: &str) -> serde_json::Value {
+    let json = tokio::fs::read_to_string(format!("tests/data/{}", file_name))
+        .await
+        .unwrap();
+    serde_json::from_str(&json).unwrap()
+}
 
+pub async fn parse_onchain_json(json: serde_json::Value) -> Content {
     let asset_data = asset_data::Model {
         id: Keypair::new().pubkey().to_bytes().to_vec(),
         chain_data_mutability: ChainMutability::Mutable,
@@ -25,55 +29,34 @@ pub async fn test_json(uri: String) -> Content {
             uses: None,
         })
         .unwrap(),
-        metadata_url: uri,
+        metadata_url: String::from("some url"),
         metadata_mutability: Mutability::Mutable,
-        metadata: body,
+        metadata: json,
         slot_updated: 0,
+        reindex: None,
+        raw_name: String::from("Handalf").into_bytes().to_vec(),
+        raw_symbol: String::from("").into_bytes().to_vec(),
     };
 
     v1_content_from_json(&asset_data).unwrap()
 }
 
 #[tokio::test]
-async fn simple_v1_content() {
-    let c =
-        test_json("https://arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string())
-            .await;
+async fn simple_content() {
+    let j = load_test_json("mad_lad.json").await;
+    let parsed = parse_onchain_json(j.clone()).await;
     assert_eq!(
-        c.files,
-        Some(vec![File {
-            uri: Some(
-                "https://arweave.net/UicDlez8No5ruKmQ1-Ik0x_NNxc40mT8NEGngWyXyMY".to_string()
-            ),
-            mime: None,
-            quality: None,
-            contexts: None,
-        },])
-    )
-}
-
-#[tokio::test]
-async fn more_complex_content_v1() {
-    let c =
-        test_json("https://arweave.net/gfO_TkYttQls70pTmhrdMDz9pfMUXX8hZkaoIivQjGs".to_string())
-            .await;
-    assert_eq!(
-        c.files.map(|mut s| {
-            s.sort_by_key(|f| f.uri.clone());
-            s
-        }),
+        parsed.files,
         Some(vec![
             File {
-                uri: Some(
-                    "https://arweave.net/hdtrCCqLXF2UWwf3h6YEFj8VF1ObDMGfGeQheVuXuG4".to_string()
-                ),
-                mime: None,
+                uri: Some("https://madlads.s3.us-west-2.amazonaws.com/images/1.png".to_string()),
+                mime: Some("image/png".to_string()),
                 quality: None,
                 contexts: None,
             },
             File {
                 uri: Some(
-                    "https://arweave.net/hdtrCCqLXF2UWwf3h6YEFj8VF1ObDMGfGeQheVuXuG4?ext=png"
+                    "https://arweave.net/qJ5B6fx5hEt4P7XbicbJQRyTcbyLaV-OQNA1KjzdqOQ/1.png"
                         .to_string(),
                 ),
                 mime: Some("image/png".to_string()),
@@ -81,5 +64,79 @@ async fn more_complex_content_v1() {
                 contexts: None,
             }
         ])
-    )
+    );
+
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("image")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://madlads.s3.us-west-2.amazonaws.com/images/1.png"
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("external_url")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://madlads.com"
+    );
+}
+
+#[tokio::test]
+async fn complex_content() {
+    let j = load_test_json("infinite_fungi.json").await;
+    let parsed = parse_onchain_json(j).await;
+    assert_eq!(
+        parsed.files,
+        Some(vec![
+            File {
+                uri: Some(
+                    "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif"
+                        .to_string(),
+                ),
+                mime: Some("image/gif".to_string()),
+                quality: None,
+                contexts: None,
+            },
+            File {
+                uri: Some(
+                    "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4"
+                        .to_string()
+                ),
+                mime: Some("video/mp4".to_string()),
+                quality: None,
+                contexts: None,
+            },
+        ])
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("image")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://arweave.net/_a4sXT6fOHI-5VHFOHLEF73wqKuZtJgE518Ciq9DGyI?ext=gif"
+    );
+    assert_eq!(
+        parsed
+            .clone()
+            .links
+            .unwrap()
+            .get("animation_url")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://arweave.net/HVOJ3bTpqMJJJtd5nW2575vPTekLa_SSDsQc7AqV_Ho?ext=mp4"
+    );
 }
