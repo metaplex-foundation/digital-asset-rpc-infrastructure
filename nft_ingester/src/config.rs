@@ -31,6 +31,7 @@ pub struct IngesterConfig {
     pub transaction_stream_worker_count: Option<u32>,
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
+    pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
 }
 
 impl IngesterConfig {
@@ -124,7 +125,8 @@ pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
         figment = figment.join(Yaml::file(config_file));
     }
 
-    let mut config: IngesterConfig = figment
+    let mut config: IngesterConfig =
+        figment
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),

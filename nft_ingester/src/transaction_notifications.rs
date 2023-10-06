@@ -24,12 +24,13 @@ pub fn transaction_worker<T: Messenger>(
     bg_task_sender: UnboundedSender<TaskData>,
     ack_channel: UnboundedSender<(&'static str, String)>,
     consumption_type: ConsumptionType,
+    cl_audits: bool,
     stream_key: &'static str,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
+            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, cl_audits));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();

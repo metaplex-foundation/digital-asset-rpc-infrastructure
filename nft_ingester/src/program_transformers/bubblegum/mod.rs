@@ -27,6 +27,7 @@ pub async fn handle_bubblegum_instruction<'c, T>(
     bundle: &'c InstructionBundle<'c>,
     txn: &T,
     task_manager: &UnboundedSender<TaskData>,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -57,38 +58,38 @@ where
 
     match ix_type {
         InstructionName::Transfer => {
-            transfer::transfer(parsing_result, bundle, txn).await?;
+            transfer::transfer(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::Burn => {
-            burn::burn(parsing_result, bundle, txn).await?;
+            burn::burn(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::Delegate => {
-            delegate::delegate(parsing_result, bundle, txn).await?;
+            delegate::delegate(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
-            let task = mint_v1::mint_v1(parsing_result, bundle, txn).await?;
+            let task = mint_v1::mint_v1(parsing_result, bundle, txn, cl_audits).await?;
 
             task_manager.send(task)?;
         }
         InstructionName::Redeem => {
-            redeem::redeem(parsing_result, bundle, txn).await?;
+            redeem::redeem(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::CancelRedeem => {
-            cancel_redeem::cancel_redeem(parsing_result, bundle, txn).await?;
+            cancel_redeem::cancel_redeem(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::DecompressV1 => {
             decompress::decompress(parsing_result, bundle, txn).await?;
         }
         InstructionName::VerifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, true).await?;
+            creator_verification::process(parsing_result, bundle, txn, true, cl_audits).await?;
         }
         InstructionName::UnverifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, false).await?;
+            creator_verification::process(parsing_result, bundle, txn, false, cl_audits).await?;
         }
         InstructionName::VerifyCollection
         | InstructionName::UnverifyCollection
         | InstructionName::SetAndVerifyCollection => {
-            collection_verification::process(parsing_result, bundle, txn).await?;
+            collection_verification::process(parsing_result, bundle, txn, cl_audits).await?;
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }

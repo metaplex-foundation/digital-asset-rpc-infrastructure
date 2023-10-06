@@ -29,6 +29,7 @@ mod m20230720_130101_remove_asset_grouping_null_constraints;
 mod m20230724_120101_add_group_info_seq;
 mod m20230726_013107_remove_not_null_constraint_from_group_value;
 mod m20230918_182123_add_raw_name_symbol;
+mod m20230919_072154_cl_audits;
 
 pub struct Migrator;
 
@@ -65,6 +66,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230724_120101_add_group_info_seq::Migration),
             Box::new(m20230726_013107_remove_not_null_constraint_from_group_value::Migration),
             Box::new(m20230918_182123_add_raw_name_symbol::Migration),
+            Box::new(m20230919_072154_cl_audits::Migration),
         ]
     }
 }
