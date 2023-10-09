@@ -1,7 +1,9 @@
 use crate::error::IngesterError;
-use digital_asset_types::dao::{asset, asset_creators, asset_grouping, backfill_items, cl_items, cl_audits};
+use digital_asset_types::dao::{
+    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items,
+};
 use log::{debug, info};
-use mpl_bubblegum::state::metaplex_adapter::Collection;
+use mpl_bubblegum::types::Collection;
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
@@ -56,7 +58,6 @@ where
             None
         };
 
-
         let item = cl_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
             level: Set(i),
@@ -67,11 +68,13 @@ where
             ..Default::default()
         };
 
-        let mut audit_item : Option<cl_audits::ActiveModel> = if(cl_audits) {
-            let mut ai : cl_audits::ActiveModel = item.clone().into();
+        let mut audit_item: Option<cl_audits::ActiveModel> = if (cl_audits) {
+            let mut ai: cl_audits::ActiveModel = item.clone().into();
             ai.tx = Set(txn_id.to_string());
             Some(ai)
-        } else { None };
+        } else {
+            None
+        };
 
         i += 1;
         let mut query = cl_items::Entity::insert(item)
@@ -90,7 +93,6 @@ where
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
 
         // Insert the audit item after the insert into cl_items have been completed
         if let Some(audit_item) = audit_item {

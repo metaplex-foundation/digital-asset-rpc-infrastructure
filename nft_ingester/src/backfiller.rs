@@ -257,7 +257,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         // Instantiate messenger.
         let mut messenger = T::new(config.get_messneger_client_config()).await.unwrap();
-        messenger.add_stream(TRANSACTION_BACKFILL_STREAM).await.unwrap();
+        messenger
+            .add_stream(TRANSACTION_BACKFILL_STREAM)
+            .await
+            .unwrap();
         messenger
             .set_buffer_size(TRANSACTION_BACKFILL_STREAM, 10_000_000)
             .await;
@@ -738,7 +741,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
 
-            let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::id()).0;
+            let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::ID).0;
 
             let merkle_tree_size = merkle_tree_get_size(&header)
                 .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
@@ -953,7 +956,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tb = tree.to_bytes();
-                let bubblegum = blockbuster::programs::bubblegum::program_id().to_bytes();
+                let bubblegum = blockbuster::programs::bubblegum::ID.to_bytes();
                 if account_keys.iter().all(|pk| *pk != tb && *pk != bubblegum) {
                     continue;
                 }

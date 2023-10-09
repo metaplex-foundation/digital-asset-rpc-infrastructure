@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
         let authority_accounts = client.get_multiple_accounts(pubkeys.as_slice()).await?;
         for (authority_account, (pubkey, _authority)) in authority_accounts.iter().zip(accounts) {
             if let Some(account) = authority_account {
-                if account.owner == mpl_bubblegum::id() {
+                if account.owner == mpl_bubblegum::ID {
                     println!("{} {}", id, pubkey);
                     id += 1;
                 }
