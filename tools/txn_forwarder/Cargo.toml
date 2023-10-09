@@ -14,13 +14,13 @@ futures = "0.3.28"
 lazy_static = "1.4.0"
 log = "0.4.17"
 plerkle_serialization = { version = "1.5.2" }
-plerkle_messenger = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin.git", rev = "35a8801c", features = ['redis'] }
+plerkle_messenger = { version = "1.6.0", features = ['redis'] }
 prometheus = "0.13.3"
 serde = "1.0.162"
 serde_json = "1.0.81"
-solana-client = "=1.14.15"
-solana-sdk = "=1.14.15"
-solana-transaction-status = "=1.14.15"
+solana-client = "~1.16.16"
+solana-sdk = "~1.16.16"
+solana-transaction-status = "~1.16.16"
 thiserror = "1.0.31"
 tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
 tokio-stream = { version = "0.1.14", features = ["io-util"] }

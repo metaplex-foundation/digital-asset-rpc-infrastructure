@@ -23,34 +23,34 @@ tokio-postgres = "0.7.7"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
-plerkle_messenger = { git = "https://github.com/metaplex-foundation/digital-asset-validator-plugin.git", rev = "35a8801c", features = ['redis'] }
+plerkle_messenger = { version = "1.6.0", features = ['redis'] }
 plerkle_serialization = { version = "1.5.2" }
 flatbuffers = "23.1.21"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = { git = "https://github.com/metaplex-foundation/mpl-bubblegum.git", rev = "3cb3976d", features = ["no-entrypoint"] }
-spl-account-compression = "0.1.8"
-spl-concurrent-merkle-tree = "0.1.3"
+mpl-bubblegum = "1.0.1-beta.2"
+spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
+spl-concurrent-merkle-tree = "0.2.0"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "552aba6a" }
+blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "e5d96d62969af42ce1c7f10cca88dc1c4f643598" }
 figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-sdk = "~1.14"
-solana-client = "~1.14"
-spl-token = { version = "3.5.0", features = ["no-entrypoint"] }
-solana-transaction-status = "~1.14"
-solana-account-decoder = "~1.14"
-solana-geyser-plugin-interface = { version = "~1.14" }
-solana-sdk-macro = "~1.14"
+solana-sdk = "~1.16.16"
+solana-client = "~1.16.16"
+spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
+solana-transaction-status = "~1.16.16"
+solana-account-decoder = "~1.16.16"
+solana-geyser-plugin-interface = "~1.16.16"
+solana-sdk-macro = "~1.16.16"
 rand = "0.8.5"
 rust-crypto = "0.2.36"
 url="2.3.1"
-anchor-lang = "=0.26.0"
-borsh = "0.9.1"
+anchor-lang = "0.28.0"
+borsh = "~0.10.3"
 stretto = { version = "0.7", features = ["async"] }
 tokio-stream = "0.1.12"
 tracing-subscriber = { version = "0.3.16", features = [

@@ -7,11 +7,11 @@ publish = false
 [dependencies]
 anyhow = "1.0.70"
 async-trait = "0.1.53"
-borsh = "0.9.1"
+borsh = "~0.10.3"
 clap = { version = "4.2.2", features = ["derive", "cargo"] }
-mpl-bubblegum = { git = "https://github.com/metaplex-foundation/mpl-bubblegum.git", rev = "3cb3976d", features = ["no-entrypoint"] }
-solana-account-decoder = "~1.14"
-solana-client = "~1.14"
-solana-sdk = "~1.14"
-spl-account-compression = "0.1.8"
+mpl-bubblegum = "1.0.1-beta.2"
+solana-account-decoder = "~1.16.16"
+solana-client = "~1.16.16"
+solana-sdk = "~1.16.16"
+spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
 tokio = { version = "1.26.0", features = ["full", "tracing"] }
