@@ -10,7 +10,7 @@ use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 
 pub async fn load_test_json(file_name: &str) -> serde_json::Value {
-    let json = tokio::fs::read_to_string(format!("tests/data/{}", file_name))
+    let json = tokio::fs::read_to_string(format!("tools/data/{}", file_name))
         .await
         .unwrap();
     serde_json::from_str(&json).unwrap()
