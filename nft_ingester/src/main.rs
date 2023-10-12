@@ -149,7 +149,8 @@ pub async fn main() -> Result<(), IngesterError> {
                 },
                 ACCOUNT_STREAM,
             );
-
+        }
+        for i in 0..config.get_account_backfill_stream_worker_count() {
             let _account_backfill = account_worker::<RedisMessenger>(
                 database_pool.clone(),
                 config.get_messneger_client_config(),
@@ -177,7 +178,8 @@ pub async fn main() -> Result<(), IngesterError> {
                 config.cl_audits.unwrap_or(false),
                 TRANSACTION_STREAM,
             );
-
+        }
+        for i in 0..config.get_transaction_backfill_stream_worker_count() {
             let _txn_backfill = transaction_worker::<RedisMessenger>(
                 database_pool.clone(),
                 config.get_messneger_client_config(),
