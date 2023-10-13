@@ -1,4 +1,4 @@
-FROM rust:1.70-bullseye AS chef
+FROM rust:1.73-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
 COPY tools/load_generation /rust/load_generation/
@@ -17,7 +17,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY tools/load_generation .
 # Build application
 RUN cargo build --release
-FROM rust:1.70-slim-bullseye
+FROM rust:1.73-slim-bullseye
 ARG APP=/usr/src/app
 RUN apt update \
     && apt install -y curl ca-certificates tzdata \
