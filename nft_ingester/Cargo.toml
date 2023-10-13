@@ -39,13 +39,13 @@ blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", 
 figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
-solana-sdk = "~1.14"
-solana-client = "~1.14"
+solana-sdk = "=1.14.15"
+solana-client = "=1.14.15"
 spl-token = { version = "3.5.0", features = ["no-entrypoint"] }
-solana-transaction-status = "~1.14"
-solana-account-decoder = "~1.14"
-solana-geyser-plugin-interface = { version = "~1.14" }
-solana-sdk-macro = "~1.14"
+solana-transaction-status = "=1.14.15"
+solana-account-decoder = "=1.14.15"
+solana-geyser-plugin-interface = { version = "=1.14.15" }
+solana-sdk-macro = "=1.14.15"
 rand = "0.8.5"
 rust-crypto = "0.2.36"
 url="2.3.1"

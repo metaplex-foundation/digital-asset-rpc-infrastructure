@@ -15,7 +15,7 @@ nft_ingester = { path = "../../nft_ingester" }
 prometheus = "0.13.3"
 sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
-solana-sdk = "1.14.10"
+solana-sdk = "=1.14.15"
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread"] }
 txn_forwarder = { path = "../txn_forwarder" }

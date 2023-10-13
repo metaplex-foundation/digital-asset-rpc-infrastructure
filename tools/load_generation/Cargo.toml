@@ -8,9 +8,9 @@ publish = false
 fake = "2.5.0"
 mpl-token-metadata = { version = "=1.8.4", features = ["no-entrypoint"] }
 rand = "0.8.5"
-solana-client = "1.14.15"
-solana-program = "1.14.15"
-solana-sdk = "1.14.15"
+solana-client = "=1.14.15"
+solana-program = "=1.14.15"
+solana-sdk = "=1.14.15"
 spl-associated-token-account = "1.1.1"
 spl-token = "3.5.0"
 tokio = { version ="1.25.0", features = ["macros", "rt-multi-thread"] }

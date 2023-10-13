@@ -10,8 +10,8 @@ async-trait = "0.1.53"
 borsh = "0.9.1"
 clap = { version = "4.2.2", features = ["derive", "cargo"] }
 mpl-bubblegum = { git = "https://github.com/metaplex-foundation/mpl-bubblegum.git", rev = "3cb3976d", features = ["no-entrypoint"] }
-solana-account-decoder = "~1.14"
-solana-client = "~1.14"
-solana-sdk = "~1.14"
+solana-account-decoder = "=1.14.15"
+solana-client = "=1.14.15"
+solana-sdk = "=1.14.15"
 spl-account-compression = "0.1.8"
 tokio = { version = "1.26.0", features = ["full", "tracing"] }

@@ -14,7 +14,7 @@ serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] 
 bs58 = "0.4.0"
 borsh = { version = "0.9.3", optional = true }
 borsh-derive = { version = "0.9.3", optional = true }
-solana-sdk = { version = "1.14.10" }
+solana-sdk = { version = "=1.14.15" }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
@@ -33,7 +33,7 @@ indexmap = "1.9.3"
 
 [dev-dependencies]
 reqwest = "0.11.13"
-solana-sdk = "1.14.10"
+solana-sdk = "=1.14.15"
 
 [features]
 default = ["json_types", "sql_types"]
