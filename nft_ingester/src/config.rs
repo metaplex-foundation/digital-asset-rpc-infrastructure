@@ -71,8 +71,7 @@ impl IngesterConfig {
     }
 
     pub fn get_account_backfill_stream_worker_count(&self) -> u32 {
-        self.account_backfill_stream_worker_count
-            .unwrap_or_else(|| self.get_account_stream_worker_count())
+        self.account_backfill_stream_worker_count.unwrap_or(0)
     }
 
     pub fn get_transaction_stream_worker_count(&self) -> u32 {
@@ -80,8 +79,7 @@ impl IngesterConfig {
     }
 
     pub fn get_transaction_backfill_stream_worker_count(&self) -> u32 {
-        self.transaction_backfill_stream_worker_count
-            .unwrap_or_else(|| self.get_transaction_stream_worker_count())
+        self.transaction_backfill_stream_worker_count.unwrap_or(0)
     }
 }
 
@@ -137,8 +135,7 @@ pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
         figment = figment.join(Yaml::file(config_file));
     }
 
-    let mut config: IngesterConfig =
-        figment
+    let mut config: IngesterConfig = figment
         .extract()
         .map_err(|config_error| IngesterError::ConfigurationError {
             msg: format!("{}", config_error),
