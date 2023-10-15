@@ -22,6 +22,7 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+use log::warn;
 use num_traits::FromPrimitive;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
@@ -39,7 +40,7 @@ pub async fn mint_v1<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     cl_audits: bool,
-) -> Result<TaskData, IngesterError>
+) -> Result<Option<TaskData>, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -93,7 +94,7 @@ where
                     id: Set(id_bytes.to_vec()),
                     chain_data_mutability: Set(chain_mutability),
                     chain_data: Set(chain_data_json),
-                    metadata_url: Set(uri),
+                    metadata_url: Set(uri.clone()),
                     metadata: Set(JsonValue::String("processing".to_string())),
                     metadata_mutability: Set(Mutability::Mutable),
                     slot_updated: Set(slot_i),
@@ -340,16 +341,25 @@ where
                 )
                 .await?;
 
+                if uri.is_empty() {
+                    warn!(
+                        "URI is empty for mint {}. Skipping background task.",
+                        bs58::encode(id).into_string()
+                    );
+                    return Ok(None);
+                }
+
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
                     created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();
-                return task.into_task_data();
+                let t = task.into_task_data()?;
+                Ok(Some(t))
             }
             _ => Err(IngesterError::NotImplemented),
-        }?;
+        };
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),
