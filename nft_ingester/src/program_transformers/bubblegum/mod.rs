@@ -53,6 +53,7 @@ where
         InstructionName::VerifyCollection => "VerifyCollection",
         InstructionName::UnverifyCollection => "UnverifyCollection",
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
+        InstructionName::SetDecompressibleState | InstructionName::UpdateMetadata => todo!(),
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 

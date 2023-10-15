@@ -4,7 +4,7 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use log::debug;
-use mpl_bubblegum::state::metaplex_adapter::Collection;
+use mpl_bubblegum::types::Collection;
 use sea_orm::query::*;
 
 use super::{save_changelog_event, upsert_asset_with_leaf_info};

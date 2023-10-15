@@ -184,8 +184,7 @@ pub async fn make_a_nft_thing(
                 None,
                 None,
             ),
-            #[allow(deprecated)]
-            mpl_token_metadata::deprecated_instruction::create_master_edition(
+            mpl_token_metadata::instruction::create_master_edition_v3(
                 prg_uid,
                 edition_pubkey,
                 mint,

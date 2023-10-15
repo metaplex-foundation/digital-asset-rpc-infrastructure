@@ -13,6 +13,8 @@ members = [
 exclude = [
   "das_api",
   "migration",
+  "metaplex_program_library",
+  "solana_program_library",
 ]
 
 [profile.release]
