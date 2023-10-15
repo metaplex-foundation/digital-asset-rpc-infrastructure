@@ -85,11 +85,7 @@ where
                     true => ChainMutability::Mutable,
                     false => ChainMutability::Immutable,
                 };
-                if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError(
-                        "URI is empty".to_string(),
-                    ));
-                }
+
                 let data = asset_data::ActiveModel {
                     id: Set(id_bytes.to_vec()),
                     chain_data_mutability: Set(chain_mutability),
