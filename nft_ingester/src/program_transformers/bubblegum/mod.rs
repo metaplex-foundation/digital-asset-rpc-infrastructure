@@ -70,7 +70,9 @@ where
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
             let task = mint_v1::mint_v1(parsing_result, bundle, txn, cl_audits).await?;
 
-            task_manager.send(task)?;
+            if let Some(t) = task {
+                task_manager.send(t)?;
+            }
         }
         InstructionName::Redeem => {
             redeem::redeem(parsing_result, bundle, txn, cl_audits).await?;
