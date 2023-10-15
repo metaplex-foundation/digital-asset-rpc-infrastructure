@@ -1,6 +1,7 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items,
+    asset, asset_creators, asset_data, asset_grouping, backfill_items, cl_audits, cl_items,
+    sea_orm_active_enums::{ChainMutability, Mutability},
 };
 use log::{debug, info};
 use mpl_bubblegum::types::Collection;
@@ -8,8 +9,6 @@ use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
-
-use std::convert::From;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -135,6 +134,7 @@ where
     //TODO -> set maximum size of path and break into multiple statements
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,
@@ -432,6 +432,108 @@ where
 
     query.sql = format!(
         "{} WHERE excluded.group_info_seq >= asset_grouping.group_info_seq OR asset_grouping.group_info_seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_data<T>(
+    txn: &T,
+    id: Vec<u8>,
+    chain_data_mutability: ChainMutability,
+    chain_data: JsonValue,
+    metadata_url: String,
+    metadata_mutability: Mutability,
+    metadata: JsonValue,
+    slot_updated: i64,
+    reindex: Option<bool>,
+    raw_name: Vec<u8>,
+    raw_symbol: Vec<u8>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_data::ActiveModel {
+        id: Set(id),
+        chain_data_mutability: Set(chain_data_mutability),
+        chain_data: Set(chain_data),
+        metadata_url: Set(metadata_url),
+        metadata_mutability: Set(metadata_mutability),
+        metadata: Set(metadata),
+        slot_updated: Set(slot_updated),
+        reindex: Set(reindex),
+        raw_name: Set(raw_name),
+        raw_symbol: Set(raw_symbol),
+        //seq: Set(seq),
+    };
+
+    let mut query = asset_data::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset_data::Column::Id])
+                .update_columns([
+                    asset_data::Column::ChainDataMutability,
+                    asset_data::Column::ChainData,
+                    asset_data::Column::MetadataUrl,
+                    asset_data::Column::MetadataMutability,
+                    //TODO DEAL WITH THIS
+                    //asset_data::Column::Metadata,
+                    asset_data::Column::SlotUpdated,
+                    asset_data::Column::Reindex,
+                    asset_data::Column::RawName,
+                    asset_data::Column::RawSymbol,
+                    //asset_data::Column::Seq,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+    // TODO DEAL WITH THIS
+    "{} WHERE (excluded.slot_updated > asset_data.slot_updated) AND (excluded.seq >= asset_data.seq OR asset_data.seq IS NULL)",
+    query.sql
+);
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_royalty_amount<T>(
+    txn: &T,
+    id: Vec<u8>,
+    royalty_amount: i32,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        royalty_amount: Set(royalty_amount),
+        //royalty_amount_seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([
+                    asset::Column::RoyaltyAmount,
+                    //asset::Column::RoyaltyAmountSeq,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        // TODO DEAL WITH THIS
+        "{} WHERE (NOT asset.was_decompressed) AND (excluded.royalty_amount_seq >= asset.royalty_amount_seq OR royalty_amount_seq.seq IS NULL)",
         query.sql
     );
 

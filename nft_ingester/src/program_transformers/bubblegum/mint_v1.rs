@@ -1,8 +1,9 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        save_changelog_event, upsert_asset_data, upsert_asset_with_compression_info,
+        upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
+        upsert_asset_with_royalty_amount, upsert_asset_with_seq, upsert_collection_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -17,7 +18,7 @@ use blockbuster::{
 use chrono::Utc;
 use digital_asset_types::{
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_v1_account_attachments,
+        asset, asset_authority, asset_creators, asset_v1_account_attachments,
         sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
@@ -62,7 +63,14 @@ where
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
+
                 let uri = metadata.uri.replace('\0', "");
+                if uri.is_empty() {
+                    return Err(IngesterError::DeserializationError(
+                        "URI is empty".to_string(),
+                    ));
+                }
+
                 let name = metadata.name.clone().into_bytes();
                 let symbol = metadata.symbol.clone().into_bytes();
                 let mut chain_data = ChainDataV1 {
@@ -84,46 +92,23 @@ where
                     true => ChainMutability::Mutable,
                     false => ChainMutability::Immutable,
                 };
-                if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError(
-                        "URI is empty".to_string(),
-                    ));
-                }
-                let data = asset_data::ActiveModel {
-                    id: Set(id_bytes.to_vec()),
-                    chain_data_mutability: Set(chain_mutability),
-                    chain_data: Set(chain_data_json),
-                    metadata_url: Set(uri),
-                    metadata: Set(JsonValue::String("processing".to_string())),
-                    metadata_mutability: Set(Mutability::Mutable),
-                    slot_updated: Set(slot_i),
-                    reindex: Set(Some(true)),
-                    raw_name: Set(name.to_vec()),
-                    raw_symbol: Set(symbol.to_vec()),
-                    ..Default::default()
-                };
 
-                let mut query = asset_data::Entity::insert(data)
-                    .on_conflict(
-                        OnConflict::columns([asset_data::Column::Id])
-                            .update_columns([
-                                asset_data::Column::ChainDataMutability,
-                                asset_data::Column::ChainData,
-                                asset_data::Column::MetadataUrl,
-                                asset_data::Column::MetadataMutability,
-                                asset_data::Column::SlotUpdated,
-                                asset_data::Column::Reindex,
-                            ])
-                            .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-                query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_data.slot_updated",
-                    query.sql
-                );
-                txn.execute(query)
-                    .await
-                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+                upsert_asset_data(
+                    txn,
+                    id_bytes.to_vec(),
+                    chain_mutability,
+                    chain_data_json,
+                    uri,
+                    Mutability::Mutable,
+                    JsonValue::String("processing".to_string()),
+                    slot_i,
+                    Some(true),
+                    name.to_vec(),
+                    symbol.to_vec(),
+                    seq as i64,
+                )
+                .await?;
+
                 // Insert into `asset` table.
                 let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
@@ -143,7 +128,6 @@ where
                     nonce: Set(Some(nonce as i64)),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
-                    royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
                     asset_data: Set(Some(id_bytes.to_vec())),
                     slot_updated: Set(Some(slot_i)),
                     ..Default::default()
@@ -160,7 +144,6 @@ where
                                 asset::Column::SpecificationAssetClass,
                                 asset::Column::RoyaltyTargetType,
                                 asset::Column::RoyaltyTarget,
-                                asset::Column::RoyaltyAmount,
                                 asset::Column::AssetData,
                             ])
                             .to_owned(),
@@ -175,6 +158,14 @@ where
                 txn.execute(query)
                     .await
                     .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
+                upsert_asset_with_royalty_amount(
+                    txn,
+                    id_bytes.to_vec(),
+                    metadata.seller_fee_basis_points as i32,
+                    seq as i64,
+                )
+                .await?;
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
@@ -248,6 +239,7 @@ where
                         if creators_set.contains(&c.address) {
                             continue;
                         }
+
                         db_creator_infos.push(asset_creators::ActiveModel {
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),

@@ -17,6 +17,7 @@ mod delegate;
 mod mint_v1;
 mod redeem;
 mod transfer;
+mod update_metadata;
 
 pub use db::*;
 
@@ -53,7 +54,8 @@ where
         InstructionName::VerifyCollection => "VerifyCollection",
         InstructionName::UnverifyCollection => "UnverifyCollection",
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
-        InstructionName::SetDecompressibleState | InstructionName::UpdateMetadata => todo!(),
+        InstructionName::SetDecompressibleState => "SetDecompressibleState",
+        InstructionName::UpdateMetadata => "UpdateMetadata",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
@@ -91,6 +93,13 @@ where
         | InstructionName::UnverifyCollection
         | InstructionName::SetAndVerifyCollection => {
             collection_verification::process(parsing_result, bundle, txn, cl_audits).await?;
+        }
+        InstructionName::SetDecompressibleState => (), // Nothing to index.
+        InstructionName::UpdateMetadata => {
+            let task =
+                update_metadata::update_metadata(parsing_result, bundle, txn, cl_audits).await?;
+
+            task_manager.send(task)?;
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
