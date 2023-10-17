@@ -23,6 +23,7 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+use log::warn;
 use num_traits::FromPrimitive;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
@@ -40,7 +41,7 @@ pub async fn mint_v1<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     cl_audits: bool,
-) -> Result<TaskData, IngesterError>
+) -> Result<Option<TaskData>, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -63,14 +64,7 @@ where
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
-
                 let uri = metadata.uri.replace('\0', "");
-                if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError(
-                        "URI is empty".to_string(),
-                    ));
-                }
-
                 let name = metadata.name.clone().into_bytes();
                 let symbol = metadata.symbol.clone().into_bytes();
                 let mut chain_data = ChainDataV1 {
@@ -332,16 +326,25 @@ where
                 )
                 .await?;
 
+                if uri.is_empty() {
+                    warn!(
+                        "URI is empty for mint {}. Skipping background task.",
+                        bs58::encode(id).into_string()
+                    );
+                    return Ok(None);
+                }
+
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri: metadata.uri.clone(),
                     created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();
-                return task.into_task_data();
+                let t = task.into_task_data()?;
+                Ok(Some(t))
             }
             _ => Err(IngesterError::NotImplemented),
-        }?;
+        };
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),
