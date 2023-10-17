@@ -7,8 +7,8 @@ use digital_asset_types::{
         SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_assets_by_authority, get_assets_by_creator, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, search_assets,
+        get_asset, get_asset_batch, get_assets_by_authority, get_assets_by_creator,
+        get_assets_by_group, get_assets_by_owner, get_proof_for_asset, search_assets,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -131,6 +131,39 @@ impl ApiContract for DasApi {
         get_asset(&self.db_connection, id_bytes, &display_options.into())
             .await
             .map_err(Into::into)
+    }
+
+    async fn get_asset_batch(
+        self: &DasApi,
+        payload: GetAssetBatch,
+    ) -> Result<Vec<Option<Asset>>, DasApiError> {
+        let GetAssetBatch {
+            ids,
+            display_options,
+        } = payload;
+
+        let batch_size = ids.len();
+        if batch_size > 1000 {
+            return Err(DasApiError::BatchSizeExceededError);
+        }
+
+        let id_bytes = ids
+            .iter()
+            .map(|id| validate_pubkey(id.clone()).map(|id| id.to_bytes().to_vec()))
+            .collect::<Result<Vec<Vec<u8>>, _>>()?;
+
+        let display_options = display_options.unwrap_or_default();
+
+        let assets = get_asset_batch(
+            &self.db_connection,
+            id_bytes,
+            batch_size as u64,
+            &display_options.into(),
+        )
+        .await?;
+
+        let result: Vec<Option<Asset>> = ids.iter().map(|id| assets.get(id).cloned()).collect();
+        Ok(result)
     }
 
     async fn get_assets_by_owner(

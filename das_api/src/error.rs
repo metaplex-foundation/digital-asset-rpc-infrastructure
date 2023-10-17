@@ -22,6 +22,8 @@ pub enum DasApiError {
     PaginationEmptyError,
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] serde_json::Error),
+    #[error("Batch Size Error. Batch size should not be greater than 1000.")]
+    BatchSizeExceededError,
 }
 
 impl Into<RpcError> for DasApiError {

@@ -8,6 +8,7 @@ use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, Roy
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 mod api_impl;
 pub use api_impl::*;
@@ -49,8 +50,22 @@ pub struct GetAsset {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssetBatch {
+    pub ids: Vec<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetProof {
     pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssetProofBatch {
+    pub ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -131,11 +146,29 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
+        name = "getAssetProofBatch",
+        params = "named",
+        summary = "Get merkle proofs for compressed assets by their IDs"
+    )]
+    async fn get_asset_proof_batch(
+        &self,
+        payload: GetAssetProofBatch,
+    ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError>;
+    #[rpc(
         name = "getAsset",
         params = "named",
         summary = "Get an asset by its ID"
     )]
     async fn get_asset(&self, payload: GetAsset) -> Result<Asset, DasApiError>;
+    #[rpc(
+        name = "getAssetBatch",
+        params = "named",
+        summary = "Get assets by their IDs"
+    )]
+    async fn get_asset_batch(
+        &self,
+        payload: GetAssetBatch,
+    ) -> Result<Vec<Option<Asset>>, DasApiError>;
     #[rpc(
         name = "getAssetsByOwner",
         params = "named",

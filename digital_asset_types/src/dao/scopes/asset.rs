@@ -139,6 +139,29 @@ pub async fn get_assets_by_owner(
     .await
 }
 
+pub async fn get_asset_batch(
+    conn: &impl ConnectionTrait,
+    asset_ids: Vec<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+) -> Result<Vec<FullAsset>, DbErr> {
+    let cond = Condition::all()
+        .add(asset::Column::Id.is_in(asset_ids))
+        .add(asset::Column::Supply.gt(0));
+    get_assets_by_condition(
+        conn,
+        cond,
+        vec![],
+        // Default values provided. The args below are not used for batch requests
+        None,
+        Order::Asc,
+        pagination,
+        limit,
+        false,
+    )
+    .await
+}
+
 pub async fn get_by_authority(
     conn: &impl ConnectionTrait,
     authority: Vec<u8>,
