@@ -1,5 +1,6 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::{DatabaseConnection, DbBackend};
+use std::collections::HashMap;
 use {
     crate::dao::asset,
     crate::dao::cl_items,
@@ -86,6 +87,113 @@ pub async fn get_proof_for_asset(
         &required_nodes,
     );
     Ok(asset_proof)
+}
+
+pub async fn get_asset_proof_batch(
+    db: &DatabaseConnection,
+    asset_ids: Vec<Vec<u8>>,
+) -> Result<HashMap<String, AssetProof>, DbErr> {
+    // get the leaves (JOIN with `asset` table to get the asset ids)
+    let q = asset::Entity::find()
+        .join(
+            JoinType::InnerJoin,
+            asset::Entity::belongs_to(cl_items::Entity)
+                .from(asset::Column::Nonce)
+                .to(cl_items::Column::LeafIdx)
+                .into(),
+        )
+        .select_only()
+        .column(asset::Column::Id)
+        .column(asset::Column::TreeId)
+        .column(cl_items::Column::LeafIdx)
+        .column(cl_items::Column::NodeIdx)
+        .column(cl_items::Column::Hash)
+        .filter(Expr::cust("asset.tree_id = cl_items.tree"))
+        // filter by user provided asset ids
+        .filter(asset::Column::Id.is_in(asset_ids.clone()))
+        .build(DbBackend::Postgres);
+    let leaves: Vec<LeafInfo> = db.query_all(q).await.map(|qr| {
+        qr.iter()
+            .map(|q| LeafInfo::from_query_result(q, "").unwrap())
+            .collect()
+    })?;
+
+    let mut asset_map: HashMap<Leaf, LeafInfo> = HashMap::new();
+    for l in &leaves {
+        let key = Leaf {
+            tree_id: l.tree_id.clone(),
+            leaf_idx: l.leaf_idx,
+        };
+        asset_map.insert(key, l.clone());
+    }
+
+    // map: (tree_id, leaf_idx) -> [...req_indexes]
+    let mut tree_indexes: HashMap<Leaf, Vec<i64>> = HashMap::new();
+    for leaf in &leaves {
+        let key = Leaf {
+            tree_id: leaf.tree_id.clone(),
+            leaf_idx: leaf.leaf_idx,
+        };
+        let req_indexes = get_required_nodes_for_proof(leaf.node_idx);
+        tree_indexes.insert(key, req_indexes);
+    }
+
+    // get the required nodes for all assets
+    // SELECT * FROM cl_items WHERE (tree = ? AND node_idx IN (?)) OR (tree = ? AND node_idx IN (?)) OR ...
+    let mut condition = Condition::any();
+    for (leaf, req_indexes) in &tree_indexes {
+        let cond = Condition::all()
+            .add(cl_items::Column::Tree.eq(leaf.tree_id.clone()))
+            .add(cl_items::Column::NodeIdx.is_in(req_indexes.clone()));
+        condition = condition.add(cond);
+    }
+    let query = cl_items::Entity::find()
+        .select_only()
+        .column(cl_items::Column::Tree)
+        .column(cl_items::Column::NodeIdx)
+        .column(cl_items::Column::Level)
+        .column(cl_items::Column::Seq)
+        .column(cl_items::Column::Hash)
+        .filter(condition)
+        .build(DbBackend::Postgres);
+    let nodes: Vec<SimpleChangeLog> = db.query_all(query).await.map(|qr| {
+        qr.iter()
+            .map(|q| SimpleChangeLog::from_query_result(q, "").unwrap())
+            .collect()
+    })?;
+
+    // map: (tree, node_idx) -> SimpleChangeLog
+    let mut node_map: HashMap<(Vec<u8>, i64), SimpleChangeLog> = HashMap::new();
+    for node in nodes {
+        let key = (node.tree.clone(), node.node_idx);
+        node_map.insert(key, node);
+    }
+
+    // construct the proofs
+    let mut asset_proofs: HashMap<String, AssetProof> = HashMap::new();
+    for (leaf, req_indexes) in &tree_indexes {
+        let required_nodes: Vec<SimpleChangeLog> = req_indexes
+            .iter()
+            .filter_map(|n| {
+                let key = (leaf.tree_id.clone(), *n);
+                node_map.get(&key).cloned()
+            })
+            .collect();
+
+        let leaf_info = asset_map.get(&leaf).unwrap();
+        let asset_proof = build_asset_proof(
+            leaf_info.tree_id.clone(),
+            leaf_info.node_idx,
+            leaf_info.hash.clone(),
+            &req_indexes,
+            &required_nodes,
+        );
+
+        let asset_id = bs58::encode(leaf_info.id.to_owned()).into_string();
+        asset_proofs.insert(asset_id, asset_proof);
+    }
+
+    Ok(asset_proofs)
 }
 
 fn build_asset_proof(

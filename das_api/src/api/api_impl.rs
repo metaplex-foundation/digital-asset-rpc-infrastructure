@@ -7,8 +7,9 @@ use digital_asset_types::{
         SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_asset_batch, get_assets_by_authority, get_assets_by_creator,
-        get_assets_by_group, get_assets_by_owner, get_proof_for_asset, search_assets,
+        get_asset, get_asset_batch, get_asset_proof_batch, get_assets_by_authority,
+        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
+        search_assets,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
