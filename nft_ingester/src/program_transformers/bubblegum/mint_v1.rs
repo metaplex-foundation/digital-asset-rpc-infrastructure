@@ -92,7 +92,7 @@ where
                     id_bytes.to_vec(),
                     chain_mutability,
                     chain_data_json,
-                    uri,
+                    uri.clone(),
                     Mutability::Mutable,
                     JsonValue::String("processing".to_string()),
                     slot_i,
