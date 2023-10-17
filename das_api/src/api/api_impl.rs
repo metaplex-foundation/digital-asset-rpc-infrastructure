@@ -122,9 +122,13 @@ impl ApiContract for DasApi {
     }
 
     async fn get_asset(self: &DasApi, payload: GetAsset) -> Result<Asset, DasApiError> {
-        let id = validate_pubkey(payload.id.clone())?;
-        let id_bytes = id.to_bytes().to_vec();
-        get_asset(&self.db_connection, id_bytes)
+        let GetAsset {
+            id,
+            display_options,
+        } = payload;
+        let id_bytes = validate_pubkey(id.clone())?.to_bytes().to_vec();
+        let display_options = display_options.unwrap_or_default();
+        get_asset(&self.db_connection, id_bytes, &display_options.into())
             .await
             .map_err(Into::into)
     }
@@ -147,6 +151,7 @@ impl ApiContract for DasApi {
         let owner_address = validate_pubkey(owner_address.clone())?;
         let owner_address_bytes = owner_address.to_bytes().to_vec();
         let sort_by = sort_by.unwrap_or_default();
+        let display_options = display_options.unwrap_or_default();
         self.validate_pagination(&limit, &page, &before, &after)?;
         get_assets_by_owner(
             &self.db_connection,
@@ -156,6 +161,7 @@ impl ApiContract for DasApi {
             page.map(|x| x as u64),
             before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
             after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &display_options,
         )
         .await
         .map_err(Into::into)
@@ -178,6 +184,7 @@ impl ApiContract for DasApi {
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
         let sort_by = sort_by.unwrap_or_default();
+        let display_options = display_options.unwrap_or_default();
         self.validate_pagination(&limit, &page, &before, &after)?;
         get_assets_by_group(
             &self.db_connection,
@@ -188,6 +195,7 @@ impl ApiContract for DasApi {
             page.map(|x| x as u64),
             before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
             after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &display_options,
         )
         .await
         .map_err(Into::into)
@@ -213,6 +221,7 @@ impl ApiContract for DasApi {
         self.validate_pagination(&limit, &page, &before, &after)?;
         let sort_by = sort_by.unwrap_or_default();
         let only_verified = only_verified.unwrap_or_default();
+        let display_options = display_options.unwrap_or_default();
         get_assets_by_creator(
             &self.db_connection,
             creator_address_bytes,
@@ -222,6 +231,7 @@ impl ApiContract for DasApi {
             page.map(|x| x as u64),
             before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
             after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &display_options,
         )
         .await
         .map_err(Into::into)
@@ -243,6 +253,7 @@ impl ApiContract for DasApi {
         let sort_by = sort_by.unwrap_or_default();
         let authority_address = validate_pubkey(authority_address.clone())?;
         let authority_address_bytes = authority_address.to_bytes().to_vec();
+        let display_options = display_options.unwrap_or_default();
 
         self.validate_pagination(&limit, &page, &before, &after)?;
         get_assets_by_authority(
@@ -253,6 +264,7 @@ impl ApiContract for DasApi {
             page.map(|x| x as u64),
             before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
             after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &display_options,
         )
         .await
         .map_err(Into::into)
@@ -339,6 +351,7 @@ impl ApiContract for DasApi {
             json_uri,
         };
         let sort_by = sort_by.unwrap_or_default();
+        let display_options = display_options.unwrap_or_default();
         // Execute query
         search_assets(
             &self.db_connection,
@@ -348,6 +361,7 @@ impl ApiContract for DasApi {
             page.map(|x| x as u64),
             before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
             after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &display_options,
         )
         .await
         .map_err(Into::into)

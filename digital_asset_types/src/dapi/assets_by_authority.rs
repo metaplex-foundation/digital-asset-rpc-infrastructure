@@ -1,4 +1,5 @@
 use crate::dao::scopes;
+use crate::rpc::display_options::DisplayOptions;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::AssetList;
 use sea_orm::DatabaseConnection;
@@ -14,6 +15,7 @@ pub async fn get_assets_by_authority(
     page: Option<u64>,
     before: Option<Vec<u8>>,
     after: Option<Vec<u8>>,
+    display_options: &DisplayOptions,
 ) -> Result<AssetList, DbErr> {
     let pagination = create_pagination(before, after, page)?;
     let (sort_direction, sort_column) = create_sorting(sorting);
@@ -24,7 +26,13 @@ pub async fn get_assets_by_authority(
         sort_direction,
         &pagination,
         limit,
+        display_options.show_unverified_collections,
     )
     .await?;
-    Ok(build_asset_response(assets, limit, &pagination))
+    Ok(build_asset_response(
+        assets,
+        limit,
+        &pagination,
+        display_options,
+    ))
 }

@@ -1,16 +1,12 @@
-use crate::{
-    dao::{
-        asset::{self, Entity},
-        asset_authority, asset_creators, asset_data, asset_grouping, FullAsset,
-        GroupingSize, Pagination,
-    },
-    dapi::common::safe_select,
-    rpc::{response::AssetList},
+use crate::dao::{
+    asset::{self},
+    asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
+    Pagination,
 };
 
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
 where
@@ -43,6 +39,7 @@ pub async fn get_by_creator(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
         .add(asset_creators::Column::Creator.eq(creator))
@@ -58,6 +55,7 @@ pub async fn get_by_creator(
         sort_direction,
         pagination,
         limit,
+        show_unverified_collections,
     )
     .await
 }
@@ -91,6 +89,7 @@ pub async fn get_by_grouping(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let condition = asset_grouping::Column::GroupKey
         .eq(group_key)
@@ -110,6 +109,7 @@ pub async fn get_by_grouping(
         sort_direction,
         pagination,
         limit,
+        show_unverified_collections,
     )
     .await
 }
@@ -121,6 +121,7 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
@@ -133,6 +134,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
+        show_unverified_collections,
     )
     .await
 }
@@ -144,6 +146,7 @@ pub async fn get_by_authority(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset_authority::Column::Authority.eq(authority))
@@ -156,6 +159,7 @@ pub async fn get_by_authority(
         sort_direction,
         pagination,
         limit,
+        show_unverified_collections,
     )
     .await
 }
@@ -168,6 +172,7 @@ async fn get_by_related_condition<E>(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
     E: RelationTrait,
@@ -183,12 +188,13 @@ where
     }
 
     let assets = paginate(pagination, limit, stmt).all(conn).await?;
-    get_related_for_assets(conn, assets).await
+    get_related_for_assets(conn, assets, show_unverified_collections).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
@@ -244,16 +250,20 @@ pub async fn get_related_for_assets(
         }
     }
 
+    let cond = if show_unverified_collections {
+        Condition::all()
+    } else {
+        Condition::any()
+            .add(asset_grouping::Column::Verified.eq(true))
+            // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
+            // Therefore if verified is null, we can assume that the group is verified.
+            .add(asset_grouping::Column::Verified.is_null())
+    };
+
     let grouping = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(
-            Condition::any()
-                .add(asset_grouping::Column::Verified.eq(true))
-                // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
-                // Therefore if verified is null, we can assume that the group is verified.
-                .add(asset_grouping::Column::Verified.is_null()),
-        )
+        .filter(cond)
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
         .await?;
@@ -274,6 +284,7 @@ pub async fn get_assets_by_condition(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
+    show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find();
     for def in joins {
@@ -287,7 +298,7 @@ pub async fn get_assets_by_condition(
     }
 
     let assets = paginate(pagination, limit, stmt).all(conn).await?;
-    let full_assets = get_related_for_assets(conn, assets).await?;
+    let full_assets = get_related_for_assets(conn, assets, show_unverified_collections).await?;
     Ok(full_assets)
 }
 
