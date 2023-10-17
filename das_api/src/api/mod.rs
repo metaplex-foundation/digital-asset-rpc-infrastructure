@@ -1,5 +1,6 @@
 use crate::DasApiError;
 use async_trait::async_trait;
+use digital_asset_types::rpc::display_options::DisplayOptions;
 use digital_asset_types::rpc::filter::SearchConditionType;
 use digital_asset_types::rpc::response::AssetList;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
@@ -21,6 +22,8 @@ pub struct GetAssetsByGroup {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -32,12 +35,16 @@ pub struct GetAssetsByOwner {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -56,6 +63,8 @@ pub struct GetAssetsByCreator {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -87,6 +96,8 @@ pub struct SearchAssets {
     pub after: Option<String>,
     #[serde(default)]
     pub json_uri: Option<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -98,6 +109,8 @@ pub struct GetAssetsByAuthority {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default)]
+    pub display_options: Option<DisplayOptions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
