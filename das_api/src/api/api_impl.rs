@@ -4,14 +4,17 @@ use digital_asset_types::{
         sea_orm_active_enums::{
             OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
         },
-        SearchAssetsQuery,
+        Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
         get_asset, get_asset_batch, get_asset_proof_batch, get_assets_by_authority,
         get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
         search_assets,
     },
-    rpc::{filter::SearchConditionType, response::GetGroupingResponse},
+    rpc::{
+        filter::{AssetSortBy, SearchConditionType},
+        response::GetGroupingResponse,
+    },
     rpc::{OwnershipModel, RoyaltyModel},
 };
 use open_rpc_derive::document_rpc;
@@ -47,21 +50,37 @@ impl DasApi {
         })
     }
 
+    fn get_cursor(&self, cursor: &Option<String>) -> Result<Cursor, DasApiError> {
+        match cursor {
+            Some(cursor_b64) => {
+                let cursor_vec = bs58::decode(cursor_b64)
+                    .into_vec()
+                    .map_err(|_| DasApiError::CursorValidationError(cursor_b64.clone()))?;
+                let cursor_struct = Cursor {
+                    id: Some(cursor_vec),
+                };
+                Ok(cursor_struct)
+            }
+            None => Ok(Cursor::default()),
+        }
+    }
+
     fn validate_pagination(
         &self,
         limit: &Option<u32>,
         page: &Option<u32>,
         before: &Option<String>,
         after: &Option<String>,
-    ) -> Result<(), DasApiError> {
-        if page.is_none() && before.is_none() && after.is_none() {
-            return Err(DasApiError::PaginationEmptyError);
-        }
+        cursor: &Option<String>,
+        sorting: &Option<&AssetSorting>,
+    ) -> Result<PageOptions, DasApiError> {
+        let mut is_cursor_enabled = true;
+        let mut page_opt = PageOptions::default();
 
         if let Some(limit) = limit {
             // make config item
             if *limit > 1000 {
-                return Err(DasApiError::PaginationError);
+                return Err(DasApiError::PaginationExceededError);
             }
         }
 
@@ -71,20 +90,57 @@ impl DasApi {
             }
 
             // make config item
-            if before.is_some() || after.is_some() {
+            if before.is_some() || after.is_some() || cursor.is_some() {
                 return Err(DasApiError::PaginationError);
             }
+
+            is_cursor_enabled = false;
         }
 
         if let Some(before) = before {
+            if cursor.is_some() {
+                return Err(DasApiError::PaginationError);
+            }
+            if let Some(sort) = &sorting {
+                if sort.sort_by != AssetSortBy::Id {
+                    return Err(DasApiError::PaginationSortingValidationError);
+                }
+            }
             validate_pubkey(before.clone())?;
+            is_cursor_enabled = false;
         }
 
         if let Some(after) = after {
+            if cursor.is_some() {
+                return Err(DasApiError::PaginationError);
+            }
+            if let Some(sort) = &sorting {
+                if sort.sort_by != AssetSortBy::Id {
+                    return Err(DasApiError::PaginationSortingValidationError);
+                }
+            }
             validate_pubkey(after.clone())?;
+            is_cursor_enabled = false;
         }
 
-        Ok(())
+        page_opt.limit = limit.map(|x| x as u64).unwrap_or(1000);
+        if is_cursor_enabled {
+            if let Some(sort) = &sorting {
+                if sort.sort_by != AssetSortBy::Id {
+                    return Err(DasApiError::PaginationSortingValidationError);
+                }
+                page_opt.cursor = Some(self.get_cursor(&cursor)?);
+            }
+        } else {
+            page_opt.page = page.map(|x| x as u64);
+            page_opt.before = before
+                .clone()
+                .map(|x| bs58::decode(x).into_vec().unwrap_or_default());
+            page_opt.after = after
+                .clone()
+                .map(|x| bs58::decode(x).into_vec().unwrap_or_default());
+        }
+        Ok(page_opt)
     }
 }
 
@@ -204,6 +260,7 @@ impl ApiContract for DasApi {
             before,
             after,
             display_options,
+            cursor,
         } = payload;
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
@@ -211,15 +268,13 @@ impl ApiContract for DasApi {
         let owner_address_bytes = owner_address.to_bytes().to_vec();
         let sort_by = sort_by.unwrap_or_default();
         let display_options = display_options.unwrap_or_default();
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
         get_assets_by_owner(
             &self.db_connection,
             owner_address_bytes,
             sort_by,
-            limit.map(|x| x as u64).unwrap_or(1000),
-            page.map(|x| x as u64),
-            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
-            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &page_options,
             &display_options,
         )
         .await
@@ -239,21 +294,20 @@ impl ApiContract for DasApi {
             before,
             after,
             display_options,
+            cursor,
         } = payload;
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
         let sort_by = sort_by.unwrap_or_default();
         let display_options = display_options.unwrap_or_default();
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
         get_assets_by_group(
             &self.db_connection,
             group_key,
             group_value,
             sort_by,
-            limit.map(|x| x as u64).unwrap_or(1000),
-            page.map(|x| x as u64),
-            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
-            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &page_options,
             &display_options,
         )
         .await
@@ -273,12 +327,14 @@ impl ApiContract for DasApi {
             before,
             after,
             display_options,
+            cursor,
         } = payload;
         let creator_address = validate_pubkey(creator_address.clone())?;
         let creator_address_bytes = creator_address.to_bytes().to_vec();
 
-        self.validate_pagination(&limit, &page, &before, &after)?;
         let sort_by = sort_by.unwrap_or_default();
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
         let only_verified = only_verified.unwrap_or_default();
         let display_options = display_options.unwrap_or_default();
         get_assets_by_creator(
@@ -286,10 +342,7 @@ impl ApiContract for DasApi {
             creator_address_bytes,
             only_verified,
             sort_by,
-            limit.map(|x| x as u64).unwrap_or(1000),
-            page.map(|x| x as u64),
-            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
-            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &page_options,
             &display_options,
         )
         .await
@@ -308,21 +361,20 @@ impl ApiContract for DasApi {
             before,
             after,
             display_options,
+            cursor,
         } = payload;
         let sort_by = sort_by.unwrap_or_default();
         let authority_address = validate_pubkey(authority_address.clone())?;
         let authority_address_bytes = authority_address.to_bytes().to_vec();
         let display_options = display_options.unwrap_or_default();
 
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
         get_assets_by_authority(
             &self.db_connection,
             authority_address_bytes,
             sort_by,
-            limit.map(|x| x as u64).unwrap_or(1000),
-            page.map(|x| x as u64),
-            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
-            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &page_options,
             &display_options,
         )
         .await
@@ -358,9 +410,9 @@ impl ApiContract for DasApi {
             after,
             json_uri,
             display_options,
+            cursor,
         } = payload;
         // Deserialize search assets query
-        self.validate_pagination(&limit, &page, &before, &after)?;
         let spec: Option<(SpecificationVersions, SpecificationAssetClass)> =
             interface.map(|x| x.into());
         let specification_version = spec.clone().map(|x| x.0);
@@ -409,17 +461,16 @@ impl ApiContract for DasApi {
             burnt,
             json_uri,
         };
-        let sort_by = sort_by.unwrap_or_default();
         let display_options = display_options.unwrap_or_default();
+        let sort_by = sort_by.unwrap_or_default();
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
         // Execute query
         search_assets(
             &self.db_connection,
             saq,
             sort_by,
-            limit.map(|x| x as u64).unwrap_or(1000),
-            page.map(|x| x as u64),
-            before.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
-            after.map(|x| bs58::decode(x).into_vec().unwrap_or_default()),
+            &page_options,
             &display_options,
         )
         .await

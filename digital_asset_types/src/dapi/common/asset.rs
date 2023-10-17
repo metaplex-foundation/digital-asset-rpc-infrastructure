@@ -1,5 +1,6 @@
 use crate::dao::sea_orm_active_enums::SpecificationVersions;
 use crate::dao::FullAsset;
+use crate::dao::PageOptions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::display_options::DisplayOptions;
@@ -52,14 +53,23 @@ pub fn build_asset_response(
     display_options: &DisplayOptions,
 ) -> AssetList {
     let total = assets.len() as u32;
-    let (page, before, after) = match pagination {
+    let (page, before, after, cursor) = match pagination {
         Pagination::Keyset { before, after } => {
             let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
             let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
-            (None, bef, aft)
+            (None, bef, aft, None)
         }
-        Pagination::Page { page } => (Some(*page), None, None),
+        Pagination::Page { page } => (Some(*page), None, None, None),
+        Pagination::Cursor(_) => {
+            if let Some(last_asset) = assets.last() {
+                let cursor_str = bs58::encode(&last_asset.asset.id.clone()).into_string();
+                (None, None, None, Some(cursor_str))
+            } else {
+                (None, None, None, None)
+            }
+        }
     };
+
     let (items, errors) = asset_list_to_rpc(assets, display_options);
     AssetList {
         total,
@@ -69,11 +79,13 @@ pub fn build_asset_response(
         after,
         items,
         errors,
+        cursor,
     }
 }
 
 pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, Option<asset::Column>) {
     let sort_column = match sorting.sort_by {
+        AssetSortBy::Id => Some(asset::Column::Id),
         AssetSortBy::Created => Some(asset::Column::CreatedAt),
         AssetSortBy::Updated => Some(asset::Column::SlotUpdated),
         AssetSortBy::RecentAction => Some(asset::Column::SlotUpdated),
@@ -86,18 +98,22 @@ pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, Option<a
     (sort_direction, sort_column)
 }
 
-pub fn create_pagination(
-    before: Option<Vec<u8>>,
-    after: Option<Vec<u8>>,
-    page: Option<u64>,
-) -> Result<Pagination, DbErr> {
-    match (&before, &after, &page) {
-        (_, _, None) => Ok(Pagination::Keyset {
-            before: before.map(|x| x.into()),
-            after: after.map(|x| x.into()),
-        }),
-        (None, None, Some(p)) => Ok(Pagination::Page { page: *p }),
-        _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
+pub fn create_pagination(page_options: &PageOptions) -> Result<Pagination, DbErr> {
+    if let Some(cursor) = &page_options.cursor {
+        Ok(Pagination::Cursor(cursor.clone()))
+    } else {
+        match (
+            page_options.before.as_ref(),
+            page_options.after.as_ref(),
+            page_options.page,
+        ) {
+            (_, _, None) => Ok(Pagination::Keyset {
+                before: page_options.before.clone(),
+                after: page_options.after.clone(),
+            }),
+            (None, None, Some(p)) => Ok(Pagination::Page { page: p }),
+            _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
+        }
     }
 }
 

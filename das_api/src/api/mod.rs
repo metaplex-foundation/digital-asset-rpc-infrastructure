@@ -25,6 +25,8 @@ pub struct GetAssetsByGroup {
     pub after: Option<String>,
     #[serde(default)]
     pub display_options: Option<DisplayOptions>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -38,6 +40,8 @@ pub struct GetAssetsByOwner {
     pub after: Option<String>,
     #[serde(default)]
     pub display_options: Option<DisplayOptions>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -80,6 +84,8 @@ pub struct GetAssetsByCreator {
     pub after: Option<String>,
     #[serde(default)]
     pub display_options: Option<DisplayOptions>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -113,6 +119,8 @@ pub struct SearchAssets {
     pub json_uri: Option<String>,
     #[serde(default)]
     pub display_options: Option<DisplayOptions>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -126,6 +134,8 @@ pub struct GetAssetsByAuthority {
     pub after: Option<String>,
     #[serde(default)]
     pub display_options: Option<DisplayOptions>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -4,6 +4,7 @@ mod generated;
 pub mod scopes;
 pub use full_asset::*;
 pub use generated::*;
+use serde::{Deserialize, Serialize};
 
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
@@ -19,6 +20,20 @@ pub struct GroupingSize {
     pub size: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct PageOptions {
+    pub limit: u64,
+    pub page: Option<u64>,
+    pub before: Option<Vec<u8>>,
+    pub after: Option<Vec<u8>>,
+    pub cursor: Option<Cursor>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct Cursor {
+    pub id: Option<Vec<u8>>,
+}
+
 pub enum Pagination {
     Keyset {
         before: Option<Vec<u8>>,
@@ -27,6 +42,7 @@ pub enum Pagination {
     Page {
         page: u64,
     },
+    Cursor(Cursor),
 }
 
 #[derive(Debug, Clone, PartialEq)]

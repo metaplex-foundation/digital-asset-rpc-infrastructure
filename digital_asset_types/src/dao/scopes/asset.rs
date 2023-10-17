@@ -1,6 +1,6 @@
 use crate::dao::{
     asset::{self},
-    asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
+    asset_authority, asset_creators, asset_data, asset_grouping, Cursor, FullAsset, GroupingSize,
     Pagination,
 };
 
@@ -8,23 +8,39 @@ use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
 use std::collections::HashMap;
 
-pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
+pub fn paginate<'db, T, C>(
+    pagination: &Pagination,
+    limit: u64,
+    stmt: T,
+    sort_direction: Order,
+    column: C,
+) -> T
 where
     T: QueryFilter + QuerySelect,
+    C: ColumnTrait,
 {
     let mut stmt = stmt;
     match pagination {
         Pagination::Keyset { before, after } => {
             if let Some(b) = before {
-                stmt = stmt.filter(asset::Column::Id.lt(b.clone()));
+                stmt = stmt.filter(column.lt(b.clone()));
             }
             if let Some(a) = after {
-                stmt = stmt.filter(asset::Column::Id.gt(a.clone()));
+                stmt = stmt.filter(column.gt(a.clone()));
             }
         }
         Pagination::Page { page } => {
             if *page > 0 {
                 stmt = stmt.offset((page - 1) * limit)
+            }
+        }
+        Pagination::Cursor(cursor) => {
+            if *cursor != Cursor::default() {
+                if sort_direction == sea_orm::Order::Asc {
+                    stmt = stmt.filter(column.gt(cursor.id.clone()));
+                } else {
+                    stmt = stmt.filter(column.lt(cursor.id.clone()));
+                }
             }
         }
     }
@@ -207,10 +223,12 @@ where
     if let Some(col) = sort_by {
         stmt = stmt
             .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction);
+            .order_by(asset::Column::Id, sort_direction.clone());
     }
 
-    let assets = paginate(pagination, limit, stmt).all(conn).await?;
+    let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
+        .all(conn)
+        .await?;
     get_related_for_assets(conn, assets, show_unverified_collections).await
 }
 
@@ -317,10 +335,12 @@ pub async fn get_assets_by_condition(
     if let Some(col) = sort_by {
         stmt = stmt
             .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction);
+            .order_by(asset::Column::Id, sort_direction.clone());
     }
 
-    let assets = paginate(pagination, limit, stmt).all(conn).await?;
+    let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
+        .all(conn)
+        .await?;
     let full_assets = get_related_for_assets(conn, assets, show_unverified_collections).await?;
     Ok(full_assets)
 }
