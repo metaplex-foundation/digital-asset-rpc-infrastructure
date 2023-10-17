@@ -1,4 +1,3 @@
-use log::debug;
 use sea_orm::sea_query::Expr;
 use sea_orm::{DatabaseConnection, DbBackend};
 use {
@@ -15,6 +14,22 @@ struct SimpleChangeLog {
     level: i64,
     node_idx: i64,
     seq: i64,
+    tree: Vec<u8>,
+}
+
+#[derive(FromQueryResult, Debug, Default, Clone, Eq, PartialEq)]
+struct LeafInfo {
+    id: Vec<u8>,
+    tree_id: Vec<u8>,
+    leaf_idx: i64,
+    node_idx: i64,
+    hash: Vec<u8>,
+}
+
+#[derive(Hash, Debug, Default, Clone, Eq, PartialEq)]
+struct Leaf {
+    tree_id: Vec<u8>,
+    leaf_idx: i64,
 }
 
 pub async fn get_proof_for_asset(
@@ -42,9 +57,6 @@ pub async fn get_proof_for_asset(
     }
     let leaf = leaf.unwrap();
     let req_indexes = get_required_nodes_for_proof(leaf.node_idx);
-    let expected_proof_size = req_indexes.len();
-    let mut final_node_list: Vec<SimpleChangeLog> =
-        vec![SimpleChangeLog::default(); expected_proof_size];
     let mut query = cl_items::Entity::find()
         .select_only()
         .column(cl_items::Column::NodeIdx)
@@ -61,48 +73,62 @@ pub async fn get_proof_for_asset(
     query.sql = query
         .sql
         .replace("SELECT", "SELECT DISTINCT ON (cl_items.node_idx)");
-    let nodes: Vec<SimpleChangeLog> = db.query_all(query).await.map(|qr| {
+    let required_nodes: Vec<SimpleChangeLog> = db.query_all(query).await.map(|qr| {
         qr.iter()
             .map(|q| SimpleChangeLog::from_query_result(q, "").unwrap())
             .collect()
     })?;
-    for node in nodes.iter() {
+    let asset_proof = build_asset_proof(
+        leaf.tree,
+        leaf.node_idx,
+        leaf.hash,
+        &req_indexes,
+        &required_nodes,
+    );
+    Ok(asset_proof)
+}
+
+fn build_asset_proof(
+    tree_id: Vec<u8>,
+    leaf_node_idx: i64,
+    leaf_hash: Vec<u8>,
+    req_indexes: &Vec<i64>,
+    required_nodes: &Vec<SimpleChangeLog>,
+) -> AssetProof {
+    let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
+    for node in required_nodes.iter() {
         if node.level < final_node_list.len().try_into().unwrap() {
             final_node_list[node.level as usize] = node.to_owned();
         }
     }
-    for (i, (n, nin)) in final_node_list.iter_mut().zip(req_indexes).enumerate() {
+    for (i, (n, nin)) in final_node_list
+        .iter_mut()
+        .zip(req_indexes.clone())
+        .enumerate()
+    {
         if *n == SimpleChangeLog::default() {
-            *n = make_empty_node(i as i64, nin);
+            *n = make_empty_node(i as i64, nin, tree_id.clone());
         }
     }
-    for n in final_node_list.iter() {
-        debug!(
-            "level {} index {} seq {} hash {}",
-            n.level,
-            n.node_idx,
-            n.seq,
-            bs58::encode(&n.hash).into_string()
-        );
-    }
-    Ok(AssetProof {
+    AssetProof {
         root: bs58::encode(final_node_list.pop().unwrap().hash).into_string(),
-        leaf: bs58::encode(&leaf.hash).into_string(),
+        leaf: bs58::encode(leaf_hash).into_string(),
         proof: final_node_list
             .iter()
             .map(|model| bs58::encode(&model.hash).into_string())
             .collect(),
-        node_index: leaf.node_idx,
-        tree_id: bs58::encode(&leaf.tree).into_string(),
-    })
+        node_index: leaf_node_idx,
+        tree_id: bs58::encode(tree_id).into_string(),
+    }
 }
 
-fn make_empty_node(lvl: i64, node_index: i64) -> SimpleChangeLog {
+fn make_empty_node(lvl: i64, node_index: i64, tree: Vec<u8>) -> SimpleChangeLog {
     SimpleChangeLog {
         node_idx: node_index,
         level: lvl,
         hash: empty_node(lvl as u32).to_vec(),
         seq: 0,
+        tree,
     }
 }
 

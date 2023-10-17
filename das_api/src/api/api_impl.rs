@@ -121,6 +121,31 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
+    async fn get_asset_proof_batch(
+        self: &DasApi,
+        payload: GetAssetProofBatch,
+    ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError> {
+        let GetAssetProofBatch { ids } = payload;
+
+        let batch_size = ids.len();
+        if batch_size > 1000 {
+            return Err(DasApiError::BatchSizeExceededError);
+        }
+
+        let id_bytes = ids
+            .iter()
+            .map(|id| validate_pubkey(id.clone()).map(|id| id.to_bytes().to_vec()))
+            .collect::<Result<Vec<Vec<u8>>, _>>()?;
+
+        let proofs = get_asset_proof_batch(&self.db_connection, id_bytes).await?;
+
+        let result: HashMap<String, Option<AssetProof>> = ids
+            .iter()
+            .map(|id| (id.clone(), proofs.get(id).cloned()))
+            .collect();
+        Ok(result)
+    }
+
     async fn get_asset(self: &DasApi, payload: GetAsset) -> Result<Asset, DasApiError> {
         let GetAsset {
             id,
