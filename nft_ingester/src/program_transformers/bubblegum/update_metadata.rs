@@ -19,6 +19,7 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+use log::warn;
 use num_traits::FromPrimitive;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
@@ -30,7 +31,7 @@ pub async fn update_metadata<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     cl_audits: bool,
-) -> Result<TaskData, IngesterError>
+) -> Result<Option<TaskData>, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -255,6 +256,14 @@ where
                     txn.execute(query).await?;
                 }
 
+                if uri.is_empty() {
+                    warn!(
+                        "URI is empty for mint {}. Skipping background task.",
+                        bs58::encode(id).into_string()
+                    );
+                    return Ok(None);
+                }
+
                 // TODO DEAL WITH TASKS
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
@@ -262,10 +271,11 @@ where
                     created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();
-                return task.into_task_data();
+                let t = task.into_task_data()?;
+                Ok(Some(t))
             }
             _ => Err(IngesterError::NotImplemented),
-        }?;
+        };
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),

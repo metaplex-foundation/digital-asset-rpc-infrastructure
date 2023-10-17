@@ -101,7 +101,9 @@ where
             let task =
                 update_metadata::update_metadata(parsing_result, bundle, txn, cl_audits).await?;
 
-            task_manager.send(task)?;
+            if let Some(t) = task {
+                task_manager.send(t)?;
+            }
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
