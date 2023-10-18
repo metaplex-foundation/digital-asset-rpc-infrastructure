@@ -107,14 +107,18 @@ pub async fn get_by_grouping(
     limit: u64,
     show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let condition = asset_grouping::Column::GroupKey
+    let mut condition = asset_grouping::Column::GroupKey
         .eq(group_key)
-        .and(asset_grouping::Column::GroupValue.eq(group_value))
-        .and(
+        .and(asset_grouping::Column::GroupValue.eq(group_value));
+
+    if !show_unverified_collections {
+        condition = condition.and(
             asset_grouping::Column::Verified
                 .eq(true)
                 .or(asset_grouping::Column::Verified.is_null()),
         );
+    }
+
     get_by_related_condition(
         conn,
         Condition::all()

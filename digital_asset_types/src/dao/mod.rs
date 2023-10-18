@@ -271,9 +271,8 @@ impl SearchAssetsQuery {
                 )
             })?;
 
-            let name_expr = SimpleExpr::Custom(
-                format!("encode(raw_name, 'escape') LIKE '%%{}%%'", name_as_str).into(),
-            );
+            let name_expr =
+                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str).into());
 
             conditions = conditions.add(name_expr);
             let rel = asset_data::Relation::Asset
