@@ -121,6 +121,8 @@ pub struct SearchAssets {
     pub display_options: Option<DisplayOptions>,
     #[serde(default)]
     pub cursor: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

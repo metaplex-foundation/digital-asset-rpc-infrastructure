@@ -20,7 +20,7 @@ use digital_asset_types::{
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 
-use crate::validation::validate_opt_pubkey;
+use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use open_rpc_schema::document::OpenrpcDocument;
 use {
     crate::api::*,
@@ -411,7 +411,10 @@ impl ApiContract for DasApi {
             json_uri,
             display_options,
             cursor,
+            name,
         } = payload;
+
+
         // Deserialize search assets query
         let spec: Option<(SpecificationVersions, SpecificationAssetClass)> =
             interface.map(|x| x.into());
@@ -422,6 +425,7 @@ impl ApiContract for DasApi {
             SearchConditionType::All => ConditionType::All,
         });
         let owner_address = validate_opt_pubkey(&owner_address)?;
+        let name = validate_search_with_name(&name, &owner_address)?;
         let creator_address = validate_opt_pubkey(&creator_address)?;
         let delegate = validate_opt_pubkey(&delegate)?;
 
@@ -460,6 +464,7 @@ impl ApiContract for DasApi {
             royalty_amount,
             burnt,
             json_uri,
+            name,
         };
         let display_options = display_options.unwrap_or_default();
         let sort_by = sort_by.unwrap_or_default();
