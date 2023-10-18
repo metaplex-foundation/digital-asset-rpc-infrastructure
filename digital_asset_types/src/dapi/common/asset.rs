@@ -168,6 +168,10 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     if let Some(symbol) = symbol {
         meta.set_item("attributes", symbol.clone());
     }
+    let token_standard = safe_select(chain_data_selector, "$.token_standard");
+    if let Some(token_standard) = token_standard {
+        meta.set_item("token_standard", token_standard.clone());
+    }
     let mut links = HashMap::new();
     let link_fields = vec!["image", "animation_url", "external_url"];
     for f in link_fields {
