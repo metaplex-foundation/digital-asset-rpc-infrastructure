@@ -442,6 +442,7 @@ where
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_asset_data<T>(
     txn: &T,
     id: Vec<u8>,
@@ -454,13 +455,13 @@ pub async fn upsert_asset_data<T>(
     reindex: Option<bool>,
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
-    seq: i64,
+    _seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset_data::ActiveModel {
-        id: Set(id),
+        id: Set(id.clone()),
         chain_data_mutability: Set(chain_data_mutability),
         chain_data: Set(chain_data),
         metadata_url: Set(metadata_url),
@@ -473,6 +474,13 @@ where
         //seq: Set(seq),
     };
 
+    // First check to see if this asset has been decompressed.
+    if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
+        if let Some(0) = asset.seq {
+            return Ok(());
+        }
+    };
+
     let mut query = asset_data::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
@@ -481,7 +489,9 @@ where
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::MetadataMutability,
-                    //TODO DEAL WITH THIS
+                    // Don't update Metadata if it already exists.  Even if we are doing
+                    // and update_metadata and there's a new URI, the new background task
+                    // will overwrite it.
                     //asset_data::Column::Metadata,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
@@ -493,10 +503,10 @@ where
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-    // TODO DEAL WITH THIS
-    "{} WHERE (excluded.slot_updated > asset_data.slot_updated) AND (excluded.seq >= asset_data.seq OR asset_data.seq IS NULL)",
-    query.sql
-);
+        // New asset_data.seq.
+        "{} WHERE excluded.seq >= asset_data.seq OR asset_data.seq IS NULL)",
+        query.sql
+    );
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;

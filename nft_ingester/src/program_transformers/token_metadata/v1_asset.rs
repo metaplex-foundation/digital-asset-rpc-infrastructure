@@ -161,6 +161,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::MetadataMutability,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
+                    //TODO RAW NAME
                 ])
                 .to_owned(),
         )

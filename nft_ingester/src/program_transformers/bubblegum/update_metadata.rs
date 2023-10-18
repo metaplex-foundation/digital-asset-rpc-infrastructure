@@ -128,7 +128,7 @@ where
                 )
                 .await?;
 
-                // Partial update of asset table with just seller fee basis points.
+                // Partial update of asset table with just royalty amount (seller fee basis points).
                 let seller_fee_basis_points =
                     if let Some(seller_fee_basis_points) = update_args.seller_fee_basis_points {
                         seller_fee_basis_points

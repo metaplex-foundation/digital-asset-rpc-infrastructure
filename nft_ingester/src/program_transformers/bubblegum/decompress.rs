@@ -19,6 +19,7 @@ where
 
     // Partial update of asset table with just leaf.
     upsert_asset_with_leaf_info_for_decompression(txn, id_bytes.to_vec()).await?;
+
     upsert_asset_with_compression_info(
         txn,
         id_bytes.to_vec(),
