@@ -49,10 +49,7 @@ where
         let query = asset::Entity::insert(asset_model)
             .on_conflict(
                 OnConflict::columns([asset::Column::Id])
-                    .update_columns([
-                        asset::Column::Burnt,
-                        //TODO maybe handle slot updated.
-                    ])
+                    .update_columns([asset::Column::Burnt])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);

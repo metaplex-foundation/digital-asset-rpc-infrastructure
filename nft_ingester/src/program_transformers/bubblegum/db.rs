@@ -329,7 +329,7 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE (NOT asset.was_decompressed) AND (excluded.seq >= asset.seq OR asset.seq IS NULL)",
+        "{} WHERE excluded.seq >= asset.seq OR asset.seq IS NULL",
         query.sql
     );
 
