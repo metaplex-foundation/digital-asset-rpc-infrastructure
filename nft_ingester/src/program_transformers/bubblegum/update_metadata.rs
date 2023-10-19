@@ -278,10 +278,10 @@ where
                     return Ok(None);
                 }
 
-                // TODO DEAL WITH TASKS
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
                     uri,
+                    seq: seq as i64,
                     created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();

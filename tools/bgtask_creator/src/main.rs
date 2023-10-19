@@ -322,6 +322,7 @@ WHERE
                     let mut task = DownloadMetadata {
                         asset_data_id: asset.id,
                         uri: asset.metadata_url,
+                        seq: 0,
                         created_at: Some(Utc::now().naive_utc()),
                     };
 

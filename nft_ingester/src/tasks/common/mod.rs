@@ -18,6 +18,7 @@ const TASK_NAME: &str = "DownloadMetadata";
 pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
+    pub seq: i64,
     #[serde(skip_serializing)]
     pub created_at: Option<NaiveDateTime>,
 }
@@ -110,24 +111,29 @@ impl BgTask for DownloadMetadataTask {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),
             reindex: Set(Some(false)),
+            //download_metadata_seq: Set(Some(download_metadata.seq)),
             ..Default::default()
         };
         debug!(
             "download metadata for {:?}",
             bs58::encode(download_metadata.asset_data_id.clone()).into_string()
         );
-        asset_data::Entity::update(model)
-            .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()))
-            .exec(db)
-            .await
-            .map(|_| ())
-            .map_err(|db| {
-                IngesterError::TaskManagerError(format!(
-                    "Database error with {}, error: {}",
-                    self.name(),
-                    db
-                ))
-            })?;
+        let query = asset_data::Entity::update(model)
+            .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()));
+        // if download_metadata.seq != 0 {
+        //     query.filter(
+        //         Condition::any()
+        //             .add(asset_data::Column::DownloadMetadataSeq.lt(download_metadata.seq))
+        //             .add(asset_data::Column::DownloadMetadataSeq.is_null()),
+        //     );
+        // }
+        query.exec(db).await.map(|_| ()).map_err(|db| {
+            IngesterError::TaskManagerError(format!(
+                "Database error with {}, error: {}",
+                self.name(),
+                db
+            ))
+        })?;
 
         if meta_url.is_err() {
             return Err(IngesterError::UnrecoverableTaskError(format!(
