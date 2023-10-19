@@ -23,7 +23,7 @@ use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
-    DbErr, EntityTrait, FromQueryResult, JoinType, JsonValue,
+    DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
 
@@ -195,6 +195,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         asset_data: Set(Some(id.to_vec())),
         slot_updated: Set(Some(slot_i)),
         burnt: Set(false),
+        //data_hash,
+        //creator_hash,
+        //leaf_seq,
         ..Default::default()
     };
     let mut query = asset::Entity::insert(model)
@@ -273,6 +276,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
+    // TODO remove old items that are no longer in collection.
     if let Some(c) = &metadata.collection {
         let model = asset_grouping::ActiveModel {
             asset_id: Set(id.to_vec()),
@@ -345,7 +350,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 )
                 .exec(&txn)
                 .await?;
-            if db_creators.len() > 0 {
+            if !db_creators.is_empty() {
                 let mut query = asset_creators::Entity::insert_many(db_creators)
                     .on_conflict(
                         OnConflict::columns([

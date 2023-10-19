@@ -1,8 +1,8 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_data, upsert_asset_with_leaf_info,
-        upsert_asset_with_royalty_amount, upsert_asset_with_seq,
+        asset_was_decompressed, save_changelog_event, upsert_asset_data,
+        upsert_asset_with_leaf_info, upsert_asset_with_royalty_amount, upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -48,10 +48,17 @@ where
         &parsing_result.payload,
     ) {
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+
         #[allow(unreachable_patterns)]
         return match le.schema {
             LeafSchema::V1 { id, nonce, .. } => {
                 let id_bytes = id.to_bytes();
+
+                // First check to see if this asset has been decompressed and if so do not update.
+                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+                    return Ok(None);
+                }
+
                 let slot_i = bundle.slot as i64;
 
                 let uri = if let Some(uri) = &update_args.uri {
@@ -155,7 +162,6 @@ where
                     le.schema.data_hash(),
                     le.schema.creator_hash(),
                     seq as i64,
-                    false,
                 )
                 .await?;
 
@@ -216,8 +222,10 @@ where
                         .exec(txn)
                         .await?;
 
-                    // This statement will update base information for each creator.
-                    let query = asset_creators::Entity::insert_many(db_creator_infos)
+                    // This statement will update base information for each creator and the
+                    // `base_info_seq` number, allows for `mintV1` and `update_metadata` to be
+                    // processed out of order.
+                    let mut query = asset_creators::Entity::insert_many(db_creator_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
@@ -227,15 +235,21 @@ where
                                 asset_creators::Column::Position,
                                 asset_creators::Column::Share,
                                 asset_creators::Column::SlotUpdated,
+                                //asset_creators::Column::BaseInfoSeq,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
+                    query.sql = format!(
+                        "{} WHERE excluded.base_info_seq > asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
+                        query.sql
+                    );
                     txn.execute(query).await?;
 
-                    // This statement will update whether the creator is verified and the `seq`
-                    // number.  `seq` is used to protect the `verified` field, allowing for `mint`
-                    // and `verifyCreator` to be processed out of order.
+                    // This statement will update whether the creator is verified and the
+                    // `verified_seq` number, which is used to protect the `verified` field,
+                    // allowing for `mintV1`, `update_metadata`, and `verifyCreator` to be
+                    // processed out of order.
                     let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
                         .on_conflict(
                             OnConflict::columns([
@@ -244,13 +258,13 @@ where
                             ])
                             .update_columns([
                                 asset_creators::Column::Verified,
-                                asset_creators::Column::Seq,
+                                //asset_creators::Column::VerifiedSeq,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.seq > asset_creators.seq OR asset_creators.seq IS NULL",
+                        "{} WHERE excluded.verified_seq > asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;

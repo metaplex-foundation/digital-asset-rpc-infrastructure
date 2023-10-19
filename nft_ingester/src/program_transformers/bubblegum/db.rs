@@ -67,7 +67,7 @@ where
             ..Default::default()
         };
 
-        let mut audit_item: Option<cl_audits::ActiveModel> = if (cl_audits) {
+        let audit_item: Option<cl_audits::ActiveModel> = if cl_audits {
             let mut ai: cl_audits::ActiveModel = item.clone().into();
             ai.tx = Set(txn_id.to_string());
             Some(ai)
@@ -144,7 +144,6 @@ pub async fn upsert_asset_with_leaf_info<T>(
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
     seq: i64,
-    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -169,22 +168,19 @@ where
                     asset::Column::Nonce,
                     asset::Column::TreeId,
                     asset::Column::Leaf,
-                    asset::Column::LeafSeq,
                     asset::Column::DataHash,
                     asset::Column::CreatorHash,
+                    asset::Column::LeafSeq,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
-    // If we are indexing decompression we will update the leaf regardless of if we have previously
-    // indexed decompression and regardless of seq.
-    if !was_decompressed {
-        query.sql = format!(
-            "{} WHERE (NOT asset.was_decompressed) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
-            query.sql
-        );
-    }
+    // If the asset was decompressed, don't update the leaf info since we cleared it during decompression.
+    query.sql = format!(
+        "{} WHERE (NOT asset.was_decompressed) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
+        query.sql
+    );
 
     txn.execute(query)
         .await
@@ -202,26 +198,25 @@ where
 {
     let model = asset::ActiveModel {
         id: Set(id),
-        leaf: Set(None),
         nonce: Set(Some(0)),
-        leaf_seq: Set(None),
+        tree_id: Set(None),
+        leaf: Set(None),
         data_hash: Set(None),
         creator_hash: Set(None),
-        tree_id: Set(None),
-        seq: Set(Some(0)),
+        leaf_seq: Set(None),
         ..Default::default()
     };
+
     let query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
                 .update_columns([
-                    asset::Column::Leaf,
-                    asset::Column::LeafSeq,
                     asset::Column::Nonce,
+                    asset::Column::TreeId,
+                    asset::Column::Leaf,
                     asset::Column::DataHash,
                     asset::Column::CreatorHash,
-                    asset::Column::TreeId,
-                    asset::Column::Seq,
+                    asset::Column::LeafSeq,
                 ])
                 .to_owned(),
         )
@@ -474,13 +469,6 @@ where
         //seq: Set(seq),
     };
 
-    // First check to see if this asset has been decompressed.
-    if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
-        if let Some(0) = asset.seq {
-            return Ok(());
-        }
-    };
-
     let mut query = asset_data::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
@@ -503,7 +491,6 @@ where
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        // New asset_data.seq.
         "{} WHERE excluded.seq >= asset_data.seq OR asset_data.seq IS NULL)",
         query.sql
     );
@@ -518,13 +505,13 @@ pub async fn upsert_asset_with_royalty_amount<T>(
     txn: &T,
     id: Vec<u8>,
     royalty_amount: i32,
-    seq: i64,
+    _seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset::ActiveModel {
-        id: Set(id),
+        id: Set(id.clone()),
         royalty_amount: Set(royalty_amount),
         //royalty_amount_seq: Set(Some(seq)),
         ..Default::default()
@@ -542,8 +529,7 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        // TODO DEAL WITH THIS
-        "{} WHERE (NOT asset.was_decompressed) AND (excluded.royalty_amount_seq >= asset.royalty_amount_seq OR royalty_amount_seq.seq IS NULL)",
+        "{} WHERE excluded.royalty_amount_seq >= asset.royalty_amount_seq OR royalty_amount_seq.seq IS NULL)",
         query.sql
     );
 
@@ -552,4 +538,16 @@ where
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
+}
+
+pub async fn asset_was_decompressed<T>(txn: &T, id: Vec<u8>) -> Result<bool, IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
+        if let Some(0) = asset.seq {
+            return Ok(true);
+        }
+    };
+    Ok(false)
 }

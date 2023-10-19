@@ -1,9 +1,10 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_data, upsert_asset_with_compression_info,
-        upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
-        upsert_asset_with_royalty_amount, upsert_asset_with_seq, upsert_collection_info,
+        asset_was_decompressed, save_changelog_event, upsert_asset_data,
+        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_royalty_amount,
+        upsert_asset_with_seq, upsert_collection_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -63,6 +64,12 @@ where
             } => {
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
+
+                // First check to see if this asset has been decompressed and if so do not update.
+                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+                    return Ok(None);
+                }
+
                 let slot_i = bundle.slot as i64;
                 let uri = metadata.uri.replace('\0', "");
                 let name = metadata.name.clone().into_bytes();
@@ -128,7 +135,7 @@ where
                 };
 
                 // Upsert asset table base info.
-                let mut query = asset::Entity::insert(asset_model)
+                let query = asset::Entity::insert(asset_model)
                     .on_conflict(
                         OnConflict::columns([asset::Column::Id])
                             .update_columns([
@@ -144,11 +151,6 @@ where
                     )
                     .build(DbBackend::Postgres);
 
-                // Do not overwrite changes that happened after the asset was decompressed.
-                query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset.slot_updated OR asset.slot_updated IS NULL",
-                    query.sql
-                );
                 txn.execute(query)
                     .await
                     .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
@@ -183,7 +185,6 @@ where
                     le.schema.data_hash(),
                     le.schema.creator_hash(),
                     seq as i64,
-                    false,
                 )
                 .await?;
 

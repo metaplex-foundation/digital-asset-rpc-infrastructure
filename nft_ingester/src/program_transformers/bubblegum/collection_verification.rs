@@ -1,4 +1,6 @@
-use crate::program_transformers::bubblegum::{upsert_asset_with_seq, upsert_collection_info};
+use crate::program_transformers::bubblegum::{
+    asset_was_decompressed, upsert_asset_with_seq, upsert_collection_info,
+};
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
@@ -41,6 +43,12 @@ where
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };
+
+        // First check to see if this asset has been decompressed and if so do not update.
+        if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+            return Ok(());
+        }
+
         let tree_id = cl.id.to_bytes();
         let nonce = cl.index as i64;
 
@@ -54,7 +62,6 @@ where
             le.schema.data_hash(),
             le.schema.creator_hash(),
             seq as i64,
-            false,
         )
         .await?;
 
