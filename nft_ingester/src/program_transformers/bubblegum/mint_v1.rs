@@ -241,7 +241,7 @@ where
                             position: Set(i as i16),
                             share: Set(c.share as i32),
                             slot_updated: Set(Some(slot_i)),
-                            //base_info_seq: Set(Some(seq as i64))
+                            base_info_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -249,7 +249,7 @@ where
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             verified: Set(c.verified),
-                            //verified_seq: Set(Some(seq as i64)),
+                            verified_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -267,7 +267,7 @@ where
                                 asset_creators::Column::Position,
                                 asset_creators::Column::Share,
                                 asset_creators::Column::SlotUpdated,
-                                //asset_creators::Column::BaseInfoSeq,
+                                asset_creators::Column::BaseInfoSeq,
                             ])
                             .to_owned(),
                         )
@@ -289,7 +289,7 @@ where
                             ])
                             .update_columns([
                                 asset_creators::Column::Verified,
-                                //asset_creators::Column::VerifiedSeq,
+                                asset_creators::Column::VerifiedSeq,
                             ])
                             .to_owned(),
                         )

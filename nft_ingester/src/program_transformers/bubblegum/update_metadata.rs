@@ -189,6 +189,7 @@ where
                             position: Set(i as i16),
                             share: Set(c.share as i32),
                             slot_updated: Set(Some(slot_i)),
+                            base_info_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -196,7 +197,7 @@ where
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             verified: Set(c.verified),
-                            seq: Set(Some(seq as i64)),
+                            verified_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -215,11 +216,12 @@ where
                         .filter(
                             Condition::all()
                                 .add(asset_creators::Column::AssetId.eq(id_bytes.to_vec()))
-                                .add(asset_creators::Column::Creator.is_in(db_creators_to_remove)), // .add(
-                                                                                                    //     Condition::any()
-                                                                                                    //         .add(asset_creators::Column::VerifiedSeq.lt(seq as i64))
-                                                                                                    //         .add(asset_creators::Column::VerifiedSeq.is_null()),
-                                                                                                    // ),
+                                .add(asset_creators::Column::Creator.is_in(db_creators_to_remove))
+                                .add(
+                                    Condition::any()
+                                        .add(asset_creators::Column::VerifiedSeq.lt(seq as i64))
+                                        .add(asset_creators::Column::VerifiedSeq.is_null()),
+                                ),
                         )
                         .exec(txn)
                         .await?;
@@ -237,7 +239,7 @@ where
                                 asset_creators::Column::Position,
                                 asset_creators::Column::Share,
                                 asset_creators::Column::SlotUpdated,
-                                //asset_creators::Column::BaseInfoSeq,
+                                asset_creators::Column::BaseInfoSeq,
                             ])
                             .to_owned(),
                         )
@@ -260,7 +262,7 @@ where
                             ])
                             .update_columns([
                                 asset_creators::Column::Verified,
-                                //asset_creators::Column::VerifiedSeq,
+                                asset_creators::Column::VerifiedSeq,
                             ])
                             .to_owned(),
                         )

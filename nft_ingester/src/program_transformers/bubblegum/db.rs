@@ -354,7 +354,7 @@ where
         asset_id: Set(asset_id),
         creator: Set(creator),
         verified: Set(verified),
-        seq: Set(Some(seq)),
+        verified_seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -366,7 +366,7 @@ where
             ])
             .update_columns([
                 asset_creators::Column::Verified,
-                asset_creators::Column::Seq,
+                asset_creators::Column::VerifiedSeq,
             ])
             .to_owned(),
         )
@@ -403,7 +403,7 @@ where
         asset_id: Set(asset_id),
         group_key: Set("collection".to_string()),
         group_value: Set(group_value),
-        verified: Set(Some(verified)),
+        verified: Set(verified),
         slot_updated: Set(Some(slot_updated)),
         group_info_seq: Set(Some(seq)),
         ..Default::default()
@@ -450,7 +450,7 @@ pub async fn upsert_asset_data<T>(
     reindex: Option<bool>,
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
-    _seq: i64,
+    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -464,9 +464,10 @@ where
         metadata: Set(metadata),
         slot_updated: Set(slot_updated),
         reindex: Set(reindex),
-        raw_name: Set(raw_name),
-        raw_symbol: Set(raw_symbol),
-        //base_info_seq: Set(seq),
+        raw_name: Set(Some(raw_name)),
+        raw_symbol: Set(Some(raw_symbol)),
+        base_info_seq: Set(Some(seq)),
+        ..Default::default()
     };
 
     let mut query = asset_data::Entity::insert(model)
@@ -477,15 +478,14 @@ where
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::MetadataMutability,
-                    // Don't update Metadata if it already exists.  Even if we are doing
-                    // and update_metadata and there's a new URI, the new background task
-                    // will overwrite it.
-                    //asset_data::Column::Metadata,
+                    // Don't update asset_data::Column::Metadata if it already exists.  Even if we
+                    // are indexing `update_metadata`` and there's a new URI, the new background
+                    // task will overwrite it.
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,
                     asset_data::Column::RawSymbol,
-                    //asset_data::Column::BaseInfoSeq,
+                    asset_data::Column::BaseInfoSeq,
                 ])
                 .to_owned(),
         )
@@ -505,7 +505,7 @@ pub async fn upsert_asset_with_royalty_amount<T>(
     txn: &T,
     id: Vec<u8>,
     royalty_amount: i32,
-    _seq: i64,
+    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -513,7 +513,7 @@ where
     let model = asset::ActiveModel {
         id: Set(id.clone()),
         royalty_amount: Set(royalty_amount),
-        //royalty_amount_seq: Set(Some(seq)),
+        royalty_amount_seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -522,7 +522,7 @@ where
             OnConflict::column(asset::Column::Id)
                 .update_columns([
                     asset::Column::RoyaltyAmount,
-                    //asset::Column::RoyaltyAmountSeq,
+                    asset::Column::RoyaltyAmountSeq,
                 ])
                 .to_owned(),
         )

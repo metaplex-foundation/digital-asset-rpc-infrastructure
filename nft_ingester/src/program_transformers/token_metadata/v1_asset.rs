@@ -147,8 +147,10 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         slot_updated: Set(slot_i),
         reindex: Set(Some(true)),
         id: Set(id.to_vec()),
-        raw_name: Set(name.to_vec()),
-        raw_symbol: Set(symbol.to_vec()),
+        raw_name: Set(Some(name.to_vec())),
+        raw_symbol: Set(Some(symbol.to_vec())),
+        download_metadata_seq: Set(Some(0)),
+        ..Default::default()
     };
     let txn = conn.begin().await?;
     let mut query = asset_data::Entity::insert(asset_data_model)
@@ -161,7 +163,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::MetadataMutability,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
-                    //TODO RAW NAME
+                    asset_data::Column::RawName,
+                    asset_data::Column::RawSymbol,
                 ])
                 .to_owned(),
         )
@@ -195,9 +198,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         asset_data: Set(Some(id.to_vec())),
         slot_updated: Set(Some(slot_i)),
         burnt: Set(false),
-        //data_hash,
-        //creator_hash,
-        //leaf_seq,
         ..Default::default()
     };
     let mut query = asset::Entity::insert(model)
@@ -282,7 +282,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             asset_id: Set(id.to_vec()),
             group_key: Set("collection".to_string()),
             group_value: Set(Some(c.key.to_string())),
-            verified: Set(Some(c.verified)),
+            verified: Set(c.verified),
             seq: Set(None),
             slot_updated: Set(Some(slot_i)),
             ..Default::default()
@@ -333,7 +333,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     creator: Set(c.address.to_bytes().to_vec()),
                     share: Set(c.share as i32),
                     verified: Set(c.verified),
-                    seq: Set(Some(0)),
                     slot_updated: Set(Some(slot_i)),
                     position: Set(i as i16),
                     ..Default::default()
@@ -360,7 +359,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                             asset_creators::Column::Creator,
                             asset_creators::Column::Share,
                             asset_creators::Column::Verified,
-                            asset_creators::Column::Seq,
+                            asset_creators::Column::VerifiedSeq,
                             asset_creators::Column::SlotUpdated,
                         ])
                         .to_owned(),

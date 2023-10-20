@@ -111,22 +111,22 @@ impl BgTask for DownloadMetadataTask {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),
             reindex: Set(Some(false)),
-            //download_metadata_seq: Set(Some(download_metadata.seq)),
+            download_metadata_seq: Set(Some(download_metadata.seq)),
             ..Default::default()
         };
         debug!(
             "download metadata for {:?}",
             bs58::encode(download_metadata.asset_data_id.clone()).into_string()
         );
-        let query = asset_data::Entity::update(model)
+        let mut query = asset_data::Entity::update(model)
             .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()));
-        // if download_metadata.seq != 0 {
-        //     query.filter(
-        //         Condition::any()
-        //             .add(asset_data::Column::DownloadMetadataSeq.lt(download_metadata.seq))
-        //             .add(asset_data::Column::DownloadMetadataSeq.is_null()),
-        //     );
-        // }
+        if download_metadata.seq != 0 {
+            query = query.filter(
+                Condition::any()
+                    .add(asset_data::Column::DownloadMetadataSeq.lt(download_metadata.seq))
+                    .add(asset_data::Column::DownloadMetadataSeq.is_null()),
+            );
+        }
         query.exec(db).await.map(|_| ()).map_err(|db| {
             IngesterError::TaskManagerError(format!(
                 "Database error with {}, error: {}",
