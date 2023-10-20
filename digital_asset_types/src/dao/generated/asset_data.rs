@@ -24,8 +24,10 @@ pub struct Model {
     pub metadata: Json,
     pub slot_updated: i64,
     pub reindex: Option<bool>,
-    pub raw_name: Vec<u8>,
-    pub raw_symbol: Vec<u8>,
+    pub raw_name: Option<Vec<u8>>,
+    pub raw_symbol: Option<Vec<u8>>,
+    pub base_info_seq: Option<i64>,
+    pub download_metadata_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -40,6 +42,8 @@ pub enum Column {
     Reindex,
     RawName,
     RawSymbol,
+    BaseInfoSeq,
+    DownloadMetadataSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -70,9 +74,11 @@ impl ColumnTrait for Column {
             Self::MetadataMutability => Mutability::db_type(),
             Self::Metadata => ColumnType::JsonBinary.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
-            Self::Reindex => ColumnType::Boolean.def(),
-            Self::RawName => ColumnType::Binary.def(),
-            Self::RawSymbol => ColumnType::Binary.def(),
+            Self::Reindex => ColumnType::Boolean.def().null(),
+            Self::RawName => ColumnType::Binary.def().null(),
+            Self::RawSymbol => ColumnType::Binary.def().null(),
+            Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
+            Self::DownloadMetadataSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
