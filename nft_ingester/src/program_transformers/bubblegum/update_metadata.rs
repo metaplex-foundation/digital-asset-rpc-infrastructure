@@ -215,9 +215,11 @@ where
                         .filter(
                             Condition::all()
                                 .add(asset_creators::Column::AssetId.eq(id_bytes.to_vec()))
-                                .add(asset_creators::Column::Creator.is_in(db_creators_to_remove))
-                                // TODO WHAT IF SEQ IS NULL
-                                .add(asset_creators::Column::Seq.lt(seq as i64)),
+                                .add(asset_creators::Column::Creator.is_in(db_creators_to_remove)), // .add(
+                                                                                                    //     Condition::any()
+                                                                                                    //         .add(asset_creators::Column::VerifiedSeq.lt(seq as i64))
+                                                                                                    //         .add(asset_creators::Column::VerifiedSeq.is_null()),
+                                                                                                    // ),
                         )
                         .exec(txn)
                         .await?;

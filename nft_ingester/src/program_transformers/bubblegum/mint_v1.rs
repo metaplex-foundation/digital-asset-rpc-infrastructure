@@ -241,6 +241,7 @@ where
                             position: Set(i as i16),
                             share: Set(c.share as i32),
                             slot_updated: Set(Some(slot_i)),
+                            //base_info_seq: Set(Some(seq as i64))
                             ..Default::default()
                         });
 
@@ -248,7 +249,7 @@ where
                             asset_id: Set(id_bytes.to_vec()),
                             creator: Set(c.address.to_bytes().to_vec()),
                             verified: Set(c.verified),
-                            seq: Set(Some(seq as i64)),
+                            //verified_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -256,7 +257,7 @@ where
                     }
 
                     // This statement will update base information for each creator.
-                    let query = asset_creators::Entity::insert_many(db_creator_infos)
+                    let mut query = asset_creators::Entity::insert_many(db_creator_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
@@ -266,10 +267,15 @@ where
                                 asset_creators::Column::Position,
                                 asset_creators::Column::Share,
                                 asset_creators::Column::SlotUpdated,
+                                //asset_creators::Column::BaseInfoSeq,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
+                    query.sql = format!(
+                        "{} WHERE excluded.base_info_seq > asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
+                        query.sql
+                    );
                     txn.execute(query).await?;
 
                     // This statement will update whether the creator is verified and the `seq`
@@ -283,13 +289,13 @@ where
                             ])
                             .update_columns([
                                 asset_creators::Column::Verified,
-                                asset_creators::Column::Seq,
+                                //asset_creators::Column::VerifiedSeq,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.seq > asset_creators.seq OR asset_creators.seq IS NULL",
+                        "{} WHERE excluded.seq > asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;

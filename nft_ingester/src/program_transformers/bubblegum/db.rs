@@ -373,7 +373,7 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE excluded.seq >= asset_creators.seq OR asset_creators.seq is NULL",
+        "{} WHERE excluded.seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL",
         query.sql
     );
 
@@ -466,7 +466,7 @@ where
         reindex: Set(reindex),
         raw_name: Set(raw_name),
         raw_symbol: Set(raw_symbol),
-        //seq: Set(seq),
+        //base_info_seq: Set(seq),
     };
 
     let mut query = asset_data::Entity::insert(model)
@@ -485,13 +485,13 @@ where
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,
                     asset_data::Column::RawSymbol,
-                    //asset_data::Column::Seq,
+                    //asset_data::Column::BaseInfoSeq,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.seq >= asset_data.seq OR asset_data.seq IS NULL)",
+        "{} WHERE excluded.base_info_seq >= asset_data.base_info_seq OR asset_data.base_info_seq IS NULL)",
         query.sql
     );
     txn.execute(query)

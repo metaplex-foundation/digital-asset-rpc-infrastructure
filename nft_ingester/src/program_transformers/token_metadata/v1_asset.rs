@@ -277,7 +277,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
-    // TODO remove old items that are no longer in collection.
     if let Some(c) = &metadata.collection {
         let model = asset_grouping::ActiveModel {
             asset_id: Set(id.to_vec()),
