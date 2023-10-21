@@ -373,8 +373,10 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE excluded.seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL",
-        query.sql
+        "{} WHERE (excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL)\n\
+        AND ({} >= asset_creators.base_info_seq OR asset_creators.base_info_seq is NULL)",
+        query.sql,
+        seq
     );
 
     txn.execute(query)

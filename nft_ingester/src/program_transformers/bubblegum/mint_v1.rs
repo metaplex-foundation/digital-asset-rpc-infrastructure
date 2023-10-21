@@ -273,7 +273,7 @@ where
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.base_info_seq > asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
+                        "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;
@@ -295,7 +295,7 @@ where
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.seq > asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+                        "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;

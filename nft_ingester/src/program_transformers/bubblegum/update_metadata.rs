@@ -219,8 +219,8 @@ where
                                 .add(asset_creators::Column::Creator.is_in(db_creators_to_remove))
                                 .add(
                                     Condition::any()
-                                        .add(asset_creators::Column::VerifiedSeq.lt(seq as i64))
-                                        .add(asset_creators::Column::VerifiedSeq.is_null()),
+                                        .add(asset_creators::Column::BaseInfoSeq.lt(seq as i64))
+                                        .add(asset_creators::Column::BaseInfoSeq.is_null()),
                                 ),
                         )
                         .exec(txn)
@@ -245,7 +245,7 @@ where
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.base_info_seq > asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
+                        "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;
@@ -268,7 +268,7 @@ where
                         )
                         .build(DbBackend::Postgres);
                     query.sql = format!(
-                        "{} WHERE excluded.verified_seq > asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+                        "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
                         query.sql
                     );
                     txn.execute(query).await?;
