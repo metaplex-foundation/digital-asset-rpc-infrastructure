@@ -26,7 +26,6 @@ pub struct Model {
     pub reindex: Option<bool>,
     pub raw_name: Option<Vec<u8>>,
     pub raw_symbol: Option<Vec<u8>>,
-    pub base_info_seq: Option<i64>,
     pub download_metadata_seq: Option<i64>,
 }
 
@@ -42,7 +41,6 @@ pub enum Column {
     Reindex,
     RawName,
     RawSymbol,
-    BaseInfoSeq,
     DownloadMetadataSeq,
 }
 
@@ -77,7 +75,6 @@ impl ColumnTrait for Column {
             Self::Reindex => ColumnType::Boolean.def().null(),
             Self::RawName => ColumnType::Binary.def().null(),
             Self::RawSymbol => ColumnType::Binary.def().null(),
-            Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
             Self::DownloadMetadataSeq => ColumnType::BigInteger.def().null(),
         }
     }
