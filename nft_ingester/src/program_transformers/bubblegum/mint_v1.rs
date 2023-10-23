@@ -1,8 +1,9 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, save_changelog_event, upsert_asset_data,
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        asset_was_decompressed, creators_should_be_updated, save_changelog_event,
+        upsert_asset_data, upsert_asset_with_compression_info,
+        upsert_asset_with_creators_added_seq, upsert_asset_with_leaf_info,
         upsert_asset_with_owner_and_delegate_info, upsert_asset_with_royalty_amount,
         upsert_asset_with_seq, upsert_collection_info,
     },
@@ -218,9 +219,11 @@ where
                     .await
                     .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
-                // Insert into `asset_creators` table.
+                // Insert into `asset_creators` table as long as there wasn't a subsequent `update_metadata`.`
                 let creators = &metadata.creators;
-                if !creators.is_empty() {
+                if !creators.is_empty()
+                    && creators_should_be_updated(txn, id_bytes.to_vec(), seq as i64).await?
+                {
                     // Vec to hold base creator information.
                     let mut db_creator_infos = Vec::with_capacity(creators.len());
 
@@ -257,7 +260,7 @@ where
                     }
 
                     // This statement will update base information for each creator.
-                    let mut query = asset_creators::Entity::insert_many(db_creator_infos)
+                    let query = asset_creators::Entity::insert_many(db_creator_infos)
                         .on_conflict(
                             OnConflict::columns([
                                 asset_creators::Column::AssetId,
@@ -267,15 +270,10 @@ where
                                 asset_creators::Column::Position,
                                 asset_creators::Column::Share,
                                 asset_creators::Column::SlotUpdated,
-                                asset_creators::Column::BaseInfoSeq,
                             ])
                             .to_owned(),
                         )
                         .build(DbBackend::Postgres);
-                    query.sql = format!(
-                        "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
-                        query.sql
-                    );
                     txn.execute(query).await?;
 
                     // This statement will update whether the creator is verified and the `seq`
@@ -299,6 +297,9 @@ where
                         query.sql
                     );
                     txn.execute(query).await?;
+
+                    upsert_asset_with_creators_added_seq(txn, id_bytes.to_vec(), seq as i64)
+                        .await?;
                 }
 
                 // Insert into `asset_authority` table.

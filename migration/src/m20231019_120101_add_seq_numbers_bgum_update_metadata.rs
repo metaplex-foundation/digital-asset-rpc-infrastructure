@@ -25,15 +25,6 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_creators::Entity)
-                    .add_column(ColumnDef::new(Alias::new("base_info_seq")).big_integer())
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
                     .table(asset_data::Entity)
                     .add_column(ColumnDef::new(Alias::new("base_info_seq")).big_integer())
                     .add_column(ColumnDef::new(Alias::new("download_metadata_seq")).big_integer())
@@ -46,6 +37,7 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(asset::Entity)
                     .add_column(ColumnDef::new(Alias::new("royalty_amount_seq")).big_integer())
+                    .add_column(ColumnDef::new(Alias::new("creators_added_seq")).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -69,15 +61,6 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_creators::Entity)
-                    .drop_column(Alias::new("base_info_seq"))
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
                     .table(asset_data::Entity)
                     .drop_column(Alias::new("base_info_seq"))
                     .drop_column(Alias::new("download_metadata_seq"))
@@ -90,6 +73,7 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(asset::Entity)
                     .drop_column(Alias::new("royalty_amount_seq"))
+                    .drop_column(Alias::new("creators_added_seq"))
                     .to_owned(),
             )
             .await?;

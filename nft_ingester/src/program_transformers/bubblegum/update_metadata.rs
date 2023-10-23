@@ -1,8 +1,9 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, save_changelog_event, upsert_asset_data,
-        upsert_asset_with_leaf_info, upsert_asset_with_royalty_amount, upsert_asset_with_seq,
+        asset_was_decompressed, creators_should_be_updated, save_changelog_event,
+        upsert_asset_data, upsert_asset_with_creators_added_seq, upsert_asset_with_leaf_info,
+        upsert_asset_with_royalty_amount, upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -168,110 +169,119 @@ where
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
                 // Update `asset_creators` table.
-                if let Some(creators) = &update_args.creators {
-                    // Vec to hold base creator information.
-                    let mut db_creator_infos = Vec::with_capacity(creators.len());
+                if creators_should_be_updated(txn, id_bytes.to_vec(), seq as i64).await? {
+                    if let Some(creators) = &update_args.creators {
+                        // Vec to hold base creator information.
+                        let mut db_creator_infos = Vec::with_capacity(creators.len());
 
-                    // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
-                    let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+                        // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
+                        let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
 
-                    // Set to prevent duplicates.
-                    let mut creators_set = HashSet::new();
+                        // Set to prevent duplicates.
+                        let mut creators_set = HashSet::new();
 
-                    for (i, c) in creators.iter().enumerate() {
-                        if creators_set.contains(&c.address) {
-                            continue;
+                        for (i, c) in creators.iter().enumerate() {
+                            if creators_set.contains(&c.address) {
+                                continue;
+                            }
+
+                            db_creator_infos.push(asset_creators::ActiveModel {
+                                asset_id: Set(id_bytes.to_vec()),
+                                creator: Set(c.address.to_bytes().to_vec()),
+                                position: Set(i as i16),
+                                share: Set(c.share as i32),
+                                slot_updated: Set(Some(slot_i)),
+                                base_info_seq: Set(Some(seq as i64)),
+                                ..Default::default()
+                            });
+
+                            db_creator_verified_infos.push(asset_creators::ActiveModel {
+                                asset_id: Set(id_bytes.to_vec()),
+                                creator: Set(c.address.to_bytes().to_vec()),
+                                verified: Set(c.verified),
+                                verified_seq: Set(Some(seq as i64)),
+                                ..Default::default()
+                            });
+
+                            creators_set.insert(c.address);
                         }
 
-                        db_creator_infos.push(asset_creators::ActiveModel {
-                            asset_id: Set(id_bytes.to_vec()),
-                            creator: Set(c.address.to_bytes().to_vec()),
-                            position: Set(i as i16),
-                            share: Set(c.share as i32),
-                            slot_updated: Set(Some(slot_i)),
-                            base_info_seq: Set(Some(seq as i64)),
-                            ..Default::default()
-                        });
+                        // Remove creators no longer present in creator array.
+                        let db_creators_to_remove: Vec<Vec<u8>> = current_metadata
+                            .creators
+                            .iter()
+                            .filter(|c| !creators_set.contains(&c.address))
+                            .map(|c| c.address.to_bytes().to_vec())
+                            .collect();
 
-                        db_creator_verified_infos.push(asset_creators::ActiveModel {
-                            asset_id: Set(id_bytes.to_vec()),
-                            creator: Set(c.address.to_bytes().to_vec()),
-                            verified: Set(c.verified),
-                            verified_seq: Set(Some(seq as i64)),
-                            ..Default::default()
-                        });
+                        asset_creators::Entity::delete_many()
+                            .filter(
+                                Condition::all()
+                                    .add(asset_creators::Column::AssetId.eq(id_bytes.to_vec()))
+                                    .add(
+                                        asset_creators::Column::Creator
+                                            .is_in(db_creators_to_remove),
+                                    )
+                                    .add(
+                                        Condition::any()
+                                            .add(asset_creators::Column::BaseInfoSeq.lt(seq as i64))
+                                            .add(asset_creators::Column::BaseInfoSeq.is_null()),
+                                    ),
+                            )
+                            .exec(txn)
+                            .await?;
 
-                        creators_set.insert(c.address);
+                        // This statement will update base information for each creator and the
+                        // `base_info_seq` number, allows for `mintV1` and `update_metadata` to be
+                        // processed out of order.
+                        let mut query = asset_creators::Entity::insert_many(db_creator_infos)
+                            .on_conflict(
+                                OnConflict::columns([
+                                    asset_creators::Column::AssetId,
+                                    asset_creators::Column::Creator,
+                                ])
+                                .update_columns([
+                                    asset_creators::Column::Position,
+                                    asset_creators::Column::Share,
+                                    asset_creators::Column::SlotUpdated,
+                                    asset_creators::Column::BaseInfoSeq,
+                                ])
+                                .to_owned(),
+                            )
+                            .build(DbBackend::Postgres);
+                        query.sql = format!(
+                            "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
+                            query.sql
+                        );
+                        txn.execute(query).await?;
+
+                        // This statement will update whether the creator is verified and the
+                        // `verified_seq` number, which is used to protect the `verified` field,
+                        // allowing for `mintV1`, `update_metadata`, and `verifyCreator` to be
+                        // processed out of order.
+                        let mut query =
+                            asset_creators::Entity::insert_many(db_creator_verified_infos)
+                                .on_conflict(
+                                    OnConflict::columns([
+                                        asset_creators::Column::AssetId,
+                                        asset_creators::Column::Creator,
+                                    ])
+                                    .update_columns([
+                                        asset_creators::Column::Verified,
+                                        asset_creators::Column::VerifiedSeq,
+                                    ])
+                                    .to_owned(),
+                                )
+                                .build(DbBackend::Postgres);
+                        query.sql = format!(
+                            "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+                            query.sql
+                        );
+                        txn.execute(query).await?;
+
+                        upsert_asset_with_creators_added_seq(txn, id_bytes.to_vec(), seq as i64)
+                            .await?;
                     }
-
-                    // Remove creators no longer present in creator array.
-                    let db_creators_to_remove: Vec<Vec<u8>> = current_metadata
-                        .creators
-                        .iter()
-                        .filter(|c| !creators_set.contains(&c.address))
-                        .map(|c| c.address.to_bytes().to_vec())
-                        .collect();
-
-                    asset_creators::Entity::delete_many()
-                        .filter(
-                            Condition::all()
-                                .add(asset_creators::Column::AssetId.eq(id_bytes.to_vec()))
-                                .add(asset_creators::Column::Creator.is_in(db_creators_to_remove))
-                                .add(
-                                    Condition::any()
-                                        .add(asset_creators::Column::BaseInfoSeq.lt(seq as i64))
-                                        .add(asset_creators::Column::BaseInfoSeq.is_null()),
-                                ),
-                        )
-                        .exec(txn)
-                        .await?;
-
-                    // This statement will update base information for each creator and the
-                    // `base_info_seq` number, allows for `mintV1` and `update_metadata` to be
-                    // processed out of order.
-                    let mut query = asset_creators::Entity::insert_many(db_creator_infos)
-                        .on_conflict(
-                            OnConflict::columns([
-                                asset_creators::Column::AssetId,
-                                asset_creators::Column::Creator,
-                            ])
-                            .update_columns([
-                                asset_creators::Column::Position,
-                                asset_creators::Column::Share,
-                                asset_creators::Column::SlotUpdated,
-                                asset_creators::Column::BaseInfoSeq,
-                            ])
-                            .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    query.sql = format!(
-                        "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
-                        query.sql
-                    );
-                    txn.execute(query).await?;
-
-                    // This statement will update whether the creator is verified and the
-                    // `verified_seq` number, which is used to protect the `verified` field,
-                    // allowing for `mintV1`, `update_metadata`, and `verifyCreator` to be
-                    // processed out of order.
-                    let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
-                        .on_conflict(
-                            OnConflict::columns([
-                                asset_creators::Column::AssetId,
-                                asset_creators::Column::Creator,
-                            ])
-                            .update_columns([
-                                asset_creators::Column::Verified,
-                                asset_creators::Column::VerifiedSeq,
-                            ])
-                            .to_owned(),
-                        )
-                        .build(DbBackend::Postgres);
-                    query.sql = format!(
-                        "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
-                        query.sql
-                    );
-                    txn.execute(query).await?;
                 }
 
                 if uri.is_empty() {

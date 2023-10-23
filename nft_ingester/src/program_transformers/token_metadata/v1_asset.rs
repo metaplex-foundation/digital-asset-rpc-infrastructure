@@ -312,6 +312,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
     txn.commit().await?;
     let creators = data.creators.unwrap_or_default();
+
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
         let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
@@ -322,6 +323,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             )
             .all(conn)
             .await?;
+
         if !existing_creators.is_empty() {
             let mut db_creators = Vec::with_capacity(creators.len());
             for (i, c) in creators.into_iter().enumerate() {
@@ -348,6 +350,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 )
                 .exec(&txn)
                 .await?;
+
             if !db_creators.is_empty() {
                 let mut query = asset_creators::Entity::insert_many(db_creators)
                     .on_conflict(

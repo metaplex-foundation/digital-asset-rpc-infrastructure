@@ -351,32 +351,71 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset_creators::ActiveModel {
-        asset_id: Set(asset_id),
+        asset_id: Set(asset_id.clone()),
         creator: Set(creator),
         verified: Set(verified),
         verified_seq: Set(Some(seq)),
         ..Default::default()
     };
 
-    let mut query = asset_creators::Entity::insert(model)
+    // Only upsert a creator if the asset table's creator array seq is at a lower value.  That seq
+    // gets updated when we set up the creator array in `mintV1` or `update_metadata`.  We don't
+    // want to insert a creator that was removed from a later `update_metadata`.  And we don't need
+    // to worry about creator verification in that case because the `update_metadata` updates
+    // creator verification state as well.
+    if creators_should_be_updated(txn, asset_id, seq).await? {
+        let mut query = asset_creators::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Creator,
+                ])
+                .update_columns([
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::VerifiedSeq,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+
+        query.sql = format!(
+    "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL",
+    query.sql,
+);
+
+        txn.execute(query)
+            .await
+            .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+    }
+
+    Ok(())
+}
+
+pub async fn upsert_asset_with_creators_added_seq<T>(
+    txn: &T,
+    id: Vec<u8>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
         .on_conflict(
-            OnConflict::columns([
-                asset_creators::Column::AssetId,
-                asset_creators::Column::Creator,
-            ])
-            .update_columns([
-                asset_creators::Column::Verified,
-                asset_creators::Column::VerifiedSeq,
-            ])
-            .to_owned(),
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::Seq])
+                .to_owned(),
         )
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE (excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL)\n\
-        AND ({} >= asset_creators.base_info_seq OR asset_creators.base_info_seq is NULL)",
-        query.sql,
-        seq
+        "{} WHERE excluded.creators_added_seq >= asset.creators_added_seq OR asset.creators_added_seq IS NULL",
+        query.sql
     );
 
     txn.execute(query)
@@ -552,4 +591,22 @@ where
         }
     };
     Ok(false)
+}
+
+pub async fn creators_should_be_updated<T>(
+    txn: &T,
+    id: Vec<u8>,
+    seq: i64,
+) -> Result<bool, IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
+        if let Some(creator_array_seq) = asset.seq {
+            if seq < creator_array_seq {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
 }
