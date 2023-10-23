@@ -1,7 +1,7 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, upsert_asset_with_compression_info,
+        asset_should_be_updated, upsert_asset_with_compression_info,
         upsert_asset_with_leaf_info_for_decompression,
     },
 };
@@ -18,8 +18,8 @@ where
 {
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice();
 
-    // First check to see if this asset has been decompressed and if so do not update.
-    if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+    // First check to see if this asset has been decompressed.
+    if !asset_should_be_updated(txn, id_bytes.to_vec(), None).await? {
         return Ok(());
     }
 

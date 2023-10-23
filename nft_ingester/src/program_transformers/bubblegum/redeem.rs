@@ -4,8 +4,8 @@ use log::debug;
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info,
-        upsert_asset_with_seq,
+        asset_should_be_updated, save_changelog_event, u32_to_u8_array,
+        upsert_asset_with_leaf_info, upsert_asset_with_seq,
     },
 };
 use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
@@ -34,8 +34,9 @@ where
         debug!("Indexing redeem for asset id: {:?}", asset_id);
         let id_bytes = asset_id.to_bytes();
 
-        // First check to see if this asset has been decompressed and if so do not update.
-        if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+        // First check to see if this asset has been decompressed or updated by
+        // `update_metadata`.
+        if !asset_should_be_updated(txn, id_bytes.to_vec(), Some(seq as i64)).await? {
             return Ok(());
         }
 

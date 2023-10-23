@@ -1,14 +1,19 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_data, asset_grouping, backfill_items, cl_audits, cl_items,
-    sea_orm_active_enums::{ChainMutability, Mutability},
+    asset, asset_authority, asset_creators, asset_data, asset_grouping,
+    asset_v1_account_attachments, backfill_items, cl_audits, cl_items,
+    sea_orm_active_enums::{
+        ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+        SpecificationVersions, V1AccountAttachments,
+    },
 };
 use log::{debug, info};
-use mpl_bubblegum::types::Collection;
+use mpl_bubblegum::types::{Collection, Creator};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
+use std::collections::HashSet;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -358,35 +363,28 @@ where
         ..Default::default()
     };
 
-    // Only upsert a creator if the asset table's creator array seq is at a lower value.  That seq
-    // gets updated when we set up the creator array in `mintV1` or `update_metadata`.  We don't
-    // want to insert a creator that was removed from a later `update_metadata`.  And we don't need
-    // to worry about creator verification in that case because the `update_metadata` updates
-    // creator verification state as well.
-    if creators_should_be_updated(txn, asset_id, seq).await? {
-        let mut query = asset_creators::Entity::insert(model)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_creators::Column::AssetId,
-                    asset_creators::Column::Creator,
-                ])
-                .update_columns([
-                    asset_creators::Column::Verified,
-                    asset_creators::Column::VerifiedSeq,
-                ])
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
+    let mut query = asset_creators::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([
+                asset_creators::Column::AssetId,
+                asset_creators::Column::Creator,
+            ])
+            .update_columns([
+                asset_creators::Column::Verified,
+                asset_creators::Column::VerifiedSeq,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
 
-        query.sql = format!(
+    query.sql = format!(
     "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq is NULL",
     query.sql,
 );
 
-        txn.execute(query)
-            .await
-            .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-    }
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -445,7 +443,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn upsert_asset_data<T>(
+pub async fn unprotected_upsert_asset_data<T>(
     txn: &T,
     id: Vec<u8>,
     chain_data_mutability: ChainMutability,
@@ -457,7 +455,6 @@ pub async fn upsert_asset_data<T>(
     reindex: Option<bool>,
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
-    seq: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -473,11 +470,10 @@ where
         reindex: Set(reindex),
         raw_name: Set(Some(raw_name)),
         raw_symbol: Set(Some(raw_symbol)),
-        base_info_seq: Set(Some(seq)),
         ..Default::default()
     };
 
-    let mut query = asset_data::Entity::insert(model)
+    let query = asset_data::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -492,15 +488,10 @@ where
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,
                     asset_data::Column::RawSymbol,
-                    asset_data::Column::BaseInfoSeq,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.base_info_seq >= asset_data.base_info_seq OR asset_data.base_info_seq IS NULL)",
-        query.sql
-    );
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
@@ -508,76 +499,93 @@ where
     Ok(())
 }
 
-pub async fn upsert_asset_with_royalty_amount<T>(
+#[allow(clippy::too_many_arguments)]
+pub async fn unprotected_upsert_asset_base_info<T>(
     txn: &T,
     id: Vec<u8>,
+    owner_type: OwnerType,
+    frozen: bool,
+    tree_id: Vec<u8>,
+    specification_version: SpecificationVersions,
+    specification_asset_class: SpecificationAssetClass,
+    nonce: i64,
+    royalty_target_type: RoyaltyTargetType,
+    royalty_target: Option<Vec<u8>>,
     royalty_amount: i32,
-    seq: i64,
+    slot_updated: i64,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let model = asset::ActiveModel {
+    // Set initial mint info.
+    let asset_model = asset::ActiveModel {
         id: Set(id.clone()),
+        owner_type: Set(owner_type),
+        frozen: Set(frozen),
+        tree_id: Set(Some(tree_id)),
+        specification_version: Set(Some(specification_version)),
+        specification_asset_class: Set(Some(specification_asset_class)),
+        nonce: Set(Some(nonce)),
+        royalty_target_type: Set(royalty_target_type),
+        royalty_target: Set(royalty_target),
         royalty_amount: Set(royalty_amount),
-        royalty_amount_seq: Set(Some(seq)),
+        asset_data: Set(Some(id)),
+        slot_updated: Set(Some(slot_updated)),
         ..Default::default()
     };
 
-    let mut query = asset::Entity::insert(model)
+    // Upsert asset table base info.
+    let query = asset::Entity::insert(asset_model)
         .on_conflict(
-            OnConflict::column(asset::Column::Id)
+            OnConflict::columns([asset::Column::Id])
                 .update_columns([
+                    asset::Column::OwnerType,
+                    asset::Column::Frozen,
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::RoyaltyTargetType,
+                    asset::Column::RoyaltyTarget,
                     asset::Column::RoyaltyAmount,
-                    asset::Column::RoyaltyAmountSeq,
+                    asset::Column::AssetData,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
-    query.sql = format!(
-        "{} WHERE excluded.royalty_amount_seq >= asset.royalty_amount_seq OR royalty_amount_seq.seq IS NULL)",
-        query.sql
-    );
-
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }
 
-pub async fn asset_was_decompressed<T>(txn: &T, id: Vec<u8>) -> Result<bool, IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
-        if let Some(0) = asset.seq {
-            return Ok(true);
-        }
-    };
-    Ok(false)
-}
-
-pub async fn creators_should_be_updated<T>(
+pub async fn asset_should_be_updated<T>(
     txn: &T,
     id: Vec<u8>,
-    seq: i64,
+    seq: Option<i64>,
 ) -> Result<bool, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
-        if let Some(creators_added_seq) = asset.creators_added_seq {
-            if seq < creators_added_seq {
+        if let Some(update_metadata_seq) = asset.update_metadata_seq {
+            if update_metadata_seq == 0 {
+                // Asset was decompressed and should no longer be updated by Bubblegum program
+                // transformers.
                 return Ok(false);
+            } else if let Some(seq) = seq {
+                if seq < update_metadata_seq {
+                    // Asset was updated by an `update_metadata` so should not be modified by this
+                    // sequence number.
+                    return Ok(false);
+                }
             }
         }
-    }
+    };
     Ok(true)
 }
 
-pub async fn upsert_asset_with_creators_added_seq<T>(
+pub async fn upsert_asset_with_update_metadata_seq<T>(
     txn: &T,
     id: Vec<u8>,
     seq: i64,
@@ -587,26 +595,176 @@ where
 {
     let model = asset::ActiveModel {
         id: Set(id),
-        creators_added_seq: Set(Some(seq)),
+        update_metadata_seq: Set(Some(seq)),
         ..Default::default()
     };
 
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
-                .update_columns([asset::Column::CreatorsAddedSeq])
+                .update_columns([asset::Column::UpdateMetadataSeq])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-        "{} WHERE excluded.creators_added_seq >= asset.creators_added_seq OR asset.creators_added_seq IS NULL",
+        "{} WHERE excluded.update_metadata_seq >= asset.update_metadata_seq OR asset.update_metadata_seq IS NULL",
         query.sql
     );
 
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn unprotected_upsert_creators<T>(
+    txn: &T,
+    id: Vec<u8>,
+    creators: &Vec<Creator>,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    if !creators.is_empty() {
+        // Vec to hold base creator information.
+        let mut db_creator_infos = Vec::with_capacity(creators.len());
+
+        // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
+        let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+
+        // Set to prevent duplicates.
+        let mut creators_set = HashSet::new();
+
+        for (i, c) in creators.iter().enumerate() {
+            if creators_set.contains(&c.address) {
+                continue;
+            }
+
+            db_creator_infos.push(asset_creators::ActiveModel {
+                asset_id: Set(id.clone()),
+                creator: Set(c.address.to_bytes().to_vec()),
+                position: Set(i as i16),
+                share: Set(c.share as i32),
+                slot_updated: Set(Some(slot_updated)),
+                ..Default::default()
+            });
+
+            db_creator_verified_infos.push(asset_creators::ActiveModel {
+                asset_id: Set(id.clone()),
+                creator: Set(c.address.to_bytes().to_vec()),
+                verified: Set(c.verified),
+                verified_seq: Set(Some(seq)),
+                ..Default::default()
+            });
+
+            creators_set.insert(c.address);
+        }
+
+        // This statement will update base information for each creator.
+        let query = asset_creators::Entity::insert_many(db_creator_infos)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Creator,
+                ])
+                .update_columns([
+                    asset_creators::Column::Position,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        txn.execute(query).await?;
+
+        // This statement will update whether the creator is verified and the
+        // `verified_seq` number.
+        let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Creator,
+                ])
+                .update_columns([
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::VerifiedSeq,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+            query.sql
+        );
+        txn.execute(query).await?;
+    }
+
+    Ok(())
+}
+
+pub async fn unprotected_upsert_asset_v1_account_attachments<T>(
+    txn: &T,
+    edition_attachment_address: Vec<u8>,
+    slot_updated: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let attachment = asset_v1_account_attachments::ActiveModel {
+        id: Set(edition_attachment_address),
+        slot_updated: Set(slot_updated),
+        attachment_type: Set(V1AccountAttachments::MasterEditionV2),
+        ..Default::default()
+    };
+
+    let query = asset_v1_account_attachments::Entity::insert(attachment)
+        .on_conflict(
+            OnConflict::columns([asset_v1_account_attachments::Column::Id])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn unprotected_upsert_asset_authority<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    authority: Vec<u8>,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_authority::ActiveModel {
+        asset_id: Set(asset_id),
+        authority: Set(authority),
+        seq: Set(seq),
+        slot_updated: Set(slot_updated),
+        ..Default::default()
+    };
+
+    // Do not attempt to modify any existing values:
+    // `ON CONFLICT ('asset_id') DO NOTHING`.
+    let query = asset_authority::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset_authority::Column::AssetId])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }

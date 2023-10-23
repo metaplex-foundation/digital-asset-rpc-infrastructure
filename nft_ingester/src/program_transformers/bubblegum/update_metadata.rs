@@ -1,31 +1,37 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, creators_should_be_updated, save_changelog_event,
-        upsert_asset_data, upsert_asset_with_creators_added_seq, upsert_asset_with_leaf_info,
-        upsert_asset_with_royalty_amount, upsert_asset_with_seq,
+        asset_should_be_updated, save_changelog_event, unprotected_upsert_asset_authority,
+        unprotected_upsert_asset_base_info, unprotected_upsert_asset_data,
+        unprotected_upsert_asset_v1_account_attachments, unprotected_upsert_creators,
+        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+        upsert_asset_with_update_metadata_seq, upsert_collection_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-    token_metadata::state::{TokenStandard, UseMethod, Uses},
+    token_metadata::{
+        pda::find_master_edition_account,
+        state::{TokenStandard, UseMethod, Uses},
+    },
 };
 use chrono::Utc;
+use digital_asset_types::dao::sea_orm_active_enums::{
+    SpecificationAssetClass, SpecificationVersions,
+};
 use digital_asset_types::{
     dao::{
         asset_creators,
-        sea_orm_active_enums::{ChainMutability, Mutability},
+        sea_orm_active_enums::{ChainMutability, Mutability, OwnerType, RoyaltyTargetType},
     },
     json::ChainDataV1,
 };
 use log::warn;
 use num_traits::FromPrimitive;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
-};
-use std::collections::HashSet;
+use sea_orm::{entity::*, query::*, ConnectionTrait, EntityTrait, JsonValue};
 
 pub async fn update_metadata<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -52,13 +58,22 @@ where
 
         #[allow(unreachable_patterns)]
         return match le.schema {
-            LeafSchema::V1 { id, nonce, .. } => {
+            LeafSchema::V1 {
+                id,
+                delegate,
+                owner,
+                nonce,
+                ..
+            } => {
                 let id_bytes = id.to_bytes();
 
-                // First check to see if this asset has been decompressed and if so do not update.
-                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+                // First check to see if this asset has been decompressed or updated by
+                // `update_metadata`.
+                if !asset_should_be_updated(txn, id_bytes.to_vec(), Some(seq as i64)).await? {
                     return Ok(None);
                 }
+
+                // Upsert into `asset_data` table.
 
                 let slot_i = bundle.slot as i64;
 
@@ -67,11 +82,6 @@ where
                 } else {
                     current_metadata.uri.replace('\0', "")
                 };
-                if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError(
-                        "URI is empty".to_string(),
-                    ));
-                }
 
                 let name = if let Some(name) = update_args.name.clone() {
                     name
@@ -120,7 +130,7 @@ where
                     ChainMutability::Immutable
                 };
 
-                upsert_asset_data(
+                unprotected_upsert_asset_data(
                     txn,
                     id_bytes.to_vec(),
                     chain_mutability,
@@ -132,11 +142,13 @@ where
                     Some(true),
                     name.into_bytes().to_vec(),
                     symbol.into_bytes().to_vec(),
-                    seq as i64,
                 )
                 .await?;
 
-                // Partial update of asset table with just royalty amount (seller fee basis points).
+                // Upsert into `asset` table.
+
+                // Set base mint info.
+                let tree_id = bundle.keys.get(5).unwrap().0.to_vec();
                 let seller_fee_basis_points =
                     if let Some(seller_fee_basis_points) = update_args.seller_fee_basis_points {
                         seller_fee_basis_points
@@ -144,16 +156,35 @@ where
                         current_metadata.seller_fee_basis_points
                     };
 
-                upsert_asset_with_royalty_amount(
+                unprotected_upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
+                    OwnerType::Single,
+                    false,
+                    tree_id.clone(),
+                    SpecificationVersions::V1,
+                    SpecificationAssetClass::Nft,
+                    nonce as i64,
+                    RoyaltyTargetType::Creators,
+                    None,
                     seller_fee_basis_points as i32,
-                    seq as i64,
+                    slot_i,
+                )
+                .await?;
+
+                // Partial update of asset table with just compression info elements.
+                upsert_asset_with_compression_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    true,
+                    false,
+                    1,
+                    None,
+                    false,
                 )
                 .await?;
 
                 // Partial update of asset table with just leaf.
-                let tree_id = bundle.keys.get(5).unwrap().0.to_vec();
                 upsert_asset_with_leaf_info(
                     txn,
                     id_bytes.to_vec(),
@@ -166,108 +197,75 @@ where
                 )
                 .await?;
 
+                // Partial update of asset table with just leaf owner and delegate.
+                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
+                    None
+                } else {
+                    Some(delegate.to_bytes().to_vec())
+                };
+                upsert_asset_with_owner_and_delegate_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    owner.to_bytes().to_vec(),
+                    delegate,
+                    seq as i64,
+                )
+                .await?;
+
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
+                // Upsert into `asset_v1_account_attachments` table.
+                let (edition_attachment_address, _) = find_master_edition_account(&id);
+                unprotected_upsert_asset_v1_account_attachments(
+                    txn,
+                    edition_attachment_address.to_bytes().to_vec(),
+                    slot_i,
+                )
+                .await?;
+
                 // Update `asset_creators` table.
-                if creators_should_be_updated(txn, id_bytes.to_vec(), seq as i64).await? {
-                    if let Some(creators) = &update_args.creators {
-                        // Vec to hold base creator information.
-                        let mut db_creator_infos = Vec::with_capacity(creators.len());
 
-                        // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
-                        let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+                // Delete any existing creators.
+                asset_creators::Entity::delete_many()
+                    .filter(
+                        Condition::all().add(asset_creators::Column::AssetId.eq(id_bytes.to_vec())),
+                    )
+                    .exec(txn)
+                    .await?;
 
-                        // Set to prevent duplicates.
-                        let mut creators_set = HashSet::new();
+                let creators = if let Some(creators) = &update_args.creators {
+                    creators
+                } else {
+                    &current_metadata.creators
+                };
 
-                        for (i, c) in creators.iter().enumerate() {
-                            if creators_set.contains(&c.address) {
-                                continue;
-                            }
+                // Upsert into `asset_creators` table.
+                unprotected_upsert_creators(txn, id_bytes.to_vec(), creators, slot_i, seq as i64)
+                    .await?;
 
-                            db_creator_infos.push(asset_creators::ActiveModel {
-                                asset_id: Set(id_bytes.to_vec()),
-                                creator: Set(c.address.to_bytes().to_vec()),
-                                position: Set(i as i16),
-                                share: Set(c.share as i32),
-                                slot_updated: Set(Some(slot_i)),
-                                ..Default::default()
-                            });
+                // Insert into `asset_authority` table.
+                //TODO - we need to remove the optional bubblegum signer logic
+                let authority = bundle.keys.get(0).unwrap().0.to_vec();
+                unprotected_upsert_asset_authority(
+                    txn,
+                    id_bytes.to_vec(),
+                    authority,
+                    seq as i64,
+                    slot_i,
+                )
+                .await?;
 
-                            db_creator_verified_infos.push(asset_creators::ActiveModel {
-                                asset_id: Set(id_bytes.to_vec()),
-                                creator: Set(c.address.to_bytes().to_vec()),
-                                verified: Set(c.verified),
-                                verified_seq: Set(Some(seq as i64)),
-                                ..Default::default()
-                            });
+                // Upsert into `asset_grouping` table with base collection info.
+                upsert_collection_info(
+                    txn,
+                    id_bytes.to_vec(),
+                    current_metadata.collection.clone(),
+                    slot_i,
+                    seq as i64,
+                )
+                .await?;
 
-                            creators_set.insert(c.address);
-                        }
-
-                        // Remove creators no longer present in creator array.
-                        let db_creators_to_remove: Vec<Vec<u8>> = current_metadata
-                            .creators
-                            .iter()
-                            .filter(|c| !creators_set.contains(&c.address))
-                            .map(|c| c.address.to_bytes().to_vec())
-                            .collect();
-
-                        asset_creators::Entity::delete_many()
-                            .filter(
-                                Condition::all()
-                                    .add(asset_creators::Column::AssetId.eq(id_bytes.to_vec()))
-                                    .add(
-                                        asset_creators::Column::Creator
-                                            .is_in(db_creators_to_remove),
-                                    ),
-                            )
-                            .exec(txn)
-                            .await?;
-
-                        // This statement will update base information for each creator.
-                        let query = asset_creators::Entity::insert_many(db_creator_infos)
-                            .on_conflict(
-                                OnConflict::columns([
-                                    asset_creators::Column::AssetId,
-                                    asset_creators::Column::Creator,
-                                ])
-                                .update_columns([
-                                    asset_creators::Column::Position,
-                                    asset_creators::Column::Share,
-                                    asset_creators::Column::SlotUpdated,
-                                ])
-                                .to_owned(),
-                            )
-                            .build(DbBackend::Postgres);
-                        txn.execute(query).await?;
-
-                        // This statement will update whether the creator is verified and the
-                        // `verified_seq` number.
-                        let mut query =
-                            asset_creators::Entity::insert_many(db_creator_verified_infos)
-                                .on_conflict(
-                                    OnConflict::columns([
-                                        asset_creators::Column::AssetId,
-                                        asset_creators::Column::Creator,
-                                    ])
-                                    .update_columns([
-                                        asset_creators::Column::Verified,
-                                        asset_creators::Column::VerifiedSeq,
-                                    ])
-                                    .to_owned(),
-                                )
-                                .build(DbBackend::Postgres);
-                        query.sql = format!(
-                            "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
-                            query.sql
-                        );
-                        txn.execute(query).await?;
-
-                        upsert_asset_with_creators_added_seq(txn, id_bytes.to_vec(), seq as i64)
-                            .await?;
-                    }
-                }
+                upsert_asset_with_update_metadata_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
                 if uri.is_empty() {
                     warn!(

@@ -85,7 +85,6 @@ pub fn create_asset_data(
             reindex: None,
             raw_name: Some(metadata.name.into_bytes().to_vec().clone()),
             raw_symbol: Some(metadata.symbol.into_bytes().to_vec().clone()),
-            base_info_seq: Some(0),
             download_metadata_seq: Some(0),
         },
     )
@@ -159,8 +158,7 @@ pub fn create_asset(
             owner_delegate_seq: Some(0),
             was_decompressed: false,
             leaf_seq: Some(0),
-            royalty_amount_seq: Some(0),
-            creators_added_seq: Some(0),
+            update_metadata_seq: Some(0),
         },
     )
 }

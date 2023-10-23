@@ -1,5 +1,5 @@
 use crate::program_transformers::bubblegum::{
-    asset_was_decompressed, upsert_asset_with_seq, upsert_collection_info,
+    asset_should_be_updated, upsert_asset_with_seq, upsert_collection_info,
 };
 use blockbuster::{
     instruction::InstructionBundle,
@@ -44,8 +44,9 @@ where
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };
 
-        // First check to see if this asset has been decompressed and if so do not update.
-        if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+        // First check to see if this asset has been decompressed or updated by
+        // `update_metadata`.
+        if !asset_should_be_updated(txn, id_bytes.to_vec(), Some(seq as i64)).await? {
             return Ok(());
         }
 

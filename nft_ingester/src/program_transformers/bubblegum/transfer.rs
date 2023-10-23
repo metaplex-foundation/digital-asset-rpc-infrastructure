@@ -2,7 +2,7 @@ use super::save_changelog_event;
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, upsert_asset_with_leaf_info,
+        asset_should_be_updated, upsert_asset_with_leaf_info,
         upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
     },
 };
@@ -33,8 +33,9 @@ where
             } => {
                 let id_bytes = id.to_bytes();
 
-                // First check to see if this asset has been decompressed and if so do not update.
-                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
+                // First check to see if this asset has been decompressed or updated by
+                // `update_metadata`.
+                if !asset_should_be_updated(txn, id_bytes.to_vec(), Some(seq as i64)).await? {
                     return Ok(());
                 }
 
