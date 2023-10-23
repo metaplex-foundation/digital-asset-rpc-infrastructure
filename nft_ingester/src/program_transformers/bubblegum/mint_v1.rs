@@ -244,7 +244,6 @@ where
                             position: Set(i as i16),
                             share: Set(c.share as i32),
                             slot_updated: Set(Some(slot_i)),
-                            base_info_seq: Set(Some(seq as i64)),
                             ..Default::default()
                         });
 
@@ -276,9 +275,8 @@ where
                         .build(DbBackend::Postgres);
                     txn.execute(query).await?;
 
-                    // This statement will update whether the creator is verified and the `seq`
-                    // number.  `seq` is used to protect the `verified` field, allowing for `mint`
-                    // and `verifyCreator` to be processed out of order.
+                    // This statement will update whether the creator is verified and the
+                    // `verified_seq` number.
                     let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
                         .on_conflict(
                             OnConflict::columns([

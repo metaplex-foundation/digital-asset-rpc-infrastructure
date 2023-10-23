@@ -160,6 +160,7 @@ pub fn create_asset(
             was_decompressed: false,
             leaf_seq: Some(0),
             royalty_amount_seq: Some(0),
+            creators_added_seq: Some(0),
         },
     )
 }
@@ -188,7 +189,6 @@ pub fn create_asset_creator(
             verified_seq: Some(0),
             slot_updated: Some(0),
             position: 0,
-            base_info_seq: Some(0),
         },
     )
 }

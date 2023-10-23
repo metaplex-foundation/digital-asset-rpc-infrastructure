@@ -391,40 +391,6 @@ where
     Ok(())
 }
 
-pub async fn upsert_asset_with_creators_added_seq<T>(
-    txn: &T,
-    id: Vec<u8>,
-    seq: i64,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let model = asset::ActiveModel {
-        id: Set(id),
-        seq: Set(Some(seq)),
-        ..Default::default()
-    };
-
-    let mut query = asset::Entity::insert(model)
-        .on_conflict(
-            OnConflict::column(asset::Column::Id)
-                .update_columns([asset::Column::Seq])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    query.sql = format!(
-        "{} WHERE excluded.creators_added_seq >= asset.creators_added_seq OR asset.creators_added_seq IS NULL",
-        query.sql
-    );
-
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-    Ok(())
-}
-
 pub async fn upsert_collection_info<T>(
     txn: &T,
     asset_id: Vec<u8>,
@@ -602,11 +568,45 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
-        if let Some(creator_array_seq) = asset.seq {
-            if seq < creator_array_seq {
+        if let Some(creators_added_seq) = asset.creators_added_seq {
+            if seq < creators_added_seq {
                 return Ok(false);
             }
         }
     }
     Ok(true)
+}
+
+pub async fn upsert_asset_with_creators_added_seq<T>(
+    txn: &T,
+    id: Vec<u8>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset::ActiveModel {
+        id: Set(id),
+        creators_added_seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(model)
+        .on_conflict(
+            OnConflict::column(asset::Column::Id)
+                .update_columns([asset::Column::CreatorsAddedSeq])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.creators_added_seq >= asset.creators_added_seq OR asset.creators_added_seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
 }

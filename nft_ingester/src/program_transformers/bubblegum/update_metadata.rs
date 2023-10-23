@@ -191,7 +191,6 @@ where
                                 position: Set(i as i16),
                                 share: Set(c.share as i32),
                                 slot_updated: Set(Some(slot_i)),
-                                base_info_seq: Set(Some(seq as i64)),
                                 ..Default::default()
                             });
 
@@ -221,20 +220,13 @@ where
                                     .add(
                                         asset_creators::Column::Creator
                                             .is_in(db_creators_to_remove),
-                                    )
-                                    .add(
-                                        Condition::any()
-                                            .add(asset_creators::Column::BaseInfoSeq.lt(seq as i64))
-                                            .add(asset_creators::Column::BaseInfoSeq.is_null()),
                                     ),
                             )
                             .exec(txn)
                             .await?;
 
-                        // This statement will update base information for each creator and the
-                        // `base_info_seq` number, allows for `mintV1` and `update_metadata` to be
-                        // processed out of order.
-                        let mut query = asset_creators::Entity::insert_many(db_creator_infos)
+                        // This statement will update base information for each creator.
+                        let query = asset_creators::Entity::insert_many(db_creator_infos)
                             .on_conflict(
                                 OnConflict::columns([
                                     asset_creators::Column::AssetId,
@@ -244,21 +236,14 @@ where
                                     asset_creators::Column::Position,
                                     asset_creators::Column::Share,
                                     asset_creators::Column::SlotUpdated,
-                                    asset_creators::Column::BaseInfoSeq,
                                 ])
                                 .to_owned(),
                             )
                             .build(DbBackend::Postgres);
-                        query.sql = format!(
-                            "{} WHERE excluded.base_info_seq >= asset_creators.base_info_seq OR asset_creators.base_info_seq IS NULL",
-                            query.sql
-                        );
                         txn.execute(query).await?;
 
                         // This statement will update whether the creator is verified and the
-                        // `verified_seq` number, which is used to protect the `verified` field,
-                        // allowing for `mintV1`, `update_metadata`, and `verifyCreator` to be
-                        // processed out of order.
+                        // `verified_seq` number.
                         let mut query =
                             asset_creators::Entity::insert_many(db_creator_verified_infos)
                                 .on_conflict(
