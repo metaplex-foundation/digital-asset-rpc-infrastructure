@@ -4,11 +4,12 @@ use digital_asset_types::dao::{
     sea_orm_active_enums::{ChainMutability, Mutability},
 };
 use log::{debug, info};
-use mpl_bubblegum::types::Collection;
+use mpl_bubblegum::types::{Collection, Creator};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
+use std::collections::HashSet;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -607,6 +608,97 @@ where
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+pub async fn upsert_creators<T>(
+    txn: &T,
+    id: Vec<u8>,
+    creators: &Vec<Creator>,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    if creators_should_be_updated(txn, id.clone(), seq).await? {
+        if !creators.is_empty() {
+            // Vec to hold base creator information.
+            let mut db_creator_infos = Vec::with_capacity(creators.len());
+
+            // Vec to hold info on whether a creator is verified.  This info is protected by `seq` number.
+            let mut db_creator_verified_infos = Vec::with_capacity(creators.len());
+
+            // Set to prevent duplicates.
+            let mut creators_set = HashSet::new();
+
+            for (i, c) in creators.iter().enumerate() {
+                if creators_set.contains(&c.address) {
+                    continue;
+                }
+
+                db_creator_infos.push(asset_creators::ActiveModel {
+                    asset_id: Set(id.clone()),
+                    creator: Set(c.address.to_bytes().to_vec()),
+                    position: Set(i as i16),
+                    share: Set(c.share as i32),
+                    slot_updated: Set(Some(slot_updated)),
+                    ..Default::default()
+                });
+
+                db_creator_verified_infos.push(asset_creators::ActiveModel {
+                    asset_id: Set(id.clone()),
+                    creator: Set(c.address.to_bytes().to_vec()),
+                    verified: Set(c.verified),
+                    verified_seq: Set(Some(seq)),
+                    ..Default::default()
+                });
+
+                creators_set.insert(c.address);
+            }
+
+            // This statement will update base information for each creator.
+            let query = asset_creators::Entity::insert_many(db_creator_infos)
+                .on_conflict(
+                    OnConflict::columns([
+                        asset_creators::Column::AssetId,
+                        asset_creators::Column::Creator,
+                    ])
+                    .update_columns([
+                        asset_creators::Column::Position,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::SlotUpdated,
+                    ])
+                    .to_owned(),
+                )
+                .build(DbBackend::Postgres);
+            txn.execute(query).await?;
+
+            // This statement will update whether the creator is verified and the
+            // `verified_seq` number.
+            let mut query = asset_creators::Entity::insert_many(db_creator_verified_infos)
+                .on_conflict(
+                    OnConflict::columns([
+                        asset_creators::Column::AssetId,
+                        asset_creators::Column::Creator,
+                    ])
+                    .update_columns([
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::VerifiedSeq,
+                    ])
+                    .to_owned(),
+                )
+                .build(DbBackend::Postgres);
+            query.sql = format!(
+            "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+            query.sql
+        );
+            txn.execute(query).await?;
+        }
+
+        upsert_asset_with_creators_added_seq(txn, id, seq).await?;
+    }
 
     Ok(())
 }
