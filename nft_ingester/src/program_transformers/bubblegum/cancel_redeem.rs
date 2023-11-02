@@ -16,12 +16,13 @@ pub async fn cancel_redeem<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     cl_audits: bool,
+    instruction: &str
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits, instruction).await?;
         #[allow(unreachable_patterns)]
         return match le.schema {
             LeafSchema::V1 {
