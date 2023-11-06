@@ -80,6 +80,12 @@ impl RpcApiBuilder {
             rpc_context.search_assets(payload).await.map_err(Into::into)
         })?;
         module.register_alias("searchAssets", "search_assets")?;
+        
+        module.register_async_method("get_signatures_for_asset", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetSignaturesForAsset>()?;
+            rpc_context.get_signatures_for_asset(payload).await.map_err(Into::into)
+        })?;
+        module.register_alias("getSignaturesForAsset", "get_signatures_for_asset")?;
 
         module.register_async_method("schema", |_, rpc_context| async move {
             Ok(rpc_context.schema())

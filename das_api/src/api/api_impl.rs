@@ -8,7 +8,7 @@ use digital_asset_types::{
     },
     dapi::{
         get_asset, get_assets_by_authority, get_assets_by_creator, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, search_assets,
+        get_assets_by_owner, get_proof_for_asset, search_assets, get_signatures_for_asset
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -28,6 +28,7 @@ use {
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
+    use digital_asset_types::rpc::response::TransactionSignatureList;
 
 pub struct DasApi {
     db_connection: DatabaseConnection,
@@ -362,5 +363,35 @@ impl ApiContract for DasApi {
             group_name: group_value,
             group_size: gs.size,
         })
+    }
+
+    async fn get_signatures_for_asset(
+        self: &DasApi,
+        payload: GetSignaturesForAsset,
+    ) -> Result<TransactionSignatureList, DasApiError> {
+        let GetSignaturesForAsset { 
+            id,
+            limit,
+            page,
+            before,
+            after,
+            tree,
+            leaf_index,
+        } = payload;
+
+        if !((id.is_some() && tree.is_none() && leaf_index.is_none())
+            || (id.is_none() && tree.is_some() && leaf_index.is_some()))
+        {
+            return Err(DasApiError::ValidationError(
+                "Must provide either 'id' or both 'tree' and 'leafIndex'".to_string(),
+            ));
+        }
+        let id = validate_opt_pubkey(&id)?;
+        let tree = validate_opt_pubkey(&tree)?;
+        let before = validate_opt_pubkey(&before)?;
+        let after = validate_opt_pubkey(&after)?;
+        get_signatures_for_asset(&self.db_connection, id, tree, leaf_index, limit.unwrap_or(100), page, before, after)
+            .await
+            .map_err(Into::into)
     }
 }
