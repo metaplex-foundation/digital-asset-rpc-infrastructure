@@ -16,10 +16,12 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
+    account_compression::handle_account_compression_instruction,
     bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
     token_metadata::handle_token_metadata_account,
 };
 
+mod account_compression;
 mod bubblegum;
 mod token;
 mod token_metadata;
@@ -133,6 +135,23 @@ impl ProgramTransformer {
                         .map_err(|err| {
                             error!(
                                 "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                                sig, err
+                            );
+                            return err;
+                        })?;
+                    }
+                    ProgramParseResult::AccountCompression(parsing_result) => {
+                        handle_account_compression_instruction(
+                            parsing_result,
+                            &ix,
+                            &self.storage,
+                            &self.task_sender,
+                            self.cl_audits,
+                        )
+                        .await
+                        .map_err(|err| {
+                            error!(
+                                "Failed to handle account compression instruction for txn {:?}: {:?}",
                                 sig, err
                             );
                             return err;

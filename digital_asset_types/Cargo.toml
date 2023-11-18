@@ -7,10 +7,18 @@ publish = false
 
 [dependencies]
 spl-concurrent-merkle-tree = "0.2.0"
-sea-orm = { optional = true, version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-orm = { optional = true, version = "0.10.6", features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-postgres",
+  "with-chrono",
+  "mock",
+] }
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
-serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] }
+serde_json = { version = "1.0.81", optional = true, features = [
+  "preserve_order",
+] }
 bs58 = "0.4.0"
 borsh = { version = "~0.10.3", optional = true }
 borsh-derive = { version = "~0.10.3", optional = true }
@@ -18,7 +26,7 @@ solana-sdk = "~1.16.16"
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = "0.9.0-beta.1"
+blockbuster = { version = "0.9.0-beta.1", git = "https://github.com/Honeycomb-Protocol/blockbuster.git", branch = "beta" }
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.3.1"

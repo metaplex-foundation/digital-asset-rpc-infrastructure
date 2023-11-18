@@ -289,3 +289,39 @@ create index asset_creator on asset_creators (asset_id, creator);
 -- @@@@@@
 create index asset_verified_creator on asset_creators (asset_id, verified);
 -- @@@@@@
+
+
+create table compressed_data
+(
+    -- Tree Indexing
+    tree_id                   bytea not null,
+    leaf_idx                  bigint not null, -- This is the index of the leaf in the tree, equivalent to nonce in the asset table
+    seq                       bigint not null,
+
+    -- Compressed Data
+    raw_data                      bytea,
+
+    -- Parsed
+    parsed_data                   jsonb,
+
+    -- Origin
+    program                     bytea,
+
+    -- visibility
+    created_at                timestamp with time zone           default (now() at time zone 'utc'),
+    slot_updated              bigint                    not null
+);
+-- @@@@@@
+
+create index compressed_data_tree on compressed_data (tree_id);
+-- @@@@@@
+create index compressed_data_raw_data on compressed_data (raw_data);
+-- @@@@@@
+create index compressed_data_parsed_data on compressed_data (parsed_data);
+-- @@@@@@
+create unique index compressed_data_tree_leaf_idx on compressed_data (tree_id, leaf_idx);
+-- @@@@@@
+create index compressed_data_revision on compressed_data (tree_id, raw_data, leaf_idx);
+-- @@@@@@
+create index compressed_data_program on compressed_data (program);
+-- @@@@@@
