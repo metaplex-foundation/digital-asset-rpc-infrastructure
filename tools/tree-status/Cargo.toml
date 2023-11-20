@@ -12,7 +12,10 @@ anchor-client = { workspace = true }
 anyhow = { workspace = true }
 bs58 = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true, features = [
+  "json_types",
+  "sql_types",
+] }
 env_logger = { workspace = true }
 flatbuffers = { workspace = true }
 futures = { workspace = true }
@@ -20,16 +23,35 @@ hex = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
 prometheus = { workspace = true }
-sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-orm = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-postgres",
+  "with-chrono",
+  "mock",
+] }
 serde_json = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 spl-noop = { workspace = true, features = ["no-entrypoint"] }
-sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sqlx = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "postgres",
+  "uuid",
+  "offline",
+  "json",
+] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread", "sync", "time"] }
+tokio = { workspace = true, features = [
+  "fs",
+  "macros",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
 txn_forwarder = { workspace = true }
 
 [lints]

@@ -12,7 +12,9 @@ rand = { workspace = true }
 solana-client = { workspace = true }
 solana-program = { workspace = true }
 solana-sdk = { workspace = true }
-spl-associated-token-account = { workspace = true, features = ["no-entrypoint"] }
+spl-associated-token-account = { workspace = true, features = [
+  "no-entrypoint",
+] }
 spl-token = { workspace = true, features = ["no-entrypoint"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
