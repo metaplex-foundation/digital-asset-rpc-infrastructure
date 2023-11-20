@@ -1,6 +1,6 @@
 {
   "libpath": "/plugin/plugin.so",
-  "enable_metrics": true,
+  "enable_metrics": false,
   "metrics_port": 8125,
   "metrics_uri": "graphite",
   "env": "dev",

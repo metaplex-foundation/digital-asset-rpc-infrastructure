@@ -48,6 +48,13 @@ pub struct GetAssetProof {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetProof {
+    pub tree: String,
+    pub leaf_idx: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByCreator {
     pub creator_address: String,
     pub only_verified: Option<bool>,
@@ -117,6 +124,12 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get a merkle proof for a compressed asset by its ID"
     )]
     async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
+    #[rpc(
+        name = "getProof",
+        params = "named",
+        summary = "Get a merkle proof for a leaf of a mt"
+    )]
+    async fn get_proof(&self, payload: GetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
         name = "getAsset",
         params = "named",

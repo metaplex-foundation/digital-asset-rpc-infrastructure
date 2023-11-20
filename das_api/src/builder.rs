@@ -22,6 +22,15 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getAssetProof", "get_asset_proof")?;
 
+        module.register_async_method("get_proof", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetProof>()?;
+            rpc_context
+                .get_proof(payload)
+                .await
+                .map_err(Into::into)
+        })?;
+        module.register_alias("getProof", "get_proof")?;
+
         module.register_async_method("get_asset", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<GetAsset>()?;
             rpc_context.get_asset(payload).await.map_err(Into::into)

@@ -66,8 +66,8 @@ services:
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana
       APP_SERVER_PORT: 9090
-      APP_METRICS_PORT: 8125
-      APP_METRICS_HOST: graphite
+      # APP_METRICS_PORT: 8125
+      # APP_METRICS_HOST: graphite
     build:
       context: .
       dockerfile: Api.Dockerfile

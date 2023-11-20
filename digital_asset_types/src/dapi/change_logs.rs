@@ -17,30 +17,10 @@ struct SimpleChangeLog {
     seq: i64,
 }
 
-pub async fn get_proof_for_asset(
+pub async fn get_proof_for_leaf(
     db: &DatabaseConnection,
-    asset_id: Vec<u8>,
+    leaf: cl_items::Model,
 ) -> Result<AssetProof, DbErr> {
-    let sel = cl_items::Entity::find()
-        .join_rev(
-            JoinType::InnerJoin,
-            asset::Entity::belongs_to(cl_items::Entity)
-                .from(asset::Column::Nonce)
-                .to(cl_items::Column::LeafIdx)
-                .into(),
-        )
-        .order_by_desc(cl_items::Column::Seq)
-        .filter(Expr::cust("asset.tree_id = cl_items.tree"))
-        .filter(Expr::cust_with_values(
-            "asset.id = $1::bytea",
-            vec![asset_id],
-        ))
-        .filter(cl_items::Column::Level.eq(0i64));
-    let leaf: Option<cl_items::Model> = sel.one(db).await?;
-    if leaf.is_none() {
-        return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
-    }
-    let leaf = leaf.unwrap();
     let req_indexes = get_required_nodes_for_proof(leaf.node_idx);
     let expected_proof_size = req_indexes.len();
     let mut final_node_list: Vec<SimpleChangeLog> =
@@ -95,6 +75,55 @@ pub async fn get_proof_for_asset(
         node_index: leaf.node_idx,
         tree_id: bs58::encode(&leaf.tree).into_string(),
     })
+}
+pub async fn get_proof_for_asset(
+    db: &DatabaseConnection,
+    asset_id: Vec<u8>,
+) -> Result<AssetProof, DbErr> {
+    let sel = cl_items::Entity::find()
+        .join_rev(
+            JoinType::InnerJoin,
+            asset::Entity::belongs_to(cl_items::Entity)
+                .from(asset::Column::Nonce)
+                .to(cl_items::Column::LeafIdx)
+                .into(),
+        )
+        .order_by_desc(cl_items::Column::Seq)
+        .filter(Expr::cust("asset.tree_id = cl_items.tree"))
+        .filter(Expr::cust_with_values(
+            "asset.id = $1::bytea",
+            vec![asset_id],
+        ))
+        .filter(cl_items::Column::Level.eq(0i64));
+    let leaf: Option<cl_items::Model> = sel.one(db).await?;
+    if leaf.is_none() {
+        return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
+    }
+    let leaf = leaf.unwrap();
+    get_proof_for_leaf(db, leaf).await
+}
+
+pub async fn get_proof(
+    db: &DatabaseConnection,
+    tree: Vec<u8>,
+    leaf_idx: u32,
+) -> Result<AssetProof, DbErr> {
+    let sel = cl_items::Entity::find()
+        .filter(Expr::cust_with_values(
+            "cl_items.tree = $1::bytea",
+            vec![tree],
+        ))
+        .filter(Expr::cust_with_values(
+            "cl_items.leaf_idx = $1::bigint",
+            vec![leaf_idx],
+        ))
+        .filter(cl_items::Column::Level.eq(0i64));
+    let leaf: Option<cl_items::Model> = sel.one(db).await?;
+    if leaf.is_none() {
+        return Err(DbErr::RecordNotFound("Asset Proof Not Found".to_string()));
+    }
+    let leaf = leaf.unwrap();
+    get_proof_for_leaf(db, leaf).await
 }
 
 fn make_empty_node(lvl: i64, node_index: i64) -> SimpleChangeLog {

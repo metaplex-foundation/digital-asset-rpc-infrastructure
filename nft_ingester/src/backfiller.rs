@@ -57,8 +57,8 @@ use crate::{
 };
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
-const TREE_SYNC_INTERVAL: u64 = 60;
-const MAX_BACKFILL_CHECK_WAIT: u64 = 1000;
+const TREE_SYNC_INTERVAL: u64 = 600;
+const MAX_BACKFILL_CHECK_WAIT: u64 = 10000;
 // Constants used for varying delays when failures occur.
 const INITIAL_FAILURE_DELAY: u64 = 100;
 const MAX_FAILURE_DELAY_MS: u64 = 10_000;
