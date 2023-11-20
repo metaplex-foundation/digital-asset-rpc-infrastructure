@@ -63,7 +63,7 @@ pub fn capture_result(
             }
             true
         }
-        Err(err) if err == IngesterError::NotImplemented => {
+        Err(IngesterError::NotImplemented) => {
             metric! {
                 statsd_count!("ingester.not_implemented", 1, label.0 => label.1, "stream" => stream, "error" => "ni");
             }

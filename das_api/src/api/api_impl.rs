@@ -48,8 +48,8 @@ impl DasApi {
 
     fn validate_pagination(
         &self,
-        limit: &Option<u32>,
-        page: &Option<u32>,
+        limit: Option<u32>,
+        page: Option<u32>,
         before: &Option<String>,
         after: &Option<String>,
     ) -> Result<(), DasApiError> {
@@ -59,13 +59,13 @@ impl DasApi {
 
         if let Some(limit) = limit {
             // make config item
-            if *limit > 1000 {
+            if limit > 1000 {
                 return Err(DasApiError::PaginationError);
             }
         }
 
         if let Some(page) = page {
-            if *page == 0 {
+            if page == 0 {
                 return Err(DasApiError::PaginationEmptyError);
             }
 
@@ -146,7 +146,7 @@ impl ApiContract for DasApi {
         let owner_address = validate_pubkey(owner_address.clone())?;
         let owner_address_bytes = owner_address.to_bytes().to_vec();
         let sort_by = sort_by.unwrap_or_default();
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        self.validate_pagination(limit, page, &before, &after)?;
         get_assets_by_owner(
             &self.db_connection,
             owner_address_bytes,
@@ -176,7 +176,7 @@ impl ApiContract for DasApi {
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
         let sort_by = sort_by.unwrap_or_default();
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        self.validate_pagination(limit, page, &before, &after)?;
         get_assets_by_group(
             &self.db_connection,
             group_key,
@@ -207,7 +207,7 @@ impl ApiContract for DasApi {
         let creator_address = validate_pubkey(creator_address.clone())?;
         let creator_address_bytes = creator_address.to_bytes().to_vec();
 
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        self.validate_pagination(limit, page, &before, &after)?;
         let sort_by = sort_by.unwrap_or_default();
         let only_verified = only_verified.unwrap_or_default();
         get_assets_by_creator(
@@ -240,7 +240,7 @@ impl ApiContract for DasApi {
         let authority_address = validate_pubkey(authority_address.clone())?;
         let authority_address_bytes = authority_address.to_bytes().to_vec();
 
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        self.validate_pagination(limit, page, &before, &after)?;
         get_assets_by_authority(
             &self.db_connection,
             authority_address_bytes,
@@ -257,7 +257,6 @@ impl ApiContract for DasApi {
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError> {
         let SearchAssets {
             negate,
-            /// Defaults to [ConditionType,
             condition_type,
             interface,
             owner_address,
@@ -284,7 +283,7 @@ impl ApiContract for DasApi {
             json_uri,
         } = payload;
         // Deserialize search assets query
-        self.validate_pagination(&limit, &page, &before, &after)?;
+        self.validate_pagination(limit, page, &before, &after)?;
         let spec: Option<(SpecificationVersions, SpecificationAssetClass)> =
             interface.map(|x| x.into());
         let specification_version = spec.clone().map(|x| x.0);

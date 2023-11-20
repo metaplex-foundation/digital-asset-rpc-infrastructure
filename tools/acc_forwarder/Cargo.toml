@@ -27,3 +27,6 @@ solana-transaction-status = "~1.16.16"
 spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
 tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "time"] }
 txn_forwarder = { path = "../txn_forwarder" }
+
+[lints]
+workspace = true

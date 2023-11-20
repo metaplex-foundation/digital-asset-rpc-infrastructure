@@ -15,3 +15,6 @@ solana-client = "~1.16.16"
 solana-sdk = "~1.16.16"
 spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
 tokio = { version = "1.26.0", features = ["full", "tracing"] }
+
+[lints]
+workspace = true

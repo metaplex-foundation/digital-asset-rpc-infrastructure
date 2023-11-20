@@ -41,7 +41,7 @@ pub fn ack_worker<T: Messenger>(
                         }
                         Some(msg) = rx.recv() => {
                             let (stream, msg) = msg;
-                            let ackstream = acks.entry(stream).or_insert_with(Vec::<String>::new);
+                            let ackstream = acks.entry(stream).or_default();
                             ackstream.push(msg);
                         }
                     }

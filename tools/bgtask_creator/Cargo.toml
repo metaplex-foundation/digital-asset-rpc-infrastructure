@@ -19,3 +19,6 @@ solana-sdk = "~1.16.16"
 sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread"] }
 txn_forwarder = { path = "../txn_forwarder" }
+
+[lints]
+workspace = true

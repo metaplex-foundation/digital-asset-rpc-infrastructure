@@ -38,3 +38,6 @@ reqwest = "0.11.13"
 default = ["json_types", "sql_types"]
 json_types = ["serde", "serde_json"]
 sql_types = ["sea-orm"]
+
+[lints]
+workspace = true

@@ -121,11 +121,11 @@ pub type Files = Vec<File>;
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
 impl MetadataMap {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(BTreeMap::new())
     }
 
-    pub fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
+    pub const fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.0
     }
 

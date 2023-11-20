@@ -20,3 +20,6 @@ features = [
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ]
+
+[lints]
+workspace = true

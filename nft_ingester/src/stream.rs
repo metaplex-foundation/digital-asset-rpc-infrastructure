@@ -15,7 +15,7 @@ pub struct StreamSizeTimer {
 }
 
 impl StreamSizeTimer {
-    pub fn new(
+    pub const fn new(
         interval: Duration,
         messenger_config: MessengerConfig,
         stream: &'static str,

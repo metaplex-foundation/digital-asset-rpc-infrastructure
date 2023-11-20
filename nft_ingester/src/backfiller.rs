@@ -147,7 +147,7 @@ struct BackfillTree {
 }
 
 impl BackfillTree {
-    fn new(unique_tree: UniqueTree, backfill_from_seq_1: bool, slot: u64) -> Self {
+    const fn new(unique_tree: UniqueTree, backfill_from_seq_1: bool, slot: u64) -> Self {
         Self {
             unique_tree,
             backfill_from_seq_1,
@@ -177,7 +177,7 @@ struct GapInfo {
 }
 
 impl GapInfo {
-    fn new(prev: SimpleBackfillItem, curr: SimpleBackfillItem) -> Self {
+    const fn new(prev: SimpleBackfillItem, curr: SimpleBackfillItem) -> Self {
         Self { prev, curr }
     }
 }

@@ -317,7 +317,7 @@ impl TaskManager {
     pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
-        let task_map = self.registered_task_types.clone();
+        let task_map = Arc::clone(&self.registered_task_types);
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
 
@@ -351,7 +351,7 @@ impl TaskManager {
                         instance_name.clone(),
                         name,
                         task,
-                        task_map.clone(),
+                        Arc::clone(&task_map),
                         process_on_receive,
                     );
                 }
@@ -360,7 +360,7 @@ impl TaskManager {
     }
 
     pub fn start_runner(&self, config: Option<BackgroundTaskRunnerConfig>) -> JoinHandle<()> {
-        let task_map = self.registered_task_types.clone();
+        let task_map = Arc::clone(&self.registered_task_types);
         let instance_name = self.instance_name.clone();
 
         // Load the config values
@@ -428,22 +428,18 @@ impl TaskManager {
                 match tasks_res {
                     Ok(tasks) => {
                         debug!("tasks that need to be executed: {}", tasks.len());
-                        let _task_map_clone = task_map.clone();
-                        let instance_name = instance_name.clone();
                         for task in tasks {
-                            let task_map_clone = task_map.clone();
-                            let instance_name_clone = instance_name.clone();
+                            let task_map = Arc::clone(&task_map);
+                            let instance_name = instance_name.clone();
                             let pool = pool.clone();
                             tokio::task::spawn(async move {
-                                if let Some(task_executor) =
-                                    task_map_clone.clone().get(&*task.task_type)
-                                {
+                                if let Some(task_executor) = task_map.get(&*task.task_type) {
                                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
                                     let mut active_model: tasks::ActiveModel = task.into();
                                     TaskManager::lock_task(
                                         &mut active_model,
                                         Duration::seconds(task_executor.lock_duration()),
-                                        instance_name_clone,
+                                        instance_name,
                                     );
                                     // can ignore as txn will bubble up errors
                                     let active_model =

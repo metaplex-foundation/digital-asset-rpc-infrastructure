@@ -63,3 +63,6 @@ clap = { version = "4.2.2", features = ["derive", "cargo"] }
 [dependencies.num-integer]
 version = "0.1.44"
 default-features = false
+
+[lints]
+workspace = true
