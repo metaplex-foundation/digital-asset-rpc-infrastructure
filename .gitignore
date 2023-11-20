@@ -23,7 +23,3 @@ programs
 *.iml
 skaffold-state.json
 test-programs
-
-# Rust build dirs
-/das_api/target
-/target

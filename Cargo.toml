@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "das_api",
   "digital_asset_types",
   "metaplex-rpc-proxy",
   "migration",
@@ -10,9 +11,6 @@ members = [
   "tools/load_generation",
   "tools/tree-status",
   "tools/txn_forwarder",
-]
-exclude = [
-  "das_api",
 ]
 
 [profile.release]
