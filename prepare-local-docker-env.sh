@@ -27,7 +27,7 @@ EXTERNAL_SO=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s.so" \
 )
 
 if [ -z ${RPC+x} ]; then
-    RPC="https://api.mainnet-beta.solana.com"
+    RPC="https://api.devnet.solana.com"
 fi
 
 if [ -z "$OUTPUT" ]; then

@@ -86,9 +86,10 @@ impl ProgramTransformer {
         let mut not_impl = 0;
         let ixlen = instructions.len();
         debug!("Instructions: {}", ixlen);
-        let contains = instructions
-            .iter()
-            .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::ID.as_ref());
+        let contains = instructions.iter().filter(|(ib, _inner)| {
+            // ib.0 .0.as_ref() == mpl_bubblegum::ID.as_ref()
+            true
+        });
         debug!("Instructions bgum: {}", contains.count());
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
