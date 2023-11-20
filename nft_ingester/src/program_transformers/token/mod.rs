@@ -1,6 +1,5 @@
-use crate::{error::IngesterError, metric, tasks::TaskData};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
-use cadence_macros::{is_global_default_set, statsd_count};
 use digital_asset_types::dao::{asset, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{
@@ -27,10 +26,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::Some(d) => Some(d.to_bytes().to_vec()),
                 COption::None => None,
             };
-            let frozen = match ta.state {
-                AccountState::Frozen => true,
-                _ => false,
-            };
+            let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),

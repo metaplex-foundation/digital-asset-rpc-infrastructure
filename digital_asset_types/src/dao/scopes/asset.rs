@@ -1,18 +1,12 @@
-use crate::{
-    dao::{
-        asset::{self, Entity},
-        asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
-        Pagination,
-    },
-    dapi::common::safe_select,
-    rpc::response::AssetList,
+use crate::dao::{
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
+    Pagination,
 };
-
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
+pub fn paginate<T>(pagination: &Pagination, limit: u64, stmt: T) -> T
 where
     T: QueryFilter + QuerySelect,
 {

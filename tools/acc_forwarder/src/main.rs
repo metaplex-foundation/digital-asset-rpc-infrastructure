@@ -19,7 +19,7 @@ use {
     },
     solana_sdk::{
         account::Account,
-        borsh::try_from_slice_unchecked,
+        borsh0_10::try_from_slice_unchecked,
         commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::Pubkey,
         signature::Signature,

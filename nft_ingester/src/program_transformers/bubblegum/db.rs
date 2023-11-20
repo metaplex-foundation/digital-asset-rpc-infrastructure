@@ -9,8 +9,6 @@ use sea_orm::{
 };
 use spl_account_compression::events::ChangeLogEventV1;
 
-use std::convert::From;
-
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
@@ -68,7 +66,7 @@ where
             ..Default::default()
         };
 
-        let mut audit_item: Option<cl_audits::ActiveModel> = if (cl_audits) {
+        let audit_item: Option<cl_audits::ActiveModel> = if cl_audits {
             let mut ai: cl_audits::ActiveModel = item.clone().into();
             ai.tx = Set(txn_id.to_string());
             Some(ai)
@@ -135,6 +133,7 @@ where
     //TODO -> set maximum size of path and break into multiple statements
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,

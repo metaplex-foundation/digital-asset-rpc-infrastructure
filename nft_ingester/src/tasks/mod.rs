@@ -102,6 +102,7 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
+    #[allow(clippy::borrowed_box)]
     async fn execute_task(
         db: &DatabaseConnection,
         task_def: &Box<dyn BgTask>,
@@ -123,7 +124,7 @@ impl TaskManager {
         }?;
 
         let start = Utc::now();
-        let res = task_def.task(&db, *data_json).await;
+        let res = task_def.task(db, *data_json).await;
         let end = Utc::now();
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
@@ -343,7 +344,7 @@ impl TaskManager {
                         continue;
                     }
                     metric! {
-                        statsd_count!("ingester.bgtask.new", 1, "type" => &task.name);
+                        statsd_count!("ingester.bgtask.new", 1, "type" => task.name);
                     }
                     TaskManager::new_task_handler(
                         pool.clone(),

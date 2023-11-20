@@ -95,18 +95,13 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 pub const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(Deserialize, Default, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
+    #[default]
     All,
     Backfiller,
     BackgroundTaskRunner,
     Ingester,
-}
-
-impl Default for IngesterRole {
-    fn default() -> Self {
-        IngesterRole::All
-    }
 }
 
 impl Display for IngesterRole {
@@ -146,9 +141,7 @@ pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
 }
 
 pub fn init_logger() {
-    let env_filter = env::var("RUST_LOG")
-        .or::<Result<String, ()>>(Ok("info".to_string()))
-        .unwrap();
+    let env_filter = env::var("RUST_LOG").unwrap_or("info".to_string());
     let t = tracing_subscriber::fmt().with_env_filter(env_filter);
     t.event_format(fmt::format::json()).init();
 }

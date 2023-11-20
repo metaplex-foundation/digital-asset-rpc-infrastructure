@@ -79,7 +79,6 @@ async fn simple_content() {
     );
     assert_eq!(
         parsed
-            .clone()
             .links
             .unwrap()
             .get("external_url")
@@ -130,7 +129,6 @@ async fn complex_content() {
     );
     assert_eq!(
         parsed
-            .clone()
             .links
             .unwrap()
             .get("animation_url")
