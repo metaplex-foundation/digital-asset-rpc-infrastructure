@@ -97,7 +97,6 @@ where
                     reindex: Set(Some(true)),
                     raw_name: Set(name.to_vec()),
                     raw_symbol: Set(symbol.to_vec()),
-                    ..Default::default()
                 };
 
                 let mut query = asset_data::Entity::insert(data)

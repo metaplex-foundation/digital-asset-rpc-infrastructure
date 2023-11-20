@@ -23,7 +23,7 @@ use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
-    DbErr, EntityTrait, FromQueryResult, JoinType, JsonValue,
+    DbErr, EntityTrait, JsonValue,
 };
 use std::collections::HashSet;
 
@@ -344,7 +344,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 )
                 .exec(&txn)
                 .await?;
-            if db_creators.len() > 0 {
+            if !db_creators.is_empty() {
                 let mut query = asset_creators::Entity::insert_many(db_creators)
                     .on_conflict(
                         OnConflict::columns([

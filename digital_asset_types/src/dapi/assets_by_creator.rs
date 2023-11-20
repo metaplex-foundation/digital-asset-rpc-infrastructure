@@ -6,6 +6,7 @@ use sea_orm::DbErr;
 
 use super::common::{build_asset_response, create_pagination, create_sorting};
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_assets_by_creator(
     db: &DatabaseConnection,
     creator: Vec<u8>,

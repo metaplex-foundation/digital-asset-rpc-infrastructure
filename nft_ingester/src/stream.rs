@@ -13,20 +13,20 @@ pub struct StreamSizeTimer {
 
 impl StreamSizeTimer {
     pub fn new(
-        interval_time: Duration,
+        interval: Duration,
         messenger_config: MessengerConfig,
         stream: &'static str,
     ) -> Result<Self, IngesterError> {
         Ok(Self {
-            interval: interval_time,
+            interval,
             stream,
-            messenger_config: messenger_config,
+            messenger_config,
         })
     }
 
     pub fn start<T: Messenger>(self) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
         metric! {
-            let i = self.interval.clone();
+            let i = self.interval;
             let messenger_config = self.messenger_config.clone();
             let stream = self.stream;
 

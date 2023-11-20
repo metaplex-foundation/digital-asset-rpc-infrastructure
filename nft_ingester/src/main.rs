@@ -16,7 +16,6 @@ use crate::{
     backfiller::setup_backfiller,
     config::{init_logger, rand_string, setup_config, IngesterRole},
     database::setup_database,
-    error::IngesterError,
     metrics::setup_metrics,
     stream::StreamSizeTimer,
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
@@ -26,7 +25,7 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
 use futures::future::FutureExt;
-use log::{error, info};
+use log::info;
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_BACKFILL_STREAM, ACCOUNT_STREAM,
     TRANSACTION_BACKFILL_STREAM, TRANSACTION_STREAM,
@@ -88,29 +87,29 @@ pub async fn main() -> anyhow::Result<()> {
         )),
     })];
 
-    let mut background_task_manager =
+    let background_task_manager =
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
     // This is how we send new bg tasks
     let (bg_task_sender, bg_task_worker) = background_task_manager
         .clone()
         .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
     tasks.push(bg_task_worker);
-    let mut timer_acc = StreamSizeTimer::new(
+    let timer_acc = StreamSizeTimer::new(
         stream_metrics_timer,
         config.messenger_config.clone(),
         ACCOUNT_STREAM,
     )?;
-    let mut timer_backfiller_acc = StreamSizeTimer::new(
+    let timer_backfiller_acc = StreamSizeTimer::new(
         stream_metrics_timer,
         config.messenger_config.clone(),
         ACCOUNT_BACKFILL_STREAM,
     )?;
-    let mut timer_txn = StreamSizeTimer::new(
+    let timer_txn = StreamSizeTimer::new(
         stream_metrics_timer,
         config.messenger_config.clone(),
         TRANSACTION_STREAM,
     )?;
-    let mut timer_backfiller_txn = StreamSizeTimer::new(
+    let timer_backfiller_txn = StreamSizeTimer::new(
         stream_metrics_timer,
         config.messenger_config.clone(),
         TRANSACTION_BACKFILL_STREAM,

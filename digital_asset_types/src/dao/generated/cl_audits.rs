@@ -81,7 +81,7 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl From<crate::dao::cl_items::ActiveModel> for ActiveModel {
     fn from(item: crate::dao::cl_items::ActiveModel) -> Self {
-        return ActiveModel {
+        ActiveModel {
             tree: item.tree,
             level: item.level,
             node_idx: item.node_idx,
@@ -89,6 +89,6 @@ impl From<crate::dao::cl_items::ActiveModel> for ActiveModel {
             seq: item.seq,
             leaf_idx: item.leaf_idx,
             ..Default::default()
-        };
+        }
     }
 }

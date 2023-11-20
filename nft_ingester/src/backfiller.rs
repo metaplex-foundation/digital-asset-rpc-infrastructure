@@ -115,7 +115,6 @@ pub async fn setup_backfiller<T: Messenger>(
             }
         }
     }
-    Ok(())
 }
 
 /// Struct used when querying for unique trees.
@@ -141,6 +140,7 @@ struct MissingTree {
 struct BackfillTree {
     unique_tree: UniqueTree,
     backfill_from_seq_1: bool,
+    #[allow(dead_code)]
     slot: u64,
 }
 
@@ -512,7 +512,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .into_iter()
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
             .collect::<Vec<MissingTree>>();
-        if missing_trees.len() > 0 {
+        if !missing_trees.is_empty() {
             info!("Number of Missing local trees: {}", missing_trees.len());
         } else {
             debug!("No missing trees");
@@ -626,7 +626,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &mut self,
         btree: &BackfillTree,
     ) -> Result<Option<i64>, IngesterError> {
-        let address = Pubkey::new(btree.unique_tree.tree.as_slice());
+        let address = Pubkey::try_from(btree.unique_tree.tree.as_slice()).expect("valid pubkey");
         let slots = self.find_slots_via_address(&address).await?;
         let address = btree.unique_tree.tree.clone();
         for slot in slots {
@@ -691,6 +691,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         Ok(Vec::from_iter(slots))
     }
 
+    #[allow(dead_code)]
     async fn get_max_seq(&self, tree: &[u8]) -> Result<Option<i64>, DbErr> {
         let query = backfill_items::Entity::find()
             .select_only()
@@ -733,11 +734,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let mut list = HashMap::with_capacity(results.len());
         for r in results.into_iter() {
             let (pubkey, mut account) = r;
-            let (mut header_bytes, rest) = account
+            let (header_bytes, rest) = account
                 .data
                 .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
             let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
+                ConcurrentMerkleTreeHeader::try_from_slice(header_bytes)
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
 
             let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::ID).0;
@@ -869,7 +870,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 debug!("Fetching block {} from RPC", slot);
                 let block = EncodedConfirmedBlock::from(
                     self.rpc_client
-                        .get_block_with_config(slot as u64, self.rpc_block_config)
+                        .get_block_with_config(slot, self.rpc_block_config)
                         .await
                         .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?,
                 );

@@ -26,7 +26,7 @@ where
         let (collection, verify) = match payload {
             Payload::CollectionVerification {
                 collection, verify, ..
-            } => (collection.clone(), verify.clone()),
+            } => (*collection, verify),
             _ => {
                 return Err(IngesterError::ParsingError(
                     "Ix not parsed correctly".to_string(),
@@ -64,8 +64,8 @@ where
             txn,
             id_bytes.to_vec(),
             Some(Collection {
-                key: collection.clone(),
-                verified: verify,
+                key: collection,
+                verified: *verify,
             }),
             bundle.slot as i64,
             seq as i64,

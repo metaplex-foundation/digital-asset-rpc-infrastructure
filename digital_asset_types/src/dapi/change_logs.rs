@@ -118,5 +118,5 @@ pub fn get_required_nodes_for_proof(index: i64) -> Vec<i64> {
         idx >>= 1
     }
     indexes.push(1);
-    return indexes;
+    indexes
 }

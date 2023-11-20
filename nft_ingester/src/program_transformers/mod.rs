@@ -51,7 +51,7 @@ impl ProgramTransformer {
             task_sender,
             matchers,
             key_set: hs,
-            cl_audits: cl_audits,
+            cl_audits,
         }
     }
 
@@ -63,8 +63,10 @@ impl ProgramTransformer {
         order_instructions(ref_set, tx)
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
-        self.matchers.get(&Pubkey::new(key.0.as_slice()))
+        self.matchers
+            .get(&Pubkey::try_from(key.0.as_slice()).expect("valid key from FlatBuffer"))
     }
 
     pub async fn handle_transaction<'a>(
@@ -73,7 +75,7 @@ impl ProgramTransformer {
     ) -> Result<(), IngesterError> {
         let sig: Option<&str> = tx.signature();
         info!("Handling Transaction: {:?}", sig);
-        let instructions = self.break_transaction(&tx);
+        let instructions = self.break_transaction(tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
         let txn_id = tx.signature().unwrap_or("");
@@ -108,7 +110,7 @@ impl ProgramTransformer {
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id: txn_id,
+                txn_id,
                 program,
                 instruction: Some(instruction),
                 inner_ix,
@@ -135,7 +137,7 @@ impl ProgramTransformer {
                                 "Failed to handle bubblegum instruction for txn {:?}: {:?}",
                                 sig, err
                             );
-                            return err;
+                            err
                         })?;
                     }
                     _ => {
