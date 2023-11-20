@@ -46,10 +46,6 @@ jobs:
       - name: build digital asset rpc infra
         run: cargo build --verbose --release
 
-      - name: build das_api
-        working-directory: das_api
-        run: cargo build --verbose --release
-
       - name: rename binaries for ubuntu22 release
         if: matrix.os == 'ubuntu-22.04'
         run: |
