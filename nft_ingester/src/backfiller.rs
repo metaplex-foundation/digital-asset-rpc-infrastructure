@@ -72,50 +72,50 @@ pub async fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
     config: IngesterConfig,
 ) -> anyhow::Result<()> {
-        loop {
-            let pool_cloned = pool.clone();
-            let config_cloned = config.clone();
-            let block_cache = Arc::new(
-                AsyncCacheBuilder::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST)
-                    .set_ignore_internal_cost(true)
-                    .finalize(tokio::spawn)
-                    .expect("failed to create cache"),
-            );
-            let mut tasks = JoinSet::new();
-            let bc = Arc::clone(&block_cache);
-            tasks.spawn(async move {
-                info!("Backfiller filler running");
-                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
-                backfiller.run_filler().await;
-            });
+    loop {
+        let pool_cloned = pool.clone();
+        let config_cloned = config.clone();
+        let block_cache = Arc::new(
+            AsyncCacheBuilder::new(BLOCK_CACHE_SIZE, MAX_CACHE_COST)
+                .set_ignore_internal_cost(true)
+                .finalize(tokio::spawn)
+                .expect("failed to create cache"),
+        );
+        let mut tasks = JoinSet::new();
+        let bc = Arc::clone(&block_cache);
+        tasks.spawn(async move {
+            info!("Backfiller filler running");
+            let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
+            backfiller.run_filler().await;
+        });
 
-            let pool_cloned = pool.clone();
-            let config_cloned = config.clone();
-            let bc = Arc::clone(&block_cache);
-            tasks.spawn(async move {
-                info!("Backfiller finder running");
-                let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
-                backfiller.run_finder().await;
-            });
+        let pool_cloned = pool.clone();
+        let config_cloned = config.clone();
+        let bc = Arc::clone(&block_cache);
+        tasks.spawn(async move {
+            info!("Backfiller finder running");
+            let mut backfiller = Backfiller::<T>::new(pool_cloned, config_cloned, &bc).await;
+            backfiller.run_finder().await;
+        });
 
-            while let Some(task) = tasks.join_next().await {
-                match task {
-                    Ok(_) => break,
-                    Err(err) if err.is_panic() => {
-                        metric! {
-                            statsd_count!("ingester.backfiller.task_panic", 1);
-                        }
+        while let Some(task) = tasks.join_next().await {
+            match task {
+                Ok(_) => break,
+                Err(err) if err.is_panic() => {
+                    metric! {
+                        statsd_count!("ingester.backfiller.task_panic", 1);
                     }
-                    Err(err) => {
-                        let err = err.to_string();
-                        metric! {
-                            statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
-                        }
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    metric! {
+                        statsd_count!("ingester.backfiller.task_error", 1, "error" => &err);
                     }
                 }
             }
         }
-        Ok(())
+    }
+    Ok(())
 }
 
 /// Struct used when querying for unique trees.

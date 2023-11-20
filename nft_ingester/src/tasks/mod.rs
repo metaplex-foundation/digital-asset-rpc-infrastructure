@@ -1,10 +1,10 @@
 use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
-use futures::future::{BoxFuture, FutureExt};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
+use futures::future::{BoxFuture, FutureExt};
 use log::{debug, error, info, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
@@ -13,10 +13,7 @@ use sea_orm::{
 use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
-use tokio::{
-    sync::mpsc,
-    time,
-};
+use tokio::{sync::mpsc, time};
 
 mod common;
 pub use common::*;
@@ -305,7 +302,13 @@ impl TaskManager {
         act.save(txn).await.map_err(|e| e.into())
     }
 
-    pub fn start_listener(self, process_on_receive: bool) -> (mpsc::UnboundedSender<TaskData>, BoxFuture<'static, anyhow::Result<()>>) {
+    pub fn start_listener(
+        self,
+        process_on_receive: bool,
+    ) -> (
+        mpsc::UnboundedSender<TaskData>,
+        BoxFuture<'static, anyhow::Result<()>>,
+    ) {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         let fut = async move {
             while let Some(task) = receiver.recv().await {
@@ -348,7 +351,10 @@ impl TaskManager {
         (producer, fut)
     }
 
-    pub async fn start_runner(self, config: Option<BackgroundTaskRunnerConfig>) -> anyhow::Result<()> {
+    pub async fn start_runner(
+        self,
+        config: Option<BackgroundTaskRunnerConfig>,
+    ) -> anyhow::Result<()> {
         // Load the config values
         // For backwards compatibility reasons, the logic is a bit convoluted.
         let config = config.unwrap_or_default();

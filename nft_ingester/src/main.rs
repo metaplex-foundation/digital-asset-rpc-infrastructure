@@ -22,13 +22,14 @@ use crate::{
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
     transaction_notifications::transaction_worker,
 };
-use futures::future::FutureExt;
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
+use futures::future::FutureExt;
 use log::{error, info};
 use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, ACCOUNT_BACKFILL_STREAM, TRANSACTION_STREAM, TRANSACTION_BACKFILL_STREAM
+    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_BACKFILL_STREAM, ACCOUNT_STREAM,
+    TRANSACTION_BACKFILL_STREAM, TRANSACTION_STREAM,
 };
 use std::{path::PathBuf, time};
 use tokio::signal::unix::{signal, SignalKind};
@@ -90,7 +91,8 @@ pub async fn main() -> anyhow::Result<()> {
     let mut background_task_manager =
         TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
     // This is how we send new bg tasks
-    let (bg_task_sender, bg_task_worker) = background_task_manager.clone()
+    let (bg_task_sender, bg_task_worker) = background_task_manager
+        .clone()
         .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
     tasks.push(bg_task_worker);
     let mut timer_acc = StreamSizeTimer::new(
@@ -114,7 +116,6 @@ pub async fn main() -> anyhow::Result<()> {
         TRANSACTION_BACKFILL_STREAM,
     )?;
 
-
     if let Some(t) = timer_acc.start::<RedisMessenger>() {
         tasks.push(t);
     }
@@ -134,62 +135,74 @@ pub async fn main() -> anyhow::Result<()> {
             ack_worker::<RedisMessenger>(config.get_messneger_client_config());
         tasks.push(ack_task);
         for i in 0..config.get_account_stream_worker_count() {
-            tasks.push(account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                ACCOUNT_STREAM,
-            ).boxed());
+            tasks.push(
+                account_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    config.get_messneger_client_config(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    if i == 0 {
+                        ConsumptionType::Redeliver
+                    } else {
+                        ConsumptionType::New
+                    },
+                    ACCOUNT_STREAM,
+                )
+                .boxed(),
+            );
         }
         for i in 0..config.get_account_backfill_stream_worker_count() {
-            tasks.push(account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                ACCOUNT_BACKFILL_STREAM,
-            ).boxed());
+            tasks.push(
+                account_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    config.get_messneger_client_config(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    if i == 0 {
+                        ConsumptionType::Redeliver
+                    } else {
+                        ConsumptionType::New
+                    },
+                    ACCOUNT_BACKFILL_STREAM,
+                )
+                .boxed(),
+            );
         }
         for i in 0..config.get_transaction_stream_worker_count() {
-            tasks.push(transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                config.cl_audits.unwrap_or(false),
-                TRANSACTION_STREAM,
-            ).boxed());
+            tasks.push(
+                transaction_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    config.get_messneger_client_config(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    if i == 0 {
+                        ConsumptionType::Redeliver
+                    } else {
+                        ConsumptionType::New
+                    },
+                    config.cl_audits.unwrap_or(false),
+                    TRANSACTION_STREAM,
+                )
+                .boxed(),
+            );
         }
         for i in 0..config.get_transaction_backfill_stream_worker_count() {
-            tasks.push(transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                config.cl_audits.unwrap_or(false),
-                TRANSACTION_BACKFILL_STREAM,
-            ).boxed());
+            tasks.push(
+                transaction_worker::<RedisMessenger>(
+                    database_pool.clone(),
+                    config.get_messneger_client_config(),
+                    bg_task_sender.clone(),
+                    ack_sender.clone(),
+                    if i == 0 {
+                        ConsumptionType::Redeliver
+                    } else {
+                        ConsumptionType::New
+                    },
+                    config.cl_audits.unwrap_or(false),
+                    TRANSACTION_BACKFILL_STREAM,
+                )
+                .boxed(),
+            );
         }
     }
     // Stream Size Timers ----------------------------------------
@@ -197,7 +210,11 @@ pub async fn main() -> anyhow::Result<()> {
     // If metrics are disabled, these will not run.
     if role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All {
         let background_runner_config = config.clone().background_task_runner_config;
-        tasks.push(background_task_manager.start_runner(background_runner_config).boxed());
+        tasks.push(
+            background_task_manager
+                .start_runner(background_runner_config)
+                .boxed(),
+        );
     }
     // Backfiller Setup ------------------------------------------
     if role == IngesterRole::Backfiller || role == IngesterRole::All {

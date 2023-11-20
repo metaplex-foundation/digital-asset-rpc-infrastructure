@@ -1,19 +1,22 @@
 use std::collections::HashMap;
 
 use cadence_macros::{is_global_default_set, statsd_count};
+use futures::future::{BoxFuture, FutureExt};
 use log::error;
 use plerkle_messenger::{Messenger, MessengerConfig};
 use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
     time::{interval, Duration},
 };
-use futures::future::{BoxFuture, FutureExt};
 
 use crate::metric;
 
 pub fn ack_worker<T: Messenger>(
     config: MessengerConfig,
-) -> (UnboundedSender<(&'static str, String)>, BoxFuture<'static, anyhow::Result<()>>) {
+) -> (
+    UnboundedSender<(&'static str, String)>,
+    BoxFuture<'static, anyhow::Result<()>>,
+) {
     let (tx, mut rx) = unbounded_channel::<(&'static str, String)>();
     let fut = async move {
         let mut interval = interval(Duration::from_millis(100));
@@ -47,6 +50,7 @@ pub fn ack_worker<T: Messenger>(
             }
         }
         Ok(())
-    }.boxed();
+    }
+    .boxed();
     (tx, fut)
 }

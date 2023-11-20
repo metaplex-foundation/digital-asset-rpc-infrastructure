@@ -9,11 +9,7 @@ use log::{debug, error};
 use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_account_info;
 use sqlx::{Pool, Postgres};
-use tokio::{
-    sync::mpsc::UnboundedSender,
-    task::{JoinSet},
-    time::Instant,
-};
+use tokio::{sync::mpsc::UnboundedSender, task::JoinSet, time::Instant};
 
 pub async fn account_worker<T: Messenger>(
     pool: Pool<Postgres>,
@@ -64,7 +60,11 @@ pub async fn account_worker<T: Messenger>(
     Ok(())
 }
 
-async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData, stream_key: &'static str) -> Option<String> {
+async fn handle_account(
+    manager: Arc<ProgramTransformer>,
+    item: RecvData,
+    stream_key: &'static str,
+) -> Option<String> {
     let id = item.id;
     let mut ret_id = None;
     let data = item.data;

@@ -1,13 +1,9 @@
-
 use crate::{error::IngesterError, metric};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 use futures::future::{BoxFuture, FutureExt};
-use log::{error};
+use log::error;
 use plerkle_messenger::{Messenger, MessengerConfig};
-use tokio::{
-    time::{self, Duration},
-};
-
+use tokio::time::{self, Duration};
 
 pub struct StreamSizeTimer {
     interval: tokio::time::Duration,
