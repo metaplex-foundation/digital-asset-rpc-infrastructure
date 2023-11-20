@@ -51,7 +51,7 @@ jobs:
         run: |
           mv target/release/nft_ingester target/release/nft_ingester22
           mv target/release/fetch_trees target/release/fetch_trees22 
-          mv target/release/migration target/target/release/migration22
+          mv target/release/migration target/release/migration22
           mv target/release/das_api target/release/das_api22
 
       # This steps can be omited to save space, are mostly in place to validate binaries (manually) and path to them 
