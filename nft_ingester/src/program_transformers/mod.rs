@@ -3,8 +3,8 @@ use blockbuster::{
     instruction::{order_instructions, InstructionBundle, IxPair},
     program_handler::ProgramParser,
     programs::{
-        bubblegum::BubblegumParser, token_account::TokenAccountParser,
-        token_metadata::TokenMetadataParser, ProgramParseResult,
+        account_compression::AccountCompressionParser, bubblegum::BubblegumParser,
+        token_account::TokenAccountParser, token_metadata::TokenMetadataParser, ProgramParseResult,
     },
 };
 use log::{debug, error, info};
@@ -37,10 +37,12 @@ pub struct ProgramTransformer {
 impl ProgramTransformer {
     pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>, cl_audits: bool) -> Self {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
-        let bgum = BubblegumParser {};
+        let bgum: BubblegumParser = BubblegumParser {};
+        let account_compression = AccountCompressionParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         matchers.insert(bgum.key(), Box::new(bgum));
+        matchers.insert(account_compression.key(), Box::new(account_compression));
         matchers.insert(token_metadata.key(), Box::new(token_metadata));
         matchers.insert(token.key(), Box::new(token));
         let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
