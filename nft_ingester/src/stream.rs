@@ -1,11 +1,10 @@
 
 use crate::{error::IngesterError, metric};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
-
+use futures::future::{BoxFuture, FutureExt};
 use log::{error};
 use plerkle_messenger::{Messenger, MessengerConfig};
 use tokio::{
-    task::{JoinHandle},
     time::{self, Duration},
 };
 
@@ -29,13 +28,13 @@ impl StreamSizeTimer {
         })
     }
 
-    pub async fn start<T: Messenger>(&mut self) -> Option<JoinHandle<()>> {
+    pub fn start<T: Messenger>(self) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
         metric! {
             let i = self.interval.clone();
             let messenger_config = self.messenger_config.clone();
             let stream = self.stream;
 
-           return Some(tokio::spawn(async move {
+           return Some(async move {
             let messenger = T::new(messenger_config).await;
             if let Ok(mut messenger) = messenger {
             let mut interval = time::interval(i);
@@ -53,7 +52,8 @@ impl StreamSizeTimer {
                     }
                 }
             };
-            }));
+            Ok(())
+            }.boxed());
         }
 
         None

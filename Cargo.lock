@@ -3033,6 +3033,7 @@ name = "nft_ingester"
 version = "0.7.2"
 dependencies = [
  "anchor-lang",
+ "anyhow",
  "async-trait",
  "base64 0.21.4",
  "blockbuster",

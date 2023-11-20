@@ -68,11 +68,10 @@ const BLOCK_CACHE_DURATION: u64 = 172800;
 
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
-pub fn setup_backfiller<T: Messenger>(
+pub async fn setup_backfiller<T: Messenger>(
     pool: Pool<Postgres>,
     config: IngesterConfig,
-) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
+) -> anyhow::Result<()> {
         loop {
             let pool_cloned = pool.clone();
             let config_cloned = config.clone();
@@ -116,7 +115,7 @@ pub fn setup_backfiller<T: Messenger>(
                 }
             }
         }
-    })
+        Ok(())
 }
 
 /// Struct used when querying for unique trees.

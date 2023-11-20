@@ -1,6 +1,7 @@
 use crate::{error::IngesterError, metric};
 use async_trait::async_trait;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
+use futures::future::{BoxFuture, FutureExt};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
@@ -13,8 +14,7 @@ use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
-    sync::mpsc::{self, UnboundedSender},
-    task::JoinHandle,
+    sync::mpsc,
     time,
 };
 
@@ -94,10 +94,10 @@ pub trait IntoTaskData: Sized {
     fn into_task_data(self) -> Result<TaskData, IngesterError>;
 }
 
+#[derive(Clone)]
 pub struct TaskManager {
     instance_name: String,
     pool: Pool<Postgres>,
-    producer: Option<UnboundedSender<TaskData>>,
     registered_task_types: Arc<HashMap<String, Box<dyn BgTask>>>,
 }
 
@@ -219,12 +219,6 @@ impl TaskManager {
             .map_err(|e| e.into())
     }
 
-    pub fn get_sender(&self) -> Result<UnboundedSender<TaskData>, IngesterError> {
-        self.producer
-            .clone()
-            .ok_or(IngesterError::TaskManagerNotStarted)
-    }
-
     fn lock_task(task: &mut tasks::ActiveModel, duration: Duration, instance_name: String) {
         task.status = Set(TaskStatus::Running);
         task.locked_until = Set(Some((Utc::now() + duration).naive_utc()));
@@ -243,48 +237,45 @@ impl TaskManager {
         TaskManager {
             instance_name,
             pool,
-            producer: None,
             registered_task_types: Arc::new(tasks),
         }
     }
 
-    pub fn new_task_handler(
+    pub async fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
         _name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
         process_now: bool,
-    ) -> JoinHandle<Result<(), IngesterError>> {
+    ) -> Result<(), IngesterError> {
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-        tokio::task::spawn(async move {
-            if let Some(task_executor) = tasks_def.get(task.name) {
-                let mut model = tasks::ActiveModel {
-                    id: Set(task.hash()?),
-                    task_type: Set(task.name.to_string()),
-                    data: Set(task.data),
-                    status: Set(TaskStatus::Pending),
-                    created_at: Set(Utc::now().naive_utc()),
-                    locked_until: Set(None),
-                    locked_by: Set(None),
-                    max_attempts: Set(task_executor.max_attempts()),
-                    attempts: Set(0),
-                    duration: Set(None),
-                    errors: Set(None),
-                };
-                let duration = Duration::seconds(task_executor.lock_duration());
-                if process_now {
-                    TaskManager::lock_task(&mut model, duration, instance_name);
-                }
-                let _model = model.insert(&conn).await?;
-                Ok(())
-            } else {
-                Err(IngesterError::TaskManagerError(format!(
-                    "{} not a valid task type",
-                    task.name
-                )))
+        if let Some(task_executor) = tasks_def.get(task.name) {
+            let mut model = tasks::ActiveModel {
+                id: Set(task.hash()?),
+                task_type: Set(task.name.to_string()),
+                data: Set(task.data),
+                status: Set(TaskStatus::Pending),
+                created_at: Set(Utc::now().naive_utc()),
+                locked_until: Set(None),
+                locked_by: Set(None),
+                max_attempts: Set(task_executor.max_attempts()),
+                attempts: Set(0),
+                duration: Set(None),
+                errors: Set(None),
+            };
+            let duration = Duration::seconds(task_executor.lock_duration());
+            if process_now {
+                TaskManager::lock_task(&mut model, duration, instance_name);
             }
-        })
+            let _model = model.insert(&conn).await?;
+            Ok(())
+        } else {
+            Err(IngesterError::TaskManagerError(format!(
+                "{} not a valid task type",
+                task.name
+            )))
+        }
     }
 
     pub async fn purge_old_tasks(
@@ -313,14 +304,10 @@ impl TaskManager {
         let act: tasks::ActiveModel = task;
         act.save(txn).await.map_err(|e| e.into())
     }
-    pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
-        let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
-        self.producer = Some(producer);
-        let task_map = self.registered_task_types.clone();
-        let pool = self.pool.clone();
-        let instance_name = self.instance_name.clone();
 
-        tokio::task::spawn(async move {
+    pub fn start_listener(self, process_on_receive: bool) -> (mpsc::UnboundedSender<TaskData>, BoxFuture<'static, anyhow::Result<()>>) {
+        let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
+        let fut = async move {
             while let Some(task) = receiver.recv().await {
                 if let Some(task_created_time) = task.created_at {
                     let bus_time =
@@ -329,9 +316,9 @@ impl TaskManager {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     }
                 }
-                let name = instance_name.clone();
+                let name = self.instance_name.clone();
                 if let Ok(hash) = task.hash() {
-                    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+                    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.pool.clone());
                     let task_entry = tasks::Entity::find_by_id(hash.clone())
                         .filter(tasks::Column::Status.ne(TaskStatus::Pending))
                         .one(&conn)
@@ -345,23 +332,23 @@ impl TaskManager {
                     metric! {
                         statsd_count!("ingester.bgtask.new", 1, "type" => &task.name);
                     }
-                    TaskManager::new_task_handler(
-                        pool.clone(),
-                        instance_name.clone(),
+                    tokio::spawn(TaskManager::new_task_handler(
+                        self.pool.clone(),
+                        self.instance_name.clone(),
                         name,
                         task,
-                        task_map.clone(),
+                        self.registered_task_types.clone(),
                         process_on_receive,
-                    );
+                    ));
                 }
             }
-        })
+
+            Ok(())
+        }.boxed();
+        (producer, fut)
     }
 
-    pub fn start_runner(&self, config: Option<BackgroundTaskRunnerConfig>) -> JoinHandle<()> {
-        let task_map = self.registered_task_types.clone();
-        let instance_name = self.instance_name.clone();
-
+    pub async fn start_runner(self, config: Option<BackgroundTaskRunnerConfig>) -> anyhow::Result<()> {
         // Load the config values
         // For backwards compatibility reasons, the logic is a bit convoluted.
         let config = config.unwrap_or_default();
@@ -393,7 +380,7 @@ impl TaskManager {
             .unwrap_or(BackgroundTaskRunnerConfig::default().batch_size.unwrap());
 
         let pool = self.pool.clone();
-        tokio::spawn(async move {
+        let fut1 = async move {
             let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
             let mut interval = time::interval(delete_interval);
             loop {
@@ -414,25 +401,22 @@ impl TaskManager {
                     }
                 };
             }
-        });
+        };
 
         // Loop to check for tasks that need to be executed and execute them
-        let pool = self.pool.clone();
-        tokio::spawn(async move {
+        let fut2 = async move {
             let mut interval = time::interval(retry_interval);
-            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
+            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.pool.clone());
             loop {
                 interval.tick().await; // ticks immediately
                 let tasks_res = TaskManager::get_pending_tasks(&conn, batch_size).await;
                 match tasks_res {
                     Ok(tasks) => {
                         debug!("tasks that need to be executed: {}", tasks.len());
-                        let _task_map_clone = task_map.clone();
-                        let instance_name = instance_name.clone();
                         for task in tasks {
-                            let task_map_clone = task_map.clone();
-                            let instance_name_clone = instance_name.clone();
-                            let pool = pool.clone();
+                            let task_map_clone = self.registered_task_types.clone();
+                            let instance_name_clone = self.instance_name.clone();
+                            let pool = self.pool.clone();
                             tokio::task::spawn(async move {
                                 if let Some(task_executor) =
                                     task_map_clone.clone().get(&*task.task_type)
@@ -468,6 +452,9 @@ impl TaskManager {
                     }
                 }
             }
-        })
+        };
+
+        futures::join!(fut1, fut2);
+        Ok(())
     }
 }
