@@ -50,10 +50,6 @@ jobs:
         working-directory: das_api
         run: cargo build --verbose --release
 
-      - name: build migration
-        working-directory: migration
-        run: cargo build --verbose --release
-
       - name: rename binaries for ubuntu22 release
         if: matrix.os == 'ubuntu-22.04'
         run: |
