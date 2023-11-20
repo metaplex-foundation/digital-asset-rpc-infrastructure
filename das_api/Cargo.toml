@@ -1,44 +1,44 @@
 [package]
 name = "das_api"
-version = "0.7.2"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [dependencies]
-digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-jsonrpsee = {version = "0.16.2", features = ["server", "macros"]}
-jsonrpsee-core = {version = "0.16.2", features =["server"]}
-tower-http={version = "0.3.5", features = ["full"]}
-tower={version="0.4.13", features = ["full"]}
-hyper = "0.14.23"
-tracing = "0.1.35"
-metrics = "0.20.1"
-figment = { version = "0.10.6", features = ["env"] }
-serde = "1.0.137"
-thiserror = "1.0.31"
-tokio = {version="1.23.0"}
-async-trait = "0.1.56"
-serde_json = "1.0.81"
-cadence = "0.29.0"
-cadence-macros = "0.29.0"
-sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
-sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
-tokio-postgres = "0.7.7"
-solana-sdk = "~1.16.16"
-bs58 = "0.4.0"
-log = "0.4.17"
-env_logger = "0.10"
-schemars = "0.8.6"
-schemars_derive = "0.8.6"
-open-rpc-derive = { version = "0.0.4"}
-open-rpc-schema = { version = "0.0.4"}
-blockbuster = "0.9.0-beta.1"
-anchor-lang = "0.28.0"
-mpl-token-metadata = { version = "=2.0.0-beta.1",  features = ["serde-feature"] }
-mpl-candy-machine-core = { version = "2.0.1", features = ["no-entrypoint"] }
-mpl-bubblegum = "1.0.1-beta.3"
-mpl-candy-guard = { version = "2.0.0", features = ["no-entrypoint"] }
+anchor-lang = { workspace = true }
+async-trait = { workspace = true }
+blockbuster = { workspace = true }
+bs58 = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+env_logger  = { workspace = true }
+figment = { workspace = true, features = ["env"] }
+hyper = { workspace = true }
+jsonrpsee = { workspace = true, features = ["server", "macros"]}
+jsonrpsee-core = { workspace = true, features =["server"]}
+log = { workspace = true }
+metrics = { workspace = true }
+mpl-bubblegum = { workspace = true }
+mpl-candy-guard = { workspace = true, features = ["no-entrypoint"] }
+mpl-candy-machine-core = { workspace = true, features = ["no-entrypoint"] }
+mpl-token-metadata = { workspace = true,  features = ["serde-feature"] }
+open-rpc-derive = { workspace = true }
+open-rpc-schema = { workspace = true }
+schemars = { workspace = true }
+schemars_derive = { workspace = true }
+sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-sdk = { workspace = true }
+sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["signal"] }
+tokio-postgres = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

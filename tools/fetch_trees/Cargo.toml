@@ -1,20 +1,21 @@
 [package]
 name = "fetch_trees"
 version = "0.7.12"
-edition = "2021"
-publish = false
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.70"
-async-trait = "0.1.53"
-borsh = "~0.10.3"
-clap = { version = "4.2.2", features = ["derive", "cargo"] }
-mpl-bubblegum = "1.0.1-beta.3"
-solana-account-decoder = "~1.16.16"
-solana-client = "~1.16.16"
-solana-sdk = "~1.16.16"
-spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
-tokio = { version = "1.26.0", features = ["full", "tracing"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+borsh = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo"] }
+mpl-bubblegum = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
+tokio = { workspace = true, features = ["tracing"] }
 
 [lints]
 workspace = true

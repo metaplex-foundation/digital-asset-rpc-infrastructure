@@ -1,19 +1,20 @@
 [package]
 name = "metaplex-rpc-proxy"
 version = "0.6.8"
-edition = "2021"
-publish = false
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-proxy-wasm = "0.2.0"
-wasm-bindgen = "0.2.83"
-lazy_static = "1.4.0"
-regex = "1.6.0"
-log = "0.4.17"
-wasi = "0.7.0"
+lazy_static = { workspace = true }
+log = { workspace = true }
+proxy-wasm = { workspace = true }
+regex = { workspace = true }
+wasi = { workspace = true }
+wasm-bindgen = { workspace = true }
 
 [lints]
 workspace = true
