@@ -1,10 +1,7 @@
 use crate::{
     dao::{
-        asset::{self},
-        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
-        extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        extensions, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::filter::AssetSortDirection,
 };
@@ -465,7 +462,8 @@ pub async fn fetch_transactions(
         .into_iter()
         .map(|transaction| {
             let tx = bs58::encode(transaction.tx).into_string();
-            let ix = Instruction::to_pascal_case(&transaction.instruction).to_string();
+            let ix = extensions::instruction::PascalCase::to_pascal_case(&transaction.instruction)
+                .to_string();
             (tx, ix)
         })
         .collect();
