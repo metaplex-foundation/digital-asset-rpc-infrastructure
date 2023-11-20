@@ -87,7 +87,7 @@ services:
         "-c",
         "log_destination=stderr",
         "-c",
-        "max_connections=200",
+        "max_connections=200"
       ]
     ports:
       - 5432:5432
@@ -103,7 +103,7 @@ services:
       - ./programs:/so/:ro
       - ./ledger:/config:rw
       - ./solana-test-validator-geyser-config:/plugin-config:rw
-      - /Users/lucifer/Projects/Metaplex/digital-asset-validator-plugin/docker/runs.sh:/runs.sh
+      - ./runs.sh:/runs.sh
     environment:
       RUST_LOG: error
       PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
