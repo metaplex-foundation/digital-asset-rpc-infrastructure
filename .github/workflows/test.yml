@@ -8,11 +8,11 @@ on:
   pull_request:
   push:
     branches:
-      - 'main'
+      - "main"
   workflow_dispatch:
 
 env:
-   CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: always
 
 jobs:
   test:
@@ -25,13 +25,13 @@ jobs:
       - name: set build cache
         uses: actions/cache@v3
         with:
-            path: |
-                ~/.cargo/bin/
-                ~/.cargo/registry/index/
-                ~/.cargo/registry/cache/
-                ~/.cargo/git/db/
-                digital-asset-rpc-infrastructure/target/
-            key: cargo-${{ hashFiles('**/Cargo.lock') }}-0001
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            digital-asset-rpc-infrastructure/target/
+          key: cargo-${{ hashFiles('**/Cargo.lock') }}-0001
 
       # Cargo.lock
       - name: Check lock file
