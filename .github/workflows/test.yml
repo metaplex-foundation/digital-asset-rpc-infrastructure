@@ -47,13 +47,6 @@ jobs:
           git checkout Cargo.lock
           cargo tree --frozen
 
-      - name: Check lock file for `migration`
-        working-directory: migration
-        run: |
-          cargo tree
-          git checkout Cargo.lock
-          cargo tree --frozen
-
       # fmt
       - name: Check fmt
         run: cargo fmt --all -- --check
@@ -62,18 +55,10 @@ jobs:
         working-directory: das_api
         run: cargo fmt --all -- --check
 
-      - name: Check fmt `migration`
-        working-directory: migration
-        run: cargo fmt --all -- --check
-
       # clippy
       - name: Check clippy
         run: cargo clippy --all-targets --tests
 
       - name: Check clippy `das_api`
         working-directory: das_api
-        run: cargo clippy --all-targets --tests
-
-      - name: Check clippy `migration`
-        working-directory: migration
         run: cargo clippy --all-targets --tests

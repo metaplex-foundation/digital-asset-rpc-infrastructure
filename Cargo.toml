@@ -2,6 +2,7 @@
 members = [
   "digital_asset_types",
   "metaplex-rpc-proxy",
+  "migration",
   "nft_ingester",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
@@ -12,7 +13,6 @@ members = [
 ]
 exclude = [
   "das_api",
-  "migration",
 ]
 
 [profile.release]

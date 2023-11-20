@@ -90,6 +90,8 @@ impl MigrationTrait for Migration {
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
+#[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Iden)]
 enum Index {
     BRIN,

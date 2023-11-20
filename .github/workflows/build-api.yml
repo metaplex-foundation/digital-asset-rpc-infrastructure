@@ -50,17 +50,13 @@ jobs:
         working-directory: das_api
         run: cargo build --verbose --release
 
-      - name: build migration
-        working-directory: migration
-        run: cargo build --verbose --release
-
       - name: rename binaries for ubuntu22 release
         if: matrix.os == 'ubuntu-22.04'
         run: |
           mv target/release/nft_ingester target/release/nft_ingester22
           mv target/release/fetch_trees target/release/fetch_trees22 
+          mv target/release/migration target/target/release/migration22
           mv das_api/target/release/das_api das_api/target/release/das_api22 
-          mv migration/target/release/migration migration/target/release/migration22
 
       # This steps can be omited to save space, are mostly in place to validate binaries (manually) and path to them 
       # Omiting this will save on storage consumption on the account
@@ -83,14 +79,14 @@ jobs:
         uses: actions/upload-artifact@v3.1.1
         with:
           name: migration22
-          path: migration/target/release/migration22
+          path: target/release/migration22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
         uses: actions/upload-artifact@v3.1.1
         with:
           name: fetch-trees22
-          path: migration/target/release/fetch_trees22
+          path: target/release/fetch_trees22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
@@ -111,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v3.1.1
         with:
           name: migration
-          path: migration/target/release/migration
+          path: target/release/migration
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
