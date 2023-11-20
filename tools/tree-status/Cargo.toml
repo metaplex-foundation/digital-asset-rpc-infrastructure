@@ -8,6 +8,7 @@ repository = { workspace = true }
 publish = { workspace = true }
 
 [dependencies]
+
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
 bs58 = { workspace = true }
@@ -36,14 +37,6 @@ solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 spl-noop = { workspace = true, features = ["no-entrypoint"] }
-sqlx = { workspace = true, features = [
-  "macros",
-  "runtime-tokio-rustls",
-  "postgres",
-  "uuid",
-  "offline",
-  "json",
-] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
   "fs",
@@ -51,6 +44,14 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "sync",
   "time",
+] }
+sqlx = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "postgres",
+  "uuid",
+  "offline",
+  "json",
 ] }
 txn_forwarder = { workspace = true }
 

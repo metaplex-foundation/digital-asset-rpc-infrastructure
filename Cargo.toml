@@ -1,5 +1,4 @@
 [workspace]
-resolver = "2"
 members = [
   "core",
   "das_api",
@@ -17,6 +16,7 @@ members = [
   "tools/tree-status",
   "tools/txn_forwarder",
 ]
+resolver = "2"
 
 [workspace.package]
 edition = "2021"
