@@ -89,6 +89,6 @@ impl From<crate::dao::cl_items::ActiveModel> for ActiveModel {
             seq: item.seq,
             leaf_idx: item.leaf_idx,
             ..Default::default()
-        }
+        };
     }
 }

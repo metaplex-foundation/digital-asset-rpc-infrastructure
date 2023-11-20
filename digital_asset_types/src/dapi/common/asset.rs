@@ -221,7 +221,6 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
         _ => Ordering::Equal,
     });
 
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         json_uri,
@@ -231,10 +230,7 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(
-    asset: &asset::Model,
-    data: &asset_data::Model,
-) -> Result<Content, DbErr> {
+pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
         Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
             v1_content_from_json(data)
@@ -297,9 +293,7 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
 }
 
 //TODO -> impl custom error type
-pub fn asset_to_rpc(
-    asset: FullAsset
-) -> Result<RpcAsset, DbErr> {
+pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     let FullAsset {
         asset,
         data,
@@ -389,9 +383,7 @@ pub fn asset_to_rpc(
     })
 }
 
-pub fn asset_list_to_rpc(
-    asset_list: Vec<FullAsset>
-) -> (Vec<RpcAsset>, Vec<AssetError>) {
+pub fn asset_list_to_rpc(asset_list: Vec<FullAsset>) -> (Vec<RpcAsset>, Vec<AssetError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {

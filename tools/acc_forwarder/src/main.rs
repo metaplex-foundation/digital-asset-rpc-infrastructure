@@ -416,7 +416,11 @@ async fn send_account(
     let fbb = serialize_account(fbb, &account_info, slot, is_startup);
     let bytes = fbb.finished_data();
 
-    messenger.lock().await.send(ACCOUNT_BACKFILL_STREAM, bytes).await?;
+    messenger
+        .lock()
+        .await
+        .send(ACCOUNT_BACKFILL_STREAM, bytes)
+        .await?;
     info!("sent account {} to stream", pubkey);
     ACC_FORWARDER_SENT.inc();
 

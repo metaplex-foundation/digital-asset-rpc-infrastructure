@@ -1,14 +1,12 @@
-
 use crate::{error::IngesterError, metric};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
-use log::{error};
+use log::error;
 use plerkle_messenger::{Messenger, MessengerConfig};
 use tokio::{
-    task::{JoinHandle},
+    task::JoinHandle,
     time::{self, Duration},
 };
-
 
 pub struct StreamSizeTimer {
     interval: tokio::time::Duration,

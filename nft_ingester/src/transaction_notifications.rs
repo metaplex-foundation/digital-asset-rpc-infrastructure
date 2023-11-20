@@ -6,9 +6,7 @@ use crate::{
 use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
 use chrono::Utc;
 use log::{debug, error};
-use plerkle_messenger::{
-    ConsumptionType, Messenger, MessengerConfig, RecvData,
-};
+use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
 use plerkle_serialization::root_as_transaction_info;
 
 use sqlx::{Pool, Postgres};
@@ -69,7 +67,11 @@ pub fn transaction_worker<T: Messenger>(
     })
 }
 
-async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData, stream_key: &'static str) -> Option<String> {
+async fn handle_transaction(
+    manager: Arc<ProgramTransformer>,
+    item: RecvData,
+    stream_key: &'static str,
+) -> Option<String> {
     let mut ret_id = None;
     if item.tries > 0 {
         metric! {

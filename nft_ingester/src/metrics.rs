@@ -5,10 +5,7 @@ use cadence_macros::{is_global_default_set, set_global_default, statsd_count, st
 use log::{error, warn};
 use tokio::time::Instant;
 
-use crate::{
-    config::IngesterConfig,
-    error::IngesterError,
-};
+use crate::{config::IngesterConfig, error::IngesterError};
 
 #[macro_export]
 macro_rules! metric {
@@ -32,9 +29,7 @@ pub fn setup_metrics(config: &IngesterConfig) {
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
         let builder = StatsdClient::builder("das_ingester", queuing_sink);
-        let client = builder
-            .with_tag("env", env)
-            .build();
+        let client = builder.with_tag("env", env).build();
         set_global_default(client);
     }
 }
