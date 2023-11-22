@@ -18,6 +18,8 @@ services:
     build:
       context: .
       dockerfile: Migrator.Dockerfile
+    volumes:
+      - ./init.sql:/init.sql
   ingester:
     depends_on:
       - migrator

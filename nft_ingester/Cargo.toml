@@ -80,6 +80,7 @@ tracing-subscriber = { version = "0.3.16", features = [
   "ansi",
 ] }
 clap = { version = "4.2.2", features = ["derive", "cargo"] }
+hpl-compression = "0.1.7"
 
 [dependencies.num-integer]
 version = "0.1.44"

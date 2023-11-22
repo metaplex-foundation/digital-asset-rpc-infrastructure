@@ -2351,6 +2351,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "hpl-compression"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f50f5fe1eea9abe21b92c395407ddb759eb74bb0123514063f6262fbf8fa95a"
+dependencies = [
+ "hpl-compression-macro-merkle-tree-apply-fn",
+ "hpl-compression-macro-merkle-tree-apply-fn-deep",
+ "hpl-compression-macro-merkle-tree-utils",
+]
+
+[[package]]
+name = "hpl-compression-macro-merkle-tree-apply-fn"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09da400e79c331800c3c4e5b235658df9332cf29526ce42ba5c3de6045e4977b"
+dependencies = [
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "hpl-compression-macro-merkle-tree-apply-fn-deep"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6dbeab966883b753120134b60cea9b61762fa413fbc44de50bf1c7ab138c0250"
+dependencies = [
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "hpl-compression-macro-merkle-tree-utils"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ede6017d32662e1e899db67239d76fd7acaa659db6c537d9837cc8af71f54bd"
+dependencies = [
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
 name = "http"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3048,6 +3092,7 @@ dependencies = [
  "futures",
  "futures-util",
  "hex",
+ "hpl-compression",
  "lazy_static",
  "log",
  "mpl-bubblegum",

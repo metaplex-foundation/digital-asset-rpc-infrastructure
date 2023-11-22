@@ -31,6 +31,7 @@ mod m20230726_013107_remove_not_null_constraint_from_group_value;
 mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
 mod m20231118_174007_add_compressed_data;
+mod m20231122_191039_create_merkle_tree_table;
 
 pub struct Migrator;
 
@@ -51,7 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230106_051135_unique_groupings::Migration),
             Box::new(m20230131_140613_change_token_account_indexes::Migration),
             Box::new(m20230203_205959_improve_upsert_perf::Migration),
-            // Box::new(m20230224_093722_performance_improvements::Migration),
+            Box::new(m20230224_093722_performance_improvements::Migration),
             Box::new(m20230310_162227_add_indexes_to_bg::Migration),
             Box::new(m20230317_121944_remove_indexes_for_perf::Migration),
             Box::new(m20230510_183736_add_indices_to_assets::Migration),
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230918_182123_add_raw_name_symbol::Migration),
             Box::new(m20230919_072154_cl_audits::Migration),
             Box::new(m20231118_174007_add_compressed_data::Migration),
+            Box::new(m20231122_191039_create_merkle_tree_table::Migration),
         ]
     }
 }

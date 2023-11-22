@@ -290,16 +290,32 @@ create index asset_creator on asset_creators (asset_id, creator);
 create index asset_verified_creator on asset_creators (asset_id, verified);
 -- @@@@@@
 
+create table merkle_tree
+(
+    -- Tree Indexing
+    id                   bytea PRIMARY KEY,
+
+    -- Parsed
+    data_schema                    bytea not null,
+
+    -- visibility
+    created_at                timestamp with time zone           default (now() at time zone 'utc')
+);
+-- @@@@@@
+
+create index merkle_tree_id on merkle_tree (id);
+-- @@@@@@
 
 create table compressed_data
 (
+    id           bigserial PRIMARY KEY,
     -- Tree Indexing
     tree_id                   bytea not null,
     leaf_idx                  bigint not null, -- This is the index of the leaf in the tree, equivalent to nonce in the asset table
     seq                       bigint not null,
 
     -- Compressed Data
-    raw_data                      bytea,
+    raw_data                      bytea not null,
 
     -- Parsed
     parsed_data                   jsonb,
