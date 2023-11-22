@@ -45,6 +45,9 @@ where
             ..Default::default()
         };
 
+        // Start a db transaction.
+        let multi_txn = txn.begin().await?;
+
         // Upsert asset table `burnt` column.
         let query = asset::Entity::insert(asset_model)
             .on_conflict(
@@ -53,9 +56,12 @@ where
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        txn.execute(query).await?;
+        multi_txn.execute(query).await?;
 
-        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+        upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+        // Close out transaction and relinqish the lock.
+        multi_txn.commit().await?;
 
         return Ok(());
     }

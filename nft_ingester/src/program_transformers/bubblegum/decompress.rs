@@ -23,11 +23,14 @@ where
         return Ok(());
     }
 
+    // Start a db transaction.
+    let multi_txn = txn.begin().await?;
+
     // Partial update of asset table with just leaf.
-    upsert_asset_with_leaf_info_for_decompression(txn, id_bytes.to_vec()).await?;
+    upsert_asset_with_leaf_info_for_decompression(&multi_txn, id_bytes.to_vec()).await?;
 
     upsert_asset_with_compression_info(
-        txn,
+        &multi_txn,
         id_bytes.to_vec(),
         false,
         false,
@@ -35,5 +38,10 @@ where
         Some(id_bytes.to_vec()),
         true,
     )
-    .await
+    .await?;
+
+    // Close out transaction and relinqish the lock.
+    multi_txn.commit().await?;
+
+    Ok(())
 }

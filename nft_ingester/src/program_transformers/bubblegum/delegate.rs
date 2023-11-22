@@ -22,7 +22,7 @@ where
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
-        return match le.schema {
+        match le.schema {
             LeafSchema::V1 {
                 id,
                 owner,
@@ -45,9 +45,12 @@ where
                 };
                 let tree_id = cl.id.to_bytes();
 
+                // Start a db transaction.
+                let multi_txn = txn.begin().await?;
+
                 // Partial update of asset table with just leaf.
                 upsert_asset_with_leaf_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     cl.index as i64,
                     tree_id.to_vec(),
@@ -60,7 +63,7 @@ where
 
                 // Partial update of asset table with just leaf owner and delegate.
                 upsert_asset_with_owner_and_delegate_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     owner_bytes,
                     delegate,
@@ -68,7 +71,12 @@ where
                 )
                 .await?;
 
-                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await
+                upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+                // Close out transaction and relinqish the lock.
+                multi_txn.commit().await?;
+
+                return Ok(());
             }
         };
     }

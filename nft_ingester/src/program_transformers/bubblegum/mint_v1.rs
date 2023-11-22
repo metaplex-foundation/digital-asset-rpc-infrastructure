@@ -105,11 +105,13 @@ where
                 .await?;
 
                 // Upsert into `asset` table.
+                // Start a db transaction.
+                let multi_txn = txn.begin().await?;
 
                 // Set base mint info.
                 let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
                 unprotected_upsert_asset_base_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
                     false,
@@ -124,7 +126,7 @@ where
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     true,
                     false,
@@ -136,7 +138,7 @@ where
 
                 // Partial update of asset table with just leaf.
                 upsert_asset_with_leaf_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
                     tree_id,
@@ -154,7 +156,7 @@ where
                     Some(delegate.to_bytes().to_vec())
                 };
                 upsert_asset_with_owner_and_delegate_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     owner.to_bytes().to_vec(),
                     delegate,
@@ -162,7 +164,13 @@ where
                 )
                 .await?;
 
-                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+                upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+                upsert_asset_with_update_metadata_seq(&multi_txn, id_bytes.to_vec(), seq as i64)
+                    .await?;
+
+                // Close out transaction and relinqish the lock.
+                multi_txn.commit().await?;
 
                 // Upsert into `asset_v1_account_attachments` table.
                 let (edition_attachment_address, _) = find_master_edition_account(&id);
@@ -204,8 +212,6 @@ where
                     seq as i64,
                 )
                 .await?;
-
-                upsert_asset_with_update_metadata_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
                 if uri.is_empty() {
                     warn!(
