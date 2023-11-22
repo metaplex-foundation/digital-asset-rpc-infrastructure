@@ -6,6 +6,7 @@ members = [
   "metaplex-rpc-proxy",
   "migration",
   "nft_ingester",
+  "program_transformers",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
   "tools/fetch_trees",

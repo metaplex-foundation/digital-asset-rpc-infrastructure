@@ -1,0 +1,26 @@
+[package]
+name = "program_transformers"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+
+[dependencies]
+blockbuster = { workspace = true }
+bs58 = { workspace = true }
+digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+futures = { workspace = true }
+mpl-bubblegum = { workspace = true }
+num-traits = { workspace = true }
+plerkle_serialization = { workspace = true }
+sea-orm = { workspace = true, features = [] }
+serde_json = { workspace = true }
+solana-sdk = { workspace = true }
+spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
+spl-token = { workspace = true, features = ["no-entrypoint"] }
+sqlx = { workspace = true, features = [] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true
