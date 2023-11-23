@@ -1,11 +1,11 @@
-#[cfg(test)]
-use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
 use digital_asset_types::dao::asset_data;
 use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability};
 use digital_asset_types::dapi::common::v1_content_from_json;
 use digital_asset_types::json::ChainDataV1;
 use digital_asset_types::rpc::Content;
 use digital_asset_types::rpc::File;
+#[cfg(test)]
+use mpl_token_metadata::state::TokenStandard as TSBlockbuster;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 

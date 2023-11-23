@@ -7,7 +7,6 @@ publish = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 borsh = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo"] }
 mpl-bubblegum = { workspace = true }

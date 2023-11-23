@@ -29,13 +29,11 @@ dependencies = [
  "plerkle_messenger",
  "plerkle_serialization",
  "prometheus",
- "reqwest",
  "serde_json",
  "solana-account-decoder",
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
- "spl-token 4.0.0",
  "tokio",
  "txn_forwarder",
 ]
@@ -897,7 +895,6 @@ dependencies = [
  "nft_ingester",
  "prometheus",
  "sea-orm",
- "sea-query 0.28.5",
  "solana-sdk",
  "sqlx",
  "tokio",
@@ -1706,9 +1703,7 @@ dependencies = [
 name = "das_api"
 version = "0.7.2"
 dependencies = [
- "anchor-lang",
  "async-trait",
- "blockbuster",
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
@@ -1717,13 +1712,7 @@ dependencies = [
  "figment",
  "hyper",
  "jsonrpsee",
- "jsonrpsee-core",
  "log",
- "metrics",
- "mpl-bubblegum",
- "mpl-candy-guard",
- "mpl-candy-machine-core",
- "mpl-token-metadata",
  "open-rpc-derive",
  "open-rpc-schema",
  "schemars",
@@ -1735,10 +1724,8 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
- "tokio-postgres",
  "tower",
  "tower-http",
- "tracing",
 ]
 
 [[package]]
@@ -1797,12 +1784,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deunicode"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a1abaf4d861455be59f64fd2b55606cb151fce304ede7165f410243ce96bde6"
-
-[[package]]
 name = "dialoguer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1838,26 +1819,19 @@ dependencies = [
 name = "digital_asset_types"
 version = "0.7.2"
 dependencies = [
- "async-trait",
- "blockbuster",
  "bs58 0.4.0",
- "futures",
  "indexmap 1.9.3",
  "jsonpath_lib",
  "log",
  "mime_guess",
- "num-derive 0.3.3",
- "num-traits",
- "reqwest",
+ "mpl-token-metadata",
  "schemars",
  "schemars_derive",
  "sea-orm",
- "sea-query 0.28.5",
  "serde",
  "serde_json",
  "solana-sdk",
  "spl-concurrent-merkle-tree",
- "thiserror",
  "tokio",
  "url",
 ]
@@ -2083,22 +2057,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fake"
-version = "2.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26221445034074d46b276e13eb97a265ebdb8ed8da705c4dddd3dd20b66b45d2"
-dependencies = [
- "deunicode",
- "rand 0.8.5",
-]
-
-[[package]]
-name = "fallible-iterator"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2124,7 +2082,6 @@ name = "fetch_trees"
 version = "0.7.12"
 dependencies = [
  "anyhow",
- "async-trait",
  "borsh 0.10.3",
  "clap 4.4.8",
  "mpl-bubblegum",
@@ -2781,7 +2738,7 @@ dependencies = [
  "console",
  "instant",
  "number_prefix",
- "portable-atomic 1.4.3",
+ "portable-atomic",
  "unicode-width",
 ]
 
@@ -3087,9 +3044,7 @@ checksum = "da2479e8c062e40bf0066ffa0bc823de0a9368974af99c9f6df941d2c231e03f"
 name = "load_generation"
 version = "0.7.12"
 dependencies = [
- "fake",
  "mpl-token-metadata",
- "rand 0.8.5",
  "solana-client",
  "solana-program",
  "solana-sdk",
@@ -3189,30 +3144,6 @@ dependencies = [
  "log",
  "proxy-wasm",
  "regex",
- "wasi 0.7.0",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "metrics"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b9b8653cec6897f73b519a43fba5ee3d50f62fe9af80b428accdcc093b4a849"
-dependencies = [
- "ahash 0.7.6",
- "metrics-macros",
- "portable-atomic 0.3.20",
-]
-
-[[package]]
-name = "metrics-macros"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731f8ecebd9f3a4aa847dfe75455e4757a45da40a7793d2f0b1f9b6ed18b23f3"
-dependencies = [
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -3222,7 +3153,6 @@ dependencies = [
  "async-std",
  "digital_asset_types",
  "enum-iterator",
- "enum-iterator-derive",
  "sea-orm-migration",
 ]
 
@@ -3421,7 +3351,6 @@ name = "nft_ingester"
 version = "0.7.2"
 dependencies = [
  "async-trait",
- "blockbuster",
  "borsh 0.10.3",
  "bs58 0.4.0",
  "cadence",
@@ -3938,24 +3867,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "phf"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade2d8b8f33c7333b51bcf0428d37e217e9f32192ae4772156f65063b8ce03dc"
-dependencies = [
- "phf_shared",
-]
-
-[[package]]
-name = "phf_shared"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
-dependencies = [
- "siphasher",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4065,47 +3976,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "0.3.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e30165d31df606f5726b090ec7592c308a0eaf61721ff64c9a3018e344a8753e"
-dependencies = [
- "portable-atomic 1.4.3",
-]
-
-[[package]]
-name = "portable-atomic"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31114a898e107c51bb1609ffaf55a0e011cf6a4d7f1170d0015a165082c0338b"
-
-[[package]]
-name = "postgres-protocol"
-version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b6c5ef183cd3ab4ba005f1ca64c21e8bd97ce4699cfea9e8d9a2c4958ca520"
-dependencies = [
- "base64 0.21.4",
- "byteorder",
- "bytes",
- "fallible-iterator",
- "hmac 0.12.1",
- "md-5",
- "memchr",
- "rand 0.8.5",
- "sha2 0.10.8",
- "stringprep",
-]
-
-[[package]]
-name = "postgres-types"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d2234cdee9408b523530a9b6d2d6b373d1db34f6a8e51dc03ded1828d7fb67c"
-dependencies = [
- "bytes",
- "fallible-iterator",
- "postgres-protocol",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -4995,7 +4868,7 @@ dependencies = [
  "ouroboros",
  "rust_decimal",
  "sea-orm-macros",
- "sea-query 0.27.2",
+ "sea-query",
  "sea-query-binder",
  "sea-strum",
  "serde",
@@ -5061,19 +4934,10 @@ checksum = "a4f0fc4d8e44e1d51c739a68d336252a18bc59553778075d5e32649be6ec92ed"
 dependencies = [
  "chrono",
  "rust_decimal",
- "sea-query-derive 0.2.0",
+ "sea-query-derive",
  "serde_json",
  "time 0.3.29",
  "uuid",
-]
-
-[[package]]
-name = "sea-query"
-version = "0.28.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbab99b8cd878ab7786157b7eb8df96333a6807cc6e45e8888c85b51534b401a"
-dependencies = [
- "sea-query-derive 0.3.0",
 ]
 
 [[package]]
@@ -5084,7 +4948,7 @@ checksum = "9c2585b89c985cfacfe0ec9fc9e7bb055b776c1a2581c4e3c6185af2b8bf8865"
 dependencies = [
  "chrono",
  "rust_decimal",
- "sea-query 0.27.2",
+ "sea-query",
  "serde_json",
  "sqlx",
  "time 0.3.29",
@@ -5105,26 +4969,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "sea-query-derive"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63f62030c60f3a691f5fe251713b4e220b306e50a71e1d6f9cce1f24bb781978"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 1.0.109",
- "thiserror",
-]
-
-[[package]]
 name = "sea-schema"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d5fda574d980e9352b6c7abd6fc75697436fe0078cac2b548559b52643ad3b"
 dependencies = [
  "futures",
- "sea-query 0.27.2",
+ "sea-query",
  "sea-schema-derive",
 ]
 
@@ -5483,12 +5334,6 @@ name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
-
-[[package]]
-name = "siphasher"
-version = "0.3.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "sized-chunks"
@@ -7025,32 +6870,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-postgres"
-version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d340244b32d920260ae7448cb72b6e238bddc3d4f7603394e7dd46ed8e48f5b8"
-dependencies = [
- "async-trait",
- "byteorder",
- "bytes",
- "fallible-iterator",
- "futures-channel",
- "futures-util",
- "log",
- "parking_lot 0.12.1",
- "percent-encoding",
- "phf",
- "pin-project-lite",
- "postgres-protocol",
- "postgres-types",
- "rand 0.8.5",
- "socket2 0.5.4",
- "tokio",
- "tokio-util",
- "whoami",
-]
-
-[[package]]
 name = "tokio-rustls"
 version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7294,7 +7113,6 @@ dependencies = [
  "clap 4.4.8",
  "digital_asset_types",
  "env_logger 0.10.0",
- "flatbuffers",
  "futures",
  "hex",
  "lazy_static",
@@ -7581,12 +7399,6 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
-
-[[package]]
-name = "wasi"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
 
 [[package]]
 name = "wasi"

@@ -7,14 +7,13 @@ publish = { workspace = true }
 
 [dependencies]
 async-trait = { workspace = true }
-blockbuster = { workspace = true }
 borsh = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo"] }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true }
 figment = { workspace = true, features = ["env", "toml", "yaml"] }
 flatbuffers = { workspace = true }
 futures = { workspace = true }

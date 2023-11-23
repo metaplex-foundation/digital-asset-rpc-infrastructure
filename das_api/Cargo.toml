@@ -6,24 +6,16 @@ repository = { workspace = true }
 publish = { workspace = true }
 
 [dependencies]
-anchor-lang = { workspace = true }
 async-trait = { workspace = true }
-blockbuster = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true }
 env_logger  = { workspace = true }
 figment = { workspace = true, features = ["env"] }
 hyper = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server", "macros"]}
-jsonrpsee-core = { workspace = true, features =["server"]}
 log = { workspace = true }
-metrics = { workspace = true }
-mpl-bubblegum = { workspace = true }
-mpl-candy-guard = { workspace = true, features = ["no-entrypoint"] }
-mpl-candy-machine-core = { workspace = true, features = ["no-entrypoint"] }
-mpl-token-metadata = { workspace = true,  features = ["serde-feature"] }
 open-rpc-derive = { workspace = true }
 open-rpc-schema = { workspace = true }
 schemars = { workspace = true }
@@ -35,10 +27,8 @@ solana-sdk = { workspace = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
-tokio-postgres = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["cors"] }
-tracing = { workspace = true }
 
 [lints]
 workspace = true

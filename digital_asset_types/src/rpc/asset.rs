@@ -1,7 +1,6 @@
 use crate::dao::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
-#[cfg(feature = "sql_types")]
 use std::collections::BTreeMap;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
@@ -225,7 +224,6 @@ impl From<String> for RoyaltyModel {
     }
 }
 
-#[cfg(feature = "sql_types")]
 impl From<RoyaltyTargetType> for RoyaltyModel {
     fn from(s: RoyaltyTargetType) -> Self {
         match s {
@@ -276,7 +274,6 @@ impl From<String> for OwnershipModel {
     }
 }
 
-#[cfg(feature = "sql_types")]
 impl From<OwnerType> for OwnershipModel {
     fn from(s: OwnerType) -> Self {
         match s {

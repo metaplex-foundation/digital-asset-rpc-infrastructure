@@ -12,11 +12,10 @@ anchor-client = { workspace = true }
 anyhow = { workspace = true }
 bs58 = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true }
 env_logger = { workspace = true }
-flatbuffers = { workspace = true }
 futures = { workspace = true }
-hex = { workspace = true }
+hex = { worksspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
 prometheus = { workspace = true }

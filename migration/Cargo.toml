@@ -7,9 +7,8 @@ publish = { workspace = true }
 
 [dependencies]
 async-std = { workspace = true, features = ["attributes", "tokio1"] }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true }
 enum-iterator = { workspace = true }
-enum-iterator-derive = { workspace = true }
 sea-orm-migration = { workspace = true, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
 
 [lints]

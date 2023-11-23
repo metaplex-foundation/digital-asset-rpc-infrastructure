@@ -1,4 +1,4 @@
-use blockbuster::token_metadata::state::{TokenStandard, Uses};
+use mpl_token_metadata::state::{TokenStandard, Uses};
 use serde::{Deserialize, Serialize};
 
 pub enum ChainData {

@@ -1,4 +1,3 @@
-use blockbuster::token_metadata::state::*;
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions,
 };
@@ -9,6 +8,7 @@ use digital_asset_types::{
     },
     json::ChainDataV1,
 };
+use mpl_token_metadata::state::*;
 use sea_orm::{JsonValue, Set};
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 

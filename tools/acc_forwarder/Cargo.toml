@@ -15,17 +15,15 @@ flatbuffers = { workspace = true }
 futures = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
-mpl-token-metadata = { workspace = true }
+mpl-token-metadata = { workspace = true, features = ["no-entrypoint"]}
 plerkle_messenger = { workspace = true, features = ['redis'] }
 plerkle_serialization = { workspace = true }
 prometheus = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
 serde_json = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-spl-token = { workspace = true, features = ["no-entrypoint"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 txn_forwarder = { workspace = true }
 

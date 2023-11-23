@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod common;
 
-use blockbuster::token_metadata::state::*;
 use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
 };
+use mpl_token_metadata::state::*;
 use sea_orm::{entity::prelude::*, DatabaseBackend, MockDatabase};
 use solana_sdk::{signature::Keypair, signer::Signer};
 

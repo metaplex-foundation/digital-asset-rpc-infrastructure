@@ -6,9 +6,7 @@ repository = { workspace = true }
 publish = { workspace = true }
 
 [dependencies]
-fake = { workspace = true }
-mpl-token-metadata = { workspace = true }
-rand = { workspace = true }
+mpl-token-metadata = { workspace = true, features = ["no-entrypoint"]}
 solana-client = { workspace = true }
 solana-program = { workspace = true }
 solana-sdk = { workspace = true }
