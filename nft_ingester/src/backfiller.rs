@@ -628,9 +628,14 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &mut self,
         btree: &BackfillTree,
     ) -> Result<Option<i64>, IngesterError> {
-        let address = Pubkey::try_from(btree.unique_tree.tree.as_slice()).map_err(|error| {
-            IngesterError::DeserializationError(format!("failed to parse pubkey: {error:?}"))
-        })?;
+        let address = match Pubkey::try_from(btree.unique_tree.tree.as_slice()) {
+            Ok(pubkey) => pubkey,
+            Err(error) => {
+                return Err(IngesterError::DeserializationError(format!(
+                    "failed to parse pubkey: {error:?}"
+                )))
+            }
+        };
 
         let slots = self.find_slots_via_address(&address).await?;
         let address = btree.unique_tree.tree.clone();
@@ -961,7 +966,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tb = tree.to_bytes();
-                let bubblegum = mpl_bubblegum::ID.to_bytes();
+                let bubblegum = blockbuster::programs::bubblegum::ID.to_bytes();
                 if account_keys.iter().all(|pk| *pk != tb && *pk != bubblegum) {
                     continue;
                 }
