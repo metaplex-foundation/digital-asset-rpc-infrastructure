@@ -961,7 +961,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 // Filter out transactions that don't have to do with the tree we are interested in or
                 // the Bubblegum program.
                 let tb = tree.to_bytes();
-                let bubblegum = blockbuster::programs::bubblegum::ID.to_bytes();
+                let bubblegum = mpl_bubblegum::ID.to_bytes();
                 if account_keys.iter().all(|pk| *pk != tb && *pk != bubblegum) {
                     continue;
                 }

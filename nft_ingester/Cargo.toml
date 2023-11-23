@@ -8,7 +8,6 @@ publish = { workspace = true }
 [dependencies]
 
 async-trait = { workspace = true }
-blockbuster = { workspace = true }
 borsh = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
