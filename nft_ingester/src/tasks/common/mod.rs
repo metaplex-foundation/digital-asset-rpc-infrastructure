@@ -1,16 +1,46 @@
-use super::{BgTask, FromTaskData, IngesterError, IntoTaskData, TaskData};
-use async_trait::async_trait;
-use chrono::NaiveDateTime;
-use digital_asset_types::dao::asset_data;
-use log::debug;
-use reqwest::{Client, ClientBuilder};
-use sea_orm::*;
-use serde::{Deserialize, Serialize};
-use std::{
-    fmt::{Display, Formatter},
-    time::Duration,
+use {
+    super::{BgTask, FromTaskData, IngesterError, IntoTaskData, TaskData},
+    async_trait::async_trait,
+    chrono::{NaiveDateTime, Utc},
+    digital_asset_types::dao::asset_data,
+    futures::future::BoxFuture,
+    log::debug,
+    program_transformers::{DownloadMetadataInfo, DownloadMetadataNotifier},
+    reqwest::{Client, ClientBuilder},
+    sea_orm::*,
+    serde::{Deserialize, Serialize},
+    std::{
+        fmt::{Display, Formatter},
+        time::Duration,
+    },
+    tokio::sync::mpsc::UnboundedSender,
+    url::Url,
 };
-use url::Url;
+
+pub fn create_download_metadata_notifier(
+    bg_task_sender: UnboundedSender<TaskData>,
+) -> DownloadMetadataNotifier {
+    Box::new(
+        move |info: DownloadMetadataInfo| -> BoxFuture<
+            'static,
+            Result<(), Box<dyn std::error::Error + Send + Sync>>,
+        > {
+            let (asset_data_id, uri) = info.into_inner();
+            let task = DownloadMetadata {
+                asset_data_id,
+                uri,
+                created_at: Some(Utc::now().naive_utc()),
+            };
+            let task = task
+                .into_task_data()
+                .and_then(|task| {
+                    bg_task_sender.send(task).map_err(Into::into)
+                })
+                .map_err(Into::into);
+            Box::pin(async move { task })
+        },
+    )
+}
 
 const TASK_NAME: &str = "DownloadMetadata";
 

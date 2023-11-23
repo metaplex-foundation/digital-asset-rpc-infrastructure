@@ -23,7 +23,7 @@ use {
 };
 
 mod bubblegum;
-mod error;
+pub mod error;
 mod token;
 mod token_metadata;
 
@@ -48,8 +48,10 @@ impl DownloadMetadataInfo {
 
 pub type DownloadMetadataNotifier = Box<
     dyn Fn(
-        DownloadMetadataInfo,
-    ) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>,
+            DownloadMetadataInfo,
+        ) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
+        + Sync
+        + Send,
 >;
 
 pub struct ProgramTransformer {

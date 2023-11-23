@@ -1,11 +1,12 @@
-use std::net::UdpSocket;
-
-use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
-use cadence_macros::{is_global_default_set, set_global_default, statsd_count, statsd_time};
-use log::{error, warn};
-use tokio::time::Instant;
-
-use crate::{config::IngesterConfig, error::IngesterError};
+use {
+    crate::config::IngesterConfig,
+    cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
+    cadence_macros::{is_global_default_set, set_global_default, statsd_count, statsd_time},
+    log::{error, warn},
+    program_transformers::error::ProgramTransformerError,
+    std::net::UdpSocket,
+    tokio::time::Instant,
+};
 
 #[macro_export]
 macro_rules! metric {
@@ -42,7 +43,7 @@ pub fn capture_result(
     stream: &str,
     label: (&str, &str),
     tries: usize,
-    res: Result<(), IngesterError>,
+    res: Result<(), ProgramTransformerError>,
     proc: Instant,
     txn_sig: Option<&str>,
     account: Option<String>,
@@ -63,13 +64,13 @@ pub fn capture_result(
             }
             true
         }
-        Err(IngesterError::NotImplemented) => {
+        Err(ProgramTransformerError::NotImplemented) => {
             metric! {
                 statsd_count!("ingester.not_implemented", 1, label.0 => label.1, "stream" => stream, "error" => "ni");
             }
             true
         }
-        Err(IngesterError::DeserializationError(e)) => {
+        Err(ProgramTransformerError::DeserializationError(e)) => {
             metric! {
                 statsd_count!("ingester.ingest_error", 1, label.0 => label.1, "stream" => stream, "error" => "de");
             }
@@ -83,7 +84,7 @@ pub fn capture_result(
             // Non-retryable error.
             true
         }
-        Err(IngesterError::ParsingError(e)) => {
+        Err(ProgramTransformerError::ParsingError(e)) => {
             metric! {
                 statsd_count!("ingester.ingest_error", 1, label.0 => label.1, "stream" => stream, "error" => "parse");
             }
@@ -97,7 +98,7 @@ pub fn capture_result(
             // Non-retryable error.
             true
         }
-        Err(IngesterError::DatabaseError(e)) => {
+        Err(ProgramTransformerError::DatabaseError(e)) => {
             metric! {
                 statsd_count!("ingester.database_error", 1, label.0 => label.1, "stream" => stream, "error" => "db");
             }
@@ -108,7 +109,7 @@ pub fn capture_result(
             }
             false
         }
-        Err(IngesterError::AssetIndexError(e)) => {
+        Err(ProgramTransformerError::AssetIndexError(e)) => {
             metric! {
                 statsd_count!("ingester.index_error", 1, label.0 => label.1, "stream" => stream, "error" => "index");
             }

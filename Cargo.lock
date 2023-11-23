@@ -3420,9 +3420,7 @@ dependencies = [
 name = "nft_ingester"
 version = "0.7.2"
 dependencies = [
- "anchor-lang",
  "async-trait",
- "base64 0.21.4",
  "blockbuster",
  "borsh 0.10.3",
  "bs58 0.4.0",
@@ -3431,46 +3429,32 @@ dependencies = [
  "chrono",
  "clap 4.4.8",
  "digital_asset_types",
- "env_logger 0.10.0",
  "figment",
  "flatbuffers",
  "futures",
- "futures-util",
- "hex",
- "lazy_static",
  "log",
  "mpl-bubblegum",
- "num-integer",
- "num-traits",
  "plerkle_messenger",
  "plerkle_serialization",
+ "program_transformers",
  "rand 0.8.5",
  "redis",
- "regex",
  "reqwest",
  "rust-crypto",
  "sea-orm",
- "sea-query 0.28.5",
  "serde",
  "serde_json",
  "solana-account-decoder",
  "solana-client",
- "solana-geyser-plugin-interface",
  "solana-sdk",
- "solana-sdk-macro",
  "solana-transaction-status",
  "spl-account-compression",
- "spl-concurrent-merkle-tree",
- "spl-token 4.0.0",
  "sqlx",
  "stretto",
  "thiserror",
  "tokio",
- "tokio-postgres",
- "tokio-stream",
  "tracing-subscriber",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -5754,18 +5738,6 @@ dependencies = [
  "num-derive 0.4.1",
  "num-traits",
  "solana-program",
- "thiserror",
-]
-
-[[package]]
-name = "solana-geyser-plugin-interface"
-version = "1.16.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "512372f741974113777872cecd560beee189cf79c3fb2eb84e1c28be69f011d1"
-dependencies = [
- "log",
- "solana-sdk",
- "solana-transaction-status",
  "thiserror",
 ]
 
