@@ -93,6 +93,9 @@ tracing-subscriber = "0.3.16"
 txn_forwarder = { path = "tools/txn_forwarder" }
 url = "2.3.1"
 
+[patch.crates-io]
+blockbuster = { path = "/home/kirill/projects/blockbuster/blockbuster" }
+
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"
 missing_const_for_fn = "deny"

@@ -14,7 +14,7 @@ use {
         },
     },
     futures::future::BoxFuture,
-    plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo},
+    plerkle_serialization::{Pubkey as FBPubkey, TransactionInfo},
     sea_orm::{DatabaseConnection, SqlxPostgresConnector},
     solana_sdk::pubkey::Pubkey,
     sqlx::PgPool,
@@ -26,6 +26,14 @@ mod bubblegum;
 pub mod error;
 mod token;
 mod token_metadata;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AccountInfo<'a> {
+    pub slot: u64,
+    pub pubkey: &'a Pubkey,
+    pub owner: &'a Pubkey,
+    pub data: &'a [u8],
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DownloadMetadataInfo {
@@ -97,9 +105,8 @@ impl ProgramTransformer {
     }
 
     #[allow(clippy::borrowed_box)]
-    pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
-        self.parsers
-            .get(&Pubkey::try_from(key.0.as_slice()).expect("valid key from FlatBuffer"))
+    pub fn match_program(&self, key: &Pubkey) -> Option<&Box<dyn ProgramParser>> {
+        self.parsers.get(key)
     }
 
     pub async fn handle_transaction<'a>(
@@ -151,7 +158,9 @@ impl ProgramTransformer {
                 slot,
             };
 
-            if let Some(program) = self.match_program(&ix.program) {
+            let program_key =
+                Pubkey::try_from(ix.program.0.as_slice()).expect("valid key from FlatBuffer");
+            if let Some(program) = self.match_program(&program_key) {
                 debug!("Found a ix for program: {:?}", program.key());
                 let result = program.handle_instruction(&ix)?;
                 let concrete = result.result_type();
@@ -187,18 +196,16 @@ impl ProgramTransformer {
         Ok(())
     }
 
-    pub async fn handle_account_update<'b>(
+    pub async fn handle_account_update(
         &self,
-        acct: AccountInfo<'b>,
+        account_info: &AccountInfo<'_>,
     ) -> ProgramTransformerResult<()> {
-        let owner = acct.owner().unwrap();
-        if let Some(program) = self.match_program(owner) {
-            let result = program.handle_account(&acct)?;
-            let concrete = result.result_type();
-            match concrete {
+        if let Some(program) = self.match_program(account_info.owner) {
+            let result = program.handle_account(account_info.data)?;
+            match result.result_type() {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
                     handle_token_metadata_account(
-                        &acct,
+                        account_info,
                         parsing_result,
                         &self.storage,
                         &self.download_metadata_notifier,
@@ -207,7 +214,7 @@ impl ProgramTransformer {
                 }
                 ProgramParseResult::TokenProgramAccount(parsing_result) => {
                     handle_token_program_account(
-                        &acct,
+                        account_info,
                         parsing_result,
                         &self.storage,
                         &self.download_metadata_notifier,

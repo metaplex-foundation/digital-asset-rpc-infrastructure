@@ -1,11 +1,10 @@
 use {
     crate::{
         error::{ProgramTransformerError, ProgramTransformerResult},
-        DownloadMetadataNotifier,
+        AccountInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
     digital_asset_types::dao::{asset, token_accounts, tokens},
-    plerkle_serialization::AccountInfo,
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue, ColumnTrait},
         query::{QueryFilter, QueryTrait},
@@ -16,15 +15,14 @@ use {
     spl_token::state::AccountState,
 };
 
-pub async fn handle_token_program_account<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b TokenProgramAccount,
-    db: &'c DatabaseConnection,
+pub async fn handle_token_program_account(
+    account_info: &AccountInfo<'_>,
+    parsing_result: &TokenProgramAccount,
+    db: &DatabaseConnection,
     _download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
-    let key = *account_update.pubkey().unwrap();
-    let key_bytes = key.0.to_vec();
-    let spl_token_program = account_update.owner().unwrap().0.to_vec();
+    let key_bytes = account_info.pubkey.to_bytes().to_vec();
+    let spl_token_program = account_info.owner.to_bytes().to_vec();
     match &parsing_result {
         TokenProgramAccount::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
@@ -42,7 +40,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 frozen: ActiveValue::Set(frozen),
                 delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
                 token_program: ActiveValue::Set(spl_token_program),
-                slot_updated: ActiveValue::Set(account_update.slot() as i64),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
                 amount: ActiveValue::Set(ta.amount as i64),
                 close_authority: ActiveValue::Set(None),
             };
@@ -99,7 +97,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let model = tokens::ActiveModel {
                 mint: ActiveValue::Set(key_bytes.clone()),
                 token_program: ActiveValue::Set(spl_token_program),
-                slot_updated: ActiveValue::Set(account_update.slot() as i64),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
                 supply: ActiveValue::Set(m.supply as i64),
                 decimals: ActiveValue::Set(m.decimals as i32),
                 close_authority: ActiveValue::Set(None),
@@ -142,6 +140,5 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             Ok(())
         }
         _ => Err(ProgramTransformerError::NotImplemented),
-    }?;
-    Ok(())
+    }
 }

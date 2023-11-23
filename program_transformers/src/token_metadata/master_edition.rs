@@ -5,17 +5,17 @@ use {
         asset, asset_v1_account_attachments,
         sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
     },
-    plerkle_serialization::Pubkey as FBPubkey,
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue, EntityTrait, RelationTrait},
         query::{JoinType, QuerySelect, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DatabaseTransaction, DbBackend,
     },
+    solana_sdk::pubkey::Pubkey,
 };
 
 pub async fn save_v2_master_edition(
-    id: FBPubkey,
+    id: &Pubkey,
     slot: u64,
     me_data: &MasterEditionV2,
     txn: &DatabaseTransaction,
@@ -31,7 +31,7 @@ pub async fn save_v2_master_edition(
 }
 
 pub async fn save_v1_master_edition(
-    id: FBPubkey,
+    id: &Pubkey,
     slot: u64,
     me_data: &MasterEditionV1,
     txn: &DatabaseTransaction,
@@ -52,14 +52,14 @@ pub async fn save_v1_master_edition(
 }
 pub async fn save_master_edition(
     _version: V1AccountAttachments,
-    id: FBPubkey,
+    id: &Pubkey,
     slot: u64,
     me_data: &MasterEditionV2,
     txn: &DatabaseTransaction,
 ) -> ProgramTransformerResult<()> {
-    let id_bytes = id.0.to_vec();
+    let id = id.to_bytes().to_vec();
     let master_edition: Option<(asset_v1_account_attachments::Model, Option<asset::Model>)> =
-        asset_v1_account_attachments::Entity::find_by_id(id.0.to_vec())
+        asset_v1_account_attachments::Entity::find_by_id(id.clone())
             .find_also_related(asset::Entity)
             .join(JoinType::InnerJoin, asset::Relation::AssetData.def())
             .one(txn)
@@ -68,7 +68,7 @@ pub async fn save_master_edition(
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
 
     let model = asset_v1_account_attachments::ActiveModel {
-        id: ActiveValue::Set(id_bytes),
+        id: ActiveValue::Set(id),
         attachment_type: ActiveValue::Set(V1AccountAttachments::MasterEditionV1),
         data: ActiveValue::Set(Some(ser)),
         slot_updated: ActiveValue::Set(slot as i64),

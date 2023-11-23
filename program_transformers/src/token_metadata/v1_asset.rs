@@ -20,25 +20,25 @@ use {
         json::ChainDataV1,
     },
     num_traits::FromPrimitive,
-    plerkle_serialization::Pubkey as FBPubkey,
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         query::{Condition, JsonValue, QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, DbErr, TransactionTrait,
     },
+    solana_sdk::pubkey::Pubkey,
     std::collections::HashSet,
     tracing::warn,
 };
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: FBPubkey,
+    id: &Pubkey,
     slot: u64,
 ) -> ProgramTransformerResult<()> {
-    let (id, slot_i) = (id.0, slot as i64);
+    let (id, slot_i) = (id.to_bytes().to_vec(), slot as i64);
     let model = asset::ActiveModel {
-        id: ActiveValue::Set(id.to_vec()),
+        id: ActiveValue::Set(id),
         slot_updated: ActiveValue::Set(Some(slot_i)),
         burnt: ActiveValue::Set(true),
         ..Default::default()
@@ -60,7 +60,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: FBPubkey,
+    id: &Pubkey,
     slot: u64,
     metadata: &Metadata,
 ) -> ProgramTransformerResult<Option<DownloadMetadataInfo>> {
@@ -70,7 +70,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let (edition_attachment_address, _) = find_master_edition_account(&meta_mint_pubkey);
     let mint = metadata.mint.to_bytes().to_vec();
     let authority = metadata.update_authority.to_bytes().to_vec();
-    let id = id.0;
+    let id = id.to_bytes().to_vec();
     let slot_i = slot as i64;
     let uri = data.uri.trim().replace('\0', "");
     let _spec = SpecificationVersions::V1;
