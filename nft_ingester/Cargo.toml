@@ -6,6 +6,7 @@ repository = { workspace = true }
 publish = { workspace = true }
 
 [dependencies]
+
 async-trait = { workspace = true }
 blockbuster = { workspace = true }
 borsh = { workspace = true }
