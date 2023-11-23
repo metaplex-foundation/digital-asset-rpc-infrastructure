@@ -4,7 +4,8 @@ use blockbuster::{
     program_handler::ProgramParser,
     programs::{
         account_compression::AccountCompressionParser, bubblegum::BubblegumParser,
-        token_account::TokenAccountParser, token_metadata::TokenMetadataParser, ProgramParseResult,
+        noop::NoopParser, token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
+        ProgramParseResult,
     },
 };
 use log::{debug, error, info};
@@ -17,12 +18,13 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
     account_compression::handle_account_compression_instruction,
-    bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
-    token_metadata::handle_token_metadata_account,
+    bubblegum::handle_bubblegum_instruction, noop::handle_noop_instruction,
+    token::handle_token_program_account, token_metadata::handle_token_metadata_account,
 };
 
 mod account_compression;
 mod bubblegum;
+mod noop;
 mod token;
 mod token_metadata;
 
@@ -41,10 +43,12 @@ impl ProgramTransformer {
         let account_compression = AccountCompressionParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
+        let noop = NoopParser {};
         matchers.insert(bgum.key(), Box::new(bgum));
         matchers.insert(account_compression.key(), Box::new(account_compression));
         matchers.insert(token_metadata.key(), Box::new(token_metadata));
         matchers.insert(token.key(), Box::new(token));
+        matchers.insert(noop.key(), Box::new(noop));
         let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -88,11 +92,7 @@ impl ProgramTransformer {
         let mut not_impl = 0;
         let ixlen = instructions.len();
         debug!("Instructions: {}", ixlen);
-        let contains = instructions.iter().filter(|(ib, _inner)| {
-            // ib.0 .0.as_ref() == mpl_bubblegum::ID.as_ref()
-            true
-        });
-        debug!("Instructions bgum: {}", contains.count());
+
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
@@ -160,8 +160,86 @@ impl ProgramTransformer {
                             return err;
                         })?;
                     }
+                    ProgramParseResult::Noop(parsing_result) => {
+                        handle_noop_instruction(
+                            parsing_result,
+                            &ix,
+                            &self.storage,
+                            &self.task_sender,
+                            self.cl_audits,
+                        )
+                        .await
+                        .map_err(|err| {
+                            error!(
+                                "Failed to handle noop instruction for txn {:?}: {:?}",
+                                sig, err
+                            );
+                            return err;
+                        })?;
+                    }
                     _ => {
                         not_impl += 1;
+                        // if let Some(inner_ix) = &ix.inner_ix {
+                        //     let noop_parser = NoopParser {};
+                        //     let mut ixs = inner_ix.clone();
+                        //     ixs.retain(|i| Pubkey::new_from_array(i.0 .0) == noop_parser.key());
+
+                        //     for ix in ixs {
+                        //         let (program, instruction) = ix;
+                        //         let ix_accounts =
+                        //             instruction.accounts().unwrap().iter().collect::<Vec<_>>();
+                        //         let ix_account_len = ix_accounts.len();
+                        //         let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
+                        //         if keys.len() < max {
+                        //             return Err(IngesterError::DeserializationError(
+                        //                 "Missing Accounts in Serialized Ixn/Txn".to_string(),
+                        //             ));
+                        //         }
+                        //         let ix_accounts = ix_accounts.iter().fold(
+                        //             Vec::with_capacity(ix_account_len),
+                        //             |mut acc, a| {
+                        //                 if let Some(key) = keys.get(*a as usize) {
+                        //                     acc.push(*key);
+                        //                 }
+                        //                 acc
+                        //             },
+                        //         );
+                        //         let ix = InstructionBundle {
+                        //             txn_id,
+                        //             program,
+                        //             instruction: Some(instruction),
+                        //             inner_ix: None,
+                        //             keys: ix_accounts.as_slice(),
+                        //             slot,
+                        //         };
+
+                        //         debug!("Found a ix for program: {:?}", noop_parser.key());
+                        //         let result = noop_parser.handle_instruction(&ix)?;
+                        //         let concrete = result.result_type();
+                        //         match concrete {
+                        //             ProgramParseResult::Noop(parsing_result) => {
+                        //                 handle_noop_instruction(
+                        //                     parsing_result,
+                        //                     &ix,
+                        //                     &self.storage,
+                        //                     &self.task_sender,
+                        //                     self.cl_audits,
+                        //                 )
+                        //                 .await
+                        //                 .map_err(|err| {
+                        //                     error!(
+                        //                         "Failed to handle noop instruction for txn {:?}: {:?}",
+                        //                         sig, err
+                        //                     );
+                        //                     return err;
+                        //                 })?;
+                        //             }
+                        //             _ => not_impl += 1,
+                        //         }
+                        //     }
+                        // } else {
+                        //     not_impl += 1;
+                        // }
                     }
                 };
             }

@@ -882,6 +882,31 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "0.9.0-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56e0240c1218958c0d51284d783fa055f551d769bb8b7a4abf635b17fa9620dc"
+dependencies = [
+ "anchor-lang",
+ "async-trait",
+ "borsh 0.10.3",
+ "bs58 0.4.0",
+ "flatbuffers",
+ "lazy_static",
+ "log",
+ "mpl-bubblegum",
+ "mpl-candy-guard",
+ "mpl-candy-machine-core",
+ "mpl-token-metadata",
+ "plerkle_serialization",
+ "solana-sdk",
+ "spl-account-compression",
+ "spl-noop 0.2.0",
+ "spl-token 3.5.0",
+ "thiserror",
+]
+
+[[package]]
+name = "blockbuster"
+version = "0.9.0-beta.1"
 source = "git+https://github.com/Honeycomb-Protocol/blockbuster.git?branch=beta#fcfa3d55f092fba001dc18fed0149a13ea69aaf5"
 dependencies = [
  "anchor-lang",
@@ -1647,7 +1672,7 @@ name = "digital_asset_types"
 version = "0.7.2"
 dependencies = [
  "async-trait",
- "blockbuster",
+ "blockbuster 0.9.0-beta.1 (git+https://github.com/Honeycomb-Protocol/blockbuster.git?branch=beta)",
  "borsh 0.10.3",
  "borsh-derive 0.10.3",
  "bs58 0.4.0",
@@ -3078,7 +3103,7 @@ dependencies = [
  "anchor-lang",
  "async-trait",
  "base64 0.21.4",
- "blockbuster",
+ "blockbuster 0.9.0-beta.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "borsh 0.10.3",
  "bs58 0.4.0",
  "cadence",

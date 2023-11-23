@@ -318,7 +318,7 @@ create table compressed_data
     raw_data                      bytea not null,
 
     -- Parsed
-    parsed_data                   jsonb,
+    parsed_data                   jsonb not null,
 
     -- Origin
     program                     bytea,
