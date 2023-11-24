@@ -12,10 +12,10 @@ digital_asset_types = { workspace = true }
 futures = { workspace = true }
 mpl-bubblegum = { workspace = true }
 num-traits = { workspace = true }
-plerkle_serialization = { workspace = true }
 sea-orm = { workspace = true, features = [] }
 serde_json = { workspace = true }
 solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 spl-token = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true, features = [] }

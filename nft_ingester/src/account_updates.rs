@@ -2,7 +2,7 @@ use {
     crate::{
         metric,
         metrics::capture_result,
-        plerkle::{parse_pubkey, parse_vector},
+        plerkle::{parse_pubkey, parse_slice},
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
@@ -131,7 +131,7 @@ async fn handle_account_update<'a>(
             slot: account_update.slot(),
             pubkey: &parse_pubkey(account_update.pubkey())?,
             owner: &parse_pubkey(account_update.owner())?,
-            data: parse_vector(account_update.data())?,
+            data: parse_slice(account_update.data())?,
         })
         .await
 }

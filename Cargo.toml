@@ -94,7 +94,7 @@ txn_forwarder = { path = "tools/txn_forwarder" }
 url = "2.3.1"
 
 [patch.crates-io]
-blockbuster = { path = "/home/kirill/projects/blockbuster/blockbuster" }
+blockbuster = { git = "https://github.com/rpcpool/blockbuster.git", tag = "blockbuster-rm-plerkle-v0.9.0-beta.1" }
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"

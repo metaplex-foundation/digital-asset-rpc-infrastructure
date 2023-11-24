@@ -985,6 +985,7 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "0.9.0-beta.1"
+source = "git+https://github.com/rpcpool/blockbuster.git?tag=blockbuster-rm-plerkle-v0.9.0-beta.1#acbb64c569c700cccedad3c9289e1000deb0ab01"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -999,6 +1000,7 @@ dependencies = [
  "mpl-token-metadata",
  "plerkle_serialization",
  "solana-sdk",
+ "solana-transaction-status",
  "spl-account-compression",
  "spl-noop",
  "spl-token 4.0.0",
@@ -4068,10 +4070,10 @@ dependencies = [
  "futures",
  "mpl-bubblegum",
  "num-traits",
- "plerkle_serialization",
  "sea-orm",
  "serde_json",
  "solana-sdk",
+ "solana-transaction-status",
  "spl-account-compression",
  "spl-token 4.0.0",
  "sqlx",

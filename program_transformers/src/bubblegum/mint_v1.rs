@@ -132,7 +132,7 @@ where
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
+                let tree_id = bundle.keys.get(3).unwrap().to_bytes().to_vec();
 
                 // ActiveValue::Set initial mint info.
                 let asset_model = asset::ActiveModel {
@@ -313,7 +313,7 @@ where
                 // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
                     asset_id: ActiveValue::Set(id_bytes.to_vec()),
-                    authority: ActiveValue::Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
+                    authority: ActiveValue::Set(bundle.keys.get(0).unwrap().to_bytes().to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
                     seq: ActiveValue::Set(seq as i64),
                     slot_updated: ActiveValue::Set(slot_i),
                     ..Default::default()

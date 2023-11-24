@@ -14,9 +14,9 @@ use {
         },
     },
     futures::future::BoxFuture,
-    plerkle_serialization::{Pubkey as FBPubkey, TransactionInfo},
     sea_orm::{DatabaseConnection, SqlxPostgresConnector},
-    solana_sdk::pubkey::Pubkey,
+    solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
+    solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
     tracing::{debug, error, info},
@@ -33,6 +33,15 @@ pub struct AccountInfo<'a> {
     pub pubkey: &'a Pubkey,
     pub owner: &'a Pubkey,
     pub data: &'a [u8],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransactionInfo<'a> {
+    pub slot: u64,
+    pub signature: &'a Signature,
+    pub account_keys: Vec<Pubkey>,
+    pub message_instructions: &'a [CompiledInstruction],
+    pub meta_inner_instructions: &'a [InnerInstructions],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,12 +105,16 @@ impl ProgramTransformer {
         }
     }
 
-    pub fn break_transaction<'i>(
+    pub fn break_transaction<'a>(
         &self,
-        tx: &'i TransactionInfo<'i>,
-    ) -> VecDeque<(IxPair<'i>, Option<Vec<IxPair<'i>>>)> {
-        let ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
-        order_instructions(ref_set, tx)
+        tx_info: &'a TransactionInfo<'_>,
+    ) -> VecDeque<(IxPair<'a>, Option<Vec<IxPair<'a>>>)> {
+        order_instructions(
+            &self.key_set,
+            &tx_info.account_keys,
+            tx_info.message_instructions,
+            tx_info.meta_inner_instructions,
+        )
     }
 
     #[allow(clippy::borrowed_box)]
@@ -109,33 +122,25 @@ impl ProgramTransformer {
         self.parsers.get(key)
     }
 
-    pub async fn handle_transaction<'a>(
+    pub async fn handle_transaction(
         &self,
-        tx: &'a TransactionInfo<'a>,
+        tx_info: &TransactionInfo<'_>,
     ) -> ProgramTransformerResult<()> {
-        let sig: Option<&str> = tx.signature();
-        info!("Handling Transaction: {:?}", sig);
-        let instructions = self.break_transaction(tx);
-        let accounts = tx.account_keys().unwrap_or_default();
-        let slot = tx.slot();
-        let txn_id = tx.signature().unwrap_or("");
-        let mut keys: Vec<FBPubkey> = Vec::with_capacity(accounts.len());
-        for k in accounts.into_iter() {
-            keys.push(*k);
-        }
+        info!("Handling Transaction: {:?}", tx_info.signature);
+        let instructions = self.break_transaction(tx_info);
         let mut not_impl = 0;
         let ixlen = instructions.len();
         debug!("Instructions: {}", ixlen);
         let contains = instructions
             .iter()
-            .filter(|(ib, _inner)| ib.0 .0.as_ref() == mpl_bubblegum::ID.as_ref());
+            .filter(|(ib, _inner)| ib.0 == mpl_bubblegum::ID);
         debug!("Instructions bgum: {}", contains.count());
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
-            let ix_accounts = instruction.accounts().unwrap().iter().collect::<Vec<_>>();
+            let ix_accounts = &instruction.accounts;
             let ix_account_len = ix_accounts.len();
             let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
-            if keys.len() < max {
+            if tx_info.account_keys.len() < max {
                 return Err(ProgramTransformerError::DeserializationError(
                     "Missing Accounts in Serialized Ixn/Txn".to_string(),
                 ));
@@ -144,22 +149,21 @@ impl ProgramTransformer {
                 ix_accounts
                     .iter()
                     .fold(Vec::with_capacity(ix_account_len), |mut acc, a| {
-                        if let Some(key) = keys.get(*a as usize) {
+                        if let Some(key) = tx_info.account_keys.get(*a as usize) {
                             acc.push(*key);
                         }
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id,
+                txn_id: &tx_info.signature.to_string(),
                 program,
                 instruction: Some(instruction),
                 inner_ix,
                 keys: ix_accounts.as_slice(),
-                slot,
+                slot: tx_info.slot,
             };
 
-            let program_key =
-                Pubkey::try_from(ix.program.0.as_slice()).expect("valid key from FlatBuffer");
+            let program_key = ix.program;
             if let Some(program) = self.match_program(&program_key) {
                 debug!("Found a ix for program: {:?}", program.key());
                 let result = program.handle_instruction(&ix)?;
@@ -177,7 +181,7 @@ impl ProgramTransformer {
                         .map_err(|err| {
                             error!(
                                 "Failed to handle bubblegum instruction for txn {:?}: {:?}",
-                                sig, err
+                                tx_info.signature, err
                             );
                             err
                         })?;
