@@ -8,7 +8,7 @@ use digital_asset_types::{
     },
     dapi::{
         get_asset, get_assets_by_authority, get_assets_by_creator, get_assets_by_group,
-        get_assets_by_owner, get_proof_for_asset, get_proof, search_assets,
+        get_assets_by_owner, get_compressed_data, get_proof, get_proof_for_asset, search_assets,
     },
     rpc::{filter::SearchConditionType, response::GetGroupingResponse},
     rpc::{OwnershipModel, RoyaltyModel},
@@ -24,7 +24,7 @@ use {
     crate::validation::validate_pubkey,
     crate::DasApiError,
     async_trait::async_trait,
-    digital_asset_types::rpc::{response::AssetList, Asset, AssetProof},
+    digital_asset_types::rpc::{response::AssetList, Asset, AssetProof, CompressedData},
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
@@ -121,10 +121,18 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
-    async fn get_proof(
-        self: &DasApi,
-        payload: GetProof,
-    ) -> Result<AssetProof, DasApiError> {
+    async fn get_compressed_data(
+        &self,
+        payload: LeafTreePayload,
+    ) -> Result<CompressedData, DasApiError> {
+        let tree = validate_pubkey(payload.tree.clone())?;
+        let tree_bytes = tree.to_bytes().to_vec();
+        get_compressed_data(&self.db_connection, tree_bytes, payload.leaf_idx)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn get_proof(self: &DasApi, payload: LeafTreePayload) -> Result<AssetProof, DasApiError> {
         let tree = validate_pubkey(payload.tree.clone())?;
         let tree_bytes = tree.to_bytes().to_vec();
         get_proof(&self.db_connection, tree_bytes, payload.leaf_idx)

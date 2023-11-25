@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "das_api",
   "digital_asset_types",
   "metaplex-rpc-proxy",
   "nft_ingester",
@@ -11,7 +12,7 @@ members = [
   "tools/txn_forwarder",
 ]
 exclude = [
-  "das_api",
+  # "das_api",
   "migration",
   "metaplex_program_library",
   "solana_program_library",

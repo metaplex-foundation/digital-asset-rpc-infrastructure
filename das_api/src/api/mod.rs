@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use digital_asset_types::rpc::filter::SearchConditionType;
 use digital_asset_types::rpc::response::AssetList;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
-use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
+use digital_asset_types::rpc::{
+    Asset, AssetProof, CompressedData, Interface, OwnershipModel, RoyaltyModel,
+};
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -48,7 +50,7 @@ pub struct GetAssetProof {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetProof {
+pub struct LeafTreePayload {
     pub tree: String,
     pub leaf_idx: u32,
 }
@@ -125,11 +127,20 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
+        name = "getCompressedData",
+        params = "named",
+        summary = "Get compressed data for leaf of a tree"
+    )]
+    async fn get_compressed_data(
+        &self,
+        payload: LeafTreePayload,
+    ) -> Result<CompressedData, DasApiError>;
+    #[rpc(
         name = "getProof",
         params = "named",
         summary = "Get a merkle proof for a leaf of a mt"
     )]
-    async fn get_proof(&self, payload: GetProof) -> Result<AssetProof, DasApiError>;
+    async fn get_proof(&self, payload: LeafTreePayload) -> Result<AssetProof, DasApiError>;
     #[rpc(
         name = "getAsset",
         params = "named",

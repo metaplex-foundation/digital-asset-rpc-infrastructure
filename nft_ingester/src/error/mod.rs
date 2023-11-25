@@ -52,8 +52,10 @@ pub enum IngesterError {
     HttpError { status_code: String },
     #[error("AssetIndex Error {0}")]
     AssetIndexError(String),
-    #[error("CompressedData Schema parse error")]
-    CompressedDataParseError,
+    #[error("CompressedData Schema parse error: {0}")]
+    CompressedDataParseError(String),
+    #[error("Storage Read Error: {0}")]
+    StorageReadError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {
