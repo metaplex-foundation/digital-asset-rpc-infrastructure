@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::account_compression::{AccountCompressionInstruction, Instruction},
 };
-use log::info;
+use log::{debug, info};
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -34,6 +34,7 @@ where
 
     // @TODO this would be much better served by implemneting Debug trait on the Instruction
     // or wrapping it into something that can display it more neatly.
+    debug!("AccountCompressionInstruction ix_type: {:#?}", ix_type);
     let ix_str = match ix_type {
         Instruction::Unknown => "Unknown",
         Instruction::InitTree { .. } => {

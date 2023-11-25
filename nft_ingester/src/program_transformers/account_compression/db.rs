@@ -6,20 +6,6 @@ use sea_orm::{
 };
 use spl_account_compression::events::ChangeLogEventV1;
 
-pub async fn save_changelog_event<'c, T>(
-    change_log_event: &ChangeLogEventV1,
-    slot: u64,
-    txn_id: &str,
-    txn: &T,
-    cl_audits: bool,
-) -> Result<u64, IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    insert_change_log(change_log_event, slot, txn_id, txn, cl_audits).await?;
-    Ok(change_log_event.seq)
-}
-
 fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }

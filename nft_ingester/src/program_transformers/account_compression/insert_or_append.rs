@@ -1,10 +1,6 @@
-use crate::{
-    error::IngesterError, program_transformers::account_compression::save_changelog_event,
-    tasks::TaskData,
-};
+use crate::{error::IngesterError, program_transformers::account_compression::insert_change_log};
 use blockbuster::{
-    instruction::InstructionBundle,
-    programs::account_compression::{AccountCompressionInstruction, Instruction},
+    instruction::InstructionBundle, programs::account_compression::AccountCompressionInstruction,
 };
 use sea_orm::{ConnectionTrait, TransactionTrait};
 // TODO -> consider moving structs into these functions to avoid clone
@@ -14,14 +10,12 @@ pub async fn insert_or_append<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     cl_audits: bool,
-) -> Result<Option<TaskData>, IngesterError>
+) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    if let (Instruction::Append { leaf: _ }, Some(cl)) =
-        (&parsing_result.instruction, &parsing_result.tree_update)
-    {
-        let _seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+    if let Some(cl) = &parsing_result.tree_update {
+        return insert_change_log(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await;
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),

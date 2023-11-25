@@ -177,22 +177,30 @@ where
                     debug!("SchemaValue is object");
                     if let Some(SchemaValue::Object(v1_map)) = object.get_mut("V1") {
                         debug!("SchemaValue has V1");
+                        let json: serde_json::Value = data.clone().into();
+                        let k = key.clone();
+                        debug!("Patching Data: {} on {}", json.to_string(), k);
                         v1_map.insert(key, data);
+                        let json: serde_json::Value = v1_map.get(&k).unwrap().clone().into();
+                        debug!("Patched Data: {} on {}", json.to_string(), k);
                     }
                 }
-
                 db_data.raw_data = Set(schema_value.try_to_vec()?);
                 debug!("SchemaValue serialized");
-
-                db_data.parsed_data = Set(schema_value.into());
-
+                let parsed_data: serde_json::Value = schema_value.into();
+                debug!("Complete Data After Patch: {}", parsed_data.to_string());
+                db_data.parsed_data = Set(parsed_data);
                 debug!("Data updated in object");
 
-                let query = compressed_data::Entity::update(db_data)
+                let query: Statement = compressed_data::Entity::update(db_data)
                     .filter(compressed_data::Column::TreeId.eq(tree_id.to_vec()))
                     .filter(compressed_data::Column::LeafIdx.eq(leaf_idx as i64))
                     .build(DbBackend::Postgres);
-                debug!("Query builed successfully");
+
+                debug!(
+                    "Query builed successfully, {}, values {:#?}",
+                    query.sql, query.values
+                );
                 txn.execute(query)
                     .await
                     .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;

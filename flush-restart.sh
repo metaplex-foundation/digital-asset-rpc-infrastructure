@@ -15,7 +15,7 @@ docker compose up ingester api proxy -d
 
 cd ../hive-control
 
-solana airdrop 10 -k keys/admin.json
+solana airdrop 30 -k keys/admin.json
 solana airdrop 10 -k keys/driver.json
 solana airdrop 10 -k keys/user.json
 solana airdrop 10 -k key.json
