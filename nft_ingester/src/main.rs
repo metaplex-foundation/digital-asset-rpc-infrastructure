@@ -105,12 +105,12 @@ pub async fn main() -> Result<(), IngesterError> {
 
         // iterate all the workers
         for worker in workers {
-            let stream_name = worker.stream_name.to_owned().as_str();
+            let stream_name = Box::leak(Box::new(worker.stream_name.to_owned()));
 
             let mut timer_worker = StreamSizeTimer::new(
                 stream_metrics_timer,
                 config.messenger_config.clone(),
-                stream_name.clone(),
+                stream_name.as_str(),
             )?;
 
             if let Some(t) = timer_worker.start::<RedisMessenger>().await {

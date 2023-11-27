@@ -8,8 +8,8 @@ const DEFAULT_MAX: u32 = 125;
 pub async fn setup_database(config: IngesterConfig) -> PgPool {
     let max = config.max_postgres_connections.unwrap_or(DEFAULT_MAX);
     if config.role == Some(IngesterRole::All) || config.role == Some(IngesterRole::Ingester) {
-        let relative_max =
-            config.get_account_stream_worker_count() + config.get_transaction_stream_worker_count();
+        let relative_max: u32 =
+            config.get_worker_config().iter().map(|c| c.worker_count).sum();
         let should_be_at_least = relative_max * 5;
         if should_be_at_least > max {
             panic!("Please increase max_postgres_connections to at least {}, at least 5 connections per worker process should be given", should_be_at_least);
