@@ -22,6 +22,14 @@ pub enum DasApiError {
     PaginationEmptyError,
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] serde_json::Error),
+    #[error("Batch Size Error. Batch size should not be greater than 1000.")]
+    BatchSizeExceededError,
+    #[error("Pagination Error. Limit should not be greater than 1000.")]
+    PaginationExceededError,
+    #[error("Cursor Validation Err: {0} is invalid")]
+    CursorValidationError(String),
+    #[error("Pagination Sorting Error. Only sorting based on id is support for this pagination")]
+    PaginationSortingValidationError,
 }
 
 impl Into<RpcError> for DasApiError {
