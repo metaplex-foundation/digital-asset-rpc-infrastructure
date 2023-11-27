@@ -15,7 +15,7 @@ clap = { workspace = true, features = ["derive"] }
 digital_asset_types = { workspace = true }
 env_logger = { workspace = true }
 futures = { workspace = true }
-hex = { worksspace = true }
+hex = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
 prometheus = { workspace = true }

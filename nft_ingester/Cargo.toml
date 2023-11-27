@@ -38,7 +38,7 @@ sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgr
 stretto = { workspace = true, features = ["async"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["tracing"] }
-tracing-subscriber = { workspace = true, features = ["json", "env-filter", "ansi"] }
+tracing-subscriber = { workspace = true }
 url = { workspace = true }
 
 [lints]

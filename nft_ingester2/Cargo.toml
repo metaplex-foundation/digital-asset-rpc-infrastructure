@@ -1,0 +1,39 @@
+[package]
+name = "nft_ingester2"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+atty = { workspace = true }
+clap = { workspace = true, features = ["cargo", "derive"] }
+futures = { workspace = true }
+hyper = { workspace = true, features = ["server"] }
+json5 = { workspace = true }
+lazy_static = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
+opentelemetry_sdk = { workspace = true, features = ["trace"] }
+prometheus = { workspace = true }
+redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+solana-sdk = { workspace = true } # only prom rn
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs", "tracing"] }
+tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+yellowstone-grpc-client = { workspace = true }
+yellowstone-grpc-proto = { workspace = true }
+yellowstone-grpc-tools = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+cargo-lock = { workspace = true }
+git-version = { workspace = true }
+vergen = { workspace = true, features = ["build", "rustc"] }
+
+[lints]
+workspace = true
