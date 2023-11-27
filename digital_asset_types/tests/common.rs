@@ -83,8 +83,8 @@ pub fn create_asset_data(
             metadata: JsonValue::String("processing".to_string()),
             slot_updated: 0,
             reindex: None,
-            raw_name: metadata.name.into_bytes().to_vec().clone(),
-            raw_symbol: metadata.symbol.into_bytes().to_vec().clone(),
+            raw_name: Some(metadata.name.into_bytes().to_vec().clone()),
+            raw_symbol: Some(metadata.symbol.into_bytes().to_vec().clone()),
         },
     )
 }
@@ -231,7 +231,7 @@ pub fn create_asset_grouping(
             id: row_num,
             group_key: "collection".to_string(),
             slot_updated: Some(0),
-            verified: Some(false),
+            verified: false,
             group_info_seq: Some(0),
         },
     )

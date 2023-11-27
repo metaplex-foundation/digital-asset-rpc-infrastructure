@@ -1,8 +1,13 @@
-use crate::dao::{
-    asset::{self},
-    asset_authority, asset_creators, asset_data, asset_grouping, Cursor, FullAsset, GroupingSize,
-    Pagination,
+use crate::{
+    dao::{
+        asset::{self, Entity},
+        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits, Cursor, FullAsset,
+        GroupingSize, Pagination,
+    },
+    dapi::common::safe_select,
+    rpc::response::AssetList,
 };
+// >>>>>>> helius-nikhil/get-sigs-for-asset
 
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -396,4 +401,72 @@ pub async fn get_by_id(
         creators,
         groups: grouping,
     })
+}
+
+pub async fn get_signatures_for_asset(
+    conn: &impl ConnectionTrait,
+    asset_id: Option<Vec<u8>>,
+    tree_id: Option<Vec<u8>>,
+    leaf_idx: Option<i64>,
+    sort_direction: Order,
+    pagination: &Pagination,
+    limit: u64,
+) -> Result<Vec<(String, Option<String>)>, DbErr> {
+    // if tree_id and leaf_idx are provided, use them directly to fetch transactions
+    if let (Some(tree_id), Some(leaf_idx)) = (tree_id, leaf_idx) {
+        let transactions = fetch_transactions(conn, tree_id, leaf_idx, sort_direction, pagination, limit).await?;
+        return Ok(transactions);
+    }
+
+    if asset_id.is_none() {
+        return Err(DbErr::Custom(
+            "Either 'id' or both 'tree' and 'leafIndex' must be provided".to_string(),
+        ));
+    }
+
+    // if only asset_id is provided, fetch the latest tree and leaf_idx (asset.nonce) for the asset
+    // and use them to fetch transactions
+    let stmt = asset::Entity::find()
+        .distinct_on([(asset::Entity, asset::Column::Id)])
+        .filter(asset::Column::Id.eq(asset_id))
+        .order_by(asset::Column::Id, Order::Desc)
+        .limit(1);
+    let asset = stmt.one(conn).await?;
+    if let Some(asset) = asset {
+        let tree = asset
+            .tree_id
+            .ok_or(DbErr::RecordNotFound("Tree not found".to_string()))?;
+        if tree.is_empty() {
+            return Err(DbErr::Custom("Empty tree for asset".to_string()));
+        }
+        let leaf_id = asset
+            .nonce
+            .ok_or(DbErr::RecordNotFound("Leaf ID does not exist".to_string()))?;
+        let transactions = fetch_transactions(conn, tree, leaf_id, sort_direction, pagination, limit).await?;
+        Ok(transactions)
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+pub async fn fetch_transactions(
+    conn: &impl ConnectionTrait,
+    tree: Vec<u8>,
+    leaf_id: i64,
+    sort_direction: Order,
+    pagination: &Pagination,
+    limit: u64,
+) -> Result<Vec<(String, Option<String>)>, DbErr> {
+    let mut stmt = cl_audits::Entity::find().filter(cl_audits::Column::Tree.eq(tree));
+    stmt = stmt.filter(cl_audits::Column::LeafIdx.eq(leaf_id));
+    stmt = stmt.order_by(cl_audits::Column::CreatedAt, sea_orm::Order::Desc);
+
+    stmt = paginate(pagination, limit, stmt, sort_direction, cl_audits::Column::Id);
+    let transactions = stmt.all(conn).await?;
+    let transaction_list: Vec<(String, Option<String>)> = transactions
+        .into_iter()
+        .map(|transaction| (transaction.tx, transaction.instruction))
+        .collect();
+
+    Ok(transaction_list)
 }

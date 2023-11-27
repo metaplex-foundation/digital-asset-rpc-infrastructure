@@ -5,6 +5,7 @@ use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::display_options::DisplayOptions;
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
+use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
@@ -80,6 +81,35 @@ pub fn build_asset_response(
         items,
         errors,
         cursor,
+    }
+}
+
+pub fn build_transaction_signatures_response(
+    items: Vec<(String, Option<String>)>,
+    limit: u64,
+    pagination: &Pagination,
+) -> TransactionSignatureList {
+    let total = items.len() as u32;
+    let (page, before, after, cursor) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            (None, bef, aft, None)
+        }
+        Pagination::Page { page } => (Some(*page), None, None, None),
+        Pagination::Cursor(_) => {
+            // tmp: helius please fix it ;)
+            (None, None, None, None)
+        }
+    };
+    TransactionSignatureList {
+        total,
+        limit: limit as u32,
+        page: page.map(|x| x as u32),
+        before,
+        after,
+        cursor,
+        items,
     }
 }
 
@@ -292,7 +322,7 @@ pub fn to_grouping(
         .filter_map(|model| {
             let verified = match display_options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
-                true => Some(model.verified.unwrap_or(true)),
+                true => Some(model.verified),
                 false => None,
             };
             // Filter out items where group_value is None.

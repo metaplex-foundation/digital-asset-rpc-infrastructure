@@ -9,13 +9,14 @@ use digital_asset_types::{
     dapi::{
         get_asset, get_asset_batch, get_asset_proof_batch, get_assets_by_authority,
         get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
-        search_assets,
+        search_assets, get_signatures_for_asset
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
         response::GetGroupingResponse,
+        OwnershipModel, RoyaltyModel
     },
-    rpc::{OwnershipModel, RoyaltyModel},
+    rpc::{},
 };
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
@@ -32,6 +33,7 @@ use {
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
+    use digital_asset_types::rpc::response::TransactionSignatureList;
 
 pub struct DasApi {
     db_connection: DatabaseConnection,
@@ -496,5 +498,39 @@ impl ApiContract for DasApi {
             group_name: group_value,
             group_size: gs.size,
         })
+    }
+
+    async fn get_signatures_for_asset(
+        self: &DasApi,
+        payload: GetSignaturesForAsset,
+    ) -> Result<TransactionSignatureList, DasApiError> {
+        let GetSignaturesForAsset { 
+            id,
+            limit,
+            page,
+            before,
+            after,
+            tree,
+            leaf_index,
+            sort_by,
+            cursor,
+        } = payload;
+
+        if !((id.is_some() && tree.is_none() && leaf_index.is_none())
+            || (id.is_none() && tree.is_some() && leaf_index.is_some()))
+        {
+            return Err(DasApiError::ValidationError(
+                "Must provide either 'id' or both 'tree' and 'leafIndex'".to_string(),
+            ));
+        }
+        let id = validate_opt_pubkey(&id)?;
+        let tree = validate_opt_pubkey(&tree)?;
+        let sort_by = sort_by.unwrap_or_default();
+        let page_options =
+            self.validate_pagination(&limit, &page, &before, &after, &cursor, &Some(&sort_by))?;
+
+        get_signatures_for_asset(&self.db_connection, id, tree, leaf_index, sort_by, &page_options)
+            .await
+            .map_err(Into::into)
     }
 }
