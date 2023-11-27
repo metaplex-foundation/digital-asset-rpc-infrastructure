@@ -14,7 +14,7 @@ use crate::{
     account_updates::account_worker,
     ack::ack_worker,
     backfiller::setup_backfiller,
-    config::{init_logger, rand_string, setup_config, IngesterRole},
+    config::{init_logger, rand_string, setup_config, IngesterRole, WorkerType},
     database::setup_database,
     error::IngesterError,
     metrics::setup_metrics,
@@ -26,9 +26,7 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
-use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, ACCOUNT_BACKFILL_STREAM, TRANSACTION_STREAM, TRANSACTION_BACKFILL_STREAM
-};
+use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
 
@@ -97,102 +95,58 @@ pub async fn main() -> Result<(), IngesterError> {
     if role != IngesterRole::BackgroundTaskRunner {
         tasks.spawn(bg_task_listener);
     }
-    let mut timer_acc = StreamSizeTimer::new(
-        stream_metrics_timer,
-        config.messenger_config.clone(),
-        ACCOUNT_STREAM,
-    )?;
-    let mut timer_backfiller_acc = StreamSizeTimer::new(
-        stream_metrics_timer,
-        config.messenger_config.clone(),
-        ACCOUNT_BACKFILL_STREAM,
-    )?;
-    let mut timer_txn = StreamSizeTimer::new(
-        stream_metrics_timer,
-        config.messenger_config.clone(),
-        TRANSACTION_STREAM,
-    )?;
-    let mut timer_backfiller_txn = StreamSizeTimer::new(
-        stream_metrics_timer,
-        config.messenger_config.clone(),
-        TRANSACTION_BACKFILL_STREAM,
-    )?;
-
-
-    if let Some(t) = timer_acc.start::<RedisMessenger>().await {
-        tasks.spawn(t);
-    }
-    if let Some(t) = timer_backfiller_acc.start::<RedisMessenger>().await {
-        tasks.spawn(t);
-    }
-    if let Some(t) = timer_txn.start::<RedisMessenger>().await {
-        tasks.spawn(t);
-    }
-    if let Some(t) = timer_backfiller_txn.start::<RedisMessenger>().await {
-        tasks.spawn(t);
-    }
 
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
+        let workers = config.get_worker_config().clone();
+
         let (_ack_task, ack_sender) =
             ack_worker::<RedisMessenger>(config.get_messneger_client_config());
-        for i in 0..config.get_account_stream_worker_count() {
-            let _account = account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                ACCOUNT_STREAM,
-            );
-        }
-        for i in 0..config.get_account_backfill_stream_worker_count() {
-            let _account_backfill = account_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                ACCOUNT_BACKFILL_STREAM,
-            );
-        }
-        for i in 0..config.get_transaction_stream_worker_count() {
-            let _txn = transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                config.cl_audits.unwrap_or(false),
-                TRANSACTION_STREAM,
-            );
-        }
-        for i in 0..config.get_transaction_backfill_stream_worker_count() {
-            let _txn_backfill = transaction_worker::<RedisMessenger>(
-                database_pool.clone(),
-                config.get_messneger_client_config(),
-                bg_task_sender.clone(),
-                ack_sender.clone(),
-                if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                },
-                config.cl_audits.unwrap_or(false),
-                TRANSACTION_BACKFILL_STREAM,
-            );
+
+        // iterate all the workers
+        for worker in workers {
+            let stream_name = worker.stream_name.to_owned().as_str();
+
+            let mut timer_worker = StreamSizeTimer::new(
+                stream_metrics_timer,
+                config.messenger_config.clone(),
+                stream_name.clone(),
+            )?;
+
+            if let Some(t) = timer_worker.start::<RedisMessenger>().await {
+                tasks.spawn(t);
+            }
+
+            for i in 0..worker.worker_count {
+                if worker.worker_type == WorkerType::Account {
+                    let _account = account_worker::<RedisMessenger>(
+                        database_pool.clone(),
+                        config.get_messneger_client_config(),
+                        bg_task_sender.clone(),
+                        ack_sender.clone(),
+                        if i == 0 {
+                            ConsumptionType::Redeliver
+                        } else {
+                            ConsumptionType::New
+                        },
+                        stream_name,
+                    );
+                } else if worker.worker_type == WorkerType::Transaction {
+                    let _txn = transaction_worker::<RedisMessenger>(
+                        database_pool.clone(),
+                        config.get_messneger_client_config(),
+                        bg_task_sender.clone(),
+                        ack_sender.clone(),
+                        if i == 0 {
+                            ConsumptionType::Redeliver
+                        } else {
+                            ConsumptionType::New
+                        },
+                        config.cl_audits.unwrap_or(false),
+                        stream_name,
+                    );
+                }
+            }
         }
     }
     // Stream Size Timers ----------------------------------------

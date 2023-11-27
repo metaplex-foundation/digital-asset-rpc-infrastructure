@@ -27,13 +27,23 @@ pub struct IngesterConfig {
     pub backfiller_trees: Option<Vec<String>>,
     pub role: Option<IngesterRole>,
     pub max_postgres_connections: Option<u32>,
-    pub account_stream_worker_count: Option<u32>,
-    pub account_backfill_stream_worker_count: Option<u32>,
-    pub transaction_stream_worker_count: Option<u32>,
-    pub transaction_backfill_stream_worker_count: Option<u32>,
+    pub worker_config: Option<Vec<WorkerConfig>>,
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
     pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub struct WorkerConfig {
+    pub stream_name: String,
+    pub worker_type: WorkerType,
+    pub worker_count: u32,
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub enum WorkerType {
+    Account,
+    Transaction,
 }
 
 impl IngesterConfig {
@@ -66,20 +76,31 @@ impl IngesterConfig {
         mc
     }
 
-    pub fn get_account_stream_worker_count(&self) -> u32 {
-        self.account_stream_worker_count.unwrap_or(2)
+    pub fn get_worker_config(&self) -> Vec<WorkerConfig> {
+        return if let Some(wc) = &self.worker_config {
+            wc.to_vec()
+        } else {
+            vec![
+                WorkerConfig {
+                    stream_name: "ACC".to_string(),
+                    worker_count: 2,
+                    worker_type: WorkerType::Account,
+                },
+                WorkerConfig {
+                    stream_name: "TXN".to_string(),
+                    worker_count: 2,
+                    worker_type: WorkerType::Transaction,
+                },
+            ]
+        };
     }
 
-    pub fn get_account_backfill_stream_worker_count(&self) -> u32 {
-        self.account_backfill_stream_worker_count.unwrap_or(0)
-    }
-
-    pub fn get_transaction_stream_worker_count(&self) -> u32 {
-        self.transaction_stream_worker_count.unwrap_or(2)
-    }
-
-    pub fn get_transaction_backfill_stream_worker_count(&self) -> u32 {
-        self.transaction_backfill_stream_worker_count.unwrap_or(0)
+    pub fn get_worker_count(&self) -> u32 {
+        let mut count = 0;
+        for wc in self.get_worker_config() {
+            count += wc.worker_count;
+        }
+        count
     }
 }
 
