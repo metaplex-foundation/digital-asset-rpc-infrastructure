@@ -1,0 +1,19 @@
+prometheus: 127.0.0.1:8874
+redis:
+  url: redis://localhost:6379
+  group: ingester
+  consumer: consumer # every new ingester instance should uniq name
+  streams:
+    - type: account # possible values: `account` and `transaction`, required for message decoding
+      stream: ACCOUNTS
+      data_key: data
+    - type: transaction
+      stream: TRANSACTIONS
+      data_key: data
+      xack_batch_max_size: 100
+      xack_batch_max_idle_ms: 10
+      xack_max_in_process: 100
+  prefetch_queue_size: 1_000 # max number of messages available in the read queue for processing
+  xpending_max: 250 # used for reading pending messages
+  xpending_only: false # exit once all pending messages consumed (should be applied if you want downscale number of ingesters)
+  xreadgroup_max: 1_000 # applied per each stream in one request

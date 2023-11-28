@@ -11,6 +11,7 @@ use {
 
 pub const REDIS_STREAM_ACCOUNTS: &str = "ACCOUNTS";
 pub const REDIS_STREAM_TRANSACTIONS: &str = "TRANSACTIONS";
+pub const REDIS_STREAM_DATA_KEY: &str = "data";
 
 pub async fn load<T>(path: impl AsRef<Path> + Copy) -> anyhow::Result<T>
 where
@@ -72,7 +73,7 @@ impl ConfigGrpcAccounts {
     }
 
     pub fn default_stream_data_key() -> String {
-        "data".to_owned()
+        REDIS_STREAM_DATA_KEY.to_owned()
     }
 }
 
@@ -101,7 +102,7 @@ impl ConfigGrpcTransactions {
     }
 
     pub fn default_stream_data_key() -> String {
-        "data".to_owned()
+        REDIS_STREAM_DATA_KEY.to_owned()
     }
 }
 
@@ -114,12 +115,13 @@ pub struct ConfigGrpcRedis {
     )]
     pub pipeline_max_size: usize,
     #[serde(
-        default = "ConfigGrpcRedis::default_pipeline_max_idle_ms",
-        deserialize_with = "deserialize_duration_str"
+        default = "ConfigGrpcRedis::default_pipeline_max_idle",
+        deserialize_with = "deserialize_duration_str",
+        rename = "pipeline_max_idle_ms"
     )]
-    pub pipeline_max_idle_ms: Duration,
+    pub pipeline_max_idle: Duration,
     #[serde(
-        default = "ConfigGrpcRedis::max_xadd_in_process",
+        default = "ConfigGrpcRedis::default_max_xadd_in_process",
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_xadd_in_process: usize,
@@ -130,11 +132,11 @@ impl ConfigGrpcRedis {
         10
     }
 
-    pub const fn default_pipeline_max_idle_ms() -> Duration {
+    pub const fn default_pipeline_max_idle() -> Duration {
         Duration::from_millis(10)
     }
 
-    pub const fn max_xadd_in_process() -> usize {
+    pub const fn default_max_xadd_in_process() -> usize {
         100
     }
 }
@@ -149,5 +151,133 @@ where
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigIngester {
-    //
+    pub redis: ConfigIngesterRedis,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigIngesterRedis {
+    pub url: String,
+    #[serde(default = "ConfigIngesterRedis::default_group")]
+    pub group: String,
+    #[serde(default = "ConfigIngesterRedis::default_consumer")]
+    pub consumer: String,
+    pub streams: Vec<ConfigIngesterRedisStream>,
+    #[serde(
+        default = "ConfigIngesterRedis::default_prefetch_queue_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub prefetch_queue_size: usize,
+    #[serde(
+        default = "ConfigIngesterRedis::default_xpending_max",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub xpending_max: usize,
+    #[serde(default = "ConfigIngesterRedis::default_xpending_only")]
+    pub xpending_only: bool,
+    #[serde(
+        default = "ConfigIngesterRedis::default_xreadgroup_max",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub xreadgroup_max: usize,
+}
+
+impl ConfigIngesterRedis {
+    pub fn default_group() -> String {
+        "ingester".to_owned()
+    }
+
+    pub fn default_consumer() -> String {
+        "consumer".to_owned()
+    }
+
+    pub const fn default_prefetch_queue_size() -> usize {
+        1_000
+    }
+
+    pub const fn default_xpending_max() -> usize {
+        100
+    }
+
+    pub const fn default_xpending_only() -> bool {
+        false
+    }
+
+    pub const fn default_xreadgroup_max() -> usize {
+        1_000
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConfigIngesterRedisStream {
+    pub stream_type: ConfigIngesterRedisStreamType,
+    pub stream: String,
+    pub data_key: String,
+    pub xack_batch_max_size: usize,
+    pub xack_batch_max_idle: Duration,
+    pub xack_max_in_process: usize,
+}
+
+impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        #[derive(Debug, Deserialize)]
+        struct Raw {
+            #[serde(rename = "type")]
+            pub stream_type: ConfigIngesterRedisStreamType,
+            pub stream: Option<String>,
+            pub data_key: Option<String>,
+            #[serde(
+                default = "default_xack_batch_max_size",
+                deserialize_with = "deserialize_usize_str"
+            )]
+            pub xack_batch_max_size: usize,
+            #[serde(
+                default = "default_xack_batch_max_idle",
+                deserialize_with = "deserialize_duration_str",
+                rename = "xack_batch_max_idle_ms"
+            )]
+            pub xack_batch_max_idle: Duration,
+            #[serde(
+                default = "default_xack_max_in_process",
+                deserialize_with = "deserialize_usize_str"
+            )]
+            pub xack_max_in_process: usize,
+        }
+
+        const fn default_xack_batch_max_size() -> usize {
+            100
+        }
+
+        const fn default_xack_batch_max_idle() -> Duration {
+            Duration::from_millis(10)
+        }
+
+        const fn default_xack_max_in_process() -> usize {
+            100
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Ok(Self {
+            stream_type: raw.stream_type,
+            stream: raw.stream.unwrap_or_else(|| match raw.stream_type {
+                ConfigIngesterRedisStreamType::Account => REDIS_STREAM_ACCOUNTS.to_owned(),
+                ConfigIngesterRedisStreamType::Transaction => REDIS_STREAM_TRANSACTIONS.to_owned(),
+            }),
+            data_key: raw
+                .data_key
+                .unwrap_or_else(|| REDIS_STREAM_DATA_KEY.to_owned()),
+            xack_batch_max_size: raw.xack_batch_max_size,
+            xack_batch_max_idle: raw.xack_batch_max_idle,
+            xack_max_in_process: raw.xack_max_in_process,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ConfigIngesterRedisStreamType {
+    Account,
+    Transaction,
 }
