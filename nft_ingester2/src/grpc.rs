@@ -53,13 +53,12 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
     let mut pipe = redis::pipe();
     let mut pipe_accounts = 0;
     let mut pipe_transactions = 0;
-    let deadline = sleep(config.redis.pipeline_max_idle_ms);
+    let deadline = sleep(config.redis.pipeline_max_idle);
     tokio::pin!(deadline);
     let mut tasks = JoinSet::new();
 
     let result = loop {
         tokio::select! {
-            biased;
             result = &mut jh_metrics_xlen => match result {
                 Ok(Ok(_)) => unreachable!(),
                 Ok(Err(error)) => break Err(error),
@@ -120,7 +119,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
         let pipe_transactions = std::mem::replace(&mut pipe_transactions, 0);
         deadline
             .as_mut()
-            .reset(Instant::now() + config.redis.pipeline_max_idle_ms);
+            .reset(Instant::now() + config.redis.pipeline_max_idle);
 
         tasks.spawn({
             let mut connection = connection.clone();

@@ -12,6 +12,7 @@ use {
 mod config;
 mod grpc;
 mod ingester;
+mod postgres;
 mod prom;
 mod redis;
 mod tracing;

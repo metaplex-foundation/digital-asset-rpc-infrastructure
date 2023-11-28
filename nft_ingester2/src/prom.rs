@@ -18,14 +18,19 @@ lazy_static::lazy_static! {
         &["buildts", "git", "package", "proto", "rustc", "solana", "version"]
     ).unwrap();
 
-    static ref REDIS_STREAM_LEN: IntGaugeVec = IntGaugeVec::new(
-        Opts::new("redis_stream_len", "Length of stream in Redis"),
+    static ref REDIS_XLEN_TOTAL: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("redis_xlen_total", "Length of stream in Redis"),
         &["stream"]
     ).unwrap();
 
     static ref REDIS_XADD_STATUS: IntCounterVec = IntCounterVec::new(
         Opts::new("redis_xadd_status", "Status of messages sent to Redis stream"),
         &["stream", "status"]
+    ).unwrap();
+
+    static ref REDIS_XACK_TOTAL: IntCounterVec = IntCounterVec::new(
+        Opts::new("redis_xack_total", "Total number of processed messages"),
+        &["stream"]
     ).unwrap();
 }
 
@@ -40,8 +45,9 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
             };
         }
         register!(VERSION);
-        register!(REDIS_STREAM_LEN);
+        register!(REDIS_XLEN_TOTAL);
         register!(REDIS_XADD_STATUS);
+        register!(REDIS_XACK_TOTAL);
 
         VERSION
             .with_label_values(&[
@@ -93,8 +99,8 @@ fn not_found_handler() -> Response<Body> {
         .unwrap()
 }
 
-pub fn redis_stream_len_set(stream: &str, len: usize) {
-    REDIS_STREAM_LEN
+pub fn redis_xlen_set(stream: &str, len: usize) {
+    REDIS_XLEN_TOTAL
         .with_label_values(&[stream])
         .set(len as i64);
 }
@@ -103,4 +109,10 @@ pub fn redis_xadd_status_inc(stream: &str, status: Result<(), ()>, delta: usize)
     REDIS_XADD_STATUS
         .with_label_values(&[stream, if status.is_ok() { "success" } else { "failed" }])
         .inc_by(delta as u64);
+}
+
+pub fn redis_xack_inc(stream: &str, delta: usize) {
+    REDIS_XACK_TOTAL
+        .with_label_values(&[stream])
+        .inc_by(delta as u64)
 }
