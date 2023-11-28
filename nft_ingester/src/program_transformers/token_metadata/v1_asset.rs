@@ -283,7 +283,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             group_key: Set("collection".to_string()),
             group_value: Set(Some(c.key.to_string())),
             verified: Set(c.verified),
-            seq: Set(None),
+            group_info_seq: Set(None),
             slot_updated: Set(Some(slot_i)),
             ..Default::default()
         };
@@ -294,10 +294,10 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_grouping::Column::GroupKey,
                 ])
                 .update_columns([
-                    asset_grouping::Column::GroupKey,
                     asset_grouping::Column::GroupValue,
-                    asset_grouping::Column::Seq,
+                    asset_grouping::Column::Verified,
                     asset_grouping::Column::SlotUpdated,
+                    asset_grouping::Column::GroupInfoSeq,
                 ])
                 .to_owned(),
             )
