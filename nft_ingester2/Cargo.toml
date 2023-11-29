@@ -8,6 +8,14 @@ publish = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 atty = { workspace = true }
+sqlx = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "postgres",
+  "uuid",
+  "offline",
+  "json",
+] }
 clap = { workspace = true, features = ["cargo", "derive"] }
 futures = { workspace = true }
 hyper = { workspace = true, features = ["server"] }

@@ -3,7 +3,8 @@ use {
         config::{ConfigIngesterRedis, ConfigIngesterRedisStreamType},
         prom::{redis_xack_inc, redis_xlen_set},
     },
-    futures::future::{BoxFuture, FutureExt},
+    futures::future::{BoxFuture, Fuse, FutureExt},
+    program_transformers::{AccountInfo, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
         streams::{
@@ -12,6 +13,7 @@ use {
         },
         AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
+    solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{
         collections::HashMap,
         convert::Infallible,
@@ -26,6 +28,9 @@ use {
         time::{sleep, Duration, Instant},
     },
     yellowstone_grpc_proto::{
+        convert_from::{
+            create_message_instructions, create_meta_inner_instructions, create_pubkey_vec,
+        },
         prelude::{SubscribeUpdateAccount, SubscribeUpdateTransaction},
         prost::Message,
     },
@@ -90,17 +95,16 @@ struct RedisStreamInfo {
     xack_max_in_process: usize,
 }
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
-pub enum RedisStreamMessage {
-    Account(SubscribeUpdateAccount),
-    Transaction(SubscribeUpdateTransaction),
+pub enum ProgramTransformerInfo {
+    Account(AccountInfo),
+    Transaction(TransactionInfo),
 }
 
 #[derive(Debug)]
 pub struct RedisStreamMessageInfo {
     id: String,
-    data: RedisStreamMessage,
+    data: ProgramTransformerInfo,
     ack_tx: mpsc::UnboundedSender<String>,
 }
 
@@ -110,14 +114,69 @@ impl RedisStreamMessageInfo {
         StreamId { id, map }: StreamId,
         ack_tx: mpsc::UnboundedSender<String>,
     ) -> anyhow::Result<Self> {
+        let to_anyhow = |error: String| anyhow::anyhow!(error);
+
         let data = match map.get(&stream.stream_data_key) {
             Some(RedisValue::Data(vec)) => match stream.stream_type {
                 ConfigIngesterRedisStreamType::Account => {
-                    RedisStreamMessage::Account(SubscribeUpdateAccount::decode(vec.as_ref())?)
+                    let SubscribeUpdateAccount { account, slot, .. } =
+                        Message::decode(vec.as_ref())?;
+
+                    let account = account.ok_or_else(|| {
+                        anyhow::anyhow!("received invalid SubscribeUpdateAccount")
+                    })?;
+
+                    ProgramTransformerInfo::Account(AccountInfo {
+                        slot,
+                        pubkey: Pubkey::try_from(account.pubkey.as_slice())?,
+                        owner: Pubkey::try_from(account.owner.as_slice())?,
+                        data: account.data,
+                    })
                 }
-                ConfigIngesterRedisStreamType::Transaction => RedisStreamMessage::Transaction(
-                    SubscribeUpdateTransaction::decode(vec.as_ref())?,
-                ),
+                ConfigIngesterRedisStreamType::Transaction => {
+                    let SubscribeUpdateTransaction { transaction, slot } =
+                        Message::decode(vec.as_ref())?;
+
+                    let transaction = transaction.ok_or_else(|| {
+                        anyhow::anyhow!("received invalid SubscribeUpdateTransaction")
+                    })?;
+                    let tx = transaction.transaction.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "received invalid transaction in SubscribeUpdateTransaction"
+                        )
+                    })?;
+                    let message = tx.message.ok_or_else(|| {
+                        anyhow::anyhow!("received invalid message in SubscribeUpdateTransaction")
+                    })?;
+                    let meta = transaction.meta.ok_or_else(|| {
+                        anyhow::anyhow!("received invalid meta in SubscribeUpdateTransaction")
+                    })?;
+
+                    let mut account_keys =
+                        create_pubkey_vec(message.account_keys).map_err(to_anyhow)?;
+                    for pubkey in
+                        create_pubkey_vec(meta.loaded_writable_addresses).map_err(to_anyhow)?
+                    {
+                        account_keys.push(pubkey);
+                    }
+                    for pubkey in
+                        create_pubkey_vec(meta.loaded_readonly_addresses).map_err(to_anyhow)?
+                    {
+                        account_keys.push(pubkey);
+                    }
+
+                    ProgramTransformerInfo::Transaction(TransactionInfo {
+                        slot,
+                        signature: Signature::try_from(transaction.signature.as_slice())?,
+                        account_keys,
+                        message_instructions: create_message_instructions(message.instructions)
+                            .map_err(to_anyhow)?,
+                        meta_inner_instructions: create_meta_inner_instructions(
+                            meta.inner_instructions,
+                        )
+                        .map_err(to_anyhow)?,
+                    })
+                }
             },
             Some(_) => anyhow::bail!(
                 "invalid data (key: {:?}) from stream {:?}",
@@ -131,6 +190,10 @@ impl RedisStreamMessageInfo {
             ),
         };
         Ok(Self { id, data, ack_tx })
+    }
+
+    pub const fn get_data(&self) -> &ProgramTransformerInfo {
+        &self.data
     }
 
     pub fn ack(self) -> anyhow::Result<()> {
@@ -150,7 +213,7 @@ impl RedisStream {
     pub async fn new(
         config: ConfigIngesterRedis,
         mut connection: MultiplexedConnection,
-    ) -> anyhow::Result<(Self, BoxFuture<'static, anyhow::Result<()>>)> {
+    ) -> anyhow::Result<(Self, Fuse<BoxFuture<'static, anyhow::Result<()>>>)> {
         // create group with consumer per stream
         for stream in config.streams.iter() {
             xgroup_create(
@@ -209,15 +272,14 @@ impl RedisStream {
                 task.await??;
             }
             Ok::<(), anyhow::Error>(())
-        }
-        .boxed();
+        };
 
         Ok((
             Self {
                 shutdown,
                 messages_rx,
             },
-            spawned_tasks,
+            spawned_tasks.boxed().fuse(),
         ))
     }
 
