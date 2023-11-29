@@ -18,7 +18,7 @@ solana-sdk = "~1.16.16"
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 thiserror = "1.0.31"
-blockbuster = { git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "1c6939fc4ca13a4a31db622626bdb7f15491618e" }
+blockbuster = "0.9.0-beta.2"
 jsonpath_lib = "0.3.0"
 mime_guess = "2.0.4"
 url = "2.3.1"
