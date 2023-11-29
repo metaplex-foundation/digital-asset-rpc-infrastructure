@@ -3738,6 +3738,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-jaeger",
  "opentelemetry_sdk",
+ "program_transformers",
  "prometheus",
  "redis 0.25.3",
  "serde",

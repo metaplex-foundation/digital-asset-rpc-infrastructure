@@ -32,6 +32,11 @@ lazy_static::lazy_static! {
         Opts::new("redis_xack_total", "Total number of processed messages"),
         &["stream"]
     ).unwrap();
+
+    static ref PGPOOL_CONNECTIONS_TOTAL: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("pgpool_connections_total", "Total number of connections in Postgres Pool"),
+        &["kind"]
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -48,6 +53,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(REDIS_XLEN_TOTAL);
         register!(REDIS_XADD_STATUS);
         register!(REDIS_XACK_TOTAL);
+        register!(PGPOOL_CONNECTIONS_TOTAL);
 
         VERSION
             .with_label_values(&[
@@ -115,4 +121,19 @@ pub fn redis_xack_inc(stream: &str, delta: usize) {
     REDIS_XACK_TOTAL
         .with_label_values(&[stream])
         .inc_by(delta as u64)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PgpoolConnectionsKind {
+    Total,
+    Idle,
+}
+
+pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
+    PGPOOL_CONNECTIONS_TOTAL
+        .with_label_values(&[match kind {
+            PgpoolConnectionsKind::Total => "total",
+            PgpoolConnectionsKind::Idle => "idle",
+        }])
+        .set(size as i64)
 }

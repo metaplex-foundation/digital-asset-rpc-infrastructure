@@ -152,6 +152,7 @@ where
 #[derive(Debug, Deserialize)]
 pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
+    pub postgres: ConfigIngesterPostgres,
 }
 
 #[derive(Debug, Deserialize)]
@@ -280,4 +281,29 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
 pub enum ConfigIngesterRedisStreamType {
     Account,
     Transaction,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigIngesterPostgres {
+    pub url: String,
+    #[serde(
+        default = "ConfigIngesterPostgres::default_min_connections",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub min_connections: usize,
+    #[serde(
+        default = "ConfigIngesterPostgres::default_max_connections",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_connections: usize,
+}
+
+impl ConfigIngesterPostgres {
+    pub const fn default_min_connections() -> usize {
+        10
+    }
+
+    pub const fn default_max_connections() -> usize {
+        25
+    }
 }

@@ -16,6 +16,7 @@ lazy_static = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
 opentelemetry_sdk = { workspace = true, features = ["trace"] }
+program_transformers = { workspace = true }
 prometheus = { workspace = true }
 redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
 serde = { workspace = true }
