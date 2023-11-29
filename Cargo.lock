@@ -881,8 +881,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.9.0-beta.1"
-source = "git+https://github.com/metaplex-foundation/blockbuster.git?rev=1c6939fc4ca13a4a31db622626bdb7f15491618e#1c6939fc4ca13a4a31db622626bdb7f15491618e"
+version = "0.9.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3148abe1072ebeb76c9802c0ea3b8af5556dce6219c7cb2b0a156a0a892c613a"
 dependencies = [
  "anchor-lang",
  "async-trait",
