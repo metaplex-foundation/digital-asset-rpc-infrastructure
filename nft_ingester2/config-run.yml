@@ -21,3 +21,6 @@ postgres:
   url: postgres://solana:solana@localhost/solana
   min_connections: 10
   max_connections: 25
+program_transformer:
+  transactions_cl_audits: false
+  max_tasks_in_process: 100

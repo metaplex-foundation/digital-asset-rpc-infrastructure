@@ -16,7 +16,7 @@ use {
 };
 
 pub async fn handle_token_program_account(
-    account_info: &AccountInfo<'_>,
+    account_info: &AccountInfo,
     parsing_result: &TokenProgramAccount,
     db: &DatabaseConnection,
     _download_metadata_notifier: &DownloadMetadataNotifier,

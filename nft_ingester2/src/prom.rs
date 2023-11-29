@@ -5,7 +5,7 @@ use {
         service::{make_service_fn, service_fn},
         Body, Request, Response, Server, StatusCode,
     },
-    prometheus::{IntCounterVec, IntGaugeVec, Opts, Registry, TextEncoder},
+    prometheus::{IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry, TextEncoder},
     std::{net::SocketAddr, sync::Once},
     tracing::{error, info},
 };
@@ -37,6 +37,15 @@ lazy_static::lazy_static! {
         Opts::new("pgpool_connections_total", "Total number of connections in Postgres Pool"),
         &["kind"]
     ).unwrap();
+
+    static ref PROGRAM_TRANSFORMER_TASKS_TOTAL: IntGauge = IntGauge::new(
+        "program_transformer_tasks_total", "Number of tasks spawned for program transform"
+    ).unwrap();
+
+    static ref PROGRAM_TRANSFORMER_TASK_STATUS: IntCounterVec = IntCounterVec::new(
+        Opts::new("program_transformer_task_status", "Status of processed messages"),
+        &["status"],
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -54,6 +63,8 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(REDIS_XADD_STATUS);
         register!(REDIS_XACK_TOTAL);
         register!(PGPOOL_CONNECTIONS_TOTAL);
+        register!(PROGRAM_TRANSFORMER_TASKS_TOTAL);
+        register!(PROGRAM_TRANSFORMER_TASK_STATUS);
 
         VERSION
             .with_label_values(&[
@@ -136,4 +147,27 @@ pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
             PgpoolConnectionsKind::Idle => "idle",
         }])
         .set(size as i64)
+}
+
+pub fn program_transformer_tasks_total_set(size: usize) {
+    PROGRAM_TRANSFORMER_TASKS_TOTAL.set(size as i64)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ProgramTransformerTaskStatusKind {
+    Success,
+    NotImplemented,
+    DeserializationError,
+    ParsingError,
+}
+
+pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKind) {
+    PROGRAM_TRANSFORMER_TASK_STATUS
+        .with_label_values(&[match kind {
+            ProgramTransformerTaskStatusKind::Success => "success",
+            ProgramTransformerTaskStatusKind::NotImplemented => "not_implemented",
+            ProgramTransformerTaskStatusKind::DeserializationError => "deserialization_error",
+            ProgramTransformerTaskStatusKind::ParsingError => "parsing_error",
+        }])
+        .inc()
 }

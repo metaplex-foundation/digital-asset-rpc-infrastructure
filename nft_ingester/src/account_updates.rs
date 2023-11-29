@@ -129,9 +129,9 @@ async fn handle_account_update<'a>(
     manager
         .handle_account_update(&AccountInfo {
             slot: account_update.slot(),
-            pubkey: &parse_pubkey(account_update.pubkey())?,
-            owner: &parse_pubkey(account_update.owner())?,
-            data: parse_slice(account_update.data())?,
+            pubkey: parse_pubkey(account_update.pubkey())?,
+            owner: parse_pubkey(account_update.owner())?,
+            data: parse_slice(account_update.data())?.to_vec(),
         })
         .await
 }

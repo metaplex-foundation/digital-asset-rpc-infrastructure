@@ -180,6 +180,7 @@ where
 pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
     pub postgres: ConfigIngesterPostgres,
+    pub program_transformer: ConfigIngesterProgramTransformer,
 }
 
 #[derive(Debug, Deserialize)]
@@ -332,5 +333,26 @@ impl ConfigIngesterPostgres {
 
     pub const fn default_max_connections() -> usize {
         25
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigIngesterProgramTransformer {
+    #[serde(default = "ConfigIngesterProgramTransformer::default_transactions_cl_audits")]
+    pub transactions_cl_audits: bool,
+    #[serde(
+        default = "ConfigIngesterProgramTransformer::default_max_tasks_in_process",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_tasks_in_process: usize,
+}
+
+impl ConfigIngesterProgramTransformer {
+    pub const fn default_transactions_cl_audits() -> bool {
+        false
+    }
+
+    pub const fn default_max_tasks_in_process() -> usize {
+        100
     }
 }

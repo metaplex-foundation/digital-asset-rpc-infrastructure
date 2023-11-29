@@ -21,7 +21,7 @@ prometheus = { workspace = true }
 redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
-solana-sdk = { workspace = true } # only prom rn
+solana-sdk = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs", "tracing"] }
 tracing = { workspace = true }

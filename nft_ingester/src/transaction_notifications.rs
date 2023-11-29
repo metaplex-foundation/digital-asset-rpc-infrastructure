@@ -130,10 +130,10 @@ async fn handle_transaction_update<'a>(
     manager
         .handle_transaction(&TransactionInfo {
             slot: tx.slot(),
-            signature: &parse_signature(tx.signature())?,
+            signature: parse_signature(tx.signature())?,
             account_keys: parse_account_keys(tx.account_keys())?,
-            message_instructions: &parse_message_instructions(tx.outer_instructions())?,
-            meta_inner_instructions: &parse_meta_inner_instructions(
+            message_instructions: parse_message_instructions(tx.outer_instructions())?,
+            meta_inner_instructions: parse_meta_inner_instructions(
                 tx.compiled_inner_instructions(),
             )?,
         })
