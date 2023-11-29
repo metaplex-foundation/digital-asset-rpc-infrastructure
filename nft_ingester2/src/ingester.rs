@@ -1,10 +1,13 @@
 use {
     crate::{
         config::ConfigIngester,
+        postgres::{create_pool as pg_create_pool, metrics_pgpool},
         redis::{metrics_xlen, RedisStream},
         util::create_shutdown,
     },
     futures::future::{Fuse, FusedFuture, FutureExt},
+    program_transformers::ProgramTransformer,
+    std::sync::Arc,
     tokio::signal::unix::SignalKind,
 };
 
@@ -27,6 +30,13 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         async move { metrics_xlen(connection, &streams).await }
     });
     tokio::pin!(jh_metrics_xlen);
+
+    // open connection to postgres
+    let pgpool = pg_create_pool(config.postgres).await?;
+    tokio::spawn({
+        let pgpool = Arc::clone(&pgpool);
+        async move { metrics_pgpool(pgpool).await }
+    });
 
     // create redis stream reader
     let (mut redis_messages, redis_tasks) = RedisStream::new(config.redis, connection).await?;
@@ -69,6 +79,13 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     if !redis_tasks_fut.is_terminated() {
         redis_tasks_fut.await?;
     }
+    pgpool.close().await;
 
     result
+}
+
+async fn run_program_transformers() -> anyhow::Result<()> {
+    // let pt_accounts = ProgramTransformer::new()
+
+    todo!()
 }

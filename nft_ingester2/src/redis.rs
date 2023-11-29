@@ -136,7 +136,7 @@ impl RedisStreamMessageInfo {
     pub fn ack(self) -> anyhow::Result<()> {
         self.ack_tx
             .send(self.id)
-            .map_err(|_error| anyhow::anyhow!("failed to send message to ack channel",))
+            .map_err(|_error| anyhow::anyhow!("failed to send message to ack channel"))
     }
 }
 
@@ -187,7 +187,7 @@ impl RedisStream {
             })
             .collect::<HashMap<_, _>>();
 
-        // spawn ack tasks
+        // spawn xack tasks
         let mut tasks = ack_tasks
             .into_iter()
             .map(|(stream, ack_rx)| {
@@ -203,7 +203,7 @@ impl RedisStream {
             async move { Self::run_prefetch(config, streams, connection, messages_tx, shutdown).await }
         }));
 
-        // merge spawn tasks
+        // merge spawned xack / prefetch tasks
         let spawned_tasks = async move {
             for task in tasks.into_iter() {
                 task.await??;

@@ -2,7 +2,7 @@ prometheus: 127.0.0.1:8874
 redis:
   url: redis://localhost:6379
   group: ingester
-  consumer: consumer # every new ingester instance should uniq name
+  consumer: consumer # every new ingester instance should have uniq name
   streams:
     - type: account # possible values: `account` and `transaction`, required for message decoding
       stream: ACCOUNTS
@@ -17,3 +17,7 @@ redis:
   xpending_max: 250 # used for reading pending messages
   xpending_only: false # exit once all pending messages consumed (should be applied if you want downscale number of ingesters)
   xreadgroup_max: 1_000 # applied per each stream in one request
+postgres:
+  url: postgres://solana:solana@localhost/solana
+  min_connections: 10
+  max_connections: 25

@@ -16,11 +16,13 @@ lazy_static = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
 opentelemetry_sdk = { workspace = true, features = ["trace"] }
+program_transformers = { workspace = true }
 prometheus = { workspace = true }
 redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 solana-sdk = { workspace = true } # only prom rn
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs", "tracing"] }
 tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true }
