@@ -3727,6 +3727,7 @@ name = "nft_ingester2"
 version = "0.7.2"
 dependencies = [
  "anyhow",
+ "async-stream",
  "atty",
  "cargo-lock",
  "clap 4.5.4",

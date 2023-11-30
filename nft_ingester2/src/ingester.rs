@@ -9,7 +9,10 @@ use {
         redis::{metrics_xlen, ProgramTransformerInfo, RedisStream},
         util::create_shutdown,
     },
-    futures::future::{pending, BoxFuture, FusedFuture, FutureExt},
+    futures::{
+        future::{pending, BoxFuture, FusedFuture, FutureExt},
+        stream::StreamExt,
+    },
     program_transformers::{
         error::ProgramTransformerError, DownloadMetadataInfo, DownloadMetadataNotifier,
         ProgramTransformer,
@@ -19,7 +22,6 @@ use {
         Arc,
     },
     tokio::{
-        signal::unix::SignalKind,
         task::JoinSet,
         time::{sleep, Duration},
     },
@@ -103,14 +105,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                 Ok(Err(error)) => break Err(error),
                 Err(error) => break Err(error.into()),
             },
-            signal = &mut shutdown => {
-                let signal = if signal == SignalKind::interrupt() {
-                    "SIGINT"
-                } else if signal == SignalKind::terminate() {
-                    "SIGTERM"
-                } else {
-                    "UNKNOWN"
-                };
+            Some(signal) = shutdown.next() => {
                 warn!("{signal} received, waiting spawned tasks...");
                 break Ok(());
             },
@@ -195,14 +190,26 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         });
     };
 
-    redis_messages.shutdown();
-    while let Some(result) = pt_tasks.join_next().await {
-        result??;
-    }
-    if !redis_tasks_fut.is_terminated() {
-        redis_tasks_fut.await?;
-    }
-    pgpool.close().await;
+    tokio::select! {
+        Some(signal) = shutdown.next() => {
+            anyhow::bail!("{signal} received, force shutdown...");
+        }
+        result = async move {
+            // shutdown `prefetch` channel (but not Receiver)
+            redis_messages.shutdown();
+            // wait all `program_transformer` spawned tasks
+            while let Some(result) = pt_tasks.join_next().await {
+                result??;
+            }
+            // wait all `ack` spawned tasks
+            if !redis_tasks_fut.is_terminated() {
+                redis_tasks_fut.await?;
+            }
+            // shutdown database connection
+            pgpool.close().await;
+            Ok::<(), anyhow::Error>(())
+        } => result?,
+    };
 
     result
 }
