@@ -7,6 +7,7 @@ publish = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
+async-stream = { workspace = true }
 atty = { workspace = true }
 clap = { workspace = true, features = ["cargo", "derive"] }
 futures = { workspace = true }

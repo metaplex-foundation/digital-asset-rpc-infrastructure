@@ -7,10 +7,10 @@ use {
     redis::{streams::StreamMaxlen, RedisResult, Value as RedisValue},
     std::{sync::Arc, time::Duration},
     tokio::{
-        signal::unix::SignalKind,
         task::JoinSet,
         time::{sleep, Instant},
     },
+    tracing::warn,
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{prelude::subscribe_update::UpdateOneof, prost::Message},
 };
@@ -64,15 +64,8 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                 Ok(Err(error)) => break Err(error),
                 Err(error) => break Err(error.into()),
             },
-            signal = &mut shutdown => {
-                let signal = if signal == SignalKind::interrupt() {
-                    "SIGINT"
-                } else if signal == SignalKind::terminate() {
-                    "SIGTERM"
-                } else {
-                    "UNKNOWN"
-                };
-                tracing::warn!("{signal} received, waiting spawned tasks...");
+            Some(signal) = shutdown.next() => {
+                warn!("{signal} received, waiting spawned tasks...");
                 break Ok(());
             },
             msg = geyser.next() => {
@@ -142,9 +135,17 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
         }
     };
 
-    while let Some(result) = tasks.join_next().await {
-        result??;
-    }
+    tokio::select! {
+        Some(signal) = shutdown.next() => {
+            anyhow::bail!("{signal} received, force shutdown...");
+        }
+        result = async move {
+            while let Some(result) = tasks.join_next().await {
+                result??;
+            }
+            Ok::<(), anyhow::Error>(())
+        } => result?,
+    };
 
     result
 }

@@ -251,7 +251,7 @@ impl RedisStream {
             .collect::<HashMap<_, _>>();
 
         // spawn xack tasks
-        let mut tasks = ack_tasks
+        let ack_jh_vec = ack_tasks
             .into_iter()
             .map(|(stream, ack_rx)| {
                 let connection = connection.clone();
@@ -261,15 +261,16 @@ impl RedisStream {
 
         // spawn prefetch task
         let (messages_tx, messages_rx) = mpsc::channel(config.prefetch_queue_size);
-        tasks.push(tokio::spawn({
+        let jh_prefetch = tokio::spawn({
             let shutdown = Arc::clone(&shutdown);
             async move { Self::run_prefetch(config, streams, connection, messages_tx, shutdown).await }
-        }));
+        });
 
         // merge spawned xack / prefetch tasks
         let spawned_tasks = async move {
-            for task in tasks.into_iter() {
-                task.await??;
+            jh_prefetch.await??;
+            for jh in ack_jh_vec.into_iter() {
+                jh.await??;
             }
             Ok::<(), anyhow::Error>(())
         };
@@ -287,8 +288,9 @@ impl RedisStream {
         self.messages_rx.recv().await
     }
 
-    pub fn shutdown(self) {
+    pub fn shutdown(mut self) {
         self.shutdown.store(true, Ordering::Relaxed);
+        tokio::spawn(async move { while self.messages_rx.recv().await.is_some() {} });
     }
 
     async fn run_prefetch(
