@@ -79,20 +79,23 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let ownership_type = match class {
         SpecificationAssetClass::FungibleAsset => OwnerType::Token,
         SpecificationAssetClass::FungibleToken => OwnerType::Token,
+        // FIX: SPL tokens with associated metadata that do not set the token standard are incorrectly marked as single ownership.
         _ => OwnerType::Single,
     };
 
-    // gets the token and token account for the mint to populate the asset. This is required when the token and token account are indexed, but not the metadata account. If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data
+    // gets the token and token account for the mint to populate the asset. This is required when the token and token account are indexed, but not the metadata account.
+    // If the metadata account is indexed, then the token and the ingester will update the asset with the correct data
 
     let (token, token_account): (Option<tokens::Model>, Option<token_accounts::Model>) =
         match ownership_type {
             OwnerType::Single => {
                 let token: Option<tokens::Model> =
                     tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
-                // query for token account associated with mint with positive balance
+                // query for token account associated with mint with amount of 1 since single ownership is a token account with amount of 1.
+                // In the case of a transfer the current owner's token account amount is deducted by 1 and the new owner's token account amount for the mint is incremented by 1.
                 let token_account: Option<token_accounts::Model> = token_accounts::Entity::find()
                     .filter(token_accounts::Column::Mint.eq(mint.clone()))
-                    .filter(token_accounts::Column::Amount.gt(0))
+                    .filter(token_accounts::Column::Amount.eq(1))
                     .one(conn)
                     .await?;
                 Ok((token, token_account))
