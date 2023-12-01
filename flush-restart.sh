@@ -2,14 +2,14 @@
 source ~/.bashrc
 docker compose down -v
 
-sudo rm -r db-data  && echo "db-data Flushed" || echo "db-data is empty"
-sudo rm -r ledger  && echo "ledger Flushed" || echo "ledger is empty"
+sudo rm -r db-data > /dev/null && echo "db-data Flushed" || echo "db-data is empty"
+sudo rm -r ledger > /dev/null && echo "ledger Flushed" || echo "ledger is empty"
 
 docker compose up db redis -d
-sleep 30s
+sleep 15s
 
 docker compose up solana migrator -d
-sleep 60s
+sleep 30s
 
 docker compose up ingester api proxy -d
 

@@ -904,8 +904,8 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.9.0-beta.1"
-source = "git+https://github.com/Honeycomb-Protocol/blockbuster.git?branch=beta#fcfa3d55f092fba001dc18fed0149a13ea69aaf5"
+version = "0.9.0-beta.2"
+source = "git+https://github.com/Honeycomb-Protocol/blockbuster.git?branch=beta#87e55daccb55b6949802ea975852f5feb387a81a"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -1366,6 +1366,15 @@ name = "constant_time_eq"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
+
+[[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "core-foundation"
@@ -2446,12 +2455,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "hpl-compression"
-version = "0.1.8-beta.6"
+name = "hpl-attribute-compressed-account"
+version = "0.0.1-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02efb756a91e5df87fd948204cdd945302da6c560c1fce6454a380c24af78487"
+checksum = "ce7269993811c11a8d68f79772f8108d5652975b78bdd149f3677d7af871a2a8"
+dependencies = [
+ "convert_case",
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "hpl-compression"
+version = "0.1.8-beta.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab8ccfed99f89e38530b409dfa39e46ce9b9c2c89078b5e9dc0503b47acfb6"
 dependencies = [
  "anchor-lang",
+ "hpl-attribute-compressed-account",
  "hpl-compression-macro-merkle-tree-apply-fn",
  "hpl-compression-macro-merkle-tree-apply-fn-deep",
  "hpl-compression-macro-merkle-tree-utils",

@@ -75,7 +75,6 @@ echo ${clones[@]}
 ls -la /so/
 args=(
   --config config.yaml
-  --log
   --reset
   --limit-ledger-size 10000000000000000
   --rpc-port 8899
@@ -91,4 +90,4 @@ cat /plugin-config/accountsdb-plugin-config.json
 ls -la /so/
 
 apt update && apt install ca-certificates -y && update-ca-certificates
-solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS
+solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null

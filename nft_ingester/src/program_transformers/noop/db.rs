@@ -93,12 +93,14 @@ where
                 let schema = Schema::deserialize(&mut &tree.data_schema[..]).map_err(|db_err| {
                     IngesterError::CompressedDataParseError(db_err.to_string())
                 })?;
-                debug!("Parsed tree data schema");
 
+                debug!("Parsed tree data schema");
                 if !schema.validate(&data) {
-                    return Err(IngesterError::CompressedDataParseError(
-                        "Schema value validation failed".to_string(),
-                    )
+                    return Err(IngesterError::CompressedDataParseError(format!(
+                        "Schema value validation failed for data: {} with schema: {}",
+                        data.to_string(),
+                        schema.to_string()
+                    ))
                     .into());
                 }
 
