@@ -737,18 +737,31 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             let (mut header_bytes, rest) = account
                 .data
                 .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
-            let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes)
-                    .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            let header = match ConcurrentMerkleTreeHeader::try_from_slice(&mut header_bytes) {
+                Ok(header) => header,
+                Err(e) => {
+                    error!("Failed to parse header: {}", e);
+                    continue;
+                }
+            };
 
             let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::ID).0;
 
-            let merkle_tree_size = merkle_tree_get_size(&header)
-                .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            let merkle_tree_size = match merkle_tree_get_size(&header) {
+                Ok(size) => size,
+                Err(e) => {
+                    error!("Failed to get size: {}", e);
+                    continue;
+                }
+            };
             let (tree_bytes, _canopy_bytes) = rest.split_at_mut(merkle_tree_size);
-            let seq_bytes = tree_bytes[0..8].try_into().map_err(|_e| {
-                IngesterError::RpcGetDataError("Failed to convert seq bytes to array".to_string())
-            })?;
+            let seq_bytes = match tree_bytes[0..8].try_into() {
+                Ok(bytes) => bytes,
+                Err(_e) => {
+                    error!("Failed to convert seq bytes to array");
+                    continue;
+                }
+            };
             let seq = u64::from_le_bytes(seq_bytes);
             list.insert(pubkey, SlotSeq(header.get_creation_slot(), seq));
 
