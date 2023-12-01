@@ -20,7 +20,9 @@ redis:
 postgres:
   url: postgres://solana:solana@localhost/solana
   min_connections: 10
-  max_connections: 25
+  max_connections: 50 # `max_connection` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible
 program_transformer:
   transactions_cl_audits: false
-  max_tasks_in_process: 100
+  max_tasks_in_process: 40
+download_metadata_handler:
+  max_attempts: 3

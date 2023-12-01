@@ -5,7 +5,7 @@ use {
         service::{make_service_fn, service_fn},
         Body, Request, Response, Server, StatusCode,
     },
-    prometheus::{IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry, TextEncoder},
+    prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry, TextEncoder},
     std::{net::SocketAddr, sync::Once},
     tracing::{error, info},
 };
@@ -46,6 +46,10 @@ lazy_static::lazy_static! {
         Opts::new("program_transformer_task_status", "Status of processed messages"),
         &["status"],
     ).unwrap();
+
+    static ref DOWNLOAD_METADATA_INSERTED_TOTAL: IntCounter = IntCounter::new(
+        "download_metadata_inserted_total", "Total number of inserted tasks for download metadata"
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -65,6 +69,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(PGPOOL_CONNECTIONS_TOTAL);
         register!(PROGRAM_TRANSFORMER_TASKS_TOTAL);
         register!(PROGRAM_TRANSFORMER_TASK_STATUS);
+        register!(DOWNLOAD_METADATA_INSERTED_TOTAL);
 
         VERSION
             .with_label_values(&[
@@ -170,4 +175,8 @@ pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKin
             ProgramTransformerTaskStatusKind::ParsingError => "parsing_error",
         }])
         .inc()
+}
+
+pub fn download_metadata_inserted_total_inc() {
+    DOWNLOAD_METADATA_INSERTED_TOTAL.inc()
 }

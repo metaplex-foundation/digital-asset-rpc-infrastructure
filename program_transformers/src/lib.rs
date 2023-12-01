@@ -15,6 +15,7 @@ use {
     },
     futures::future::BoxFuture,
     sea_orm::{DatabaseConnection, SqlxPostgresConnector},
+    serde::Serialize,
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
@@ -44,7 +45,7 @@ pub struct TransactionInfo {
     pub meta_inner_instructions: Vec<InnerInstructions>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DownloadMetadataInfo {
     asset_data_id: Vec<u8>,
     uri: String,

@@ -1,14 +1,17 @@
 use {
     crate::{
-        config::ConfigIngester,
+        config::{ConfigDownloadMetadataHandler, ConfigIngester},
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         prom::{
-            program_transformer_task_status_inc, program_transformer_tasks_total_set,
-            ProgramTransformerTaskStatusKind,
+            download_metadata_inserted_total_inc, program_transformer_task_status_inc,
+            program_transformer_tasks_total_set, ProgramTransformerTaskStatusKind,
         },
         redis::{metrics_xlen, ProgramTransformerInfo, RedisStream},
         util::create_shutdown,
     },
+    chrono::Utc,
+    crypto::{digest::Digest, sha2::Sha256},
+    digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
         stream::StreamExt,
@@ -17,9 +20,18 @@ use {
         error::ProgramTransformerError, DownloadMetadataInfo, DownloadMetadataNotifier,
         ProgramTransformer,
     },
-    std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    sea_orm::{
+        entity::{ActiveModelTrait, ActiveValue},
+        error::{DbErr, RuntimeErr},
+        SqlxPostgresConnector,
+    },
+    sqlx::{Error as SqlxError, PgPool},
+    std::{
+        borrow::Cow,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     },
     tokio::{
         task::JoinSet,
@@ -29,8 +41,6 @@ use {
 };
 
 pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
-    println!("{:#?}", config);
-
     // connect to Redis
     let client = redis::Client::open(config.redis.url.clone())?;
     let connection = client.get_multiplexed_tokio_connection().await?;
@@ -62,12 +72,12 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     // program transforms related
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
-        create_notifier(),
+        create_download_metadata_notifier(pgpool.clone(), config.download_metadata_handler)?,
         false,
     ));
     let pt_transactions = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
-        create_notifier(),
+        create_download_metadata_notifier(pgpool.clone(), config.download_metadata_handler)?,
         config.program_transformer.transactions_cl_audits,
     ));
     let pt_max_tasks_in_process = config.program_transformer.max_tasks_in_process;
@@ -214,14 +224,49 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     result
 }
 
-fn create_notifier() -> DownloadMetadataNotifier {
-    Box::new(
-        move |_info: DownloadMetadataInfo| -> BoxFuture<
-            'static,
-            Result<(), Box<dyn std::error::Error + Send + Sync>>,
-        > {
-            // TODO
-            Box::pin(async move { Ok(()) })
-        },
-    )
+fn create_download_metadata_notifier(
+    pgpool: PgPool,
+    config: ConfigDownloadMetadataHandler,
+) -> anyhow::Result<DownloadMetadataNotifier> {
+    let max_attempts = config.max_attempts.try_into()?;
+    Ok(Box::new(move |info: DownloadMetadataInfo| -> BoxFuture<
+        'static,
+        Result<(), Box<dyn std::error::Error + Send + Sync>>,
+    > {
+        let pgpool = pgpool.clone();
+        Box::pin(async move {
+            const NAME: &str = "DownloadMetadata";
+
+            let data = serde_json::to_value(info)?;
+
+            let mut hasher = Sha256::new();
+            hasher.input(NAME.as_bytes());
+            hasher.input(serde_json::to_vec(&data)?.as_slice());
+            let hash = hasher.result_str();
+
+            let model = tasks::ActiveModel {
+                id: ActiveValue::Set(hash),
+                task_type: ActiveValue::Set(NAME.to_owned()),
+                data: ActiveValue::Set(data),
+                status: ActiveValue::Set(TaskStatus::Pending),
+                created_at: ActiveValue::Set(Utc::now().naive_utc()),
+                locked_until: ActiveValue::Set(None),
+                locked_by: ActiveValue::Set(None),
+                max_attempts: ActiveValue::Set(max_attempts),
+                attempts: ActiveValue::Set(0),
+                duration: ActiveValue::Set(None),
+                errors: ActiveValue::Set(None),
+            };
+            let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pgpool);
+
+            match model.insert(&conn).await.map(|_mode| ()) {
+                // skip unique_violation error
+                Err(DbErr::Query(RuntimeErr::SqlxError(SqlxError::Database(dberr)))) if dberr.code() == Some(Cow::Borrowed("23505")) => {},
+                value => value?,
+            };
+            download_metadata_inserted_total_inc();
+
+            Ok(())
+        })
+    }))
 }

@@ -3,6 +3,7 @@ use {
     serde::{de, Deserialize},
     std::{collections::HashMap, net::SocketAddr, path::Path, time::Duration},
     tokio::fs,
+    tracing::warn,
     yellowstone_grpc_proto::prelude::SubscribeRequest,
     yellowstone_grpc_tools::config::{
         deserialize_usize_str, ConfigGrpcRequestAccounts, ConfigGrpcRequestCommitment,
@@ -181,6 +182,15 @@ pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
     pub postgres: ConfigIngesterPostgres,
     pub program_transformer: ConfigIngesterProgramTransformer,
+    pub download_metadata_handler: ConfigDownloadMetadataHandler,
+}
+
+impl ConfigIngester {
+    pub fn check(&self) {
+        if self.postgres.max_connections < self.program_transformer.max_tasks_in_process {
+            warn!("`postgres.max_connections` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible");
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -332,7 +342,7 @@ impl ConfigIngesterPostgres {
     }
 
     pub const fn default_max_connections() -> usize {
-        25
+        50
     }
 }
 
@@ -353,6 +363,21 @@ impl ConfigIngesterProgramTransformer {
     }
 
     pub const fn default_max_tasks_in_process() -> usize {
-        100
+        40
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct ConfigDownloadMetadataHandler {
+    #[serde(
+        default = "ConfigDownloadMetadataHandler::default_max_attempts",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_attempts: usize,
+}
+
+impl ConfigDownloadMetadataHandler {
+    pub const fn default_max_attempts() -> usize {
+        3
     }
 }

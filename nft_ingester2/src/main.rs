@@ -70,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
             let config = config_load::<ConfigIngester>(&args.config)
                 .await
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
+            config.check();
             ingester::run(config).await
         }
     }
