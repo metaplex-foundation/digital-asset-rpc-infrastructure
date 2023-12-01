@@ -13,6 +13,8 @@ lazy_static = { workspace = true }
 log = { workspace = true }
 proxy-wasm = { workspace = true }
 regex = { workspace = true }
+wasi = { workspace = true }
+wasm-bindgen = { workspace = true }
 
 [lints]
 workspace = true

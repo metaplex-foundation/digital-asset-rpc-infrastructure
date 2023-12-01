@@ -17,7 +17,9 @@ sqlx = { workspace = true, features = [
   "offline",
   "json",
 ] }
+chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo", "derive"] }
+digital_asset_types = { workspace = true }
 futures = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
 json5 = { workspace = true }
@@ -28,7 +30,10 @@ opentelemetry_sdk = { workspace = true, features = ["trace"] }
 program_transformers = { workspace = true }
 prometheus = { workspace = true }
 redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
+rust-crypto = { workspace = true }
+sea-orm = { workspace = true, features = ["sqlx-postgres"] }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 solana-sdk = { workspace = true } # only prom rn
 tokio = { workspace = true, features = [

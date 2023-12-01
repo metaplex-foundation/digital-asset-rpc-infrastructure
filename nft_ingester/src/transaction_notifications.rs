@@ -10,7 +10,7 @@ use {
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
     plerkle_serialization::root_as_transaction_info,
-    program_transformers::{error::ProgramTransformerResult, ProgramTransformer, TransactionInfo},
+    program_transformers::ProgramTransformer,
     sqlx::{Pool, Postgres},
     std::sync::Arc,
     tokio::{

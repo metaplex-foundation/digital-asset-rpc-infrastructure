@@ -3537,6 +3537,8 @@ dependencies = [
  "log",
  "proxy-wasm",
  "regex",
+ "wasi 0.7.0",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3730,7 +3732,9 @@ dependencies = [
  "async-stream",
  "atty",
  "cargo-lock",
+ "chrono",
  "clap 4.5.4",
+ "digital_asset_types",
  "futures",
  "git-version",
  "hyper",
@@ -3742,7 +3746,10 @@ dependencies = [
  "program_transformers",
  "prometheus",
  "redis 0.25.3",
+ "rust-crypto",
+ "sea-orm",
  "serde",
+ "serde_json",
  "serde_yaml",
  "solana-sdk",
  "sqlx",
@@ -4633,6 +4640,7 @@ dependencies = [
  "mpl-bubblegum",
  "num-traits",
  "sea-orm",
+ "serde",
  "serde_json",
  "solana-sdk",
  "solana-transaction-status",
@@ -8165,6 +8173,12 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
+
+[[package]]
+name = "wasi"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
 
 [[package]]
 name = "wasi"
