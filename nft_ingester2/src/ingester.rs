@@ -1,6 +1,7 @@
 use {
     crate::{
-        config::{ConfigDownloadMetadataHandler, ConfigIngester},
+        config::{ConfigIngester, ConfigIngesterDownloadMetadata},
+        download_metadata::TASK_TYPE,
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
@@ -72,12 +73,12 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     // program transforms related
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
-        create_download_metadata_notifier(pgpool.clone(), config.download_metadata_handler)?,
+        create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
         false,
     ));
     let pt_transactions = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
-        create_download_metadata_notifier(pgpool.clone(), config.download_metadata_handler)?,
+        create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
         config.program_transformer.transactions_cl_audits,
     ));
     let pt_max_tasks_in_process = config.program_transformer.max_tasks_in_process;
@@ -95,7 +96,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
 
     // read and process messages in the loop
     let mut shutdown = create_shutdown()?;
-    let result = loop {
+    loop {
         pt_tasks_len.store(pt_tasks.len(), Ordering::Relaxed);
 
         let redis_messages_recv = if pt_tasks.len() == pt_max_tasks_in_process {
@@ -198,7 +199,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                 msg.ack()
             }
         });
-    };
+    }?;
 
     tokio::select! {
         Some(signal) = shutdown.next() => {
@@ -218,15 +219,13 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
             // shutdown database connection
             pgpool.close().await;
             Ok::<(), anyhow::Error>(())
-        } => result?,
-    };
-
-    result
+        } => result,
+    }
 }
 
 fn create_download_metadata_notifier(
     pgpool: PgPool,
-    config: ConfigDownloadMetadataHandler,
+    config: ConfigIngesterDownloadMetadata,
 ) -> anyhow::Result<DownloadMetadataNotifier> {
     let max_attempts = config.max_attempts.try_into()?;
     Ok(Box::new(move |info: DownloadMetadataInfo| -> BoxFuture<
@@ -235,18 +234,16 @@ fn create_download_metadata_notifier(
     > {
         let pgpool = pgpool.clone();
         Box::pin(async move {
-            const NAME: &str = "DownloadMetadata";
-
             let data = serde_json::to_value(info)?;
 
             let mut hasher = Sha256::new();
-            hasher.input(NAME.as_bytes());
+            hasher.input(TASK_TYPE.as_bytes());
             hasher.input(serde_json::to_vec(&data)?.as_slice());
             let hash = hasher.result_str();
 
             let model = tasks::ActiveModel {
                 id: ActiveValue::Set(hash),
-                task_type: ActiveValue::Set(NAME.to_owned()),
+                task_type: ActiveValue::Set(TASK_TYPE.to_owned()),
                 data: ActiveValue::Set(data),
                 status: ActiveValue::Set(TaskStatus::Pending),
                 created_at: ActiveValue::Set(Utc::now().naive_utc()),

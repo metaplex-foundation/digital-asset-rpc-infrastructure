@@ -30,6 +30,7 @@ opentelemetry_sdk = { workspace = true, features = ["trace"] }
 program_transformers = { workspace = true }
 prometheus = { workspace = true }
 redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
+reqwest = { workspace = true }
 rust-crypto = { workspace = true }
 sea-orm = { workspace = true, features = ["sqlx-postgres"] }
 serde = { workspace = true }

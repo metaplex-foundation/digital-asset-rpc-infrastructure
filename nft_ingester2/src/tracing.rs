@@ -12,7 +12,8 @@ pub fn init() -> anyhow::Result<()> {
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
     let jeager_layer = tracing_opentelemetry::layer().with_tracer(open_tracer);
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::builder()
+        .parse(env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "info,sqlx=warn".to_owned()))?;
 
     let is_atty = atty::is(atty::Stream::Stdout) && atty::is(atty::Stream::Stderr);
     let io_layer = tracing_subscriber::fmt::layer().with_ansi(is_atty);
