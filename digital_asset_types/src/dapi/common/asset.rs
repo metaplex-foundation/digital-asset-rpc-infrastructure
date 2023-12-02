@@ -20,7 +20,7 @@ use std::path::Path;
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
-    Url::parse(&*uri).ok()
+    Url::parse(&uri).ok()
 }
 
 pub fn get_mime(url: Url) -> Option<Mime> {
@@ -90,10 +90,7 @@ pub fn create_pagination(
     page: Option<u64>,
 ) -> Result<Pagination, DbErr> {
     match (&before, &after, &page) {
-        (_, _, None) => Ok(Pagination::Keyset {
-            before: before.map(|x| x.into()),
-            after: after.map(|x| x.into()),
-        }),
+        (_, _, None) => Ok(Pagination::Keyset { before, after }),
         (None, None, Some(p)) => Ok(Pagination::Page { page: *p }),
         _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
     }
@@ -221,7 +218,6 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
         _ => Ordering::Equal,
     });
 
-
     Ok(Content {
         schema: "https://schema.metaplex.com/nft1.0.json".to_string(),
         json_uri,
@@ -231,10 +227,7 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(
-    asset: &asset::Model,
-    data: &asset_data::Model,
-) -> Result<Content, DbErr> {
+pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
     match asset.specification_version {
         Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
             v1_content_from_json(data)
@@ -297,9 +290,7 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
 }
 
 //TODO -> impl custom error type
-pub fn asset_to_rpc(
-    asset: FullAsset
-) -> Result<RpcAsset, DbErr> {
+pub fn asset_to_rpc(asset: FullAsset) -> Result<RpcAsset, DbErr> {
     let FullAsset {
         asset,
         data,
@@ -328,8 +319,8 @@ pub fn asset_to_rpc(
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset.nonce.unwrap_or(0 as i64),
-            seq: asset.seq.unwrap_or(0 as i64),
+            leaf_id: asset.nonce.unwrap_or(0),
+            seq: asset.seq.unwrap_or(0),
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())
@@ -389,9 +380,7 @@ pub fn asset_to_rpc(
     })
 }
 
-pub fn asset_list_to_rpc(
-    asset_list: Vec<FullAsset>
-) -> (Vec<RpcAsset>, Vec<AssetError>) {
+pub fn asset_list_to_rpc(asset_list: Vec<FullAsset>) -> (Vec<RpcAsset>, Vec<AssetError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {

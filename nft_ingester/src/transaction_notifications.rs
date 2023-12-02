@@ -1,21 +1,26 @@
-use std::sync::Arc;
-
-use crate::{
-    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
-};
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
-use chrono::Utc;
-use log::{debug, error};
-use plerkle_messenger::{
-    ConsumptionType, Messenger, MessengerConfig, RecvData,
-};
-use plerkle_serialization::root_as_transaction_info;
-
-use sqlx::{Pool, Postgres};
-use tokio::{
-    sync::mpsc::UnboundedSender,
-    task::{JoinHandle, JoinSet},
-    time::Instant,
+use {
+    crate::{
+        metric,
+        metrics::capture_result,
+        plerkle::{
+            parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
+            parse_signature,
+        },
+        tasks::{create_download_metadata_notifier, TaskData},
+    },
+    cadence_macros::{is_global_default_set, statsd_count, statsd_time},
+    chrono::Utc,
+    log::{debug, error},
+    plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
+    plerkle_serialization::root_as_transaction_info,
+    program_transformers::{error::ProgramTransformerResult, ProgramTransformer, TransactionInfo},
+    sqlx::{Pool, Postgres},
+    std::sync::Arc,
+    tokio::{
+        sync::mpsc::UnboundedSender,
+        task::{JoinHandle, JoinSet},
+        time::Instant,
+    },
 };
 
 pub fn transaction_worker<T: Messenger>(
@@ -30,7 +35,11 @@ pub fn transaction_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, cl_audits));
+            let manager = Arc::new(ProgramTransformer::new(
+                pool,
+                create_download_metadata_notifier(bg_task_sender),
+                cl_audits,
+            ));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();
@@ -52,14 +61,12 @@ pub fn transaction_worker<T: Messenger>(
                     }
                 }
                 while let Some(res) = tasks.join_next().await {
-                    if let Ok(id) = res {
-                        if let Some(id) = id {
-                            let send = ack_channel.send((stream_key, id));
-                            if let Err(err) = send {
-                                metric! {
+                    if let Ok(Some(id)) = res {
+                        let send = ack_channel.send((stream_key, id));
+                        if let Err(err) = send {
+                            metric! {
                                     error!("Txn stream ack error: {}", err);
                                     statsd_count!("ingester.stream.ack_error", 1, "stream" => stream_key);
-                                }
                             }
                         }
                     }
@@ -69,7 +76,11 @@ pub fn transaction_worker<T: Messenger>(
     })
 }
 
-async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData, stream_key: &'static str) -> Option<String> {
+async fn handle_transaction(
+    manager: Arc<ProgramTransformer>,
+    item: RecvData,
+    stream_key: &'static str,
+) -> Option<String> {
     let mut ret_id = None;
     if item.tries > 0 {
         metric! {
@@ -94,7 +105,7 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData, st
         }
 
         let begin = Instant::now();
-        let res = manager.handle_transaction(&tx).await;
+        let res = handle_transaction_update(manager, tx).await;
         let should_ack = capture_result(
             id.clone(),
             stream_key,
@@ -110,4 +121,21 @@ async fn handle_transaction(manager: Arc<ProgramTransformer>, item: RecvData, st
         }
     }
     ret_id
+}
+
+async fn handle_transaction_update<'a>(
+    manager: Arc<ProgramTransformer>,
+    tx: plerkle_serialization::TransactionInfo<'_>,
+) -> ProgramTransformerResult<()> {
+    manager
+        .handle_transaction(&TransactionInfo {
+            slot: tx.slot(),
+            signature: parse_signature(tx.signature())?,
+            account_keys: parse_account_keys(tx.account_keys())?,
+            message_instructions: parse_message_instructions(tx.outer_instructions())?,
+            meta_inner_instructions: parse_meta_inner_instructions(
+                tx.compiled_inner_instructions(),
+            )?,
+        })
+        .await
 }

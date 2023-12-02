@@ -57,7 +57,7 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-    pub fn count_conditions(&self) -> usize {
+    pub const fn count_conditions(&self) -> usize {
         // Initialize counter
         // todo ever heard of a flipping macro
         let mut num_conditions = 0;
@@ -203,7 +203,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(a) = self.authority_address.to_owned() {
-            conditions = conditions.add(asset_authority::Column::Authority.eq(a.clone()));
+            conditions = conditions.add(asset_authority::Column::Authority.eq(a));
             let rel = asset_authority::Relation::Asset
                 .def()
                 .rev()

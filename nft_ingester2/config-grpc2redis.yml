@@ -1,0 +1,24 @@
+prometheus: 127.0.0.1:8873
+endpoint: http://127.0.0.1:10000
+x_token: null
+commitment: processed
+accounts:
+  stream: ACCOUNTS
+  stream_maxlen: 100_000_000
+  stream_data_key: data
+  filters:
+    - owner:
+      - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+      - metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s
+transactions:
+  stream: TRANSACTIONS
+  stream_maxlen: 10_000_000
+  stream_data_key: data
+  filters:
+    - account_include:
+      - BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY
+redis:
+  url: redis://localhost:6379
+  pipeline_max_size: 10
+  pipeline_max_idle_ms: 10
+  max_xadd_in_process: 100

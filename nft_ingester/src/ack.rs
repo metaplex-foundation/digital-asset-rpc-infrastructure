@@ -29,7 +29,7 @@ pub fn ack_worker<T: Messenger>(
                             }
                             let len = acks.len();
                             for (stream, msgs)  in acks.iter_mut() {
-                                if let Err(e) = msg.ack_msg(&stream, &msgs).await {
+                                if let Err(e) = msg.ack_msg(stream, msgs).await {
                                     error!("Error acking message: {}", e);
                                 }
                                 metric! {
@@ -41,7 +41,7 @@ pub fn ack_worker<T: Messenger>(
                         }
                         Some(msg) = rx.recv() => {
                             let (stream, msg) = msg;
-                            let ackstream = acks.entry(stream).or_insert_with(Vec::<String>::new);
+                            let ackstream = acks.entry(stream).or_default();
                             ackstream.push(msg);
                         }
                     }

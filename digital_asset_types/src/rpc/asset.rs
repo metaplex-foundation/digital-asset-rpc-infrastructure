@@ -1,7 +1,6 @@
 use crate::dao::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
-#[cfg(feature = "sql_types")]
 use std::collections::BTreeMap;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
@@ -27,6 +26,8 @@ pub enum Interface {
     #[serde(rename = "V1_PRINT")]
     V1PRINT,
     #[serde(rename = "LEGACY_NFT")]
+    // TODO: change on version bump
+    #[allow(non_camel_case_types)]
     LEGACY_NFT,
     #[serde(rename = "V2_NFT")]
     Nft,
@@ -56,9 +57,9 @@ impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
     }
 }
 
-impl Into<(SpecificationVersions, SpecificationAssetClass)> for Interface {
-    fn into(self) -> (SpecificationVersions, SpecificationAssetClass) {
-        match self {
+impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
+    fn from(interface: Interface) -> (SpecificationVersions, SpecificationAssetClass) {
+        match interface {
             Interface::V1NFT => (SpecificationVersions::V1, SpecificationAssetClass::Nft),
             Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
             Interface::ProgrammableNFT => (
@@ -115,15 +116,15 @@ pub struct File {
 
 pub type Files = Vec<File>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
 impl MetadataMap {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(BTreeMap::new())
     }
 
-    pub fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
+    pub const fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.0
     }
 
@@ -223,7 +224,6 @@ impl From<String> for RoyaltyModel {
     }
 }
 
-#[cfg(feature = "sql_types")]
 impl From<RoyaltyTargetType> for RoyaltyModel {
     fn from(s: RoyaltyTargetType) -> Self {
         match s {
@@ -274,7 +274,6 @@ impl From<String> for OwnershipModel {
     }
 }
 
-#[cfg(feature = "sql_types")]
 impl From<OwnerType> for OwnershipModel {
     fn from(s: OwnerType) -> Self {
         match s {

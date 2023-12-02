@@ -1,0 +1,12 @@
+# Important: only ONE `download-metadata` instance is supported right now!
+prometheus: 127.0.0.1:8875
+postgres:
+  url: postgres://solana:solana@localhost/solana
+  min_connections: 10
+  max_connections: 50
+download_metadata:
+  max_in_process: 50 # maximum tasks in process (downloading metadata)
+  prefetch_queue_size: 100
+  limit_to_fetch: 200 # maximum number of tasks fetched from database
+  wait_tasks_max_idle_ms: 100 # if we do not have pending tasks, wait max ms
+  download_timeout_ms: 5_000

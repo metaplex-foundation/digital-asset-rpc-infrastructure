@@ -1,27 +1,15 @@
-use crate::tasks::TaskData;
-use blockbuster::error::BlockbusterError;
-use plerkle_messenger::MessengerError;
-use plerkle_serialization::error::PlerkleSerializationError;
-use sea_orm::{DbErr, TransactionError};
-use thiserror::Error;
-use tokio::sync::mpsc::error::SendError;
+use {
+    crate::tasks::TaskData, plerkle_messenger::MessengerError,
+    plerkle_serialization::error::PlerkleSerializationError, sea_orm::DbErr,
+    tokio::sync::mpsc::error::SendError,
+};
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error)]
 pub enum IngesterError {
-    #[error("ChangeLog Event Malformed")]
-    ChangeLogEventMalformed,
-    #[error("Compressed Asset Event Malformed")]
-    CompressedAssetEventMalformed,
     #[error("Network Error: {0}")]
     BatchInitNetworkingError(String),
-    #[error("Error writing batch files")]
-    BatchInitIOError,
-    #[error("Storage listener error: ({msg})")]
-    StorageListenerError { msg: String },
     #[error("Storage Write Error: {0}")]
     StorageWriteError(String),
-    #[error("NotImplemented")]
-    NotImplemented,
     #[error("Deserialization Error: {0}")]
     DeserializationError(String),
     #[error("Task Manager Error: {0}")]
@@ -36,12 +24,6 @@ pub enum IngesterError {
     SerializatonError(String),
     #[error("Messenger error; {0}")]
     MessengerError(String),
-    #[error("Blockbuster Parsing error: {0}")]
-    ParsingError(String),
-    #[error("Database Error: {0}")]
-    DatabaseError(String),
-    #[error("Unknown Task Type: {0}")]
-    UnknownTaskType(String),
     #[error("BG Task Manager Not Started")]
     TaskManagerNotStarted,
     #[error("Unrecoverable task error: {0}")]
@@ -50,8 +32,6 @@ pub enum IngesterError {
     CacheStorageWriteError(String),
     #[error("HttpError {status_code}")]
     HttpError { status_code: String },
-    #[error("AssetIndex Error {0}")]
-    AssetIndexError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {
@@ -72,26 +52,8 @@ impl From<serde_json::Error> for IngesterError {
     }
 }
 
-impl From<BlockbusterError> for IngesterError {
-    fn from(err: BlockbusterError) -> Self {
-        IngesterError::ParsingError(err.to_string())
-    }
-}
-
-impl From<std::io::Error> for IngesterError {
-    fn from(_err: std::io::Error) -> Self {
-        IngesterError::BatchInitIOError
-    }
-}
-
 impl From<DbErr> for IngesterError {
     fn from(e: DbErr) -> Self {
-        IngesterError::StorageWriteError(e.to_string())
-    }
-}
-
-impl From<TransactionError<IngesterError>> for IngesterError {
-    fn from(e: TransactionError<IngesterError>) -> Self {
         IngesterError::StorageWriteError(e.to_string())
     }
 }

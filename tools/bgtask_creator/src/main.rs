@@ -332,7 +332,7 @@ WHERE
                     let name = instance_name.clone();
                     if let Ok(hash) = task_data.hash() {
                         let database_pool = database_pool.clone();
-                        let task_map = task_map.clone();
+                        let task_map = Arc::clone(&task_map);
                         let name = name.clone();
                         let tp = asset_data.1.clone();
                         let new_task = tokio::task::spawn(async move {
@@ -360,7 +360,7 @@ WHERE
                                 name.clone(),
                                 name,
                                 task_data,
-                                task_map.clone(),
+                                Arc::clone(&task_map),
                                 false,
                             )
                             .await;

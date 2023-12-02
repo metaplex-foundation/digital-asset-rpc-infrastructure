@@ -3,7 +3,6 @@ use log::info;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 use regex::{Regex, RegexBuilder};
-use std::env;
 use std::time::Duration;
 
 proxy_wasm::main! {{
@@ -35,9 +34,9 @@ struct RpcProxy {
 
 impl RpcProxy {
     fn new(path: Option<String>) -> Self {
-        return Self {
+        Self {
             rpc_url_path: path.unwrap_or("/".to_string()),
-        };
+        }
     }
 }
 
@@ -103,7 +102,7 @@ impl HttpContext for RpcProxy {
                 } else {
                     let res = upstream_rpc_call(self, body);
                     return match res {
-                        Ok(res) => Action::Pause,
+                        Ok(_) => Action::Pause,
                         Err(e) => {
                             info!("Error: {:?}", e);
                             Action::Continue
