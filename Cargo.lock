@@ -3556,6 +3556,7 @@ dependencies = [
  "program_transformers",
  "prometheus",
  "redis",
+ "reqwest",
  "rust-crypto",
  "sea-orm",
  "serde",

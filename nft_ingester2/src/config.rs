@@ -182,7 +182,7 @@ pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
     pub postgres: ConfigIngesterPostgres,
     pub program_transformer: ConfigIngesterProgramTransformer,
-    pub download_metadata_handler: ConfigDownloadMetadataHandler,
+    pub download_metadata: ConfigIngesterDownloadMetadata,
 }
 
 impl ConfigIngester {
@@ -368,16 +368,75 @@ impl ConfigIngesterProgramTransformer {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub struct ConfigDownloadMetadataHandler {
+pub struct ConfigIngesterDownloadMetadata {
     #[serde(
-        default = "ConfigDownloadMetadataHandler::default_max_attempts",
+        default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_attempts: usize,
 }
 
-impl ConfigDownloadMetadataHandler {
+impl ConfigIngesterDownloadMetadata {
     pub const fn default_max_attempts() -> usize {
         3
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigDownloadMetadata {
+    pub postgres: ConfigIngesterPostgres,
+    pub download_metadata: ConfigDownloadMetadataOpts,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct ConfigDownloadMetadataOpts {
+    #[serde(
+        default = "ConfigDownloadMetadataOpts::default_max_in_process",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_in_process: usize,
+    #[serde(
+        default = "ConfigDownloadMetadataOpts::default_prefetch_queue_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub prefetch_queue_size: usize,
+    #[serde(
+        default = "ConfigDownloadMetadataOpts::default_limit_to_fetch",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub limit_to_fetch: usize,
+    #[serde(
+        default = "ConfigDownloadMetadataOpts::default_wait_tasks_max_idle",
+        deserialize_with = "deserialize_duration_str",
+        rename = "wait_tasks_max_idle_ms"
+    )]
+    pub wait_tasks_max_idle: Duration,
+    #[serde(
+        default = "ConfigDownloadMetadataOpts::default_download_timeout",
+        deserialize_with = "deserialize_duration_str",
+        rename = "download_timeout_ms"
+    )]
+    pub download_timeout: Duration,
+}
+
+impl ConfigDownloadMetadataOpts {
+    pub const fn default_max_in_process() -> usize {
+        50
+    }
+
+    pub const fn default_prefetch_queue_size() -> usize {
+        100
+    }
+
+    pub const fn default_limit_to_fetch() -> usize {
+        200
+    }
+
+    pub const fn default_wait_tasks_max_idle() -> Duration {
+        Duration::from_millis(100)
+    }
+
+    pub const fn default_download_timeout() -> Duration {
+        Duration::from_millis(5_000)
     }
 }
