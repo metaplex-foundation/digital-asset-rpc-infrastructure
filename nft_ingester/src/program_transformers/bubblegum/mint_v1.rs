@@ -159,6 +159,7 @@ where
                     &metadata.creators,
                     slot_i,
                     seq as i64,
+                    false,
                 )
                 .await?;
 

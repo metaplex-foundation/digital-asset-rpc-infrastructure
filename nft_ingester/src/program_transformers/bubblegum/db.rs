@@ -599,17 +599,20 @@ pub async fn upsert_creators<T>(
     creators: &Vec<Creator>,
     slot_updated: i64,
     seq: i64,
+    delete_existing: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let multi_txn = txn.begin().await?;
     if creators_should_be_updated(&multi_txn, id.clone(), seq).await? {
-        // Delete any existing creators.
-        asset_creators::Entity::delete_many()
-            .filter(Condition::all().add(asset_creators::Column::AssetId.eq(id.clone())))
-            .exec(&multi_txn)
-            .await?;
+        if delete_existing {
+            // Delete any existing creators.
+            asset_creators::Entity::delete_many()
+                .filter(Condition::all().add(asset_creators::Column::AssetId.eq(id.clone())))
+                .exec(&multi_txn)
+                .await?;
+        }
 
         if !creators.is_empty() {
             // Vec to hold base creator information.

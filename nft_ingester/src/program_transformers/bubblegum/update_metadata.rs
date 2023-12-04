@@ -171,7 +171,7 @@ where
                 } else {
                     &current_metadata.creators
                 };
-                upsert_creators(txn, id_bytes.to_vec(), creators, slot_i, seq as i64).await?;
+                upsert_creators(txn, id_bytes.to_vec(), creators, slot_i, seq as i64, true).await?;
 
                 if uri.is_empty() {
                     warn!(
