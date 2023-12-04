@@ -123,7 +123,7 @@ impl BgTask for DownloadMetadataTask {
         if download_metadata.seq != 0 {
             query = query.filter(
                 Condition::any()
-                    .add(asset_data::Column::DownloadMetadataSeq.lt(download_metadata.seq))
+                    .add(asset_data::Column::DownloadMetadataSeq.lte(download_metadata.seq))
                     .add(asset_data::Column::DownloadMetadataSeq.is_null()),
             );
         }
