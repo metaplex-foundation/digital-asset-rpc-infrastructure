@@ -126,7 +126,12 @@ where
                 )
                 .await?;
 
-                // Partial update of asset table with just royalty amount (seller fee basis points).
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
+
+                // Upsert asset table base info.
                 let seller_fee_basis_points =
                     if let Some(seller_fee_basis_points) = update_args.seller_fee_basis_points {
                         seller_fee_basis_points
@@ -135,7 +140,7 @@ where
                     };
 
                 upsert_asset_base_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
                     false,
@@ -152,7 +157,7 @@ where
                 // Partial update of asset table with just leaf.
                 let tree_id = bundle.keys.get(5).unwrap().0.to_vec();
                 upsert_asset_with_leaf_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
                     tree_id,
@@ -163,7 +168,10 @@ where
                 )
                 .await?;
 
-                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+                upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+                // Commit transaction and relinqish the lock.
+                multi_txn.commit().await?;
 
                 // Upsert into `asset_creators` table.
                 let creators = if let Some(creators) = &update_args.creators {
