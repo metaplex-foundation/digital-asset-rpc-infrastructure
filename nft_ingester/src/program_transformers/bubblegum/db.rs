@@ -528,7 +528,7 @@ where
     // Do not overwrite changes that happened after decompression (asset_data.base_info_seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-        "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL)",
+        "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL",
         query.sql
     );
     txn.execute(query)
