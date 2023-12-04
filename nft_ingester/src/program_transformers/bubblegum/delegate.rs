@@ -22,7 +22,7 @@ where
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
-        return match le.schema {
+        match le.schema {
             LeafSchema::V1 {
                 id,
                 owner,
@@ -38,9 +38,14 @@ where
                 };
                 let tree_id = cl.id.to_bytes();
 
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
+
                 // Partial update of asset table with just leaf.
                 upsert_asset_with_leaf_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     cl.index as i64,
                     tree_id.to_vec(),
@@ -53,7 +58,7 @@ where
 
                 // Partial update of asset table with just leaf owner and delegate.
                 upsert_asset_with_owner_and_delegate_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     owner_bytes,
                     delegate,
@@ -61,9 +66,14 @@ where
                 )
                 .await?;
 
-                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await
+                upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+                // Commit transaction and relinqish the lock.
+                multi_txn.commit().await?;
+
+                return Ok(());
             }
-        };
+        }
     }
     Err(IngesterError::ParsingError(
         "Ix not parsed correctly".to_string(),

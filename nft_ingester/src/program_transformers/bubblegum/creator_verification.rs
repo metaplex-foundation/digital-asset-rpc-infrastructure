@@ -61,9 +61,14 @@ where
                 let tree_id = cl.id.to_bytes();
                 let nonce = cl.index as i64;
 
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
+
                 // Partial update of asset table with just leaf info.
                 upsert_asset_with_leaf_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     nonce,
                     tree_id.to_vec(),
@@ -76,7 +81,7 @@ where
 
                 // Partial update of asset table with just leaf owner and delegate.
                 upsert_asset_with_owner_and_delegate_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     owner_bytes,
                     delegate,
@@ -84,7 +89,10 @@ where
                 )
                 .await?;
 
-                upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+                upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+                // Commit transaction and relinqish the lock.
+                multi_txn.commit().await?;
 
                 id_bytes.to_vec()
             }

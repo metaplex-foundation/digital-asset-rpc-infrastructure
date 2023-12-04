@@ -17,11 +17,16 @@ where
 {
     let id_bytes = bundle.keys.get(3).unwrap().0.as_slice();
 
+    // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+    // an error and this function returns it using the `?` operator), then the transaction is
+    // automatically rolled back.
+    let multi_txn = txn.begin().await?;
+
     // Partial update of asset table with just leaf.
-    upsert_asset_with_leaf_info_for_decompression(txn, id_bytes.to_vec()).await?;
+    upsert_asset_with_leaf_info_for_decompression(&multi_txn, id_bytes.to_vec()).await?;
 
     upsert_asset_with_compression_info(
-        txn,
+        &multi_txn,
         id_bytes.to_vec(),
         false,
         false,
@@ -29,5 +34,10 @@ where
         Some(id_bytes.to_vec()),
         true,
     )
-    .await
+    .await?;
+
+    // Commit transaction and relinqish the lock.
+    multi_txn.commit().await?;
+
+    Ok(())
 }
