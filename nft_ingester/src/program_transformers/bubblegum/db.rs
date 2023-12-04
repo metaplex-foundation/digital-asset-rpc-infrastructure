@@ -384,7 +384,12 @@ where
     // want to insert a creator that was removed from a later `update_metadata`.  And we don't need
     // to worry about creator verification in that case because the `update_metadata` updates
     // creator verification state as well.
+
+    // Note that if the transaction goes out of scope (i.e. one of the executions has
+    // an error and this function returns it using the `?` operator), then the transaction is
+    // automatically rolled back.
     let multi_txn = txn.begin().await?;
+
     if creators_should_be_updated(&multi_txn, asset_id, seq).await? {
         let mut query = asset_creators::Entity::insert(model)
             .on_conflict(
@@ -411,7 +416,7 @@ where
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
     }
 
-    // Close out transaction and relinqish the lock.
+    // Commit transaction and relinqish the lock.
     multi_txn.commit().await?;
 
     Ok(())
@@ -604,7 +609,11 @@ pub async fn upsert_creators<T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+    // an error and this function returns it using the `?` operator), then the transaction is
+    // automatically rolled back.
     let multi_txn = txn.begin().await?;
+
     if creators_should_be_updated(&multi_txn, id.clone(), seq).await? {
         if delete_existing {
             // Delete any existing creators.
@@ -691,7 +700,7 @@ where
         upsert_asset_with_creators_added_seq(&multi_txn, id, seq).await?;
     }
 
-    // Close out transaction and relinqish the lock.
+    // Commit transaction and relinqish the lock.
     multi_txn.commit().await?;
 
     Ok(())
