@@ -23,9 +23,6 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(cl) = &parsing_result.tree_update {
-        // Note: We do not check whether the asset has been decompressed here because we know if it
-        // was burned then it could not have been decompressed later.
-
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
         let leaf_index = cl.index;
         let (asset_id, _) = Pubkey::find_program_address(

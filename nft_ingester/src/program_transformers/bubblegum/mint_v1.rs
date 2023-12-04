@@ -1,39 +1,29 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, save_changelog_event, upsert_asset_data,
+        save_changelog_event, upsert_asset_authority, upsert_asset_base_info, upsert_asset_data,
         upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_royalty_amount,
-        upsert_asset_with_seq, upsert_collection_info, upsert_creators,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        upsert_creators,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-    token_metadata::{
-        pda::find_master_edition_account,
-        state::{TokenStandard, UseMethod, Uses},
-    },
+    token_metadata::state::{TokenStandard, UseMethod, Uses},
 };
 use chrono::Utc;
 use digital_asset_types::{
-    dao::{
-        asset, asset_authority, asset_v1_account_attachments,
-        sea_orm_active_enums::{
-            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
-            SpecificationVersions, V1AccountAttachments,
-        },
+    dao::sea_orm_active_enums::{
+        ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+        SpecificationVersions,
     },
     json::ChainDataV1,
 };
 use log::warn;
 use num_traits::FromPrimitive;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait, JsonValue,
-};
-
-// TODO -> consider moving structs into these functions to avoid clone
+use sea_orm::{query::*, ConnectionTrait, JsonValue};
 
 pub async fn mint_v1<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -60,14 +50,7 @@ where
                 nonce,
                 ..
             } => {
-                let (edition_attachment_address, _) = find_master_edition_account(&id);
                 let id_bytes = id.to_bytes();
-
-                // First check to see if this asset has been decompressed and if so do not update.
-                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
-                    return Ok(None);
-                }
-
                 let slot_i = bundle.slot as i64;
                 let uri = metadata.uri.replace('\0', "");
                 let name = metadata.name.clone().into_bytes();
@@ -116,46 +99,18 @@ where
                 };
                 let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
 
-                // Set initial mint info.
-                let asset_model = asset::ActiveModel {
-                    id: Set(id_bytes.to_vec()),
-                    owner_type: Set(OwnerType::Single),
-                    frozen: Set(false),
-                    specification_version: Set(Some(SpecificationVersions::V1)),
-                    specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
-                    royalty_target_type: Set(RoyaltyTargetType::Creators),
-                    royalty_target: Set(None),
-                    asset_data: Set(Some(id_bytes.to_vec())),
-                    slot_updated: Set(Some(slot_i)),
-                    ..Default::default()
-                };
-
                 // Upsert asset table base info.
-                let query = asset::Entity::insert(asset_model)
-                    .on_conflict(
-                        OnConflict::columns([asset::Column::Id])
-                            .update_columns([
-                                asset::Column::OwnerType,
-                                asset::Column::Frozen,
-                                asset::Column::SpecificationVersion,
-                                asset::Column::SpecificationAssetClass,
-                                asset::Column::RoyaltyTargetType,
-                                asset::Column::RoyaltyTarget,
-                                asset::Column::AssetData,
-                                asset::Column::SlotUpdated,
-                            ])
-                            .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-
-                txn.execute(query)
-                    .await
-                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
-
-                upsert_asset_with_royalty_amount(
+                upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
+                    OwnerType::Single,
+                    false,
+                    SpecificationVersions::V1,
+                    SpecificationAssetClass::Nft,
+                    RoyaltyTargetType::Creators,
+                    None,
                     metadata.seller_fee_basis_points as i32,
+                    slot_i,
                     seq as i64,
                 )
                 .await?;
@@ -197,24 +152,6 @@ where
 
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
 
-                let attachment = asset_v1_account_attachments::ActiveModel {
-                    id: Set(edition_attachment_address.to_bytes().to_vec()),
-                    slot_updated: Set(slot_i),
-                    attachment_type: Set(V1AccountAttachments::MasterEditionV2),
-                    ..Default::default()
-                };
-
-                let query = asset_v1_account_attachments::Entity::insert(attachment)
-                    .on_conflict(
-                        OnConflict::columns([asset_v1_account_attachments::Column::Id])
-                            .do_nothing()
-                            .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-                txn.execute(query)
-                    .await
-                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
-
                 // Upsert into `asset_creators` table.
                 upsert_creators(
                     txn,
@@ -226,26 +163,10 @@ where
                 .await?;
 
                 // Insert into `asset_authority` table.
-                let model = asset_authority::ActiveModel {
-                    asset_id: Set(id_bytes.to_vec()),
-                    authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
-                    seq: Set(seq as i64),
-                    slot_updated: Set(slot_i),
-                    ..Default::default()
-                };
-
-                // Do not attempt to modify any existing values:
-                // `ON CONFLICT ('asset_id') DO NOTHING`.
-                let query = asset_authority::Entity::insert(model)
-                    .on_conflict(
-                        OnConflict::columns([asset_authority::Column::AssetId])
-                            .do_nothing()
-                            .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-                txn.execute(query)
-                    .await
-                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+                //TODO - we need to remove the optional bubblegum signer logic
+                let authority = bundle.keys.get(0).unwrap().0.to_vec();
+                upsert_asset_authority(txn, id_bytes.to_vec(), authority, seq as i64, slot_i)
+                    .await?;
 
                 // Upsert into `asset_grouping` table with base collection info.
                 upsert_collection_info(

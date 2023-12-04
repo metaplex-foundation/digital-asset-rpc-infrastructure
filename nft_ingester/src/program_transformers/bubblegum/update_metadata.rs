@@ -1,9 +1,8 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        asset_was_decompressed, save_changelog_event, upsert_asset_data,
-        upsert_asset_with_leaf_info, upsert_asset_with_royalty_amount, upsert_asset_with_seq,
-        upsert_creators,
+        save_changelog_event, upsert_asset_base_info, upsert_asset_data,
+        upsert_asset_with_leaf_info, upsert_asset_with_seq, upsert_creators,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -14,15 +13,15 @@ use blockbuster::{
 };
 use chrono::Utc;
 use digital_asset_types::{
-    dao::{
-        asset_creators,
-        sea_orm_active_enums::{ChainMutability, Mutability},
+    dao::sea_orm_active_enums::{
+        ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+        SpecificationVersions,
     },
     json::ChainDataV1,
 };
 use log::warn;
 use num_traits::FromPrimitive;
-use sea_orm::{entity::*, query::*, ConnectionTrait, EntityTrait, JsonValue};
+use sea_orm::{query::*, ConnectionTrait, JsonValue};
 
 pub async fn update_metadata<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -51,12 +50,6 @@ where
         return match le.schema {
             LeafSchema::V1 { id, nonce, .. } => {
                 let id_bytes = id.to_bytes();
-
-                // First check to see if this asset has been decompressed and if so do not update.
-                if asset_was_decompressed(txn, id_bytes.to_vec()).await? {
-                    return Ok(None);
-                }
-
                 let slot_i = bundle.slot as i64;
 
                 let uri = if let Some(uri) = &update_args.uri {
@@ -141,10 +134,17 @@ where
                         current_metadata.seller_fee_basis_points
                     };
 
-                upsert_asset_with_royalty_amount(
+                upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
+                    OwnerType::Single,
+                    false,
+                    SpecificationVersions::V1,
+                    SpecificationAssetClass::Nft,
+                    RoyaltyTargetType::Creators,
+                    None,
                     seller_fee_basis_points as i32,
+                    slot_i,
                     seq as i64,
                 )
                 .await?;
@@ -164,16 +164,6 @@ where
                 .await?;
 
                 upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
-
-                // Update `asset_creators` table.
-
-                // Delete any existing creators.
-                asset_creators::Entity::delete_many()
-                    .filter(
-                        Condition::all().add(asset_creators::Column::AssetId.eq(id_bytes.to_vec())),
-                    )
-                    .exec(txn)
-                    .await?;
 
                 // Upsert into `asset_creators` table.
                 let creators = if let Some(creators) = &update_args.creators {
