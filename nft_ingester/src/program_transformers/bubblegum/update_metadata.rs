@@ -155,7 +155,7 @@ where
                 .await?;
 
                 // Partial update of asset table with just leaf.
-                let tree_id = bundle.keys.get(5).unwrap().0.to_vec();
+                let tree_id = bundle.keys.get(8).unwrap().0.to_vec();
                 upsert_asset_with_leaf_info(
                     &multi_txn,
                     id_bytes.to_vec(),
