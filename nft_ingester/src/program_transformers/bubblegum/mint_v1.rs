@@ -121,10 +121,8 @@ where
                     id: Set(id_bytes.to_vec()),
                     owner_type: Set(OwnerType::Single),
                     frozen: Set(false),
-                    tree_id: Set(Some(tree_id.clone())),
                     specification_version: Set(Some(SpecificationVersions::V1)),
                     specification_asset_class: Set(Some(SpecificationAssetClass::Nft)),
-                    nonce: Set(Some(nonce as i64)),
                     royalty_target_type: Set(RoyaltyTargetType::Creators),
                     royalty_target: Set(None),
                     asset_data: Set(Some(id_bytes.to_vec())),
@@ -144,6 +142,7 @@ where
                                 asset::Column::RoyaltyTargetType,
                                 asset::Column::RoyaltyTarget,
                                 asset::Column::AssetData,
+                                asset::Column::SlotUpdated,
                             ])
                             .to_owned(),
                     )
