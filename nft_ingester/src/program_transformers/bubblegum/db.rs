@@ -723,7 +723,7 @@ where
         royalty_amount: Set(royalty_amount),
         asset_data: Set(Some(id)),
         slot_updated: Set(Some(slot_updated)),
-        //royalty_amount_seq: Set(Some(seq)),
+        base_info_seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -741,7 +741,7 @@ where
                     asset::Column::RoyaltyAmount,
                     asset::Column::AssetData,
                     asset::Column::SlotUpdated,
-                    asset::Column::RoyaltyAmountSeq,
+                    asset::Column::BaseInfoSeq,
                 ])
                 .to_owned(),
         )
@@ -750,7 +750,7 @@ where
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-        "{} WHERE asset.seq != 0 AND (excluded.royalty_amount_seq >= asset.royalty_amount_seq OR royalty_amount_seq.seq IS NULL)",
+        "{} WHERE asset.seq != 0 AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
         query.sql
     );
 

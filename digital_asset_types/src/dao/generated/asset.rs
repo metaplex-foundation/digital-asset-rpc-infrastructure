@@ -46,7 +46,7 @@ pub struct Model {
     pub owner_delegate_seq: Option<i64>,
     pub was_decompressed: bool,
     pub leaf_seq: Option<i64>,
-    pub royalty_amount_seq: Option<i64>,
+    pub base_info_seq: Option<i64>,
     pub creators_added_seq: Option<i64>,
 }
 
@@ -80,7 +80,7 @@ pub enum Column {
     OwnerDelegateSeq,
     WasDecompressed,
     LeafSeq,
-    RoyaltyAmountSeq,
+    BaseInfoSeq,
     CreatorsAddedSeq,
 }
 
@@ -137,7 +137,7 @@ impl ColumnTrait for Column {
             Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
             Self::WasDecompressed => ColumnType::Boolean.def(),
             Self::LeafSeq => ColumnType::BigInteger.def().null(),
-            Self::RoyaltyAmountSeq => ColumnType::BigInteger.def().null(),
+            Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
             Self::CreatorsAddedSeq => ColumnType::BigInteger.def().null(),
         }
     }
