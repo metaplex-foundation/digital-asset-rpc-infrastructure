@@ -157,7 +157,6 @@ pub fn create_asset(
             alt_id: None,
             creator_hash: None,
             owner_delegate_seq: Some(0),
-            was_decompressed: false,
             leaf_seq: Some(0),
             base_info_seq: Some(0),
             creators_added_seq: Some(0),
