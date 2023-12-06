@@ -182,9 +182,9 @@ where
         .build(DbBackend::Postgres);
 
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    // If the asset was decompressed, don't update the leaf info since we cleared it during decompression.
+    // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-        "{} WHERE asset.seq != 0 AND (NOT asset.was_decompressed) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
+        "{} WHERE asset.seq != 0 AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
         query.sql
     );
 
@@ -195,7 +195,7 @@ where
     Ok(())
 }
 
-pub async fn upsert_asset_with_leaf_info_for_decompression<T>(
+pub async fn upsert_asset_with_leaf_and_compression_info_for_decompression<T>(
     txn: &T,
     id: Vec<u8>,
 ) -> Result<(), IngesterError>
@@ -203,13 +203,17 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset::ActiveModel {
-        id: Set(id),
+        id: Set(id.clone()),
         nonce: Set(Some(0)),
         tree_id: Set(None),
         leaf: Set(None),
         data_hash: Set(None),
         creator_hash: Set(None),
-        leaf_seq: Set(None),
+        compressed: Set(false),
+        compressible: Set(false),
+        supply: Set(1),
+        supply_mint: Set(Some(id)),
+        seq: Set(Some(0)),
         ..Default::default()
     };
 
@@ -223,6 +227,11 @@ where
                     asset::Column::DataHash,
                     asset::Column::CreatorHash,
                     asset::Column::LeafSeq,
+                    asset::Column::Compressed,
+                    asset::Column::Compressible,
+                    asset::Column::Supply,
+                    asset::Column::SupplyMint,
+                    asset::Column::Seq,
                 ])
                 .to_owned(),
         )
@@ -252,7 +261,7 @@ where
         id: Set(id),
         owner: Set(Some(owner)),
         delegate: Set(delegate),
-        owner_delegate_seq: Set(Some(seq)), // gummyroll seq
+        owner_delegate_seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -289,7 +298,6 @@ pub async fn upsert_asset_with_compression_info<T>(
     compressible: bool,
     supply: i64,
     supply_mint: Option<Vec<u8>>,
-    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -300,7 +308,6 @@ where
         compressible: Set(compressible),
         supply: Set(supply),
         supply_mint: Set(supply_mint),
-        was_decompressed: Set(was_decompressed),
         ..Default::default()
     };
 
@@ -312,18 +319,13 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
-                    asset::Column::WasDecompressed,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    // Do not overwrite changes from Bubblegum decompress instruction itself.
-    query.sql = format!(
-        "{} WHERE asset.seq != 0 AND (NOT asset.was_decompressed)",
-        query.sql
-    );
+    query.sql = format!("{} WHERE asset.seq != 0", query.sql);
     txn.execute(query).await?;
 
     Ok(())
@@ -616,9 +618,13 @@ where
 
     if creators_should_be_updated(&multi_txn, id.clone(), seq).await? {
         if delete_existing {
-            // Delete any existing creators.
+            // Delete all existing creators that haven't been verified at a higher sequence number.
             asset_creators::Entity::delete_many()
-                .filter(Condition::all().add(asset_creators::Column::AssetId.eq(id.clone())))
+                .filter(
+                    Condition::all()
+                        .add(asset_creators::Column::AssetId.eq(id.clone()))
+                        .add(asset_creators::Column::VerifiedSeq.lt(seq)),
+                )
                 .exec(&multi_txn)
                 .await?;
         }

@@ -192,6 +192,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         nonce: Set(Some(0)),
         seq: Set(Some(0)),
         leaf: Set(None),
+        data_hash: Set(None),
+        creator_hash: Set(None),
         compressed: Set(false),
         compressible: Set(false),
         royalty_target_type: Set(RoyaltyTargetType::Creators),
