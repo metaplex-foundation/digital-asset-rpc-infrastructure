@@ -37,7 +37,6 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(asset::Entity)
                     .add_column(ColumnDef::new(Alias::new("base_info_seq")).big_integer())
-                    .add_column(ColumnDef::new(Alias::new("creators_added_seq")).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -73,7 +72,6 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(asset::Entity)
                     .drop_column(Alias::new("base_info_seq"))
-                    .drop_column(Alias::new("creators_added_seq"))
                     .to_owned(),
             )
             .await?;

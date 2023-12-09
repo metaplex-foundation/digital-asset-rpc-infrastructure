@@ -159,7 +159,6 @@ pub fn create_asset(
             owner_delegate_seq: Some(0),
             leaf_seq: Some(0),
             base_info_seq: Some(0),
-            creators_added_seq: Some(0),
         },
     )
 }

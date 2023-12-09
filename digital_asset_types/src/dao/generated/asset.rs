@@ -46,7 +46,6 @@ pub struct Model {
     pub owner_delegate_seq: Option<i64>,
     pub leaf_seq: Option<i64>,
     pub base_info_seq: Option<i64>,
-    pub creators_added_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -79,7 +78,6 @@ pub enum Column {
     OwnerDelegateSeq,
     LeafSeq,
     BaseInfoSeq,
-    CreatorsAddedSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -135,7 +133,6 @@ impl ColumnTrait for Column {
             Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
             Self::LeafSeq => ColumnType::BigInteger.def().null(),
             Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
-            Self::CreatorsAddedSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
