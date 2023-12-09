@@ -552,10 +552,10 @@ pub async fn lock_asset_creators_and_check_asset_base_info_seq<T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    // Lock asset_creators table from any updates.
+    // Lock asset_creators table from any updates, but allow reads.
     let lock_query = Statement::from_string(
         DbBackend::Postgres,
-        "LOCK TABLE asset_creators IN ACCESS EXCLUSIVE MODE".to_string(),
+        "LOCK TABLE asset_creators IN EXCLUSIVE MODE".to_string(),
     );
     txn.execute(lock_query).await?;
 
