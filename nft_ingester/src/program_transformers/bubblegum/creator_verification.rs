@@ -91,7 +91,6 @@ where
 
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-                // Commit transaction and relinqish the lock.
                 multi_txn.commit().await?;
 
                 id_bytes.to_vec()

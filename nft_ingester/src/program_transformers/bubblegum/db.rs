@@ -392,7 +392,7 @@ where
     // automatically rolled back.
     let multi_txn = txn.begin().await?;
 
-    if creators_should_be_updated(&multi_txn, asset_id, seq).await? {
+    if lock_asset_creators_and_check_asset_base_info_seq(&multi_txn, asset_id, seq).await? {
         let mut query = asset_creators::Entity::insert(model)
             .on_conflict(
                 OnConflict::columns([
@@ -418,7 +418,6 @@ where
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
     }
 
-    // Commit transaction and relinqish the lock.
     multi_txn.commit().await?;
 
     Ok(())
@@ -545,7 +544,7 @@ where
     Ok(())
 }
 
-pub async fn creators_should_be_updated<T>(
+pub async fn lock_asset_creators_and_check_asset_base_info_seq<T>(
     txn: &T,
     id: Vec<u8>,
     seq: i64,
@@ -553,12 +552,23 @@ pub async fn creators_should_be_updated<T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    // Lock asset_creators table from any updates.
+    let lock_query = Statement::from_string(
+        DbBackend::Postgres,
+        "LOCK TABLE asset_creators IN ACCESS EXCLUSIVE MODE".to_string(),
+    );
+    txn.execute(lock_query).await?;
+
+    // Select asset and lock that particular row.
     if let Some(asset) = asset::Entity::find_by_id(id).one(txn).await? {
+        // Don't overwrite changes from after decompression.
         if let Some(0) = asset.seq {
             return Ok(false);
         }
-        if let Some(creators_added_seq) = asset.creators_added_seq {
-            if seq < creators_added_seq {
+
+        // Don't overwrite changes from a subsequent Bubblegum instruction (i.e. update_metadata).
+        if let Some(base_info_seq) = asset.base_info_seq {
+            if seq < base_info_seq {
                 return Ok(false);
             }
         }
@@ -566,47 +576,21 @@ where
     Ok(true)
 }
 
-pub async fn upsert_asset_with_creators_added_seq<T>(
+#[allow(clippy::too_many_arguments)]
+pub async fn upsert_asset_base_info_and_creators<T>(
     txn: &T,
     id: Vec<u8>,
-    seq: i64,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let model = asset::ActiveModel {
-        id: Set(id),
-        creators_added_seq: Set(Some(seq)),
-        ..Default::default()
-    };
-
-    let mut query = asset::Entity::insert(model)
-        .on_conflict(
-            OnConflict::column(asset::Column::Id)
-                .update_columns([asset::Column::CreatorsAddedSeq])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    query.sql = format!(
-        "{} WHERE excluded.creators_added_seq >= asset.creators_added_seq OR asset.creators_added_seq IS NULL",
-        query.sql
-    );
-
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-    Ok(())
-}
-
-pub async fn upsert_creators<T>(
-    txn: &T,
-    id: Vec<u8>,
-    creators: &Vec<Creator>,
+    owner_type: OwnerType,
+    frozen: bool,
+    specification_version: SpecificationVersions,
+    specification_asset_class: SpecificationAssetClass,
+    royalty_target_type: RoyaltyTargetType,
+    royalty_target: Option<Vec<u8>>,
+    royalty_amount: i32,
     slot_updated: i64,
     seq: i64,
-    delete_existing: bool,
+    creators: &Vec<Creator>,
+    delete_existing_creators: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -616,8 +600,52 @@ where
     // automatically rolled back.
     let multi_txn = txn.begin().await?;
 
-    if creators_should_be_updated(&multi_txn, id.clone(), seq).await? {
-        if delete_existing {
+    if lock_asset_creators_and_check_asset_base_info_seq(&multi_txn, id.clone(), seq).await? {
+        // Set base info for asset.
+        let asset_model = asset::ActiveModel {
+            id: Set(id.clone()),
+            owner_type: Set(owner_type),
+            frozen: Set(frozen),
+            specification_version: Set(Some(specification_version)),
+            specification_asset_class: Set(Some(specification_asset_class)),
+            royalty_target_type: Set(royalty_target_type),
+            royalty_target: Set(royalty_target),
+            royalty_amount: Set(royalty_amount),
+            asset_data: Set(Some(id.clone())),
+            slot_updated: Set(Some(slot_updated)),
+            base_info_seq: Set(Some(seq)),
+            ..Default::default()
+        };
+
+        // Upsert asset table base info.
+        let mut query = asset::Entity::insert(asset_model)
+            .on_conflict(
+                OnConflict::columns([asset::Column::Id])
+                    .update_columns([
+                        asset::Column::OwnerType,
+                        asset::Column::Frozen,
+                        asset::Column::SpecificationVersion,
+                        asset::Column::SpecificationAssetClass,
+                        asset::Column::RoyaltyTargetType,
+                        asset::Column::RoyaltyTarget,
+                        asset::Column::RoyaltyAmount,
+                        asset::Column::AssetData,
+                        asset::Column::SlotUpdated,
+                        asset::Column::BaseInfoSeq,
+                    ])
+                    .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE asset.seq != 0 AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
+            query.sql
+        );
+
+        txn.execute(query)
+            .await
+            .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
+        if delete_existing_creators {
             // Delete all existing creators that haven't been verified at a higher sequence number.
             asset_creators::Entity::delete_many()
                 .filter(
@@ -702,79 +730,9 @@ where
         );
             multi_txn.execute(query).await?;
         }
-
-        upsert_asset_with_creators_added_seq(&multi_txn, id, seq).await?;
     }
 
-    // Commit transaction and relinqish the lock.
     multi_txn.commit().await?;
-
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn upsert_asset_base_info<T>(
-    txn: &T,
-    id: Vec<u8>,
-    owner_type: OwnerType,
-    frozen: bool,
-    specification_version: SpecificationVersions,
-    specification_asset_class: SpecificationAssetClass,
-    royalty_target_type: RoyaltyTargetType,
-    royalty_target: Option<Vec<u8>>,
-    royalty_amount: i32,
-    slot_updated: i64,
-    seq: i64,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    // Set initial mint info.
-    let asset_model = asset::ActiveModel {
-        id: Set(id.clone()),
-        owner_type: Set(owner_type),
-        frozen: Set(frozen),
-        specification_version: Set(Some(specification_version)),
-        specification_asset_class: Set(Some(specification_asset_class)),
-        royalty_target_type: Set(royalty_target_type),
-        royalty_target: Set(royalty_target),
-        royalty_amount: Set(royalty_amount),
-        asset_data: Set(Some(id)),
-        slot_updated: Set(Some(slot_updated)),
-        base_info_seq: Set(Some(seq)),
-        ..Default::default()
-    };
-
-    // Upsert asset table base info.
-    let mut query = asset::Entity::insert(asset_model)
-        .on_conflict(
-            OnConflict::columns([asset::Column::Id])
-                .update_columns([
-                    asset::Column::OwnerType,
-                    asset::Column::Frozen,
-                    asset::Column::SpecificationVersion,
-                    asset::Column::SpecificationAssetClass,
-                    asset::Column::RoyaltyTargetType,
-                    asset::Column::RoyaltyTarget,
-                    asset::Column::RoyaltyAmount,
-                    asset::Column::AssetData,
-                    asset::Column::SlotUpdated,
-                    asset::Column::BaseInfoSeq,
-                ])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    // Do not overwrite changes from a later Bubblegum instruction.
-    query.sql = format!(
-        "{} WHERE asset.seq != 0 AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
-        query.sql
-    );
-
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }

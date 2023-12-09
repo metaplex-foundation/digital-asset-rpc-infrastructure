@@ -366,7 +366,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                             asset_creators::Column::Creator,
                             asset_creators::Column::Share,
                             asset_creators::Column::Verified,
-                            asset_creators::Column::VerifiedSeq,
                             asset_creators::Column::SlotUpdated,
                         ])
                         .to_owned(),

@@ -1,10 +1,9 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_authority, upsert_asset_base_info, upsert_asset_data,
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
+        save_changelog_event, upsert_asset_authority, upsert_asset_base_info_and_creators,
+        upsert_asset_data, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
         upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
-        upsert_creators,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -99,14 +98,9 @@ where
                 };
                 let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
 
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
-
-                // Upsert asset table base info.
-                upsert_asset_base_info(
-                    &multi_txn,
+                // Upsert `asset` table base info and `asset_creators` table.
+                upsert_asset_base_info_and_creators(
+                    txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
                     false,
@@ -117,8 +111,15 @@ where
                     metadata.seller_fee_basis_points as i32,
                     slot_i,
                     seq as i64,
+                    &metadata.creators,
+                    false,
                 )
                 .await?;
+
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
@@ -156,19 +157,7 @@ where
 
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-                // Commit transaction and relinqish the lock.
                 multi_txn.commit().await?;
-
-                // Upsert into `asset_creators` table.
-                upsert_creators(
-                    txn,
-                    id_bytes.to_vec(),
-                    &metadata.creators,
-                    slot_i,
-                    seq as i64,
-                    false,
-                )
-                .await?;
 
                 // Insert into `asset_authority` table.
                 //TODO - we need to remove the optional bubblegum signer logic

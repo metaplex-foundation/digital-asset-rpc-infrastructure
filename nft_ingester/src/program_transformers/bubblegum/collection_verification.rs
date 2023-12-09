@@ -77,7 +77,6 @@ where
         )
         .await?;
 
-        // Commit transaction and relinqish the lock.
         multi_txn.commit().await?;
 
         return Ok(());
