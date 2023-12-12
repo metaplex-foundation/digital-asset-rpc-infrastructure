@@ -7,9 +7,8 @@ use digital_asset_types::{
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_asset_batch, get_asset_proof_batch, get_assets_by_authority,
-        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
-        search_assets,
+        get_asset, get_asset_proofs, get_assets, get_assets_by_authority, get_assets_by_creator,
+        get_assets_by_group, get_assets_by_owner, get_proof_for_asset, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
@@ -178,11 +177,11 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
-    async fn get_asset_proof_batch(
+    async fn get_asset_proofs(
         self: &DasApi,
-        payload: GetAssetProofBatch,
+        payload: GetAssetProofs,
     ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError> {
-        let GetAssetProofBatch { ids } = payload;
+        let GetAssetProofs { ids } = payload;
 
         let batch_size = ids.len();
         if batch_size > 1000 {
@@ -194,7 +193,7 @@ impl ApiContract for DasApi {
             .map(|id| validate_pubkey(id.clone()).map(|id| id.to_bytes().to_vec()))
             .collect::<Result<Vec<Vec<u8>>, _>>()?;
 
-        let proofs = get_asset_proof_batch(&self.db_connection, id_bytes).await?;
+        let proofs = get_asset_proofs(&self.db_connection, id_bytes).await?;
 
         let result: HashMap<String, Option<AssetProof>> = ids
             .iter()
@@ -212,11 +211,11 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
-    async fn get_asset_batch(
+    async fn get_assets(
         self: &DasApi,
-        payload: GetAssetBatch,
+        payload: GetAssets,
     ) -> Result<Vec<Option<Asset>>, DasApiError> {
-        let GetAssetBatch { ids, options } = payload;
+        let GetAssets { ids, options } = payload;
 
         let batch_size = ids.len();
         if batch_size > 1000 {
@@ -230,7 +229,7 @@ impl ApiContract for DasApi {
 
         let options = options.unwrap_or_default();
 
-        let assets = get_asset_batch(
+        let assets = get_assets(
             &self.db_connection,
             id_bytes,
             batch_size as u64,

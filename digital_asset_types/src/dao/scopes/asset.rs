@@ -159,7 +159,7 @@ pub async fn get_assets_by_owner(
     .await
 }
 
-pub async fn get_asset_batch(
+pub async fn get_assets(
     conn: &impl ConnectionTrait,
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,

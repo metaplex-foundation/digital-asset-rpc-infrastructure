@@ -54,7 +54,7 @@ pub struct GetAsset {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetAssetBatch {
+pub struct GetAssets {
     pub ids: Vec<String>,
     #[serde(default, alias = "displayOptions")]
     pub options: Option<Options>,
@@ -68,7 +68,7 @@ pub struct GetAssetProof {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetAssetProofBatch {
+pub struct GetAssetProofs {
     pub ids: Vec<String>,
 }
 
@@ -158,13 +158,13 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
-        name = "getAssetProofBatch",
+        name = "getAssetProofs",
         params = "named",
         summary = "Get merkle proofs for compressed assets by their IDs"
     )]
-    async fn get_asset_proof_batch(
+    async fn get_asset_proofs(
         &self,
-        payload: GetAssetProofBatch,
+        payload: GetAssetProofs,
     ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError>;
     #[rpc(
         name = "getAsset",
@@ -173,14 +173,11 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset(&self, payload: GetAsset) -> Result<Asset, DasApiError>;
     #[rpc(
-        name = "getAssetBatch",
+        name = "getAssets",
         params = "named",
         summary = "Get assets by their IDs"
     )]
-    async fn get_asset_batch(
-        &self,
-        payload: GetAssetBatch,
-    ) -> Result<Vec<Option<Asset>>, DasApiError>;
+    async fn get_assets(&self, payload: GetAssets) -> Result<Vec<Option<Asset>>, DasApiError>;
     #[rpc(
         name = "getAssetsByOwner",
         params = "named",

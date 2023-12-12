@@ -89,7 +89,7 @@ pub async fn get_proof_for_asset(
     Ok(asset_proof)
 }
 
-pub async fn get_asset_proof_batch(
+pub async fn get_asset_proofs(
     db: &DatabaseConnection,
     asset_ids: Vec<Vec<u8>>,
 ) -> Result<HashMap<String, AssetProof>, DbErr> {

@@ -15,14 +15,14 @@ pub async fn get_asset(
     asset_to_rpc(asset, options)
 }
 
-pub async fn get_asset_batch(
+pub async fn get_assets(
     db: &DatabaseConnection,
     ids: Vec<Vec<u8>>,
     limit: u64,
     options: &Options,
 ) -> Result<HashMap<String, Asset>, DbErr> {
     let pagination = Pagination::Page { page: 1 };
-    let assets = scopes::asset::get_asset_batch(db, ids, &pagination, limit).await?;
+    let assets = scopes::asset::get_assets(db, ids, &pagination, limit).await?;
     let asset_list = build_asset_response(assets, limit, &pagination, options);
     let asset_map = asset_list
         .items
