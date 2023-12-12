@@ -1,7 +1,7 @@
 use crate::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::display_options::DisplayOptions;
 use digital_asset_types::rpc::filter::SearchConditionType;
+use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::AssetList;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
@@ -23,8 +23,8 @@ pub struct GetAssetsByGroup {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -38,8 +38,8 @@ pub struct GetAssetsByOwner {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -48,16 +48,16 @@ pub struct GetAssetsByOwner {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetBatch {
     pub ids: Vec<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -82,8 +82,8 @@ pub struct GetAssetsByCreator {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -117,8 +117,8 @@ pub struct SearchAssets {
     pub after: Option<String>,
     #[serde(default)]
     pub json_uri: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
     #[serde(default)]
@@ -134,8 +134,8 @@ pub struct GetAssetsByAuthority {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }

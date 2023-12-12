@@ -3,8 +3,8 @@ use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::rpc::display_options::DisplayOptions;
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
+use crate::rpc::options::Options;
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
@@ -50,7 +50,7 @@ pub fn build_asset_response(
     assets: Vec<FullAsset>,
     limit: u64,
     pagination: &Pagination,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> AssetList {
     let total = assets.len() as u32;
     let (page, before, after, cursor) = match pagination {
@@ -70,7 +70,7 @@ pub fn build_asset_response(
         }
     };
 
-    let (items, errors) = asset_list_to_rpc(assets, display_options);
+    let (items, errors) = asset_list_to_rpc(assets, options);
     AssetList {
         total,
         limit: limit as u32,
@@ -285,12 +285,12 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
 
 pub fn to_grouping(
     groups: Vec<asset_grouping::Model>,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> Result<Vec<Group>, DbErr> {
     let result: Vec<Group> = groups
         .iter()
         .filter_map(|model| {
-            let verified = match display_options.show_unverified_collections {
+            let verified = match options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
                 true => Some(model.verified.unwrap_or(true)),
                 false => None,
@@ -322,7 +322,7 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
 }
 
 //TODO -> impl custom error type
-pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Result<RpcAsset, DbErr> {
+pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbErr> {
     let FullAsset {
         asset,
         data,
@@ -332,7 +332,7 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
-    let rpc_groups = to_grouping(groups, display_options)?;
+    let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
@@ -414,13 +414,13 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
 
 pub fn asset_list_to_rpc(
     asset_list: Vec<FullAsset>,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> (Vec<RpcAsset>, Vec<AssetError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
             let id = bs58::encode(asset.asset.id.clone()).into_string();
-            match asset_to_rpc(asset, display_options) {
+            match asset_to_rpc(asset, options) {
                 Ok(rpc_asset) => assets.push(rpc_asset),
                 Err(e) => errors.push(AssetError {
                     id,

@@ -1,7 +1,7 @@
 use super::common::{build_asset_response, create_pagination, create_sorting};
 use crate::{
     dao::{scopes, PageOptions, SearchAssetsQuery},
-    rpc::{display_options::DisplayOptions, filter::AssetSorting, response::AssetList},
+    rpc::{filter::AssetSorting, options::Options, response::AssetList},
 };
 use sea_orm::{DatabaseConnection, DbErr};
 
@@ -10,7 +10,7 @@ pub async fn search_assets(
     search_assets_query: SearchAssetsQuery,
     sorting: AssetSorting,
     page_options: &PageOptions,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> Result<AssetList, DbErr> {
     let pagination = create_pagination(&page_options)?;
     let (sort_direction, sort_column) = create_sorting(sorting);
@@ -23,13 +23,13 @@ pub async fn search_assets(
         sort_direction,
         &pagination,
         page_options.limit,
-        display_options.show_unverified_collections,
+        options.show_unverified_collections,
     )
     .await?;
     Ok(build_asset_response(
         assets,
         page_options.limit,
         &pagination,
-        display_options,
+        options,
     ))
 }
