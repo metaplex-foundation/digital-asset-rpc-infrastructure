@@ -84,18 +84,32 @@ where
             decompress::decompress(parsing_result, bundle, txn).await?;
         }
         InstructionName::VerifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, true, cl_audits, ix_str).await?;
+            creator_verification::process(parsing_result, bundle, txn, true, cl_audits, ix_str)
+                .await?;
         }
         InstructionName::UnverifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, false, cl_audits, ix_str).await?;
+            creator_verification::process(parsing_result, bundle, txn, false, cl_audits, ix_str)
+                .await?;
         }
         InstructionName::VerifyCollection
         | InstructionName::UnverifyCollection
         | InstructionName::SetAndVerifyCollection => {
-            collection_verification::process(parsing_result, bundle, txn, cl_audits, ix_str).await?;
+            collection_verification::process(parsing_result, bundle, txn, cl_audits, ix_str)
+                .await?;
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
+    // TODO: assuming tree update available on all transactions but need to confirm.
+    if let Some(tree_update) = &parsing_result.tree_update {
+        save_tree_transaction(
+            tree_update.id.to_bytes().to_vec(),
+            bundle.slot,
+            bundle.txn_id,
+            txn,
+        )
+        .await?;
+    }
+
     Ok(())
 }
 

@@ -13,3 +13,4 @@ pub use super::raw_txn::Entity as RawTxn;
 pub use super::tasks::Entity as Tasks;
 pub use super::token_accounts::Entity as TokenAccounts;
 pub use super::tokens::Entity as Tokens;
+pub use super::tree_transactions::Entity as TreeTransactions;

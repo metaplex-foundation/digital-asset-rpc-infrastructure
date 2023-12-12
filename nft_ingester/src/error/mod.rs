@@ -52,6 +52,10 @@ pub enum IngesterError {
     HttpError { status_code: String },
     #[error("AssetIndex Error {0}")]
     AssetIndexError(String),
+    #[error("TryFromInt Error {0}")]
+    TryFromInt(#[from] std::num::TryFromIntError),
+    #[error("Chrono FixedOffset Error")]
+    ChronoFixedOffset,
 }
 
 impl From<reqwest::Error> for IngesterError {

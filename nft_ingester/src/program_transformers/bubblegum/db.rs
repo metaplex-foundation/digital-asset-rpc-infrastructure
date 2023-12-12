@@ -1,15 +1,77 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items,
+    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items, tree_transactions,
 };
-use log::{debug, info, error};
+use log::{debug, error, info};
 use mpl_bubblegum::types::Collection;
 use sea_orm::{
-    query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
+    query::*, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait, DbBackend,
+    EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
 
 use std::convert::From;
+
+/// Mark tree transaction as processed. If the transaction already exists, update the `processed_at` field.
+///
+/// This function takes in a tree ID, slot, transaction ID, and a transaction object.
+/// It first checks if a tree transaction with the given transaction ID already exists.
+/// If it does, it updates the `processed_at` field of the existing tree transaction with the current time.
+/// If it doesn't, it creates a new tree transaction with the provided parameters and saves it.
+///
+/// # Arguments
+///
+/// * `tree_id` - A vector of bytes representing the ID of the tree.
+/// * `slot` - A 64-bit unsigned integer representing the slot.
+/// * `txn_id` - A string slice representing the transaction ID.
+/// * `txn` - A reference to a transaction object.
+///
+/// # Returns
+///
+/// This function returns a `Result` that contains an empty tuple, or an `IngesterError` if the operation fails.
+pub async fn save_tree_transaction<'c, T>(
+    tree_id: Vec<u8>,
+    slot: u64,
+    txn_id: &str,
+    txn: &T,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let now = chrono::Utc::now()
+        .with_timezone(&chrono::FixedOffset::east_opt(0).ok_or(IngesterError::ChronoFixedOffset)?);
+
+    let tree_transaction = tree_transactions::Entity::find()
+        .filter(tree_transactions::Column::Signature.eq(txn_id))
+        .one(txn)
+        .await?;
+
+    if let Some(tree_transaction) = tree_transaction {
+        let mut tree_transaction: tree_transactions::ActiveModel = tree_transaction.into();
+
+        tree_transaction.processed_at = Set(Some(now));
+
+        tree_transaction.save(txn).await?;
+    } else {
+        let tree_transaction = tree_transactions::ActiveModel {
+            signature: Set(txn_id.to_string()),
+            slot: Set(i64::try_from(slot)?),
+            tree: Set(tree_id.to_vec()),
+            processed_at: Set(Some(now)),
+            ..Default::default()
+        };
+
+        tree_transactions::Entity::insert(tree_transaction)
+            .on_conflict(
+                OnConflict::column(tree_transactions::Column::Signature)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .exec(txn)
+            .await?;
+    }
+    Ok(())
+}
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -103,36 +165,7 @@ where
         }
     }
 
-    // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
-    // a single row into the `backfill_items` table.  This way if an incomplete path was inserted
-    // into `cl_items` due to an error, a gap will be created for the tree and the backfiller will
-    // fix it.
-    if i - 1 == depth as i64 {
-        // See if the tree already exists in the `backfill_items` table.
-        let rows = backfill_items::Entity::find()
-            .filter(backfill_items::Column::Tree.eq(tree_id))
-            .limit(1)
-            .all(txn)
-            .await?;
-
-        // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
-        // then we know we will need to backfill the tree from sequence number 1 up to the current
-        // sequence number.  So in this case we set at flag to force checking the tree.
-        let force_chk = rows.is_empty() && change_log_event.seq > 1;
-
-        info!("Adding to backfill_items table at level {}", i - 1);
-        let item = backfill_items::ActiveModel {
-            tree: Set(tree_id.to_vec()),
-            seq: Set(change_log_event.seq as i64),
-            slot: Set(slot as i64),
-            force_chk: Set(force_chk),
-            backfilled: Set(false),
-            failed: Set(false),
-            ..Default::default()
-        };
-
-        backfill_items::Entity::insert(item).exec(txn).await?;
-    }
+    // TODO: drop `backfill_items` table if not needed anymore for backfilling
 
     Ok(())
     //TODO -> set maximum size of path and break into multiple statements

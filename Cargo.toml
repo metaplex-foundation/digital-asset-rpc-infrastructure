@@ -3,6 +3,7 @@ members = [
   "digital_asset_types",
   "metaplex-rpc-proxy",
   "nft_ingester",
+  "tree_backfiller",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
   "tools/fetch_trees",

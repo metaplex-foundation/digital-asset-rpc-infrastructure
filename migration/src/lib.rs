@@ -32,6 +32,7 @@ mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
 mod m20231101_120101_add_instruction_into_cl_audit;
 mod m20231101_120101_cl_audit_table_index;
+mod m20231208_103949_create_tree_transactions_table;
 
 pub struct Migrator;
 
@@ -71,6 +72,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230919_072154_cl_audits::Migration),
             Box::new(m20231101_120101_add_instruction_into_cl_audit::Migration),
             Box::new(m20231101_120101_cl_audit_table_index::Migration),
+            Box::new(m20231208_103949_create_tree_transactions_table::Migration),
         ]
     }
 }

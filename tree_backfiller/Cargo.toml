@@ -1,13 +1,15 @@
 [package]
-name = "nft_ingester"
-version = "0.7.2"
+name = "das-tree-backfiller"
+version = "0.8.0"
 edition = "2021"
 publish = false
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-hex = "0.4.3"
 log = "0.4.17"
 env_logger = "0.10.0"
+anyhow = "1.0.75"
 redis = { version = "0.22.3", features = [
   "aio",
   "tokio-comp",
@@ -19,6 +21,7 @@ futures-util = "0.3.27"
 base64 = "0.21.0"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
+anchor-client = "0.28.0"
 tokio = { version = "1.26.0", features = ["full", "tracing"] }
 sqlx = { version = "0.6.2", features = [
   "macros",
@@ -79,8 +82,7 @@ tracing-subscriber = { version = "0.3.16", features = [
   "env-filter",
   "ansi",
 ] }
-clap = { version = "4.2.2", features = ["derive", "cargo"] }
+clap = { version = "4.2.2", features = ["derive", "cargo", "env"] }
 
-[dependencies.num-integer]
-version = "0.1.44"
-default-features = false
+[lints]
+workspace = true

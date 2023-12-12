@@ -414,7 +414,8 @@ pub async fn get_signatures_for_asset(
 ) -> Result<Vec<(String, Option<String>)>, DbErr> {
     // if tree_id and leaf_idx are provided, use them directly to fetch transactions
     if let (Some(tree_id), Some(leaf_idx)) = (tree_id, leaf_idx) {
-        let transactions = fetch_transactions(conn, tree_id, leaf_idx, sort_direction, pagination, limit).await?;
+        let transactions =
+            fetch_transactions(conn, tree_id, leaf_idx, sort_direction, pagination, limit).await?;
         return Ok(transactions);
     }
 
@@ -442,7 +443,8 @@ pub async fn get_signatures_for_asset(
         let leaf_id = asset
             .nonce
             .ok_or(DbErr::RecordNotFound("Leaf ID does not exist".to_string()))?;
-        let transactions = fetch_transactions(conn, tree, leaf_id, sort_direction, pagination, limit).await?;
+        let transactions =
+            fetch_transactions(conn, tree, leaf_id, sort_direction, pagination, limit).await?;
         Ok(transactions)
     } else {
         Ok(Vec::new())
@@ -461,7 +463,13 @@ pub async fn fetch_transactions(
     stmt = stmt.filter(cl_audits::Column::LeafIdx.eq(leaf_id));
     stmt = stmt.order_by(cl_audits::Column::CreatedAt, sea_orm::Order::Desc);
 
-    stmt = paginate(pagination, limit, stmt, sort_direction, cl_audits::Column::Id);
+    stmt = paginate(
+        pagination,
+        limit,
+        stmt,
+        sort_direction,
+        cl_audits::Column::Id,
+    );
     let transactions = stmt.all(conn).await?;
     let transaction_list: Vec<(String, Option<String>)> = transactions
         .into_iter()

@@ -7,10 +7,17 @@ publish = false
 
 [dependencies]
 spl-concurrent-merkle-tree = "0.2.0"
-sea-orm = { optional = true, version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-orm = { optional = true, version = "0.10.6", features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-postgres",
+  "with-chrono",
+] }
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
 serde = { version = "1.0.137", optional = true }
-serde_json = { version = "1.0.81", optional = true, features=["preserve_order"] }
+serde_json = { version = "1.0.81", optional = true, features = [
+  "preserve_order",
+] }
 bs58 = "0.4.0"
 borsh = { version = "~0.10.3", optional = true }
 borsh-derive = { version = "~0.10.3", optional = true }
