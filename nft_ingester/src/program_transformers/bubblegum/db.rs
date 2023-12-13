@@ -184,7 +184,7 @@ where
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-        "{} WHERE asset.seq != 0 AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
+        "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
         query.sql
     );
 
@@ -238,7 +238,7 @@ where
         .build(DbBackend::Postgres);
 
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    query.sql = format!("{} WHERE asset.seq != 0", query.sql);
+    query.sql = format!("{} WHERE asset.seq != 0 OR asset.seq IS NULL", query.sql);
 
     txn.execute(query)
         .await
@@ -280,7 +280,7 @@ where
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-            "{} WHERE asset.seq != 0 AND (excluded.owner_delegate_seq >= asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL)",
+            "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.owner_delegate_seq >= asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL)",
             query.sql
         );
 
@@ -325,7 +325,7 @@ where
         .build(DbBackend::Postgres);
 
     // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    query.sql = format!("{} WHERE asset.seq != 0", query.sql);
+    query.sql = format!("{} WHERE asset.seq != 0 OR asset.seq IS NULL", query.sql);
     txn.execute(query).await?;
 
     Ok(())
@@ -637,7 +637,7 @@ where
             )
             .build(DbBackend::Postgres);
         query.sql = format!(
-            "{} WHERE asset.seq != 0 AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
+            "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
             query.sql
         );
 
