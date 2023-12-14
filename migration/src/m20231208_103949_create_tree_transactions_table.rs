@@ -1,4 +1,5 @@
-use sea_orm_migration::prelude::*;
+use sea_orm_migration::{sea_orm::ConnectionTrait, prelude::*};
+use sea_orm::Statement;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,6 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -25,6 +27,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        let stmt = Statement::from_sql_and_values(
+            manager.get_database_backend(),
+            r#"CREATE INDEX signature_processed_at_not_null_index ON tree_transactions (signature, processed_at) WHERE processed_at IS NOT NULL"#,
+            []
+        );
+
+        db.execute(stmt).await?;
+
         manager
             .create_index(
                 Index::create()
@@ -32,13 +42,16 @@ impl MigrationTrait for Migration {
                     .table(TreeTransactions::Table)
                     .col(TreeTransactions::Tree)
                     .col(TreeTransactions::Slot)
-                    .unique()
                     .to_owned(),
             )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_index(Index::drop().name("signature_processed_at_null_index").table(TreeTransactions::Table).to_owned())
+            .await?;
+
         manager
             .drop_index(Index::drop().name("tree_slot_index").table(TreeTransactions::Table).to_owned())
             .await?;

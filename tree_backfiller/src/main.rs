@@ -1,5 +1,6 @@
 mod backfiller;
 mod db;
+mod metrics;
 mod queue;
 mod tree;
 

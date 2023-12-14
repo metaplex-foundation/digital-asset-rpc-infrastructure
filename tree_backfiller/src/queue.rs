@@ -5,7 +5,7 @@ use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, MessengerError, MessengerType,
 };
 
-const TRANSACTION_BACKFILL_STREAM: &'static str = "TXNFILL";
+const TRANSACTION_BACKFILL_STREAM: &str = "TXNFILL";
 
 #[derive(Clone, Debug, Parser)]
 pub struct QueueArgs {
@@ -33,7 +33,7 @@ impl From<QueueArgs> for MessengerConfig {
 
         Self {
             messenger_type: MessengerType::Redis,
-            connection_config: connection_config,
+            connection_config,
         }
     }
 }
