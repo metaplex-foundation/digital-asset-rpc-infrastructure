@@ -8,6 +8,7 @@ use sea_orm::{
     query::*, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait, DbBackend,
     EntityTrait,
 };
+use solana_sdk::pubkey::Pubkey;
 use spl_account_compression::events::ChangeLogEventV1;
 
 use std::convert::From;
@@ -53,10 +54,12 @@ where
 
         tree_transaction.save(txn).await?;
     } else {
+        let tree = Pubkey::try_from(txn_id)?;
+
         let tree_transaction = tree_transactions::ActiveModel {
             signature: Set(txn_id.to_string()),
             slot: Set(i64::try_from(slot)?),
-            tree: Set(tree_id.to_vec()),
+            tree: Set(tree.to_string()),
             processed_at: Set(Some(now)),
             ..Default::default()
         };
