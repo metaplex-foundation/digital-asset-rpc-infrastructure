@@ -1,6 +1,3 @@
-
-
-
 # Tree Backfiller
 
 The Tree Backfiller crawls all trees on-chain and backfills any transactions related to a tree that have not already been observed.
@@ -18,7 +15,7 @@ Usage: das-tree-backfiller run [OPTIONS] --solana-rpc-url <SOLANA_RPC_URL> --dat
 
 Options:
       --solana-rpc-url <SOLANA_RPC_URL>
-          Solana RPC URL [env: SOLANA_RPC_URL=https://index.rpcpool.com/a4d23a00546272efeba9843a4ae4R]
+          Solana RPC URL [env: SOLANA_RPC_URL=]
       --tree-crawler-count <TREE_CRAWLER_COUNT>
           Number of tree crawler workers [env: TREE_CRAWLER_COUNT=] [default: 100]
       --signature-channel-size <SIGNATURE_CHANNEL_SIZE>
@@ -51,7 +48,6 @@ The Tree Backfiller provides several metrics for monitoring performance and stat
 
 Metric | Description
 --- | ---
-transaction.workers | Gauge of active worker threads
 transaction.failed | Count of failed transaction
 transaction.queued | Time for a transaction to be queued
 tree.crawled | Time to crawl a tree

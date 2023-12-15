@@ -4,8 +4,9 @@ use figment::value::{Dict, Value};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, Messenger, MessengerConfig, MessengerError, MessengerType,
 };
+use std::sync::{Arc, Mutex};
 
-const TRANSACTION_BACKFILL_STREAM: &str = "TXNFILL";
+const TRANSACTION_BACKFILL_STREAM: &'static str = "TXNFILL";
 
 #[derive(Clone, Debug, Parser)]
 pub struct QueueArgs {
@@ -33,11 +34,10 @@ impl From<QueueArgs> for MessengerConfig {
 
         Self {
             messenger_type: MessengerType::Redis,
-            connection_config,
+            connection_config: connection_config,
         }
     }
 }
-
 #[derive(Debug)]
 pub struct Queue(RedisMessenger);
 
@@ -46,7 +46,6 @@ impl Queue {
         let mut messenger = RedisMessenger::new(config.clone().into()).await?;
 
         messenger.add_stream(TRANSACTION_BACKFILL_STREAM).await?;
-
         messenger
             .set_buffer_size(
                 TRANSACTION_BACKFILL_STREAM,

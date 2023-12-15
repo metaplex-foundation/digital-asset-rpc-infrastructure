@@ -38,12 +38,6 @@ impl Metrics {
         }
     }
 
-    pub fn gauge(&self, key: &str, amount: u64) {
-        if let Err(e) = self.0.gauge(key, amount) {
-            error!("submitting gauge: {:?}", e)
-        }
-    }
-
     pub fn increment(&self, key: &str) {
         if let Err(e) = self.0.count(key, 1) {
             error!("submitting increment: {:?}", e)

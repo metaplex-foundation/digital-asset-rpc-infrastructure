@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Eq, Serialize, Deserialize)]
 pub struct Model {
     pub signature: String,
-    pub tree: Vec<u8>,
+    pub tree: String,
     pub slot: i64,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub processed_at: Option<DateTimeWithTimeZone>,
@@ -49,8 +49,8 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Signature => ColumnType::Char(Some(84u32)).def(),
-            Self::Tree => ColumnType::Binary.def(),
+            Self::Signature => ColumnType::Text.def(),
+            Self::Tree => ColumnType::Text.def(),
             Self::Slot => ColumnType::BigInteger.def(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::ProcessedAt => ColumnType::TimestampWithTimeZone.def().null(),

@@ -15,25 +15,17 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(TreeTransactions::Signature)
-                            .char_len(88)
+                            .string()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(TreeTransactions::Tree).binary().not_null())
+                    .col(ColumnDef::new(TreeTransactions::Tree).string().not_null())
                     .col(ColumnDef::new(TreeTransactions::Slot).big_integer().not_null())
                     .col(ColumnDef::new(TreeTransactions::CreatedAt).timestamp_with_time_zone().default("now()"))
                     .col(ColumnDef::new(TreeTransactions::ProcessedAt).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;
-
-        let stmt = Statement::from_sql_and_values(
-            manager.get_database_backend(),
-            r#"CREATE INDEX signature_processed_at_not_null_index ON tree_transactions (signature, processed_at) WHERE processed_at IS NOT NULL"#,
-            []
-        );
-
-        db.execute(stmt).await?;
 
         manager
             .create_index(
@@ -48,10 +40,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_index(Index::drop().name("signature_processed_at_null_index").table(TreeTransactions::Table).to_owned())
-            .await?;
-
         manager
             .drop_index(Index::drop().name("tree_slot_index").table(TreeTransactions::Table).to_owned())
             .await?;

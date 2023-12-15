@@ -3,7 +3,7 @@ use borsh::BorshDeserialize;
 use clap::Args;
 use digital_asset_types::dao::tree_transactions;
 use flatbuffers::FlatBufferBuilder;
-use log::info;
+use log::{error, info};
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{
     sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
@@ -53,6 +53,8 @@ pub enum TreeErrorKind {
     PlerkleMessenger(#[from] plerkle_messenger::MessengerError),
     #[error("queue send")]
     QueueSend(#[from] tokio::sync::mpsc::error::SendError<Vec<u8>>),
+    #[error("parse pubkey")]
+    ParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
 }
 #[derive(Debug, Clone)]
 pub struct TreeHeaderResponse {
@@ -108,7 +110,7 @@ impl TreeResponse {
         let mut before = None;
 
         let until = tree_transactions::Entity::find()
-            .filter(tree_transactions::Column::Tree.eq(self.pubkey.as_ref()))
+            .filter(tree_transactions::Column::Tree.eq(self.pubkey.to_string()))
             .order_by_desc(tree_transactions::Column::Slot)
             .one(&conn)
             .await?
@@ -133,35 +135,21 @@ impl TreeResponse {
                 let slot = i64::try_from(sig.slot)?;
                 let sig = Signature::from_str(&sig.signature)?;
 
-                let tree_transaction_processed = tree_transactions::Entity::find()
-                    .filter(
-                        tree_transactions::Column::Signature
-                            .eq(sig.to_string())
-                            .and(tree_transactions::Column::ProcessedAt.is_not_null()),
-                    )
-                    .one(&conn)
-                    .await?;
-
-                if tree_transaction_processed.is_some() {
-                    info!("skipping previously processed transaction {}", sig);
-                    continue;
-                }
-
                 let tree_transaction = tree_transactions::ActiveModel {
                     signature: Set(sig.to_string()),
-                    tree: Set(self.pubkey.as_ref().to_vec()),
+                    tree: Set(self.pubkey.to_string()),
                     slot: Set(slot),
                     ..Default::default()
                 };
 
-                tree_transactions::Entity::insert(tree_transaction)
+                let _ = tree_transactions::Entity::insert(tree_transaction)
                     .on_conflict(
                         OnConflict::column(tree_transactions::Column::Signature)
                             .do_nothing()
                             .to_owned(),
                     )
                     .exec(&conn)
-                    .await?;
+                    .await;
 
                 sender.send(sig).await?;
 
