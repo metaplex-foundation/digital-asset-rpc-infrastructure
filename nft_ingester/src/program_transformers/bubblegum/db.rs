@@ -54,7 +54,7 @@ where
 
         tree_transaction.save(txn).await?;
     } else {
-        let tree = Pubkey::try_from(txn_id)?;
+        let tree = Pubkey::try_from(tree_id).map_err(|_| IngesterError::ParsePubkey)?;
 
         let tree_transaction = tree_transactions::ActiveModel {
             signature: Set(txn_id.to_string()),

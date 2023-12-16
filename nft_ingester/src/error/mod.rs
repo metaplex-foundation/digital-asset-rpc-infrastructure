@@ -56,8 +56,8 @@ pub enum IngesterError {
     TryFromInt(#[from] std::num::TryFromIntError),
     #[error("Chrono FixedOffset Error")]
     ChronoFixedOffset,
-    #[error("parse public")]
-    ParsePublic(#[from] solana_sdk::pubkey::ParsePubkeyError),
+    #[error("Pubkey parse")]
+    ParsePubkey,
 }
 
 impl From<reqwest::Error> for IngesterError {
