@@ -560,10 +560,12 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     // Vec to hold base creator information.
-    let mut db_creator_infos = Vec::with_capacity(creators.len());
+    let mut db_creators = Vec::with_capacity(creators.len());
 
     if creators.is_empty() {
-        db_creator_infos.push(asset_creators::ActiveModel {
+        // Bubblegum supports empty creator array.  In this case insert an empty Vec
+        // for the creator.
+        db_creators.push(asset_creators::ActiveModel {
             asset_id: Set(id.clone()),
             creator: Set(vec![]),
             position: Set(0),
@@ -582,14 +584,14 @@ where
                 continue;
             }
 
-            db_creator_infos.push(asset_creators::ActiveModel {
+            db_creators.push(asset_creators::ActiveModel {
                 asset_id: Set(id.clone()),
-                creator: Set(c.address.to_bytes().to_vec()),
                 position: Set(i as i16),
+                creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
-                slot_updated: Set(Some(slot_updated)),
                 verified: Set(c.verified),
                 verified_seq: Set(Some(seq)),
+                slot_updated: Set(Some(slot_updated)),
                 ..Default::default()
             });
 
@@ -598,7 +600,7 @@ where
     }
 
     // This statement will update base information for each creator.
-    let mut query = asset_creators::Entity::insert_many(db_creator_infos)
+    let mut query = asset_creators::Entity::insert_many(db_creators)
         .on_conflict(
             OnConflict::columns([
                 asset_creators::Column::AssetId,
@@ -616,7 +618,7 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-                "{} WHERE excluded.verified_seq >= asset_creators.verified_seq OR asset_creators.verified_seq IS NULL",
+                "{} WHERE (asset_creators.verified_seq != 0 AND excluded.verified_seq >= asset_creators.verified_seq) OR asset_creators.verified_seq IS NULL",
                 query.sql
             );
 

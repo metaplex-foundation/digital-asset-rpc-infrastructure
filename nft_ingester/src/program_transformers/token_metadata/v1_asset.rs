@@ -319,68 +319,77 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
-        let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
-            .filter(
-                Condition::all()
-                    .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                    .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
-            )
-            .all(conn)
-            .await?;
 
-        if !existing_creators.is_empty() {
-            let mut db_creators = Vec::with_capacity(creators.len());
-            for (i, c) in creators.into_iter().enumerate() {
-                if creators_set.contains(&c.address) {
-                    continue;
-                }
-                db_creators.push(asset_creators::ActiveModel {
-                    asset_id: Set(id.to_vec()),
-                    creator: Set(c.address.to_bytes().to_vec()),
-                    share: Set(c.share as i32),
-                    verified: Set(c.verified),
-                    slot_updated: Set(Some(slot_i)),
-                    position: Set(i as i16),
-                    ..Default::default()
-                });
-                creators_set.insert(c.address);
-            }
-            let txn = conn.begin().await?;
-            asset_creators::Entity::delete_many()
-                .filter(
-                    Condition::all()
-                        .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-                        .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
-                )
-                .exec(&txn)
-                .await?;
+        // TODO: We may not need to care about existing creators.
+        // let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+        //     .filter(
+        //         Condition::all()
+        //             .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+        //             .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
+        //     )
+        //     .all(conn)
+        //     .await?;
 
-            if !db_creators.is_empty() {
-                let mut query = asset_creators::Entity::insert_many(db_creators)
-                    .on_conflict(
-                        OnConflict::columns([
-                            asset_creators::Column::AssetId,
-                            asset_creators::Column::Position,
-                        ])
-                        .update_columns([
-                            asset_creators::Column::Creator,
-                            asset_creators::Column::Share,
-                            asset_creators::Column::Verified,
-                            asset_creators::Column::SlotUpdated,
-                        ])
-                        .to_owned(),
-                    )
-                    .build(DbBackend::Postgres);
-                query.sql = format!(
-                    "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
-                    query.sql
-                );
-                txn.execute(query)
-                    .await
-                    .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        //if !existing_creators.is_empty() {
+
+        let mut db_creators = Vec::with_capacity(creators.len());
+        for (i, c) in creators.into_iter().enumerate() {
+            if creators_set.contains(&c.address) {
+                continue;
             }
-            txn.commit().await?;
+            db_creators.push(asset_creators::ActiveModel {
+                asset_id: Set(id.to_vec()),
+                position: Set(i as i16),
+                creator: Set(c.address.to_bytes().to_vec()),
+                share: Set(c.share as i32),
+                verified: Set(c.verified),
+                verified_seq: Set(Some(0)),
+                slot_updated: Set(Some(slot_i)),
+                ..Default::default()
+            });
+            creators_set.insert(c.address);
         }
+
+        let txn = conn.begin().await?;
+
+        // TODO: Delete we don't need to delete existing as it won't truly work with concurrent
+        // processes anyways so we should filter out stale rows at the API level.
+        // asset_creators::Entity::delete_many()
+        //     .filter(
+        //         Condition::all()
+        //             .add(asset_creators::Column::AssetId.eq(id.to_vec()))
+        //             .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
+        //     )
+        //     .exec(&txn)
+        //     .await?;
+
+        if !db_creators.is_empty() {
+            let mut query = asset_creators::Entity::insert_many(db_creators)
+                .on_conflict(
+                    OnConflict::columns([
+                        asset_creators::Column::AssetId,
+                        asset_creators::Column::Position,
+                    ])
+                    .update_columns([
+                        asset_creators::Column::Creator,
+                        asset_creators::Column::Share,
+                        asset_creators::Column::Verified,
+                        asset_creators::Column::VerifiedSeq,
+                        asset_creators::Column::SlotUpdated,
+                    ])
+                    .to_owned(),
+                )
+                .build(DbBackend::Postgres);
+            query.sql = format!(
+                "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+                query.sql
+            );
+            txn.execute(query)
+                .await
+                .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        }
+        txn.commit().await?;
+        //}
     }
     if uri.is_empty() {
         warn!(

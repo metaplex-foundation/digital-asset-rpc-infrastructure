@@ -326,10 +326,19 @@ pub async fn get_by_id(
             creators.retain(|creator| creator.slot_updated == max_slot_updated);
         }
 
-        // Any creators that are not the max seq are stale rows, so remove them.
-        let max_seq = creators.iter().map(|creator| creator.verified_seq).max();
-        if let Some(max_seq) = max_seq {
-            creators.retain(|creator| creator.verified_seq == max_seq);
+        // Any creators that are not the max seq are stale rows or updated by Token Metadata (seq = 0), so remove them.
+        let seq = if creators
+            .iter()
+            .map(|creator| creator.verified_seq)
+            .any(|seq| seq == Some(0))
+        {
+            Some(Some(0))
+        } else {
+            creators.iter().map(|creator| creator.verified_seq).max()
+        };
+
+        if let Some(seq) = seq {
+            creators.retain(|creator| creator.verified_seq == seq);
         }
     }
 
