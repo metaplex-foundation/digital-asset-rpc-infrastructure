@@ -1,8 +1,8 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_creator_verified,
+        save_changelog_event, upsert_asset_creators, upsert_asset_with_leaf_info,
+        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
     },
 };
 use blockbuster::{
@@ -10,13 +10,13 @@ use blockbuster::{
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
 };
 use log::debug;
+use mpl_bubblegum::types::Creator;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
-    value: bool,
     cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
@@ -27,10 +27,26 @@ where
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let (creator, verify) = match payload {
+        let (updated_creators, creator, verify) = match payload {
             Payload::CreatorVerification {
-                creator, verify, ..
-            } => (creator, verify),
+                metadata,
+                creator,
+                verify,
+            } => {
+                let updated_creators: Vec<Creator> = metadata
+                    .creators
+                    .iter()
+                    .map(|c| {
+                        let mut c = c.clone();
+                        if c.address == *creator {
+                            c.verified = *verify
+                        };
+                        c
+                    })
+                    .collect();
+
+                (updated_creators, creator, verify)
+            }
             _ => {
                 return Err(IngesterError::ParsingError(
                     "Ix not parsed correctly".to_string(),
@@ -97,11 +113,12 @@ where
             }
         };
 
-        upsert_creator_verified(
+        // Upsert creators to `asset_creators` table.
+        upsert_asset_creators(
             txn,
             asset_id_bytes,
-            creator.to_bytes().to_vec(),
-            value,
+            &updated_creators,
+            bundle.slot as i64,
             seq as i64,
         )
         .await?;

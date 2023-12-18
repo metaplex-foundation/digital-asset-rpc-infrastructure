@@ -1,9 +1,10 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_authority, upsert_asset_base_info_and_creators,
-        upsert_asset_data, upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+        save_changelog_event, upsert_asset_authority, upsert_asset_base_info,
+        upsert_asset_creators, upsert_asset_data, upsert_asset_with_compression_info,
+        upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
+        upsert_asset_with_seq, upsert_collection_info,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -33,7 +34,15 @@ pub async fn mint_v1<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    if let (Some(le), Some(cl), Some(Payload::MintV1 { args })) = (
+    if let (
+        Some(le),
+        Some(cl),
+        Some(Payload::MintV1 {
+            args,
+            authority,
+            tree_id,
+        }),
+    ) = (
         &parsing_result.leaf_update,
         &parsing_result.tree_update,
         &parsing_result.payload,
@@ -90,16 +99,20 @@ where
                 )
                 .await?;
 
-                // Insert into `asset` table.
+                // Upsert `asset` table base info.
                 let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
                     None
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-                let tree_id = bundle.keys.get(3).unwrap().0.to_vec();
+
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
 
                 // Upsert `asset` table base info and `asset_creators` table.
-                upsert_asset_base_info_and_creators(
+                upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
@@ -111,15 +124,8 @@ where
                     metadata.seller_fee_basis_points as i32,
                     slot_i,
                     seq as i64,
-                    &metadata.creators,
-                    false,
                 )
                 .await?;
-
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
 
                 // Partial update of asset table with just compression info elements.
                 upsert_asset_with_compression_info(
@@ -137,7 +143,7 @@ where
                     &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
-                    tree_id,
+                    tree_id.to_vec(),
                     le.leaf_hash.to_vec(),
                     le.schema.data_hash(),
                     le.schema.creator_hash(),
@@ -159,11 +165,26 @@ where
 
                 multi_txn.commit().await?;
 
+                // Upsert creators to `asset_creators` table.
+                upsert_asset_creators(
+                    txn,
+                    id_bytes.to_vec(),
+                    &metadata.creators,
+                    slot_i,
+                    seq as i64,
+                )
+                .await?;
+
                 // Insert into `asset_authority` table.
                 //TODO - we need to remove the optional bubblegum signer logic
-                let authority = bundle.keys.get(0).unwrap().0.to_vec();
-                upsert_asset_authority(txn, id_bytes.to_vec(), authority, seq as i64, slot_i)
-                    .await?;
+                upsert_asset_authority(
+                    txn,
+                    id_bytes.to_vec(),
+                    authority.to_vec(),
+                    seq as i64,
+                    slot_i,
+                )
+                .await?;
 
                 // Upsert into `asset_grouping` table with base collection info.
                 upsert_collection_info(

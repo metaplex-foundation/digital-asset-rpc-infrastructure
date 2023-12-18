@@ -24,6 +24,6 @@ solana-account-decoder = "~1.16.16"
 solana-client = "~1.16.16"
 solana-sdk = "~1.16.16"
 solana-transaction-status = "~1.16.16"
-spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
+spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
 tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "time"] }
 txn_forwarder = { path = "../txn_forwarder" }

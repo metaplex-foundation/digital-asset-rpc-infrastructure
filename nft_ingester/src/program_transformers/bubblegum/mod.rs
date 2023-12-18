@@ -85,11 +85,8 @@ where
         InstructionName::DecompressV1 => {
             decompress::decompress(parsing_result, bundle, txn).await?;
         }
-        InstructionName::VerifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, true, cl_audits).await?;
-        }
-        InstructionName::UnverifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, false, cl_audits).await?;
+        InstructionName::VerifyCreator | InstructionName::UnverifyCreator => {
+            creator_verification::process(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::VerifyCollection
         | InstructionName::UnverifyCollection

@@ -1,7 +1,7 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_base_info_and_creators, upsert_asset_data,
+        save_changelog_event, upsert_asset_base_info, upsert_asset_creators, upsert_asset_data,
         upsert_asset_with_leaf_info, upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
@@ -38,6 +38,7 @@ where
         Some(Payload::UpdateMetadata {
             current_metadata,
             update_args,
+            tree_id,
         }),
     ) = (
         &parsing_result.leaf_update,
@@ -126,7 +127,7 @@ where
                 )
                 .await?;
 
-                // Upsert `asset` table base info and `asset_creators` table.
+                // Upsert `asset` table base info.
                 let seller_fee_basis_points =
                     if let Some(seller_fee_basis_points) = update_args.seller_fee_basis_points {
                         seller_fee_basis_points
@@ -140,7 +141,12 @@ where
                     &current_metadata.creators
                 };
 
-                upsert_asset_base_info_and_creators(
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
+
+                upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
@@ -152,23 +158,15 @@ where
                     seller_fee_basis_points as i32,
                     slot_i,
                     seq as i64,
-                    creators,
-                    true,
                 )
                 .await?;
 
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
-
                 // Partial update of asset table with just leaf.
-                let tree_id = bundle.keys.get(8).unwrap().0.to_vec();
                 upsert_asset_with_leaf_info(
                     &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
-                    tree_id,
+                    tree_id.to_vec(),
                     le.leaf_hash.to_vec(),
                     le.schema.data_hash(),
                     le.schema.creator_hash(),
@@ -179,6 +177,9 @@ where
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
                 multi_txn.commit().await?;
+
+                // Upsert creators to `asset_creators` table.
+                upsert_asset_creators(txn, id_bytes.to_vec(), creators, slot_i, seq as i64).await?;
 
                 if uri.is_empty() {
                     warn!(

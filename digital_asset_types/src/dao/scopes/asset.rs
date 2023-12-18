@@ -1,18 +1,14 @@
-use crate::{
-    dao::{
-        asset::{self, Entity},
-        asset_authority, asset_creators, asset_data, asset_grouping, FullAsset,
-        GroupingSize, Pagination,
-    },
-    dapi::common::safe_select,
-    rpc::{response::AssetList},
+use crate::dao::{
+    asset::{self},
+    asset_authority, asset_creators, asset_data, asset_grouping, FullAsset, GroupingSize,
+    Pagination,
 };
 
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-pub fn paginate<'db, T>(pagination: &Pagination, limit: u64, stmt: T) -> T
+pub fn paginate<T>(pagination: &Pagination, limit: u64, stmt: T) -> T
 where
     T: QueryFilter + QuerySelect,
 {
@@ -313,11 +309,30 @@ pub async fn get_by_id(
         .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
-    let creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+    let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
+
+    // If the first creator is an empty Vec, it means the creator array is empty (which is allowed
+    // in Bubblegum).
+    if !creators.is_empty() && creators[0].creator.is_empty() {
+        creators.clear();
+    } else {
+        // Any creators that are not the max slot_updated value are stale rows, so remove them.
+        let max_slot_updated = creators.iter().map(|creator| creator.slot_updated).max();
+        if let Some(max_slot_updated) = max_slot_updated {
+            creators.retain(|creator| creator.slot_updated == max_slot_updated);
+        }
+
+        // Any creators that are not the max seq are stale rows, so remove them.
+        let max_seq = creators.iter().map(|creator| creator.verified_seq).max();
+        if let Some(max_seq) = max_seq {
+            creators.retain(|creator| creator.verified_seq == max_seq);
+        }
+    }
+
     let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
