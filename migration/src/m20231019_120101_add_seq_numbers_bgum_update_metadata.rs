@@ -11,18 +11,6 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .get_connection()
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-                ALTER TABLE asset_creators
-                RENAME COLUMN seq to verified_seq;
-                "
-                .to_string(),
-            ))
-            .await?;
-
-        manager
             .alter_table(
                 Table::alter()
                     .table(asset_data::Entity)
@@ -45,18 +33,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .get_connection()
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-                ALTER TABLE asset_creators
-                RENAME COLUMN verified_seq to seq;
-                "
-                .to_string(),
-            ))
-            .await?;
-
         manager
             .alter_table(
                 Table::alter()

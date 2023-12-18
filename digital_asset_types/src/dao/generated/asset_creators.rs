@@ -19,7 +19,7 @@ pub struct Model {
     pub creator: Vec<u8>,
     pub share: i32,
     pub verified: bool,
-    pub verified_seq: Option<i64>,
+    pub seq: Option<i64>,
     pub slot_updated: Option<i64>,
     pub position: i16,
 }
@@ -31,7 +31,7 @@ pub enum Column {
     Creator,
     Share,
     Verified,
-    VerifiedSeq,
+    Seq,
     SlotUpdated,
     Position,
 }
@@ -62,7 +62,7 @@ impl ColumnTrait for Column {
             Self::Creator => ColumnType::Binary.def(),
             Self::Share => ColumnType::Integer.def(),
             Self::Verified => ColumnType::Boolean.def(),
-            Self::VerifiedSeq => ColumnType::BigInteger.def().null(),
+            Self::Seq => ColumnType::BigInteger.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def().null(),
             Self::Position => ColumnType::SmallInteger.def(),
         }

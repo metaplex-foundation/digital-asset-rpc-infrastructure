@@ -329,16 +329,16 @@ pub async fn get_by_id(
         // Any creators that are not the max seq are stale rows or updated by Token Metadata (seq = 0), so remove them.
         let seq = if creators
             .iter()
-            .map(|creator| creator.verified_seq)
+            .map(|creator| creator.seq)
             .any(|seq| seq == Some(0))
         {
             Some(Some(0))
         } else {
-            creators.iter().map(|creator| creator.verified_seq).max()
+            creators.iter().map(|creator| creator.seq).max()
         };
 
         if let Some(seq) = seq {
-            creators.retain(|creator| creator.verified_seq == seq);
+            creators.retain(|creator| creator.seq == seq);
         }
     }
 

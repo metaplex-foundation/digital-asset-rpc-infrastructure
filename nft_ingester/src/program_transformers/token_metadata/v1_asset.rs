@@ -343,8 +343,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
                 verified: Set(c.verified),
-                verified_seq: Set(Some(0)),
                 slot_updated: Set(Some(slot_i)),
+                seq: Set(Some(0)),
                 ..Default::default()
             });
             creators_set.insert(c.address);
@@ -374,8 +374,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                         asset_creators::Column::Creator,
                         asset_creators::Column::Share,
                         asset_creators::Column::Verified,
-                        asset_creators::Column::VerifiedSeq,
                         asset_creators::Column::SlotUpdated,
+                        asset_creators::Column::Seq,
                     ])
                     .to_owned(),
                 )

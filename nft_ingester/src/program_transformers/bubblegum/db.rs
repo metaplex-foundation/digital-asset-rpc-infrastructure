@@ -567,12 +567,12 @@ where
         // for the creator.
         db_creators.push(asset_creators::ActiveModel {
             asset_id: Set(id.clone()),
-            creator: Set(vec![]),
             position: Set(0),
+            creator: Set(vec![]),
             share: Set(100),
-            slot_updated: Set(Some(slot_updated)),
             verified: Set(false),
-            verified_seq: Set(Some(seq)),
+            slot_updated: Set(Some(slot_updated)),
+            seq: Set(Some(seq)),
             ..Default::default()
         });
     } else {
@@ -590,8 +590,8 @@ where
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
                 verified: Set(c.verified),
-                verified_seq: Set(Some(seq)),
                 slot_updated: Set(Some(slot_updated)),
+                seq: Set(Some(seq)),
                 ..Default::default()
             });
 
@@ -610,15 +610,15 @@ where
                 asset_creators::Column::Creator,
                 asset_creators::Column::Share,
                 asset_creators::Column::Verified,
-                asset_creators::Column::VerifiedSeq,
                 asset_creators::Column::SlotUpdated,
+                asset_creators::Column::Seq,
             ])
             .to_owned(),
         )
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-                "{} WHERE (asset_creators.verified_seq != 0 AND excluded.verified_seq >= asset_creators.verified_seq) OR asset_creators.verified_seq IS NULL",
+                "{} WHERE (asset_creators.seq != 0 AND excluded.seq >= asset_creators.seq) OR asset_creators.seq IS NULL",
                 query.sql
             );
 
