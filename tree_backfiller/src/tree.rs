@@ -3,11 +3,10 @@ use borsh::BorshDeserialize;
 use clap::Args;
 use digital_asset_types::dao::tree_transactions;
 use flatbuffers::FlatBufferBuilder;
-use log::{error, info};
+use log::error;
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{
-    sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    QueryFilter, QueryOrder,
+    ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
 };
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
@@ -32,6 +31,8 @@ use std::sync::Arc;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
+use crate::queue::{QueuePool, QueuePoolError};
+
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
 
 #[derive(Debug, Clone, Args)]
@@ -51,10 +52,12 @@ pub enum TreeErrorKind {
     PerkleSerialize(#[from] plerkle_serialization::error::PlerkleSerializationError),
     #[error("perkle messenger")]
     PlerkleMessenger(#[from] plerkle_messenger::MessengerError),
-    #[error("queue send")]
-    QueueSend(#[from] tokio::sync::mpsc::error::SendError<Vec<u8>>),
+    #[error("queue pool")]
+    QueuePool(#[from] QueuePoolError),
     #[error("parse pubkey")]
     ParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
+    #[error("serialize tree response")]
+    SerializeTreeResponse,
 }
 #[derive(Debug, Clone)]
 pub struct TreeHeaderResponse {
@@ -104,7 +107,7 @@ impl TreeResponse {
     pub async fn crawl(
         &self,
         client: Arc<RpcClient>,
-        sender: Sender<Signature>,
+        sender: Sender<tree_transactions::ActiveModel>,
         conn: DatabaseConnection,
     ) -> Result<()> {
         let mut before = None;
@@ -142,16 +145,7 @@ impl TreeResponse {
                     ..Default::default()
                 };
 
-                let _ = tree_transactions::Entity::insert(tree_transaction)
-                    .on_conflict(
-                        OnConflict::column(tree_transactions::Column::Signature)
-                            .do_nothing()
-                            .to_owned(),
-                    )
-                    .exec(&conn)
-                    .await;
-
-                sender.send(sig).await?;
+                sender.send(tree_transaction).await?;
 
                 before = Some(sig);
             }
@@ -189,9 +183,62 @@ pub async fn all(client: &Arc<RpcClient>) -> Result<Vec<TreeResponse>, TreeError
         .collect())
 }
 
+pub async fn find(
+    client: &Arc<RpcClient>,
+    pubkeys: Vec<String>,
+) -> Result<Vec<TreeResponse>, TreeErrorKind> {
+    let pubkeys: Vec<Pubkey> = pubkeys
+        .into_iter()
+        .map(|p| Pubkey::from_str(&p))
+        .collect::<Result<Vec<Pubkey>, _>>()?;
+    let pubkey_batches = pubkeys.chunks(100);
+    let pubkey_batches_count = pubkey_batches.len();
+
+    let mut gma_handles = Vec::with_capacity(pubkey_batches_count);
+
+    for batch in pubkey_batches {
+        gma_handles.push(async move {
+            let accounts = client
+                .get_multiple_accounts_with_config(
+                    batch,
+                    RpcAccountInfoConfig {
+                        commitment: Some(CommitmentConfig {
+                            commitment: CommitmentLevel::Finalized,
+                        }),
+                        ..RpcAccountInfoConfig::default()
+                    },
+                )
+                .await?
+                .value;
+
+            let results: Vec<(&Pubkey, Option<Account>)> =
+                batch.into_iter().zip(accounts).collect();
+
+            Ok::<_, TreeErrorKind>(results)
+        })
+    }
+
+    let result = futures::future::try_join_all(gma_handles).await?;
+
+    let trees = result
+        .into_iter()
+        .flatten()
+        .filter_map(|(pubkey, account)| {
+            if let Some(account) = account {
+                Some(TreeResponse::try_from_rpc(*pubkey, account))
+            } else {
+                None
+            }
+        })
+        .collect::<Result<Vec<TreeResponse>, _>>()
+        .map_err(|_| TreeErrorKind::SerializeTreeResponse)?;
+
+    Ok(trees)
+}
+
 pub async fn transaction<'a>(
     client: Arc<RpcClient>,
-    sender: Sender<Vec<u8>>,
+    queue: QueuePool,
     signature: Signature,
 ) -> Result<(), TreeErrorKind> {
     let transaction = client
@@ -210,7 +257,7 @@ pub async fn transaction<'a>(
 
     let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
 
-    sender.send(message.finished_data().to_vec()).await?;
+    queue.push(message.finished_data()).await?;
 
     Ok(())
 }
