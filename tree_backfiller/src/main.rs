@@ -2,6 +2,7 @@ mod backfiller;
 mod db;
 mod metrics;
 mod queue;
+mod rpc;
 mod tree;
 
 use anyhow::Result;

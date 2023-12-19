@@ -1,7 +1,9 @@
 use crate::db;
 use crate::{
     metrics::{Metrics, MetricsArgs},
-    queue, tree,
+    queue,
+    rpc::{Rpc, SolanaRpcArgs},
+    tree,
 };
 
 use anyhow::Result;
@@ -10,11 +12,7 @@ use digital_asset_types::dao::tree_transactions;
 use indicatif::HumanDuration;
 use log::{error, info};
 use sea_orm::SqlxPostgresConnector;
-use sea_orm::{
-    sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
-    QueryFilter, QueryOrder,
-};
-use solana_client::nonblocking::rpc_client::RpcClient;
+use sea_orm::{sea_query::OnConflict, EntityTrait};
 use solana_sdk::signature::Signature;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -25,10 +23,6 @@ use tokio::sync::{mpsc, Semaphore};
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Solana RPC URL
-    #[arg(long, env)]
-    pub solana_rpc_url: String,
-
     /// Number of tree crawler workers
     #[arg(long, env, default_value = "20")]
     pub tree_crawler_count: usize,
@@ -54,6 +48,10 @@ pub struct Args {
     /// Metrics configuration
     #[clap(flatten)]
     pub metrics: MetricsArgs,
+
+    /// Solana configuration
+    #[clap(flatten)]
+    pub solana: SolanaRpcArgs,
 }
 
 /// A thread-safe counter.
@@ -119,8 +117,8 @@ impl Clone for Counter {
 /// This function returns a `Result` which is `Ok` if the backfilling process completes
 /// successfully, or an `Error` if any part of the process fails.
 pub async fn run(config: Args) -> Result<()> {
-    let solana_rpc = Arc::new(RpcClient::new(config.solana_rpc_url));
-    let transaction_solana_rpc = Arc::clone(&solana_rpc);
+    let solana_rpc = Rpc::from_config(config.solana);
+    let transaction_solana_rpc = solana_rpc.clone();
 
     let pool = db::connect(config.database).await?;
     let transaction_pool = pool.clone();
@@ -144,14 +142,15 @@ pub async fn run(config: Args) -> Result<()> {
             let solana_rpc = transaction_solana_rpc.clone();
             let metrics = transaction_metrics.clone();
             let queue = queue.clone();
+            let semaphore = semaphore.clone();
             let pool = transaction_pool.clone();
             let count = transaction_worker_transaction_count.clone();
 
             count.increment();
 
-            let _permit = semaphore.acquire().await?;
-
             tokio::spawn(async move {
+                let _permit = semaphore.acquire().await?;
+
                 let timing = Instant::now();
                 let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
@@ -167,7 +166,7 @@ pub async fn run(config: Args) -> Result<()> {
                 if let Ok(tree_transaction) = inserted_tree_transaction {
                     let signature = Signature::from_str(&tree_transaction.signature)?;
 
-                    if let Err(e) = tree::transaction(solana_rpc, queue, signature).await {
+                    if let Err(e) = tree::transaction(&solana_rpc, queue, signature).await {
                         error!("tree transaction: {:?}", e);
                         metrics.increment("transaction.failed");
                     } else {
@@ -217,7 +216,7 @@ pub async fn run(config: Args) -> Result<()> {
 
             let timing = Instant::now();
 
-            if let Err(e) = tree.crawl(client, sig_sender, conn).await {
+            if let Err(e) = tree.crawl(&client, sig_sender, conn).await {
                 metrics.increment("tree.failed");
                 error!("crawling tree: {:?}", e);
             } else {

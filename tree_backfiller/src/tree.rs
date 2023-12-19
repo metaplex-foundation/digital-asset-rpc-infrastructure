@@ -8,30 +8,20 @@ use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{
     ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
 };
-use solana_account_decoder::UiAccountEncoding;
-use solana_client::{
-    nonblocking::rpc_client::RpcClient,
-    rpc_client::GetConfirmedSignaturesForAddress2Config,
-    rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcTransactionConfig},
-    rpc_filter::{Memcmp, RpcFilterType},
-};
-use solana_sdk::{
-    account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-    pubkey::Pubkey,
-    signature::Signature,
-};
-use solana_transaction_status::UiTransactionEncoding;
+use solana_client::rpc_filter::{Memcmp, RpcFilterType};
+use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
 use spl_account_compression::id;
 use spl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
 };
 use std::str::FromStr;
-use std::sync::Arc;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
-use crate::queue::{QueuePool, QueuePoolError};
+use crate::{
+    queue::{QueuePool, QueuePoolError},
+    rpc::Rpc,
+};
 
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
 
@@ -106,7 +96,7 @@ impl TreeResponse {
     }
     pub async fn crawl(
         &self,
-        client: Arc<RpcClient>,
+        client: &Rpc,
         sender: Sender<tree_transactions::ActiveModel>,
         conn: DatabaseConnection,
     ) -> Result<()> {
@@ -121,17 +111,7 @@ impl TreeResponse {
 
         loop {
             let sigs = client
-                .get_signatures_for_address_with_config(
-                    &self.pubkey,
-                    GetConfirmedSignaturesForAddress2Config {
-                        before,
-                        until,
-                        commitment: Some(CommitmentConfig {
-                            commitment: CommitmentLevel::Finalized,
-                        }),
-                        ..GetConfirmedSignaturesForAddress2Config::default()
-                    },
-                )
+                .get_signatures_for_address(&self.pubkey, before, until)
                 .await?;
 
             for sig in sigs.iter() {
@@ -159,34 +139,22 @@ impl TreeResponse {
     }
 }
 
-pub async fn all(client: &Arc<RpcClient>) -> Result<Vec<TreeResponse>, TreeErrorKind> {
-    let config = RpcProgramAccountsConfig {
-        filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-            0,
-            vec![1u8],
-        ))]),
-        account_config: RpcAccountInfoConfig {
-            encoding: Some(UiAccountEncoding::Base64),
-            commitment: Some(CommitmentConfig {
-                commitment: CommitmentLevel::Finalized,
-            }),
-            ..RpcAccountInfoConfig::default()
-        },
-        ..RpcProgramAccountsConfig::default()
-    };
-
+pub async fn all(client: &Rpc) -> Result<Vec<TreeResponse>, TreeErrorKind> {
     Ok(client
-        .get_program_accounts_with_config(&id(), config)
+        .get_program_accounts(
+            &id(),
+            Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
+                0,
+                vec![1u8],
+            ))]),
+        )
         .await?
         .into_iter()
         .filter_map(|(pubkey, account)| TreeResponse::try_from_rpc(pubkey, account).ok())
         .collect())
 }
 
-pub async fn find(
-    client: &Arc<RpcClient>,
-    pubkeys: Vec<String>,
-) -> Result<Vec<TreeResponse>, TreeErrorKind> {
+pub async fn find(client: &Rpc, pubkeys: Vec<String>) -> Result<Vec<TreeResponse>, TreeErrorKind> {
     let pubkeys: Vec<Pubkey> = pubkeys
         .into_iter()
         .map(|p| Pubkey::from_str(&p))
@@ -198,18 +166,7 @@ pub async fn find(
 
     for batch in pubkey_batches {
         gma_handles.push(async move {
-            let accounts = client
-                .get_multiple_accounts_with_config(
-                    batch,
-                    RpcAccountInfoConfig {
-                        commitment: Some(CommitmentConfig {
-                            commitment: CommitmentLevel::Finalized,
-                        }),
-                        ..RpcAccountInfoConfig::default()
-                    },
-                )
-                .await?
-                .value;
+            let accounts = client.get_multiple_accounts(batch).await?;
 
             let results: Vec<(&Pubkey, Option<Account>)> =
                 batch.into_iter().zip(accounts).collect();
@@ -237,23 +194,11 @@ pub async fn find(
 }
 
 pub async fn transaction<'a>(
-    client: Arc<RpcClient>,
+    client: &Rpc,
     queue: QueuePool,
     signature: Signature,
 ) -> Result<(), TreeErrorKind> {
-    let transaction = client
-        .get_transaction_with_config(
-            &signature,
-            RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Base58),
-                max_supported_transaction_version: Some(0),
-                commitment: Some(CommitmentConfig {
-                    commitment: CommitmentLevel::Finalized,
-                }),
-                ..RpcTransactionConfig::default()
-            },
-        )
-        .await?;
+    let transaction = client.get_transaction(&signature).await?;
 
     let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
 
