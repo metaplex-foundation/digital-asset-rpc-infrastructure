@@ -7,7 +7,7 @@ use crate::{
 };
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use digital_asset_types::dao::tree_transactions;
 use indicatif::HumanDuration;
 use log::{error, info};
@@ -20,6 +20,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::sync::{mpsc, Semaphore};
+
+#[derive(Debug, Parser, Clone, ValueEnum, PartialEq, Eq)]
+pub enum CrawlDirection {
+    Forward,
+    Backward,
+}
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
@@ -36,6 +42,9 @@ pub struct Args {
 
     #[arg(long, env, use_value_delimiter = true)]
     pub only_trees: Option<Vec<String>>,
+
+    #[arg(long, env, default_value = "forward")]
+    pub crawl_direction: CrawlDirection,
 
     /// Database configuration
     #[clap(flatten)]
@@ -120,15 +129,11 @@ pub async fn run(config: Args) -> Result<()> {
     let solana_rpc = Rpc::from_config(config.solana);
     let transaction_solana_rpc = solana_rpc.clone();
 
-    let pool = db::connect(config.database).await?;
-    let transaction_pool = pool.clone();
-
     let metrics = Metrics::try_from_config(config.metrics)?;
     let tree_metrics = metrics.clone();
     let transaction_metrics = metrics.clone();
 
-    let (sig_sender, mut sig_receiver) =
-        mpsc::channel::<tree_transactions::ActiveModel>(config.signature_channel_size);
+    let (sig_sender, mut sig_receiver) = mpsc::channel::<Signature>(config.signature_channel_size);
 
     let transaction_count = Counter::new();
     let transaction_worker_transaction_count = transaction_count.clone();
@@ -138,12 +143,11 @@ pub async fn run(config: Args) -> Result<()> {
     tokio::spawn(async move {
         let semaphore = Arc::new(Semaphore::new(config.transaction_worker_count));
 
-        while let Some(tree_transaction) = sig_receiver.recv().await {
+        while let Some(signature) = sig_receiver.recv().await {
             let solana_rpc = transaction_solana_rpc.clone();
             let metrics = transaction_metrics.clone();
             let queue = queue.clone();
             let semaphore = semaphore.clone();
-            let pool = transaction_pool.clone();
             let count = transaction_worker_transaction_count.clone();
 
             count.increment();
@@ -152,29 +156,15 @@ pub async fn run(config: Args) -> Result<()> {
                 let _permit = semaphore.acquire().await?;
 
                 let timing = Instant::now();
-                let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
-                let inserted_tree_transaction = tree_transactions::Entity::insert(tree_transaction)
-                    .on_conflict(
-                        OnConflict::column(tree_transactions::Column::Signature)
-                            .do_nothing()
-                            .to_owned(),
-                    )
-                    .exec_with_returning(&conn)
-                    .await;
-
-                if let Ok(tree_transaction) = inserted_tree_transaction {
-                    let signature = Signature::from_str(&tree_transaction.signature)?;
-
-                    if let Err(e) = tree::transaction(&solana_rpc, queue, signature).await {
-                        error!("tree transaction: {:?}", e);
-                        metrics.increment("transaction.failed");
-                    } else {
-                        metrics.increment("transaction.succeeded");
-                    }
-
-                    metrics.time("transaction.queued", timing.elapsed());
+                if let Err(e) = tree::transaction(&solana_rpc, queue, signature).await {
+                    error!("tree transaction: {:?}", e);
+                    metrics.increment("transaction.failed");
+                } else {
+                    metrics.increment("transaction.succeeded");
                 }
+
+                metrics.time("transaction.queued", timing.elapsed());
 
                 count.decrement();
 
@@ -207,8 +197,6 @@ pub async fn run(config: Args) -> Result<()> {
         let client = solana_rpc.clone();
         let semaphore = semaphore.clone();
         let sig_sender = sig_sender.clone();
-        let pool = pool.clone();
-        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
         let metrics = tree_metrics.clone();
 
         let crawl_handle = tokio::spawn(async move {
@@ -216,7 +204,7 @@ pub async fn run(config: Args) -> Result<()> {
 
             let timing = Instant::now();
 
-            if let Err(e) = tree.crawl(&client, sig_sender, conn).await {
+            if let Err(e) = tree.crawl(&client, sig_sender).await {
                 metrics.increment("tree.failed");
                 error!("crawling tree: {:?}", e);
             } else {

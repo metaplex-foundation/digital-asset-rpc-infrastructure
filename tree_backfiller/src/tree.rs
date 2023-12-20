@@ -18,6 +18,7 @@ use std::str::FromStr;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
+use crate::backfiller::CrawlDirection;
 use crate::{
     queue::{QueuePool, QueuePoolError},
     rpc::Rpc,
@@ -94,38 +95,18 @@ impl TreeResponse {
             tree_header,
         })
     }
-    pub async fn crawl(
-        &self,
-        client: &Rpc,
-        sender: Sender<tree_transactions::ActiveModel>,
-        conn: DatabaseConnection,
-    ) -> Result<()> {
+    pub async fn crawl(&self, client: &Rpc, sender: Sender<Signature>) -> Result<()> {
         let mut before = None;
-
-        let until = tree_transactions::Entity::find()
-            .filter(tree_transactions::Column::Tree.eq(self.pubkey.to_string()))
-            .order_by_desc(tree_transactions::Column::Slot)
-            .one(&conn)
-            .await?
-            .and_then(|t| Signature::from_str(&t.signature).ok());
 
         loop {
             let sigs = client
-                .get_signatures_for_address(&self.pubkey, before, until)
+                .get_signatures_for_address(&self.pubkey, before)
                 .await?;
 
             for sig in sigs.iter() {
-                let slot = i64::try_from(sig.slot)?;
                 let sig = Signature::from_str(&sig.signature)?;
 
-                let tree_transaction = tree_transactions::ActiveModel {
-                    signature: Set(sig.to_string()),
-                    tree: Set(self.pubkey.to_string()),
-                    slot: Set(slot),
-                    ..Default::default()
-                };
-
-                sender.send(tree_transaction).await?;
+                sender.send(sig).await?;
 
                 before = Some(sig);
             }

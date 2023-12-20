@@ -1,6 +1,6 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items, tree_transactions,
+    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items,
 };
 use log::{debug, error, info};
 use mpl_bubblegum::types::Collection;
@@ -12,69 +12,6 @@ use solana_sdk::pubkey::Pubkey;
 use spl_account_compression::events::ChangeLogEventV1;
 
 use std::convert::From;
-
-/// Mark tree transaction as processed. If the transaction already exists, update the `processed_at` field.
-///
-/// This function takes in a tree ID, slot, transaction ID, and a transaction object.
-/// It first checks if a tree transaction with the given transaction ID already exists.
-/// If it does, it updates the `processed_at` field of the existing tree transaction with the current time.
-/// If it doesn't, it creates a new tree transaction with the provided parameters and saves it.
-///
-/// # Arguments
-///
-/// * `tree_id` - A vector of bytes representing the ID of the tree.
-/// * `slot` - A 64-bit unsigned integer representing the slot.
-/// * `txn_id` - A string slice representing the transaction ID.
-/// * `txn` - A reference to a transaction object.
-///
-/// # Returns
-///
-/// This function returns a `Result` that contains an empty tuple, or an `IngesterError` if the operation fails.
-pub async fn save_tree_transaction<'c, T>(
-    tree_id: Vec<u8>,
-    slot: u64,
-    txn_id: &str,
-    txn: &T,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let now = chrono::Utc::now()
-        .with_timezone(&chrono::FixedOffset::east_opt(0).ok_or(IngesterError::ChronoFixedOffset)?);
-
-    let tree_transaction = tree_transactions::Entity::find()
-        .filter(tree_transactions::Column::Signature.eq(txn_id))
-        .one(txn)
-        .await?;
-
-    if let Some(tree_transaction) = tree_transaction {
-        let mut tree_transaction: tree_transactions::ActiveModel = tree_transaction.into();
-
-        tree_transaction.processed_at = Set(Some(now));
-
-        tree_transaction.save(txn).await?;
-    } else {
-        let tree = Pubkey::try_from(tree_id).map_err(|_| IngesterError::ParsePubkey)?;
-
-        let tree_transaction = tree_transactions::ActiveModel {
-            signature: Set(txn_id.to_string()),
-            slot: Set(i64::try_from(slot)?),
-            tree: Set(tree.to_string()),
-            processed_at: Set(Some(now)),
-            ..Default::default()
-        };
-
-        tree_transactions::Entity::insert(tree_transaction)
-            .on_conflict(
-                OnConflict::column(tree_transactions::Column::Signature)
-                    .do_nothing()
-                    .to_owned(),
-            )
-            .exec(txn)
-            .await?;
-    }
-    Ok(())
-}
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -159,7 +96,17 @@ where
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
         // Insert the audit item after the insert into cl_items have been completed
-        let query = cl_audits::Entity::insert(audit_item).build(DbBackend::Postgres);
+        let query = cl_audits::Entity::insert(audit_item)
+            .on_conflict(
+                OnConflict::columns([
+                    cl_audits::Column::Tree,
+                    cl_audits::Column::Seq,
+                    cl_audits::Column::NodeIdx,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
         match txn.execute(query).await {
             Ok(_) => {}
             Err(e) => {
