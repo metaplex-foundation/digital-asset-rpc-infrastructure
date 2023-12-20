@@ -228,12 +228,15 @@ pub async fn get_related_for_assets(
         }
     }
 
-    let creators = asset_creators::Entity::find()
+    let mut creators = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_creators::Column::AssetId)
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
+
+    filter_out_stale_creators(&mut creators);
+
     for c in creators.into_iter() {
         if let Some(asset) = assets_map.get_mut(&c.asset_id) {
             asset.creators.push(c);
@@ -315,32 +318,7 @@ pub async fn get_by_id(
         .all(conn)
         .await?;
 
-    // If the first creator is an empty Vec, it means the creator array is empty (which is allowed
-    // in Bubblegum).
-    if !creators.is_empty() && creators[0].creator.is_empty() {
-        creators.clear();
-    } else {
-        // Any creators that are not the max slot_updated value are stale rows, so remove them.
-        let max_slot_updated = creators.iter().map(|creator| creator.slot_updated).max();
-        if let Some(max_slot_updated) = max_slot_updated {
-            creators.retain(|creator| creator.slot_updated == max_slot_updated);
-        }
-
-        // Any creators that are not the max seq are stale rows or updated by Token Metadata (seq = 0), so remove them.
-        let seq = if creators
-            .iter()
-            .map(|creator| creator.seq)
-            .any(|seq| seq == Some(0))
-        {
-            Some(Some(0))
-        } else {
-            creators.iter().map(|creator| creator.seq).max()
-        };
-
-        if let Some(seq) = seq {
-            creators.retain(|creator| creator.seq == seq);
-        }
-    }
+    filter_out_stale_creators(&mut creators);
 
     let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
@@ -362,4 +340,37 @@ pub async fn get_by_id(
         creators,
         groups: grouping,
     })
+}
+
+fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
+    // If the first creator is an empty Vec, it means the creator array is empty (which is allowed
+    // for compressed assets in Bubblegum).
+    if !creators.is_empty() && creators[0].creator.is_empty() {
+        creators.clear();
+    } else {
+        // For both compressed and non-compressed assets, any creators that do not have the max
+        // `slot_updated` value are stale and should be removed.
+        let max_slot_updated = creators.iter().map(|creator| creator.slot_updated).max();
+        if let Some(max_slot_updated) = max_slot_updated {
+            creators.retain(|creator| creator.slot_updated == max_slot_updated);
+        }
+
+        // For compressed assets, any creators that do not have the max `seq` value are stale and
+        // should be removed.  A `seq` value of 0 indicates a decompressed or never-compressed
+        // asset.  So if a `seq` value of 0 is present, then all creators with nonzero `seq` values
+        // are stale and should be removed.
+        let seq = if creators
+            .iter()
+            .map(|creator| creator.seq)
+            .any(|seq| seq == Some(0))
+        {
+            Some(Some(0))
+        } else {
+            creators.iter().map(|creator| creator.seq).max()
+        };
+
+        if let Some(seq) = seq {
+            creators.retain(|creator| creator.seq == seq);
+        }
+    }
 }

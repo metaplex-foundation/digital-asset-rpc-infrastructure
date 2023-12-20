@@ -319,19 +319,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
-
-        // TODO: We may not need to care about existing creators.
-        // let existing_creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
-        //     .filter(
-        //         Condition::all()
-        //             .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-        //             .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
-        //     )
-        //     .all(conn)
-        //     .await?;
-
-        //if !existing_creators.is_empty() {
-
         let mut db_creators = Vec::with_capacity(creators.len());
         for (i, c) in creators.into_iter().enumerate() {
             if creators_set.contains(&c.address) {
@@ -351,18 +338,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         }
 
         let txn = conn.begin().await?;
-
-        // TODO: Delete we don't need to delete existing as it won't truly work with concurrent
-        // processes anyways so we should filter out stale rows at the API level.
-        // asset_creators::Entity::delete_many()
-        //     .filter(
-        //         Condition::all()
-        //             .add(asset_creators::Column::AssetId.eq(id.to_vec()))
-        //             .add(asset_creators::Column::SlotUpdated.lt(slot_i)),
-        //     )
-        //     .exec(&txn)
-        //     .await?;
-
         if !db_creators.is_empty() {
             let mut query = asset_creators::Entity::insert_many(db_creators)
                 .on_conflict(
@@ -389,7 +364,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
         }
         txn.commit().await?;
-        //}
     }
     if uri.is_empty() {
         warn!(
