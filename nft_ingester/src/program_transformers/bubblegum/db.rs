@@ -618,9 +618,9 @@ where
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-                "{} WHERE (asset_creators.seq != 0 AND excluded.seq >= asset_creators.seq) OR asset_creators.seq IS NULL",
-                query.sql
-            );
+        "{} WHERE (asset_creators.seq != 0 AND excluded.seq >= asset_creators.seq) OR asset_creators.seq IS NULL",
+        query.sql
+    );
 
     txn.execute(query).await?;
 
@@ -645,21 +645,16 @@ where
         ..Default::default()
     };
 
-    // Do not attempt to modify any existing values:
+    // This value is only written during `mint_V1`` or after an item is decompressed, so do not
+    // attempt to modify any existing values:
     // `ON CONFLICT ('asset_id') DO NOTHING`.
-    let mut query = asset_authority::Entity::insert(model)
+    let query = asset_authority::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_authority::Column::AssetId])
                 .do_nothing()
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-
-    // Do not overwrite changes that happened after decompression (asset_authority.seq = 0).
-    query.sql = format!(
-        "{} WHERE asset_authority.seq != 0 OR asset_authority.seq IS NULL",
-        query.sql
-    );
 
     txn.execute(query)
         .await
