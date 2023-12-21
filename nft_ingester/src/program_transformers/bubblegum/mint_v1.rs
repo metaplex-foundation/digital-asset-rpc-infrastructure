@@ -206,8 +206,7 @@ where
 
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),
-                    uri: metadata.uri.clone(),
-                    seq: seq as i64,
+                    uri,
                     created_at: Some(Utc::now().naive_utc()),
                 };
                 task.sanitize();

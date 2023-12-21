@@ -18,7 +18,6 @@ const TASK_NAME: &str = "DownloadMetadata";
 pub struct DownloadMetadata {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
-    pub seq: i64,
     #[serde(skip_serializing)]
     pub created_at: Option<NaiveDateTime>,
 }
@@ -107,33 +106,56 @@ impl BgTask for DownloadMetadataTask {
             }
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.
         };
+
+        match asset_data::Entity::find_by_id(download_metadata.asset_data_id.clone())
+            .select_only()
+            .column(asset_data::Column::MetadataUrl)
+            .one(db)
+            .await?
+        {
+            Some(asset) => {
+                if asset.metadata_url != download_metadata.uri {
+                    debug!(
+                        "skipping download metadata of old URI for {:?}",
+                        bs58::encode(download_metadata.asset_data_id.clone()).into_string()
+                    );
+                    return Ok(());
+                }
+            }
+            None => {
+                return Err(IngesterError::UnrecoverableTaskError(format!(
+                    "failed to find URI in database for {:?}",
+                    bs58::encode(download_metadata.asset_data_id.clone()).into_string()
+                )));
+            }
+        }
+
         let model = asset_data::ActiveModel {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),
             reindex: Set(Some(false)),
-            download_metadata_seq: Set(Some(download_metadata.seq)),
             ..Default::default()
         };
         debug!(
             "download metadata for {:?}",
             bs58::encode(download_metadata.asset_data_id.clone()).into_string()
         );
-        let mut query = asset_data::Entity::update(model)
-            .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()));
-        if download_metadata.seq != 0 {
-            query = query.filter(
-                Condition::any()
-                    .add(asset_data::Column::DownloadMetadataSeq.lte(download_metadata.seq))
-                    .add(asset_data::Column::DownloadMetadataSeq.is_null()),
-            );
-        }
-        query.exec(db).await.map(|_| ()).map_err(|db| {
-            IngesterError::TaskManagerError(format!(
-                "Database error with {}, error: {}",
-                self.name(),
-                db
-            ))
-        })?;
+        asset_data::Entity::update(model)
+            .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()))
+            .filter(
+                Condition::all()
+                    .add(asset_data::Column::MetadataUrl.eq(download_metadata.uri.clone())),
+            )
+            .exec(db)
+            .await
+            .map(|_| ())
+            .map_err(|db| {
+                IngesterError::TaskManagerError(format!(
+                    "Database error with {}, error: {}",
+                    self.name(),
+                    db
+                ))
+            })?;
 
         if meta_url.is_err() {
             return Err(IngesterError::UnrecoverableTaskError(format!(

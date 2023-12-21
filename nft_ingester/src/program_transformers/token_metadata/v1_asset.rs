@@ -376,7 +376,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let mut task = DownloadMetadata {
         asset_data_id: id.to_vec(),
         uri,
-        seq: 0,
         created_at: Some(Utc::now().naive_utc()),
     };
     task.sanitize();
