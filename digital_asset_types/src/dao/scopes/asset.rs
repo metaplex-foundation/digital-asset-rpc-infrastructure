@@ -58,7 +58,7 @@ pub async fn get_by_creator(
     show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
-        .add(asset_creators::Column::Creator.eq(creator))
+        .add(asset_creators::Column::Creator.eq(creator.clone()))
         .add(asset::Column::Supply.gt(0));
     if only_verified {
         condition = condition.add(asset_creators::Column::Verified.eq(true));
@@ -72,6 +72,7 @@ pub async fn get_by_creator(
         pagination,
         limit,
         show_unverified_collections,
+        Some(creator),
     )
     .await
 }
@@ -130,6 +131,7 @@ pub async fn get_by_grouping(
         pagination,
         limit,
         show_unverified_collections,
+        None,
     )
     .await
 }
@@ -203,6 +205,7 @@ pub async fn get_by_authority(
         pagination,
         limit,
         show_unverified_collections,
+        None,
     )
     .await
 }
@@ -216,6 +219,7 @@ async fn get_by_related_condition<E>(
     pagination: &Pagination,
     limit: u64,
     show_unverified_collections: bool,
+    required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
     E: RelationTrait,
@@ -233,13 +237,14 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections).await
+    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
     show_unverified_collections: bool,
+    required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
@@ -272,6 +277,36 @@ pub async fn get_related_for_assets(
         acc
     });
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
+
+    // Get all creators for all assets in `assets_map``.
+    let creators = asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_creators::Column::AssetId)
+        .order_by_asc(asset_creators::Column::Position)
+        .all(conn)
+        .await?;
+
+    // Add the creators to the assets in `asset_map``.
+    for c in creators.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+            asset.creators.push(c);
+        }
+    }
+
+    // Filter out stale creators from each asset.
+    for (_id, asset) in assets_map.iter_mut() {
+        filter_out_stale_creators(&mut asset.creators);
+    }
+
+    // If we passed in a required creator, we make sure that creator is still in the creator array
+    // of each asset after stale creators were filtered out above.  Only retain those assets that
+    // have the required creator.  This corrects `getAssetByCreators` from returning assets for
+    // which the required creator is no longer in the creator array.
+    if let Some(required) = required_creator {
+        assets_map.retain(|_id, asset| asset.creators.iter().any(|c| c.creator == required));
+    }
+
+    let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -280,21 +315,6 @@ pub async fn get_related_for_assets(
     for a in authorities.into_iter() {
         if let Some(asset) = assets_map.get_mut(&a.asset_id) {
             asset.authorities.push(a);
-        }
-    }
-
-    let mut creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_creators::Column::AssetId)
-        .order_by_asc(asset_creators::Column::Position)
-        .all(conn)
-        .await?;
-
-    filter_out_stale_creators(&mut creators);
-
-    for c in creators.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
-            asset.creators.push(c);
         }
     }
 
@@ -348,7 +368,8 @@ pub async fn get_assets_by_condition(
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    let full_assets = get_related_for_assets(conn, assets, show_unverified_collections).await?;
+    let full_assets =
+        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
     Ok(full_assets)
 }
 
