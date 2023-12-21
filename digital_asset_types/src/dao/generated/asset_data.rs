@@ -27,7 +27,6 @@ pub struct Model {
     pub raw_name: Option<Vec<u8>>,
     pub raw_symbol: Option<Vec<u8>>,
     pub base_info_seq: Option<i64>,
-    pub download_metadata_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -43,7 +42,6 @@ pub enum Column {
     RawName,
     RawSymbol,
     BaseInfoSeq,
-    DownloadMetadataSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -78,7 +76,6 @@ impl ColumnTrait for Column {
             Self::RawName => ColumnType::Binary.def().null(),
             Self::RawSymbol => ColumnType::Binary.def().null(),
             Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
-            Self::DownloadMetadataSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }

@@ -150,7 +150,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         raw_name: Set(Some(name.to_vec())),
         raw_symbol: Set(Some(symbol.to_vec())),
         base_info_seq: Set(Some(0)),
-        download_metadata_seq: Set(Some(0)),
     };
     let txn = conn.begin().await?;
     let mut query = asset_data::Entity::insert(asset_data_model)
@@ -166,7 +165,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::RawName,
                     asset_data::Column::RawSymbol,
                     asset_data::Column::BaseInfoSeq,
-                    asset_data::Column::DownloadMetadataSeq,
                 ])
                 .to_owned(),
         )
