@@ -75,6 +75,11 @@ impl DownloadMetadataTask {
     }
 }
 
+#[derive(FromQueryResult, Debug, Default, Clone, Eq, PartialEq)]
+struct MetadataUrl {
+    pub metadata_url: String,
+}
+
 #[async_trait]
 impl BgTask for DownloadMetadataTask {
     fn name(&self) -> &'static str {
@@ -107,12 +112,12 @@ impl BgTask for DownloadMetadataTask {
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.
         };
 
-        match asset_data::Entity::find_by_id(download_metadata.asset_data_id.clone())
+        let query = asset_data::Entity::find_by_id(download_metadata.asset_data_id.clone())
             .select_only()
             .column(asset_data::Column::MetadataUrl)
-            .one(db)
-            .await?
-        {
+            .build(DbBackend::Postgres);
+
+        match MetadataUrl::find_by_statement(query).one(db).await? {
             Some(asset) => {
                 if asset.metadata_url != download_metadata.uri {
                     debug!(
