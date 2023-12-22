@@ -1,6 +1,7 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_grouping, backfill_items, cl_audits, cl_items,
+    asset, asset_creators, asset_grouping, cl_audits_v2, cl_items,
+    sea_orm_active_enums::BubblegumInstruction,
 };
 use log::{debug, error, info};
 use mpl_bubblegum::types::Collection;
@@ -8,23 +9,22 @@ use sea_orm::{
     query::*, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait, DbBackend,
     EntityTrait,
 };
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Signature;
 use spl_account_compression::events::ChangeLogEventV1;
 
 use std::convert::From;
+use std::str::FromStr;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
-    slot: u64,
     txn_id: &str,
     txn: &T,
-    cl_audits: bool,
     instruction: &str,
 ) -> Result<u64, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn_id, txn, cl_audits, instruction).await?;
+    insert_change_log(change_log_event, txn_id, txn, instruction).await?;
     Ok(change_log_event.seq)
 }
 
@@ -34,19 +34,28 @@ fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
 
 pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
-    slot: u64,
     txn_id: &str,
     txn: &T,
-    cl_audits: bool,
     instruction: &str,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let mut i: i64 = 0;
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();
-    for p in change_log_event.path.iter() {
+    let signature = Signature::from_str(txn_id)?;
+    let leaf_idx = node_idx_to_leaf_idx(
+        i64::from(
+            change_log_event
+                .path
+                .get(0)
+                .ok_or(IngesterError::MissingChangeLogPath)?
+                .index,
+        ),
+        u32::try_from(depth)?,
+    );
+
+    for (i, p) in change_log_event.path.iter().enumerate() {
         let node_idx = p.index as i64;
         info!(
             "seq {}, index {} level {}, node {}, txn {}, instruction {}",
@@ -57,15 +66,11 @@ where
             txn_id,
             instruction
         );
-        let leaf_idx = if i == 0 {
-            Some(node_idx_to_leaf_idx(node_idx, depth as u32))
-        } else {
-            None
-        };
+        let leaf_idx = if i == 0 { Some(leaf_idx) } else { None };
 
         let item = cl_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
-            level: Set(i),
+            level: Set(i64::try_from(i)?),
             node_idx: Set(node_idx),
             hash: Set(p.node.as_ref().to_vec()),
             seq: Set(change_log_event.seq as i64),
@@ -73,11 +78,6 @@ where
             ..Default::default()
         };
 
-        let mut audit_item: cl_audits::ActiveModel = item.clone().into();
-        audit_item.tx = Set(txn_id.to_string());
-        audit_item.instruction = Set(Some(instruction.to_string()));
-
-        i += 1;
         let mut query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
@@ -94,18 +94,32 @@ where
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-        // Insert the audit item after the insert into cl_items have been completed
-        let query = cl_audits::Entity::insert(audit_item).build(DbBackend::Postgres);
-        match txn.execute(query).await {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Error while inserting into cl_audits: {:?}", e);
-            }
-        }
     }
 
-    // TODO: drop `backfill_items` table if not needed anymore for backfilling
+    let cl_audit = cl_audits_v2::ActiveModel {
+        tree: Set(tree_id.to_vec()),
+        leaf_idx: Set(leaf_idx),
+        seq: Set(i64::try_from(change_log_event.seq)?),
+        tx: Set(signature.as_ref().to_vec()),
+        instruction: Set(BubblegumInstruction::from_str(instruction)?),
+        ..Default::default()
+    };
+
+    let query = cl_audits_v2::Entity::insert(cl_audit)
+        .on_conflict(
+            OnConflict::columns([
+                cl_audits_v2::Column::Tree,
+                cl_audits_v2::Column::LeafIdx,
+                cl_audits_v2::Column::Seq,
+            ])
+            .do_nothing()
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
     //TODO -> set maximum size of path and break into multiple statements

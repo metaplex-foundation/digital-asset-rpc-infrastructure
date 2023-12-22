@@ -1,7 +1,6 @@
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Args;
-use digital_asset_types::dao::tree_transactions;
 use flatbuffers::FlatBufferBuilder;
 use log::error;
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;

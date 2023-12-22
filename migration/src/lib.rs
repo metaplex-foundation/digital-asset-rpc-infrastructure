@@ -28,11 +28,12 @@ mod m20230720_120101_add_asset_grouping_verified;
 mod m20230720_130101_remove_asset_grouping_null_constraints;
 mod m20230724_120101_add_group_info_seq;
 mod m20230726_013107_remove_not_null_constraint_from_group_value;
+mod m20230908_160822_add_cl_audits_v2;
 mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
 mod m20231101_120101_add_instruction_into_cl_audit;
 mod m20231101_120101_cl_audit_table_index;
-mod m20231208_103949_create_tree_transactions_table;
+mod m20231222_110618_add_indices_to_cl_audits_v2;
 
 pub struct Migrator;
 
@@ -68,11 +69,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20230720_130101_remove_asset_grouping_null_constraints::Migration),
             Box::new(m20230724_120101_add_group_info_seq::Migration),
             Box::new(m20230726_013107_remove_not_null_constraint_from_group_value::Migration),
+            Box::new(m20230908_160822_add_cl_audits_v2::Migration),
             Box::new(m20230918_182123_add_raw_name_symbol::Migration),
             Box::new(m20230919_072154_cl_audits::Migration),
             Box::new(m20231101_120101_add_instruction_into_cl_audit::Migration),
             Box::new(m20231101_120101_cl_audit_table_index::Migration),
-            Box::new(m20231208_103949_create_tree_transactions_table::Migration),
+            Box::new(m20231222_110618_add_indices_to_cl_audits_v2::Migration),
         ]
     }
 }

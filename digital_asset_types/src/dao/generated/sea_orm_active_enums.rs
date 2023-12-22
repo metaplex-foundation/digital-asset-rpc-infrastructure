@@ -123,3 +123,74 @@ pub enum OwnerType {
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "bubblegum_instruction"
+)]
+pub enum BubblegumInstruction {
+    #[sea_orm(string_value = "bubblegum_instruction")]
+    BubblegumInstruction,
+    #[sea_orm(string_value = "burn")]
+    Burn,
+    #[sea_orm(string_value = "cancel_redeem")]
+    CancelRedeem,
+    #[sea_orm(string_value = "compress")]
+    Compress,
+    #[sea_orm(string_value = "decompress_v1")]
+    DecompressV1,
+    #[sea_orm(string_value = "delegate")]
+    Delegate,
+    #[sea_orm(string_value = "mint_to_collection_v1")]
+    MintToCollectionV1,
+    #[sea_orm(string_value = "mint_v1")]
+    MintV1,
+    #[sea_orm(string_value = "redeem")]
+    Redeem,
+    #[sea_orm(string_value = "set_and_verify_collection")]
+    SetAndVerifyCollection,
+    #[sea_orm(string_value = "transfer")]
+    Transfer,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "unverify_collection")]
+    UnverifyCollection,
+    #[sea_orm(string_value = "unverify_creator")]
+    UnverifyCreator,
+    #[sea_orm(string_value = "verify_collection")]
+    VerifyCollection,
+    #[sea_orm(string_value = "verify_creator")]
+    VerifyCreator,
+    #[sea_orm(string_value = "create_tree")]
+    CreateTree,
+}
+
+impl std::str::FromStr for BubblegumInstruction {
+    type Err = sea_orm::DbErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "MintV1" => Ok(BubblegumInstruction::MintV1),
+            "MintToCollectionV1" => Ok(BubblegumInstruction::MintToCollectionV1),
+            "Redeem" => Ok(BubblegumInstruction::Redeem),
+            "CancelRedeem" => Ok(BubblegumInstruction::CancelRedeem),
+            "Transfer" => Ok(BubblegumInstruction::Transfer),
+            "Delegate" => Ok(BubblegumInstruction::Delegate),
+            "DecompressV1" => Ok(BubblegumInstruction::DecompressV1),
+            "Compress" => Ok(BubblegumInstruction::Compress),
+            "Burn" => Ok(BubblegumInstruction::Burn),
+            "CreateTree" => Ok(BubblegumInstruction::CreateTree),
+            "VerifyCreator" => Ok(BubblegumInstruction::VerifyCreator),
+            "UnverifyCreator" => Ok(BubblegumInstruction::UnverifyCreator),
+            "VerifyCollection" => Ok(BubblegumInstruction::VerifyCollection),
+            "UnverifyCollection" => Ok(BubblegumInstruction::UnverifyCollection),
+            "SetAndVerifyCollection" => Ok(BubblegumInstruction::SetAndVerifyCollection),
+            "Unknown" => Ok(BubblegumInstruction::Unknown),
+            _ => Err(sea_orm::DbErr::Custom(format!(
+                "Invalid value for BubblegumInstruction: {}",
+                s
+            ))),
+        }
+    }
+}

@@ -58,6 +58,10 @@ pub enum IngesterError {
     ChronoFixedOffset,
     #[error("Pubkey parse")]
     ParsePubkey,
+    #[error("Signature parse")]
+    ParseSignature(#[from] solana_sdk::signature::ParseSignatureError),
+    #[error("Missing Path at index for change log event")]
+    MissingChangeLogPath,
 }
 
 impl From<reqwest::Error> for IngesterError {

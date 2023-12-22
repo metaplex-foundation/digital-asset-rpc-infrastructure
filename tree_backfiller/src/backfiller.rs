@@ -8,7 +8,6 @@ use crate::{
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use digital_asset_types::dao::tree_transactions;
 use indicatif::HumanDuration;
 use log::{error, info};
 use sea_orm::SqlxPostgresConnector;
@@ -208,6 +207,11 @@ pub async fn run(config: Args) -> Result<()> {
                 metrics.increment("tree.failed");
                 error!("crawling tree: {:?}", e);
             } else {
+                info!(
+                    "crawled tree {} in {}",
+                    tree.pubkey,
+                    HumanDuration(timing.elapsed())
+                );
                 metrics.increment("tree.succeeded");
             }
 
