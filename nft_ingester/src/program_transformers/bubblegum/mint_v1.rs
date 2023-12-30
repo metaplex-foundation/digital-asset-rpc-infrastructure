@@ -309,7 +309,7 @@ where
                 // Insert into `asset_authority` table.
                 let model = asset_authority::ActiveModel {
                     asset_id: Set(id_bytes.to_vec()),
-                    authority: Set(bundle.keys.get(0).unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
+                    authority: Set(bundle.keys.first().unwrap().0.to_vec()), //TODO - we need to rem,ove the optional bubblegum signer logic
                     seq: Set(seq as i64),
                     slot_updated: Set(slot_i),
                     ..Default::default()
