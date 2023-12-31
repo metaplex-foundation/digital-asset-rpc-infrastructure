@@ -1,9 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-
 pub struct AssetSorting {
     pub sort_by: AssetSortBy,
     pub sort_direction: Option<AssetSortDirection>,
@@ -18,9 +17,10 @@ impl Default for AssetSorting {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AssetSortBy {
+    #[serde(rename = "id")]
+    Id,
     #[serde(rename = "created")]
     Created,
     #[serde(rename = "updated")]
@@ -31,7 +31,7 @@ pub enum AssetSortBy {
     None,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AssetSortDirection {
     #[serde(rename = "asc")]
     Asc,
@@ -40,7 +40,7 @@ pub enum AssetSortDirection {
     Desc,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq, JsonSchema)]
 pub enum SearchConditionType {
     #[serde(rename = "all")]
     All,

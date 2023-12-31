@@ -30,6 +30,8 @@ pub struct AssetList {
     pub before: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
     pub items: Vec<Asset>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AssetError>,
