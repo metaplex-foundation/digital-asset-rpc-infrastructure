@@ -75,7 +75,6 @@ pub struct SearchAssetsQuery {
 impl SearchAssetsQuery {
     pub const fn count_conditions(&self) -> usize {
         // Initialize counter
-        // todo ever heard of a flipping macro
         let mut num_conditions = 0;
         if self.specification_version.is_some() {
             num_conditions += 1;
