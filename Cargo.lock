@@ -881,9 +881,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "0.9.0-beta.4"
+version = "0.9.0-beta.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28b3563251837f2d8da4ea723d3dd8a31cf8919b5dc43344953d209ebcadd539"
+checksum = "a32a0edd58b3aaaf55684bc9ad82e012b3345cb46a25fcae507b3b9034b83d44"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -2882,9 +2882,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-bubblegum"
-version = "1.0.1-beta.3"
+version = "1.0.1-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29346f26192bb7f73330196fde4c8cfb35675bf1a4b026cd088f7ca8fda69f3f"
+checksum = "e59d102fe6f8b063a06a226874ea815b269316390ce3bf991b29ea9c54ccc467"
 dependencies = [
  "borsh 0.10.3",
  "kaigan",
