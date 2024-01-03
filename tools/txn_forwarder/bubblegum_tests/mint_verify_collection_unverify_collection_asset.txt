@@ -1,0 +1,28 @@
+-[ RECORD 1 ]-------------+-------------------------------------------------------------------
+id                        | \x9f2817615e1440416649df6d4c4f5d71895a754e75ddf59ae01307e758f6a964
+alt_id                    | 
+specification_version     | v1
+specification_asset_class | NFT
+owner                     | \xdc53343c46e5d7a1bd08f4780285621202f66b596f984e940a5eb423ac560fed
+owner_type                | single
+delegate                  | 
+frozen                    | f
+supply                    | 1
+supply_mint               | 
+compressed                | t
+compressible              | f
+seq                       | 3
+tree_id                   | \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef
+leaf                      | \xa0df0b8f5870c42cf5f000cb93ac2407dc05a7b0e5708027cea879deaf672b86
+nonce                     | 0
+royalty_target_type       | creators
+royalty_target            | 
+royalty_amount            | 0
+asset_data                | \x9f2817615e1440416649df6d4c4f5d71895a754e75ddf59ae01307e758f6a964
+burnt                     | f
+slot_updated              | 232161591
+data_hash                 | 8wZ2jDVA3gdirM6QtZrQHBcuJsLM4TZusEAKEEfSvgKw      
+creator_hash              | A8KEBkNKGsouiKAsE5ARHqNHGTb7ZzPi6LHesaZCL4Aw      
+owner_delegate_seq        | 1
+leaf_seq                  | 3
+base_info_seq             | 1
