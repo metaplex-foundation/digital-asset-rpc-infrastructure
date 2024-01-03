@@ -8,7 +8,9 @@ SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_redeem_decompress.scenario"
 "mint_redeem_cancel_redeem_redeem_decompress.scenario" \
 "mint_transfer_transfer.scenario" \
-"mint_delegate_transfer.scenario"
+"mint_delegate_transfer.scenario" \
+"mint_verify_creator.scenario" \
+"mint_verify_collection.scenario"
 )
 
 if [ ${#SCENARIOS[@]} -gt 0 ]; then
