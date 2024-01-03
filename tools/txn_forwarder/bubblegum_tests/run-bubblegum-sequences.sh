@@ -6,12 +6,21 @@ GRN() { echo $'\e[1;32m'$1$'\e[0m'; }
 
 SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_redeem_decompress.scenario"
+"mint_redeem_cancel_redeem_redeem_decompress.scenario" \
+"mint_transfer_transfer.scenario" \
+"mint_delegate_transfer.scenario"
 )
 EXPECTED_ASSET_VALUES=("mint_transfer_burn_asset.txt" \
-"mint_redeem_decompress_asset.txt"
+"mint_redeem_decompress_asset.txt" \
+"mint_redeem_cancel_redeem_redeem_decompress_asset.txt" \
+"mint_transfer_transfer_asset.txt" \
+"mint_delegate_transfer_asset.txt"
 )
-EXPECTED_CL_ITEMS_VALUES=("mint_transfer_burn_cl_items.txt"
-"mint_redeem_decompress_cl_items.txt"
+EXPECTED_CL_ITEMS_VALUES=("mint_transfer_burn_cl_items.txt" \
+"mint_redeem_decompress_cl_items.txt" \
+"mint_redeem_cancel_redeem_redeem_decompress_cl_items.txt" \
+"mint_transfer_transfer_cl_items.txt" \
+"mint_delegate_transfer_cl_items.txt"
 )
 
 if [ ${#SCENARIOS[@]} -gt 0 ]; then
@@ -83,7 +92,7 @@ for i in ${!SCENARIOS[@]}; do
         2>&1 | grep -v "Group already exists: BUSYGROUP: Consumer Group name already exists")
     done
 
-    sleep 5
+    sleep 3
 
     # Asset should now be in `asset`` table and all fields except `created_at` date match.
     if [ -f "${EXPECTED_ASSET_VALUES[$i]}" ]; then
