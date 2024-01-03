@@ -69,36 +69,37 @@ for i in ${!SCENARIOS[@]}; do
         fi
     fi
 
-    # Run the scenario that indexes the asset.
-    (cd .. && \
-    cargo run -- \
-    --redis-url 'redis://localhost/' \
-    --rpc-url 'https://api.devnet.solana.com' \
-    scenario \
-    --scenario-file "bubblegum_tests/${SCENARIOS[$i]}" \
-    2>&1 | grep -v "Group already exists: BUSYGROUP: Consumer Group name already exists")    
-    
+    # Run the scenario file that indexes the asset.  These are done with separate calls to the `txn_forwarder`
+    # in order to enforce order.  Just calling the `txn_forwarder` with the file results in random ordering.
+    readarray -t TXS < "${SCENARIOS[$i]}"
+
+    for TX in ${TXS[@]}; do
+        (cd .. && \
+        cargo run -- \
+        --redis-url 'redis://localhost/' \
+        --rpc-url 'https://api.devnet.solana.com' \
+        single \
+        --txn  "$TX" \
+        2>&1 | grep -v "Group already exists: BUSYGROUP: Consumer Group name already exists")
+    done
+
     sleep 5
 
     # Asset should now be in `asset`` table and all fields except `created_at` date match.
     if [ -f "${EXPECTED_ASSET_VALUES[$i]}" ]; then
         SQL="select * from asset where id = '$ASSET_ID';"
         DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$SQL")
-        DATABASE_VAL_NO_DATE=$(echo "$DATABASE_VAL" | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9.]+\+[0-9]{2}//g')
+        DATABASE_VAL_NO_DATE=$(sed '/^created_at/d' <<< "$DATABASE_VAL")
 
-        echo "expected asset value"
-        echo "$EXPECTED_ASSET_VALUE"
-        echo "then asset ID"
-        echo "$ASSET_ID"
-        echo "SQL"
-        echo "$SQL"
-        echo "Database val no date"
-        echo "$DATABASE_VAL_NO_DATE"
-        
         if [ "$EXPECTED_ASSET_VALUE" == "$DATABASE_VAL_NO_DATE" ]; then
             echo $(GRN "${SCENARIOS[$i]} asset table passed")
         else
             echo $(RED "${SCENARIOS[$i]} asset table failed")
+            echo "Asset ID: $ASSET_ID"
+            echo "Expected:"
+            echo "$EXPECTED_ASSET_VALUE"
+            echo "Actual:"
+            echo "$DATABASE_VAL_NO_DATE"
             STATUS=1
         fi
     fi
@@ -108,22 +109,21 @@ for i in ${!SCENARIOS[@]}; do
         SQL="select tree, node_idx, leaf_idx, seq, level, hash from cl_items where tree = '$TREE_ID' order by level;"
         DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana --command="$SQL")
 
-        # echo "expected cl_items"
-        # echo "$EXPECTED_CL_ITEMS"
-        # echo "then tree ID"
-        # echo "$TREE_ID"
-        # echo "SQL"
-        # echo "$SQL"
-        # echo "Database val"
-        # echo "$DATABASE_VAL"
-        
         if [ "$EXPECTED_CL_ITEMS" == "$DATABASE_VAL" ]; then
             echo $(GRN "${SCENARIOS[$i]} cl_items table passed")
         else
             echo $(RED "${SCENARIOS[$i]} cl_items table failed")
+            echo "Tree ID: $TREE_ID"
+            echo "Expected:"
+            echo "$EXPECTED_CL_ITEMS"
+            echo "Actual:"
+            echo "$DATABASE_VAL"
+
             STATUS=1
         fi
     fi
+
+    echo ""
 done
 
 echo ""
