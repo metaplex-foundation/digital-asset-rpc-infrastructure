@@ -42,12 +42,55 @@ for i in ${!SCENARIOS[@]}; do
     fi
 
     # Initially this asset should not be in `asset`` table.
-    SQL="select * from asset where id = '$ASSET_ID';"
-    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$SQL")
+    ASSET_SQL="SELECT * FROM asset WHERE id = '$ASSET_ID';"
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_SQL")
     if [ "(0 rows)" == "$DATABASE_VAL" ]; then
         echo $(GRN "${SCENARIOS[$i]} initial asset table passed")
     else
         echo $(RED "${SCENARIOS[$i]} initial asset table failed")
+        STATUS=1
+    fi
+
+    # Read in the `asset_creators` file for this scenario.
+    EXPECTED_ASSET_CREATORS_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_asset_creators.txt"
+    if [ ! -f "$EXPECTED_ASSET_CREATORS_FILE" ]; then
+        echo $(RED "${SCENARIOS[$i]} missing asset_creators file")
+        STATUS=1
+        continue
+    fi
+    EXPECTED_ASSET_CREATORS=$(<"$EXPECTED_ASSET_CREATORS_FILE")
+
+    # Initially this asset should not be in `asset_creators`` table.
+    ASSET_CREATORS_SQL="SELECT asset_id, creator, share, verified, seq, slot_updated, position \
+        FROM asset_creators \
+        WHERE asset_id = '$ASSET_ID' \
+        ORDER BY position;"
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_CREATORS_SQL")
+    if [ "(0 rows)" == "$DATABASE_VAL" ]; then
+        echo $(GRN "${SCENARIOS[$i]} initial asset_creators table passed")
+    else
+        echo $(RED "${SCENARIOS[$i]} initial asset_creators table failed")
+        STATUS=1
+    fi
+
+    # Read in the `asset_grouping` file for this scenario.
+    EXPECTED_ASSET_GROUPING_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_asset_grouping.txt"
+    if [ ! -f "$EXPECTED_ASSET_GROUPING_FILE" ]; then
+        echo $(RED "${SCENARIOS[$i]} missing asset_grouping file")
+        STATUS=1
+        continue
+    fi
+    EXPECTED_ASSET_GROUPING=$(<"$EXPECTED_ASSET_GROUPING_FILE")
+
+    # Initially this asset should not be in `asset_grouping`` table.
+    ASSET_GROUPING_SQL="SELECT asset_id, group_key, group_value, seq, slot_updated, verified, group_info_seq \
+        FROM asset_grouping \
+        WHERE asset_id = '$ASSET_ID';"
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_GROUPING_SQL")
+    if [ "(0 rows)" == "$DATABASE_VAL" ]; then
+        echo $(GRN "${SCENARIOS[$i]} initial asset_grouping table passed")
+    else
+        echo $(RED "${SCENARIOS[$i]} initial asset_grouping table failed")
         STATUS=1
     fi
 
@@ -95,9 +138,8 @@ for i in ${!SCENARIOS[@]}; do
 
     sleep 3
 
-    # Asset should now be in `asset`` table and all fields except `created_at` date match.
-    SQL="select * from asset where id = '$ASSET_ID';"
-    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$SQL")
+    # Asset should now be in `asset` table and all fields except `created_at` date match.
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_SQL")
     DATABASE_VAL_NO_DATE=$(sed '/^created_at/d' <<< "$DATABASE_VAL")
     if [ "$EXPECTED_ASSET_VALUE" == "$DATABASE_VAL_NO_DATE" ]; then
         echo $(GRN "${SCENARIOS[$i]} asset table passed")
@@ -108,6 +150,34 @@ for i in ${!SCENARIOS[@]}; do
         echo "$EXPECTED_ASSET_VALUE"
         echo "Actual:"
         echo "$DATABASE_VAL_NO_DATE"
+        STATUS=1
+    fi
+
+    # Asset should now be in `asset_creators` table and all fields match.
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_CREATORS_SQL")
+    if [ "$EXPECTED_ASSET_CREATORS" == "$DATABASE_VAL" ]; then
+        echo $(GRN "${SCENARIOS[$i]} asset_creators table passed")
+    else
+        echo $(RED "${SCENARIOS[$i]} asset_creators table failed")
+        echo "Asset ID: $ASSET_ID"
+        echo "Expected:"
+        echo "$EXPECTED_ASSET_CREATORS"
+        echo "Actual:"
+        echo "$DATABASE_VAL"
+        STATUS=1
+    fi
+
+    # Asset should now be in `asset_grouping` table and all fields match.
+    DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_GROUPING_SQL")
+    if [ "$EXPECTED_ASSET_GROUPING" == "$DATABASE_VAL" ]; then
+        echo $(GRN "${SCENARIOS[$i]} asset_grouping table passed")
+    else
+        echo $(RED "${SCENARIOS[$i]} asset_grouping table failed")
+        echo "Asset ID: $ASSET_ID"
+        echo "Expected:"
+        echo "$EXPECTED_ASSET_GROUPING"
+        echo "Actual:"
+        echo "$DATABASE_VAL"
         STATUS=1
     fi
 
