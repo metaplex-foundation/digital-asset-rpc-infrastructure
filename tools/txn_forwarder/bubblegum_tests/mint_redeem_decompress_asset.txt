@@ -19,7 +19,6 @@ royalty_target_type       | creators
 royalty_target            | 
 royalty_amount            | 0
 asset_data                | \x4582ef313005487b924213937300a3c5cef8502646c8c182a2a9e1188adb196b
-created_at                | 
 burnt                     | f
 slot_updated              | 224069842
 data_hash                 | 
