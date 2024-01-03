@@ -10,7 +10,10 @@ SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_transfer_transfer.scenario" \
 "mint_delegate_transfer.scenario" \
 "mint_verify_creator.scenario" \
-"mint_verify_collection.scenario"
+"mint_verify_collection.scenario" \
+"mint_verify_collection_unverify_collection.scenario" \
+"mint_set_and_verify_collection.scenario" \
+"mint_to_collection_unverify_collection.scenario"
 )
 
 if [ ${#SCENARIOS[@]} -gt 0 ]; then
