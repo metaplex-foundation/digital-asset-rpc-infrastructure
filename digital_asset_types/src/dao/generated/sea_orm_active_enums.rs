@@ -123,3 +123,80 @@ pub enum OwnerType {
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
+
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "instruction")]
+pub enum Instruction {
+    #[sea_orm(string_value = "burn")]
+    Burn,
+    #[sea_orm(string_value = "cancel_redeem")]
+    CancelRedeem,
+    #[sea_orm(string_value = "compress")]
+    Compress,
+    #[sea_orm(string_value = "decompress_v1")]
+    DecompressV1,
+    #[sea_orm(string_value = "delegate")]
+    Delegate,
+    #[sea_orm(string_value = "mint_to_collection_v1")]
+    MintToCollectionV1,
+    #[sea_orm(string_value = "mint_v1")]
+    MintV1,
+    #[sea_orm(string_value = "redeem")]
+    Redeem,
+    #[sea_orm(string_value = "set_and_verify_collection")]
+    SetAndVerifyCollection,
+    #[sea_orm(string_value = "transfer")]
+    Transfer,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "unverify_collection")]
+    UnverifyCollection,
+    #[sea_orm(string_value = "unverify_creator")]
+    UnverifyCreator,
+    #[sea_orm(string_value = "verify_collection")]
+    VerifyCollection,
+    #[sea_orm(string_value = "verify_creator")]
+    VerifyCreator,
+}
+// Added manually for convenience.
+impl Instruction {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "Burn" => Instruction::Burn,
+            "CancelRedeem" => Instruction::CancelRedeem,
+            "Compress" => Instruction::Compress,
+            "DecompressV1" => Instruction::DecompressV1,
+            "Delegate" => Instruction::Delegate,
+            "MintToCollectionV1" => Instruction::MintToCollectionV1,
+            "MintV1" => Instruction::MintV1,
+            "Redeem" => Instruction::Redeem,
+            "SetAndVerifyCollection" => Instruction::SetAndVerifyCollection,
+            "Transfer" => Instruction::Transfer,
+            "UnverifyCollection" => Instruction::UnverifyCollection,
+            "UnverifyCreator" => Instruction::UnverifyCreator,
+            "VerifyCollection" => Instruction::VerifyCollection,
+            "VerifyCreator" => Instruction::VerifyCreator,
+            _ => Instruction::Unknown,
+        }
+    }
+
+    pub fn to_str(s: &Self) -> &str {
+        match s {
+            Instruction::Burn => "Burn",
+            Instruction::CancelRedeem => "CancelReddem",
+            Instruction::Compress => "Compress",
+            Instruction::DecompressV1 => "DecompressV1",
+            Instruction::Delegate => "Delegate",
+            Instruction::MintToCollectionV1 => "MintToCollectionV1",
+            Instruction::MintV1 => "MintV1",
+            Instruction::Redeem => "Redeem",
+            Instruction::SetAndVerifyCollection => "SetAndVerifyCollection",
+            Instruction::Transfer => "Transfer",
+            Instruction::UnverifyCollection => "UnverifyCollection",
+            Instruction::UnverifyCreator => "UnverifyCreator",
+            Instruction::VerifyCollection => "VerifyCollection",
+            Instruction::VerifyCreator => "VerifyCreator",
+            _ => "Unknown",
+        }
+    }
+}
