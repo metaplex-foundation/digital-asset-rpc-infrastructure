@@ -18,10 +18,8 @@ SCENARIOS=("mint_transfer_burn.scenario" \
 
 if [ ${#SCENARIOS[@]} -gt 0 ]; then
     echo "Running ${#SCENARIOS[@]} scenarios"
-else
-    echo "NO SCENARIOS FOUND!"
-    exit 1
 fi
+TEST_SCENARIO_DATA_DIR="test_scenario_data"
 
 # 0 is pass, 1 is fail.
 STATUS=0
@@ -29,7 +27,7 @@ STATUS=0
 # Run each scenario and check for expected database result.
 for i in ${!SCENARIOS[@]}; do
     # Read in the `asset` file for this scenario.
-    EXPECTED_ASSET_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_asset.txt"
+    EXPECTED_ASSET_FILE="$TEST_SCENARIO_DATA_DIR/$(basename "${SCENARIOS[$i]}" .scenario)_asset.txt"
     if [ ! -f "$EXPECTED_ASSET_FILE" ]; then
         echo $(RED "${SCENARIOS[$i]} missing asset file")
         STATUS=1
@@ -57,7 +55,7 @@ for i in ${!SCENARIOS[@]}; do
     fi
 
     # Read in the `asset_creators` file for this scenario.
-    EXPECTED_ASSET_CREATORS_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_asset_creators.txt"
+    EXPECTED_ASSET_CREATORS_FILE="$TEST_SCENARIO_DATA_DIR/$(basename "${SCENARIOS[$i]}" .scenario)_asset_creators.txt"
     if [ ! -f "$EXPECTED_ASSET_CREATORS_FILE" ]; then
         echo $(RED "${SCENARIOS[$i]} missing asset_creators file")
         STATUS=1
@@ -79,7 +77,7 @@ for i in ${!SCENARIOS[@]}; do
     fi
 
     # Read in the `asset_grouping` file for this scenario.
-    EXPECTED_ASSET_GROUPING_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_asset_grouping.txt"
+    EXPECTED_ASSET_GROUPING_FILE="$TEST_SCENARIO_DATA_DIR/$(basename "${SCENARIOS[$i]}" .scenario)_asset_grouping.txt"
     if [ ! -f "$EXPECTED_ASSET_GROUPING_FILE" ]; then
         echo $(RED "${SCENARIOS[$i]} missing asset_grouping file")
         STATUS=1
@@ -100,7 +98,7 @@ for i in ${!SCENARIOS[@]}; do
     fi
 
     # Read in the `cl_items` file for this scenario.
-    EXPECTED_CL_ITEMS_FILE="$(basename "${SCENARIOS[$i]}" .scenario)_cl_items.txt"
+    EXPECTED_CL_ITEMS_FILE="$TEST_SCENARIO_DATA_DIR/$(basename "${SCENARIOS[$i]}" .scenario)_cl_items.txt"
     if [ ! -f "$EXPECTED_CL_ITEMS_FILE" ]; then
         echo $(RED "${SCENARIOS[$i]} missing cl_items file")
         STATUS=1
@@ -129,7 +127,7 @@ for i in ${!SCENARIOS[@]}; do
 
     # Run the scenario file that indexes the asset.  These are done with separate calls to the `txn_forwarder`
     # in order to enforce order.  Just calling the `txn_forwarder` with the file results in random ordering.
-    readarray -t TXS < "${SCENARIOS[$i]}"
+    readarray -t TXS < "$TEST_SCENARIO_DATA_DIR/${SCENARIOS[$i]}"
 
     for TX in ${TXS[@]}; do
         (cd .. && \
@@ -141,7 +139,7 @@ for i in ${!SCENARIOS[@]}; do
         2>&1 | grep -v "Group already exists: BUSYGROUP: Consumer Group name already exists")
     done
 
-    sleep 3
+    sleep 2
 
     # Asset should now be in `asset` table and all fields except `created_at` date match.
     DATABASE_VAL=$(PGPASSWORD=solana psql -h localhost -U solana -x --command="$ASSET_SQL")
