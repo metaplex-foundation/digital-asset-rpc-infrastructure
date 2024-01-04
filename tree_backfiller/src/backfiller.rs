@@ -1,10 +1,9 @@
-use crate::db;
-use crate::tree::{TreeGapFill, TreeGapModel};
 use crate::{
+    db,
     metrics::{Metrics, MetricsArgs},
     queue,
     rpc::{Rpc, SolanaRpcArgs},
-    tree,
+    tree::{self, TreeGapFill, TreeGapModel},
 };
 use anyhow::Result;
 use clap::{Parser, ValueEnum};

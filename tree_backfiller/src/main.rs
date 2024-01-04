@@ -1,12 +1,6 @@
-mod backfiller;
-mod db;
-mod metrics;
-mod queue;
-mod rpc;
-mod tree;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use das_tree_backfiller::backfiller;
 
 #[derive(Debug, Parser)]
 #[clap(author, version)]
