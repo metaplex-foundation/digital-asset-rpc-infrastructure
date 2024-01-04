@@ -30,6 +30,8 @@ mod m20230724_120101_add_group_info_seq;
 mod m20230726_013107_remove_not_null_constraint_from_group_value;
 mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
+mod m20240104_203133_add_cl_audits_v2;
+mod m20240104_203328_remove_cl_audits;
 
 pub struct Migrator;
 
@@ -67,6 +69,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230726_013107_remove_not_null_constraint_from_group_value::Migration),
             Box::new(m20230918_182123_add_raw_name_symbol::Migration),
             Box::new(m20230919_072154_cl_audits::Migration),
+            Box::new(m20240104_203133_add_cl_audits_v2::Migration),
+            Box::new(m20240104_203328_remove_cl_audits::Migration),
         ]
     }
 }

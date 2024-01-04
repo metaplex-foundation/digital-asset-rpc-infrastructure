@@ -1,4 +1,8 @@
+use sea_orm::Statement;
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::{ConnectionTrait, DatabaseBackend};
+
+use crate::m20230919_072154_cl_audits::ClAudits;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,6 +10,20 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "
+                DROP TABLE IF EXISTS cl_audits;
+                "
+                .to_string(),
+            ))
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .create_table(
                 Table::create()
@@ -15,7 +33,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ClAudits::Id)
                             .big_integer()
                             .not_null()
-                            .primary_key()
                             .auto_increment(),
                     )
                     .col(ColumnDef::new(ClAudits::Tree).binary().not_null())
@@ -33,27 +50,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ClAudits::Tx).string().not_null())
                     .to_owned(),
             )
-            .await
-    }
+            .await?;
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(ClAudits::Table).to_owned())
-            .await
+        Ok(())
     }
-}
-
-/// Learn more at https://docs.rs/sea-query#iden
-#[derive(Iden)]
-pub enum ClAudits {
-    Table,
-    Id,
-    Tree,
-    NodeIdx,
-    LeafIdx,
-    Seq,
-    Level,
-    Hash,
-    CreatedAt,
-    Tx,
 }
