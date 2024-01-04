@@ -33,7 +33,6 @@ pub struct IngesterConfig {
     pub transaction_backfill_stream_worker_count: Option<u32>,
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
-    pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
 }
 
 impl IngesterConfig {

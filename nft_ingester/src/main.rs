@@ -27,7 +27,8 @@ use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
 use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_STREAM, ACCOUNT_BACKFILL_STREAM, TRANSACTION_STREAM, TRANSACTION_BACKFILL_STREAM
+    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_BACKFILL_STREAM, ACCOUNT_STREAM,
+    TRANSACTION_BACKFILL_STREAM, TRANSACTION_STREAM,
 };
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
@@ -118,7 +119,6 @@ pub async fn main() -> Result<(), IngesterError> {
         TRANSACTION_BACKFILL_STREAM,
     )?;
 
-
     if let Some(t) = timer_acc.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
@@ -175,7 +175,6 @@ pub async fn main() -> Result<(), IngesterError> {
                 } else {
                     ConsumptionType::New
                 },
-                config.cl_audits.unwrap_or(false),
                 TRANSACTION_STREAM,
             );
         }
@@ -190,7 +189,6 @@ pub async fn main() -> Result<(), IngesterError> {
                 } else {
                     ConsumptionType::New
                 },
-                config.cl_audits.unwrap_or(false),
                 TRANSACTION_BACKFILL_STREAM,
             );
         }

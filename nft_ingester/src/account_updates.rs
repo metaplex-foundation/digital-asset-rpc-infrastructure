@@ -26,7 +26,7 @@ pub fn account_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, false));
+            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();
@@ -65,7 +65,11 @@ pub fn account_worker<T: Messenger>(
     })
 }
 
-async fn handle_account(manager: Arc<ProgramTransformer>, item: RecvData, stream_key: &'static str) -> Option<String> {
+async fn handle_account(
+    manager: Arc<ProgramTransformer>,
+    item: RecvData,
+    stream_key: &'static str,
+) -> Option<String> {
     let id = item.id;
     let mut ret_id = None;
     let data = item.data;

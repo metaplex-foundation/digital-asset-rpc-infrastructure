@@ -29,11 +29,10 @@ pub struct ProgramTransformer {
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
-    cl_audits: bool,
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>, cl_audits: bool) -> Self {
+    pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>) -> Self {
         let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
@@ -51,7 +50,6 @@ impl ProgramTransformer {
             task_sender,
             matchers,
             key_set: hs,
-            cl_audits: cl_audits,
         }
     }
 
@@ -127,7 +125,6 @@ impl ProgramTransformer {
                             &ix,
                             &self.storage,
                             &self.task_sender,
-                            self.cl_audits,
                         )
                         .await
                         .map_err(|err| {

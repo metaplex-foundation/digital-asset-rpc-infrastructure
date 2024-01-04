@@ -5,10 +5,7 @@ use cadence_macros::{is_global_default_set, set_global_default, statsd_count, st
 use log::{error, warn};
 use tokio::time::Instant;
 
-use crate::{
-    config::IngesterConfig,
-    error::IngesterError,
-};
+use crate::{config::IngesterConfig, error::IngesterError};
 
 #[macro_export]
 macro_rules! metric {
@@ -32,9 +29,7 @@ pub fn setup_metrics(config: &IngesterConfig) {
         let udp_sink = BufferedUdpMetricSink::from(host, socket).unwrap();
         let queuing_sink = QueuingMetricSink::from(udp_sink);
         let builder = StatsdClient::builder("das_ingester", queuing_sink);
-        let client = builder
-            .with_tag("env", env)
-            .build();
+        let client = builder.with_tag("env", env).build();
         set_global_default(client);
     }
 }
@@ -42,7 +37,7 @@ pub fn setup_metrics(config: &IngesterConfig) {
 // Returns a boolean indicating whether the redis message should be ACK'd.
 // If the message is not ACK'd, it will be retried as long as it is under the retry limit.
 pub fn capture_result(
-    id: String,
+    _id: String,
     stream: &str,
     label: (&str, &str),
     tries: usize,
