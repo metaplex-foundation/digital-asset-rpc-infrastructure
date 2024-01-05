@@ -96,12 +96,12 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 * Token 2022
 * Latest version of the Associated token program
 
-You need to run the following script in order to get all those .so files.
+You need to run the following script in order to get the .so files.
 
 ```bash
 ./prepare-local-docker-env.sh
 ```
-This script grabs all the code for these programs and downloads it to your programs folder.
+This script downloads these programs from mainnet and puts them in the `programs/` folder.
 
 #### Authentication with Docker and AWS
 
@@ -166,9 +166,9 @@ You can also run the sequences in reverse:
 And after it runs you should see `ALL TESTS PASSED IN REVERSE!`
 
 A few detailed notes about this test script:
-1. This script is not all-encompassing.  It is only meant to automate some normal basic tests that were previously done manually.  The reason this test is not added to CI is because requires a more powerful system to run the Docker application, which contains the no-vote Solana validator.
-2. The test sequences are in `.scenario` files, but instead of sending those files to the `txn_forwarder` directly (which supports the file format), we parse them out and send them individually using the `single` parameter.  This is because using the `.scenario` file directly results in random ordering of the transactions and we are explicity trying to test them going forwards and in reverse.
-3. In general the expected database results are the same when running the transactions forwards and backwards.  However, for assets that are decompressed, this is not true because we don't index some of the asset information from Bubblegum mint indexing if we already know the asset has been decompressed.  We instead let Token Metadata account based indexing fill in that information.  This is not reflected by this test script so the results differ when running these sequences in reverse.  The differing results are reflected in test files with the `_reverse` suffix.
+* This script is not all-encompassing.  It is only meant to automate some normal basic tests that were previously done manually.  The reason this test is not added to CI is because requires a more powerful system to run the Docker application, which contains the no-vote Solana validator.
+* The test sequences are in `.scenario` files, but instead of sending those files to the `txn_forwarder` directly (which supports the file format), we parse them out and send them individually using the `single` parameter.  This is because using the `.scenario` file directly results in random ordering of the transactions and we are explicity trying to test them going forwards and in reverse.
+* In general the expected database results are the same when running the transactions forwards and backwards.  However, for assets that are decompressed, this is not true because we don't index some of the asset information from Bubblegum mint indexing if we already know the asset has been decompressed.  We instead let Token Metadata account based indexing fill in that information.  This is not reflected by this test script so the results differ when running these sequences in reverse.  The differing results are reflected in test files with the `_reverse` suffix.
 
 #### Logs
 To get a reasonable amount of logs while running Docker, direct grafana logs to a file:
