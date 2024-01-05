@@ -1,0 +1,28 @@
+-[ RECORD 1 ]-------------+-------------------------------------------------------------------
+id                        | \x4582ef313005487b924213937300a3c5cef8502646c8c182a2a9e1188adb196b
+alt_id                    | 
+specification_version     | 
+specification_asset_class | 
+owner                     | 
+owner_type                | single
+delegate                  | 
+frozen                    | f
+supply                    | 1
+supply_mint               | \x4582ef313005487b924213937300a3c5cef8502646c8c182a2a9e1188adb196b
+compressed                | f
+compressible              | f
+seq                       | 0
+tree_id                   | 
+leaf                      | 
+nonce                     | 0
+royalty_target_type       | creators
+royalty_target            | 
+royalty_amount            | 0
+asset_data                | 
+burnt                     | f
+slot_updated              | 
+data_hash                 | 
+creator_hash              | 
+owner_delegate_seq        | 
+leaf_seq                  | 
+base_info_seq             | 
