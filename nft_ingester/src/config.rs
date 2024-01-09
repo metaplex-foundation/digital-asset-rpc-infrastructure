@@ -77,7 +77,7 @@ impl IngesterConfig {
     }
 
     pub fn get_worker_config(&self) -> Vec<WorkerConfig> {
-        return if let Some(wc) = &self.worker_config {
+        if let Some(wc) = &self.worker_config {
             wc.to_vec()
         } else {
             vec![
@@ -92,7 +92,7 @@ impl IngesterConfig {
                     worker_type: WorkerType::Transaction,
                 },
             ]
-        };
+        }
     }
 
     pub fn get_worker_count(&self) -> u32 {

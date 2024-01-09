@@ -447,7 +447,6 @@ where
         raw_name: Set(Some(raw_name)),
         raw_symbol: Set(Some(raw_symbol)),
         base_info_seq: Set(Some(seq)),
-        ..Default::default()
     };
 
     let mut query = asset_data::Entity::insert(model)

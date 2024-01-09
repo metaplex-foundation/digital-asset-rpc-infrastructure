@@ -1,8 +1,5 @@
-use digital_asset_types::dao::{asset, asset_creators, asset_data};
-use sea_orm_migration::{
-    prelude::*,
-    sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
-};
+use digital_asset_types::dao::{asset, asset_data};
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
