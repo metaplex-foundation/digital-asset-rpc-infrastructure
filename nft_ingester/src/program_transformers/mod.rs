@@ -65,8 +65,13 @@ impl ProgramTransformer {
 
     #[allow(clippy::borrowed_box)]
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
-        self.matchers
-            .get(&Pubkey::try_from(key.0.as_slice()).expect("valid key from FlatBuffer"))
+        match Pubkey::try_from(key.0.as_slice()) {
+            Ok(pubkey) => self.matchers.get(&pubkey),
+            Err(_error) => {
+                log::warn!("failed to parse key: {key:?}");
+                None
+            }
+        }
     }
 
     pub async fn handle_transaction<'a>(

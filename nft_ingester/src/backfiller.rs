@@ -628,7 +628,15 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         &mut self,
         btree: &BackfillTree,
     ) -> Result<Option<i64>, IngesterError> {
-        let address = Pubkey::try_from(btree.unique_tree.tree.as_slice()).expect("valid pubkey");
+        let address = match Pubkey::try_from(btree.unique_tree.tree.as_slice()) {
+            Ok(pubkey) => pubkey,
+            Err(error) => {
+                return Err(IngesterError::DeserializationError(format!(
+                    "failed to parse pubkey: {error:?}"
+                )))
+            }
+        };
+
         let slots = self.find_slots_via_address(&address).await?;
         let address = btree.unique_tree.tree.clone();
         for slot in slots {
