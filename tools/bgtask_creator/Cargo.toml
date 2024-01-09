@@ -1,21 +1,25 @@
 [package]
 name = "bgtask_creator"
 version = "0.7.12"
-edition = "2021"
-publish = false
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.70"
-clap = { version = "4.1.4", features = ["derive", "cargo"] }
-digital_asset_types = { path = "../../digital_asset_types", features = ["json_types", "sql_types"] }
-futures = "0.3.25"
-lazy_static = "1.4.0"
-log = "0.4.17"
-nft_ingester = { path = "../../nft_ingester" }
-prometheus = "0.13.3"
-sea-orm = { version = "0.10.6", features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
-sea-query = { version = "0.28.1", features = ["postgres-array"] }
-solana-sdk = "~1.16.16"
-sqlx = { version = "0.6.2", features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
-tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread"] }
-txn_forwarder = { path = "../txn_forwarder" }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo"] }
+digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+futures = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+nft_ingester = { workspace = true }
+prometheus = { workspace = true }
+sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-query = { workspace = true, features = ["postgres-array"] }
+solana-sdk = { workspace = true }
+sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+txn_forwarder = { workspace = true }
+
+[lints]
+workspace = true

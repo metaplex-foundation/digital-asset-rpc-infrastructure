@@ -15,7 +15,7 @@ pub async fn get_assets_by_authority(
     page_options: &PageOptions,
     options: &Options,
 ) -> Result<AssetList, DbErr> {
-    let pagination = create_pagination(&page_options)?;
+    let pagination = create_pagination(page_options)?;
     let (sort_direction, sort_column) = create_sorting(sorting);
     let assets = scopes::asset::get_by_authority(
         db,

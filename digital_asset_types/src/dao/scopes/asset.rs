@@ -1,14 +1,12 @@
 use crate::dao::{
-    asset::{self},
-    asset_authority, asset_creators, asset_data, asset_grouping, Cursor, FullAsset, GroupingSize,
-    Pagination,
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, Cursor, FullAsset,
+    GroupingSize, Pagination,
 };
-
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
 use std::collections::HashMap;
 
-pub fn paginate<'db, T, C>(
+pub fn paginate<T, C>(
     pagination: &Pagination,
     limit: u64,
     stmt: T,
@@ -47,6 +45,7 @@ where
     stmt.limit(limit)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_by_creator(
     conn: &impl ConnectionTrait,
     creator: Vec<u8>,
@@ -98,6 +97,7 @@ pub async fn get_grouping(
     Ok(GroupingSize { size })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_by_grouping(
     conn: &impl ConnectionTrait,
     group_key: String,
@@ -210,6 +210,7 @@ pub async fn get_by_authority(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn get_by_related_condition<E>(
     conn: &impl ConnectionTrait,
     condition: Condition,
@@ -344,6 +345,7 @@ pub async fn get_related_for_assets(
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_assets_by_condition(
     conn: &impl ConnectionTrait,
     condition: Condition,

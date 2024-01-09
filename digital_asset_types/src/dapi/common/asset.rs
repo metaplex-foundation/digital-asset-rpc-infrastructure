@@ -22,7 +22,7 @@ use std::path::Path;
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
-    Url::parse(&*uri).ok()
+    Url::parse(&uri).ok()
 }
 
 pub fn get_mime(url: Url) -> Option<Mime> {
@@ -351,8 +351,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset.nonce.unwrap_or(0 as i64),
-            seq: asset.seq.unwrap_or(0 as i64),
+            leaf_id: asset.nonce.unwrap_or(0),
+            seq: asset.seq.unwrap_or(0),
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())

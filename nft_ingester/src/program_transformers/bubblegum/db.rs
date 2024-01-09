@@ -29,7 +29,7 @@ where
     Ok(change_log_event.seq)
 }
 
-fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
+const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }
 
@@ -447,7 +447,6 @@ where
         raw_name: Set(Some(raw_name)),
         raw_symbol: Set(Some(raw_symbol)),
         base_info_seq: Set(Some(seq)),
-        ..Default::default()
     };
 
     let mut query = asset_data::Entity::insert(model)

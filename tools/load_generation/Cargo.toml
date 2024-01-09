@@ -1,16 +1,20 @@
 [package]
 name = "load_generation"
 version = "0.7.12"
-edition = "2021"
-publish = false
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [dependencies]
-fake = "2.5.0"
-mpl-token-metadata = "=2.0.0-beta.1"
-rand = "0.8.5"
-solana-client = "~1.16.16"
-solana-program = "~1.16.16"
-solana-sdk = "~1.16.16"
-spl-associated-token-account = { version = ">= 1.1.3, < 3.0", features = ["no-entrypoint"] }
-spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
-tokio = { version ="1.25.0", features = ["macros", "rt-multi-thread"] }
+fake = { workspace = true }
+mpl-token-metadata = { workspace = true }
+rand = { workspace = true }
+solana-client = { workspace = true }
+solana-program = { workspace = true }
+solana-sdk = { workspace = true }
+spl-associated-token-account = { workspace = true, features = ["no-entrypoint"] }
+spl-token = { workspace = true, features = ["no-entrypoint"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

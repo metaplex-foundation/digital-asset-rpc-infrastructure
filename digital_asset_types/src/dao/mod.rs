@@ -73,9 +73,8 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-    pub fn count_conditions(&self) -> usize {
+    pub const fn count_conditions(&self) -> usize {
         // Initialize counter
-        // todo ever heard of a flipping macro
         let mut num_conditions = 0;
         if self.specification_version.is_some() {
             num_conditions += 1;
@@ -222,7 +221,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(a) = self.authority_address.to_owned() {
-            conditions = conditions.add(asset_authority::Column::Authority.eq(a.clone()));
+            conditions = conditions.add(asset_authority::Column::Authority.eq(a));
             let rel = asset_authority::Relation::Asset
                 .def()
                 .rev()
@@ -272,7 +271,7 @@ impl SearchAssetsQuery {
             })?;
 
             let name_expr =
-                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str).into());
+                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
 
             conditions = conditions.add(name_expr);
             let rel = asset_data::Relation::Asset

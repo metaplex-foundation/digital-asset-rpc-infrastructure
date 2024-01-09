@@ -794,7 +794,7 @@ fn parse_tx_sequence(
                                 AccountCompressionEvent::try_from_slice(&data)
                             {
                                 let ChangeLogEvent::V1(cl_data) = cl_data;
-                                let leaf = cl_data.path.get(0).map(|node| LeafNode {
+                                let leaf = cl_data.path.first().map(|node| LeafNode {
                                     leaf: node.node.to_vec(),
                                     index: node_idx_to_leaf_idx(
                                         node.index as i64,
@@ -815,6 +815,6 @@ fn parse_tx_sequence(
     Ok(seq_updates)
 }
 
-fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
+const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }

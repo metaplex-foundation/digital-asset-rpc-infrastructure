@@ -36,19 +36,28 @@ async fn main() {
     );
     let kp_new = Arc::new(Keypair::new());
     let semaphore = Arc::new(Semaphore::new(carnage));
-    let _ = check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
-    let nft_collection_thing =
-        make_a_nft_thing(le_blockchain.clone(), kp.clone(), kp.clone(), None)
-            .await
-            .unwrap();
+    let _ = check_balance(
+        Arc::clone(&le_blockchain),
+        Arc::clone(&kp),
+        network != "mainnet",
+    )
+    .await;
+    let nft_collection_thing = make_a_nft_thing(
+        Arc::clone(&le_blockchain),
+        Arc::clone(&kp),
+        Arc::clone(&kp),
+        None,
+    )
+    .await
+    .unwrap();
     println!("NFT Collection Thing: {:?}", nft_collection_thing);
     loop {
         let mut tasks = vec![];
         for _ in 0..carnage {
-            let kp = kp.clone();
-            let kp_new = kp_new.clone();
-            let le_clone = le_blockchain.clone();
-            let semaphore = semaphore.clone();
+            let kp = Arc::clone(&kp);
+            let kp_new = Arc::clone(&kp_new);
+            let le_clone = Arc::clone(&le_blockchain);
+            let semaphore = Arc::clone(&semaphore);
             tasks.push(tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap(); //wait for le government to allow le action
                                                                   // MINT A MASTER EDITION:
@@ -68,7 +77,12 @@ async fn main() {
                 }
             }
         }
-        let _ = check_balance(le_blockchain.clone(), kp.clone(), network != "mainnet").await;
+        let _ = check_balance(
+            Arc::clone(&le_blockchain),
+            Arc::clone(&kp),
+            network != "mainnet",
+        )
+        .await;
     }
 }
 
@@ -150,8 +164,13 @@ pub async fn make_a_nft_thing(
     owner: Arc<Keypair>,
     collection_mint: Option<Pubkey>,
 ) -> Result<Pubkey, ClientError> {
-    let (mint, _token_account) =
-        make_a_token_thing(solana_client.clone(), payer.clone(), owner.clone(), 1).await?;
+    let (mint, _token_account) = make_a_token_thing(
+        Arc::clone(&solana_client),
+        Arc::clone(&payer),
+        Arc::clone(&owner),
+        1,
+    )
+    .await?;
     let prg_uid = mpl_token_metadata::id();
     let _metadata_seeds = &[
         mpl_token_metadata::state::PREFIX.as_bytes(),
