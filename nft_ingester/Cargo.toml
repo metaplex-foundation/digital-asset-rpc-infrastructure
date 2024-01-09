@@ -29,19 +29,19 @@ flatbuffers = "23.1.21"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = ["json_types", "sql_types"] }
-mpl-bubblegum = "1.0.1-beta.3"
+mpl-bubblegum = "=1.0.1-beta.4"
 spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
 spl-concurrent-merkle-tree = "0.2.0"
 uuid = "1.0.0"
 async-trait = "0.1.53"
 num-traits = "0.2.15"
-blockbuster = "0.9.0-beta.1"
+blockbuster = "=0.9.0-beta.5"
 figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 solana-sdk = "~1.16.16"
 solana-client = "~1.16.16"
-spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
+spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
 solana-transaction-status = "~1.16.16"
 solana-account-decoder = "~1.16.16"
 solana-geyser-plugin-interface = "~1.16.16"

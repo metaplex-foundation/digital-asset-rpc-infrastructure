@@ -1,10 +1,8 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_authority, upsert_asset_base_info,
-        upsert_asset_creators, upsert_asset_data, upsert_asset_with_compression_info,
-        upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
-        upsert_asset_with_seq, upsert_collection_info,
+        save_changelog_event, upsert_asset_base_info, upsert_asset_creators, upsert_asset_data,
+        upsert_asset_with_leaf_info, upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
@@ -25,7 +23,7 @@ use log::warn;
 use num_traits::FromPrimitive;
 use sea_orm::{query::*, ConnectionTrait, JsonValue};
 
-pub async fn mint_v1<'c, T>(
+pub async fn update_metadata<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
@@ -37,9 +35,9 @@ where
     if let (
         Some(le),
         Some(cl),
-        Some(Payload::MintV1 {
-            args,
-            authority,
+        Some(Payload::UpdateMetadata {
+            current_metadata,
+            update_args,
             tree_id,
         }),
     ) = (
@@ -48,28 +46,50 @@ where
         &parsing_result.payload,
     ) {
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
-        let metadata = args;
+
         #[allow(unreachable_patterns)]
         return match le.schema {
-            LeafSchema::V1 {
-                id,
-                delegate,
-                owner,
-                nonce,
-                ..
-            } => {
+            LeafSchema::V1 { id, nonce, .. } => {
                 let id_bytes = id.to_bytes();
                 let slot_i = bundle.slot as i64;
-                let uri = metadata.uri.replace('\0', "");
-                let name = metadata.name.clone().into_bytes();
-                let symbol = metadata.symbol.clone().into_bytes();
+
+                let uri = if let Some(uri) = &update_args.uri {
+                    uri.replace('\0', "")
+                } else {
+                    current_metadata.uri.replace('\0', "")
+                };
+                if uri.is_empty() {
+                    return Err(IngesterError::DeserializationError(
+                        "URI is empty".to_string(),
+                    ));
+                }
+
+                let name = if let Some(name) = update_args.name.clone() {
+                    name
+                } else {
+                    current_metadata.name.clone()
+                };
+
+                let symbol = if let Some(symbol) = update_args.symbol.clone() {
+                    symbol
+                } else {
+                    current_metadata.symbol.clone()
+                };
+
+                let primary_sale_happened =
+                    if let Some(primary_sale_happened) = update_args.primary_sale_happened {
+                        primary_sale_happened
+                    } else {
+                        current_metadata.primary_sale_happened
+                    };
+
                 let mut chain_data = ChainDataV1 {
-                    name: metadata.name.clone(),
-                    symbol: metadata.symbol.clone(),
-                    edition_nonce: metadata.edition_nonce,
-                    primary_sale_happened: metadata.primary_sale_happened,
+                    name: name.clone(),
+                    symbol: symbol.clone(),
+                    edition_nonce: current_metadata.edition_nonce,
+                    primary_sale_happened,
                     token_standard: Some(TokenStandard::NonFungible),
-                    uses: metadata.uses.clone().map(|u| Uses {
+                    uses: current_metadata.uses.clone().map(|u| Uses {
                         use_method: UseMethod::from_u8(u.use_method as u8).unwrap(),
                         remaining: u.remaining,
                         total: u.total,
@@ -78,9 +98,17 @@ where
                 chain_data.sanitize();
                 let chain_data_json = serde_json::to_value(chain_data)
                     .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
-                let chain_mutability = match metadata.is_mutable {
-                    true => ChainMutability::Mutable,
-                    false => ChainMutability::Immutable,
+
+                let is_mutable = if let Some(is_mutable) = update_args.is_mutable {
+                    is_mutable
+                } else {
+                    current_metadata.is_mutable
+                };
+
+                let chain_mutability = if is_mutable {
+                    ChainMutability::Mutable
+                } else {
+                    ChainMutability::Immutable
                 };
 
                 upsert_asset_data(
@@ -93,17 +121,24 @@ where
                     JsonValue::String("processing".to_string()),
                     slot_i,
                     Some(true),
-                    name.to_vec(),
-                    symbol.to_vec(),
+                    name.into_bytes().to_vec(),
+                    symbol.into_bytes().to_vec(),
                     seq as i64,
                 )
                 .await?;
 
                 // Upsert `asset` table base info.
-                let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
-                    None
+                let seller_fee_basis_points =
+                    if let Some(seller_fee_basis_points) = update_args.seller_fee_basis_points {
+                        seller_fee_basis_points
+                    } else {
+                        current_metadata.seller_fee_basis_points
+                    };
+
+                let creators = if let Some(creators) = &update_args.creators {
+                    creators
                 } else {
-                    Some(delegate.to_bytes().to_vec())
+                    &current_metadata.creators
                 };
 
                 // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
@@ -111,7 +146,6 @@ where
                 // automatically rolled back.
                 let multi_txn = txn.begin().await?;
 
-                // Upsert `asset` table base info and `asset_creators` table.
                 upsert_asset_base_info(
                     txn,
                     id_bytes.to_vec(),
@@ -121,20 +155,9 @@ where
                     SpecificationAssetClass::Nft,
                     RoyaltyTargetType::Creators,
                     None,
-                    metadata.seller_fee_basis_points as i32,
+                    seller_fee_basis_points as i32,
                     slot_i,
                     seq as i64,
-                )
-                .await?;
-
-                // Partial update of asset table with just compression info elements.
-                upsert_asset_with_compression_info(
-                    &multi_txn,
-                    id_bytes.to_vec(),
-                    true,
-                    false,
-                    1,
-                    None,
                 )
                 .await?;
 
@@ -151,50 +174,12 @@ where
                 )
                 .await?;
 
-                // Partial update of asset table with just leaf owner and delegate.
-                upsert_asset_with_owner_and_delegate_info(
-                    &multi_txn,
-                    id_bytes.to_vec(),
-                    owner.to_bytes().to_vec(),
-                    delegate,
-                    seq as i64,
-                )
-                .await?;
-
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
                 multi_txn.commit().await?;
 
                 // Upsert creators to `asset_creators` table.
-                upsert_asset_creators(
-                    txn,
-                    id_bytes.to_vec(),
-                    &metadata.creators,
-                    slot_i,
-                    seq as i64,
-                )
-                .await?;
-
-                // Insert into `asset_authority` table.
-                //TODO - we need to remove the optional bubblegum signer logic
-                upsert_asset_authority(
-                    txn,
-                    id_bytes.to_vec(),
-                    authority.to_vec(),
-                    seq as i64,
-                    slot_i,
-                )
-                .await?;
-
-                // Upsert into `asset_grouping` table with base collection info.
-                upsert_collection_info(
-                    txn,
-                    id_bytes.to_vec(),
-                    metadata.collection.clone(),
-                    slot_i,
-                    seq as i64,
-                )
-                .await?;
+                upsert_asset_creators(txn, id_bytes.to_vec(), creators, slot_i, seq as i64).await?;
 
                 if uri.is_empty() {
                     warn!(
