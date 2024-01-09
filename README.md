@@ -34,7 +34,7 @@ Because this is a multi component system the easiest way to develop or locally t
 #### Regenerating DB Types
 Edit the init.sql, then run `docker compose up db`
 Then with a local `DATABASE_URL` var exported like this `export DATABASE_URL=postgres://solana:solana@localhost/solana` you can run
-` sea-orm-cli generate entity -o ./digital_asset_types/src/dao/generated/ --database-url $DATABASE_URL --with-serde both --expanded-format`
+`sea-orm-cli generate entity -o ./digital_asset_types/src/dao/generated/ --database-url $DATABASE_URL --with-serde both --expanded-format`
 
 If you need to install `sea-orm-cli` run `cargo install sea-orm-cli`.
 

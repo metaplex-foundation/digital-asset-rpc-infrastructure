@@ -70,7 +70,9 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 .await?;
             if let Some(asset) = asset_update {
                 // will only update owner if token account balance is non-zero
-                if ta.amount > 0 {
+                // since the asset is marked as single then the token account balance can only be 1. Greater implies a fungible token in which case no si
+                // TODO: this does not guarantee in case when wallet receives an amount of 1 for a token but its supply is more. is unlikely since mints often have a decimal
+                if ta.amount == 1 {
                     let mut active: asset::ActiveModel = asset.into();
                     active.owner = Set(Some(owner));
                     active.delegate = Set(delegate);

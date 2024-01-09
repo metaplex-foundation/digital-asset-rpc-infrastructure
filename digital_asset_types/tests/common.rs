@@ -83,8 +83,9 @@ pub fn create_asset_data(
             metadata: JsonValue::String("processing".to_string()),
             slot_updated: 0,
             reindex: None,
-            raw_name: metadata.name.into_bytes().to_vec(),
-            raw_symbol: metadata.symbol.into_bytes().to_vec(),
+            raw_name: Some(metadata.name.into_bytes().to_vec().clone()),
+            raw_symbol: Some(metadata.symbol.into_bytes().to_vec().clone()),
+            base_info_seq: Some(0),
         },
     )
 }
@@ -155,8 +156,8 @@ pub fn create_asset(
             alt_id: None,
             creator_hash: None,
             owner_delegate_seq: Some(0),
-            was_decompressed: false,
             leaf_seq: Some(0),
+            base_info_seq: Some(0),
         },
     )
 }
@@ -231,7 +232,7 @@ pub fn create_asset_grouping(
             id: row_num,
             group_key: "collection".to_string(),
             slot_updated: Some(0),
-            verified: Some(false),
+            verified: false,
             group_info_seq: Some(0),
         },
     )

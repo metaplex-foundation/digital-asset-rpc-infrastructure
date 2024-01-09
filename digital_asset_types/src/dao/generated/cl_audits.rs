@@ -22,7 +22,7 @@ pub struct Model {
     pub seq: i64,
     pub level: i64,
     pub hash: Vec<u8>,
-    pub created_at: Option<DateTime>,
+    pub created_at: DateTime,
     pub tx: String,
 }
 

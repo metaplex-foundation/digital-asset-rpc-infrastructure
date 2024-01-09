@@ -292,7 +292,7 @@ pub fn to_grouping(
         .filter_map(|model| {
             let verified = match options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
-                true => Some(model.verified.unwrap_or(true)),
+                true => Some(model.verified),
                 false => None,
             };
             // Filter out items where group_value is None.
