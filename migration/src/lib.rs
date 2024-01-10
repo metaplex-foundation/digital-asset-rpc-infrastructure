@@ -30,8 +30,10 @@ mod m20230724_120101_add_group_info_seq;
 mod m20230726_013107_remove_not_null_constraint_from_group_value;
 mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
+mod m20231019_120101_add_seq_numbers_bgum_update_metadata;
 mod m20231118_174007_add_compressed_data;
 mod m20231122_191039_create_merkle_tree_table;
+mod m20231206_120101_remove_was_decompressed;
 
 pub struct Migrator;
 
@@ -71,6 +73,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230919_072154_cl_audits::Migration),
             Box::new(m20231118_174007_add_compressed_data::Migration),
             Box::new(m20231122_191039_create_merkle_tree_table::Migration),
+            Box::new(m20231019_120101_add_seq_numbers_bgum_update_metadata::Migration),
+            Box::new(m20231206_120101_remove_was_decompressed::Migration),
         ]
     }
 }

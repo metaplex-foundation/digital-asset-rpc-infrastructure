@@ -75,6 +75,11 @@ impl DownloadMetadataTask {
     }
 }
 
+#[derive(FromQueryResult, Debug, Default, Clone, Eq, PartialEq)]
+struct MetadataUrl {
+    pub metadata_url: String,
+}
+
 #[async_trait]
 impl BgTask for DownloadMetadataTask {
     fn name(&self) -> &'static str {
@@ -106,6 +111,30 @@ impl BgTask for DownloadMetadataTask {
             }
             _ => serde_json::Value::String("Invalid Uri".to_string()), //TODO -> enumize this.
         };
+
+        let query = asset_data::Entity::find_by_id(download_metadata.asset_data_id.clone())
+            .select_only()
+            .column(asset_data::Column::MetadataUrl)
+            .build(DbBackend::Postgres);
+
+        match MetadataUrl::find_by_statement(query).one(db).await? {
+            Some(asset) => {
+                if asset.metadata_url != download_metadata.uri {
+                    debug!(
+                        "skipping download metadata of old URI for {:?}",
+                        bs58::encode(download_metadata.asset_data_id.clone()).into_string()
+                    );
+                    return Ok(());
+                }
+            }
+            None => {
+                return Err(IngesterError::UnrecoverableTaskError(format!(
+                    "failed to find URI in database for {:?}",
+                    bs58::encode(download_metadata.asset_data_id.clone()).into_string()
+                )));
+            }
+        }
+
         let model = asset_data::ActiveModel {
             id: Unchanged(download_metadata.asset_data_id.clone()),
             metadata: Set(body),
@@ -118,6 +147,10 @@ impl BgTask for DownloadMetadataTask {
         );
         asset_data::Entity::update(model)
             .filter(asset_data::Column::Id.eq(download_metadata.asset_data_id.clone()))
+            .filter(
+                Condition::all()
+                    .add(asset_data::Column::MetadataUrl.eq(download_metadata.uri.clone())),
+            )
             .exec(db)
             .await
             .map(|_| ())

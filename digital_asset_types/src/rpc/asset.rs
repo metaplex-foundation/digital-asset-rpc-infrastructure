@@ -27,6 +27,8 @@ pub enum Interface {
     #[serde(rename = "V1_PRINT")]
     V1PRINT,
     #[serde(rename = "LEGACY_NFT")]
+    // TODO: change on version bump
+    #[allow(non_camel_case_types)]
     LEGACY_NFT,
     #[serde(rename = "V2_NFT")]
     Nft,
@@ -56,9 +58,9 @@ impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
     }
 }
 
-impl Into<(SpecificationVersions, SpecificationAssetClass)> for Interface {
-    fn into(self) -> (SpecificationVersions, SpecificationAssetClass) {
-        match self {
+impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
+    fn from(interface: Interface) -> (SpecificationVersions, SpecificationAssetClass) {
+        match interface {
             Interface::V1NFT => (SpecificationVersions::V1, SpecificationAssetClass::Nft),
             Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
             Interface::ProgrammableNFT => (
@@ -115,15 +117,15 @@ pub struct File {
 
 pub type Files = Vec<File>;
 
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub struct MetadataMap(BTreeMap<String, serde_json::Value>);
 
 impl MetadataMap {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(BTreeMap::new())
     }
 
-    pub fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
+    pub const fn inner(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.0
     }
 
@@ -200,6 +202,8 @@ pub type GroupValue = String;
 pub struct Group {
     pub group_key: String,
     pub group_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]

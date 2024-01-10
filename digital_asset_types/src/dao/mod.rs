@@ -2,21 +2,35 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
-pub use full_asset::*;
-pub use generated::*;
-
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
+pub use full_asset::*;
+pub use generated::*;
 use sea_orm::{
     entity::*,
     sea_query::Expr,
-    sea_query::{ConditionType, IntoCondition},
+    sea_query::{ConditionType, IntoCondition, SimpleExpr},
     Condition, DbErr, RelationDef,
 };
+use serde::{Deserialize, Serialize};
 
 pub struct GroupingSize {
     pub size: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct PageOptions {
+    pub limit: u64,
+    pub page: Option<u64>,
+    pub before: Option<Vec<u8>>,
+    pub after: Option<Vec<u8>>,
+    pub cursor: Option<Cursor>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+pub struct Cursor {
+    pub id: Option<Vec<u8>>,
 }
 
 pub enum Pagination {
@@ -27,6 +41,7 @@ pub enum Pagination {
     Page {
         page: u64,
     },
+    Cursor(Cursor),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,12 +69,12 @@ pub struct SearchAssetsQuery {
     pub royalty_amount: Option<u32>,
     pub burnt: Option<bool>,
     pub json_uri: Option<String>,
+    pub name: Option<Vec<u8>>,
 }
 
 impl SearchAssetsQuery {
-    pub fn count_conditions(&self) -> usize {
+    pub const fn count_conditions(&self) -> usize {
         // Initialize counter
-        // todo ever heard of a flipping macro
         let mut num_conditions = 0;
         if self.specification_version.is_some() {
             num_conditions += 1;
@@ -113,6 +128,9 @@ impl SearchAssetsQuery {
             num_conditions += 1;
         }
         if self.json_uri.is_some() {
+            num_conditions += 1;
+        }
+        if self.name.is_some() {
             num_conditions += 1;
         }
 
@@ -203,7 +221,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(a) = self.authority_address.to_owned() {
-            conditions = conditions.add(asset_authority::Column::Authority.eq(a.clone()));
+            conditions = conditions.add(asset_authority::Column::Authority.eq(a));
             let rel = asset_authority::Relation::Asset
                 .def()
                 .rev()
@@ -234,6 +252,28 @@ impl SearchAssetsQuery {
         if let Some(ju) = self.json_uri.to_owned() {
             let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju));
             conditions = conditions.add(cond);
+            let rel = asset_data::Relation::Asset
+                .def()
+                .rev()
+                .on_condition(|left, right| {
+                    Expr::tbl(right, asset_data::Column::Id)
+                        .eq(Expr::tbl(left, asset::Column::AssetData))
+                        .into_condition()
+                });
+            joins.push(rel);
+        }
+
+        if let Some(n) = self.name.to_owned() {
+            let name_as_str = std::str::from_utf8(&n).map_err(|_| {
+                DbErr::Custom(
+                    "Could not convert raw name bytes into string for comparison".to_owned(),
+                )
+            })?;
+
+            let name_expr =
+                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
+
+            conditions = conditions.add(name_expr);
             let rel = asset_data::Relation::Asset
                 .def()
                 .rev()

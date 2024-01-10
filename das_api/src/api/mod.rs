@@ -1,6 +1,7 @@
 use crate::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::SearchConditionType;
+use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::AssetList;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{
@@ -9,6 +10,7 @@ use digital_asset_types::rpc::{
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 mod api_impl;
 pub use api_impl::*;
@@ -23,6 +25,10 @@ pub struct GetAssetsByGroup {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -34,12 +40,26 @@ pub struct GetAssetsByOwner {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssets {
+    pub ids: Vec<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -57,6 +77,12 @@ pub struct LeafTreePayload {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssetProofs {
+    pub ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetsByCreator {
     pub creator_address: String,
     pub only_verified: Option<bool>,
@@ -65,6 +91,10 @@ pub struct GetAssetsByCreator {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -96,6 +126,12 @@ pub struct SearchAssets {
     pub after: Option<String>,
     #[serde(default)]
     pub json_uri: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -107,6 +143,10 @@ pub struct GetAssetsByAuthority {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -142,11 +182,26 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_proof(&self, payload: LeafTreePayload) -> Result<AssetProof, DasApiError>;
     #[rpc(
+        name = "getAssetProofs",
+        params = "named",
+        summary = "Get merkle proofs for compressed assets by their IDs"
+    )]
+    async fn get_asset_proofs(
+        &self,
+        payload: GetAssetProofs,
+    ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError>;
+    #[rpc(
         name = "getAsset",
         params = "named",
         summary = "Get an asset by its ID"
     )]
     async fn get_asset(&self, payload: GetAsset) -> Result<Asset, DasApiError>;
+    #[rpc(
+        name = "getAssets",
+        params = "named",
+        summary = "Get assets by their IDs"
+    )]
+    async fn get_assets(&self, payload: GetAssets) -> Result<Vec<Option<Asset>>, DasApiError>;
     #[rpc(
         name = "getAssetsByOwner",
         params = "named",

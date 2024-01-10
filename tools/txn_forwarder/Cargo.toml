@@ -1,26 +1,30 @@
 [package]
 name = "txn_forwarder"
 version = "0.7.12"
-edition = "2021"
-publish = false
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 [dependencies]
-anyhow = "1"
-clap = { version = "4.1.4", features = ["derive"] }
-env_logger = "0.10.0"
-figment = "0.10.8"
-flatbuffers = "23.1.21"
-futures = "0.3.28"
-lazy_static = "1.4.0"
-log = "0.4.17"
-plerkle_serialization = { version = "1.6.0" }
-plerkle_messenger = { version = "1.6.0", features = ['redis'] }
-prometheus = "0.13.3"
-serde = "1.0.162"
-serde_json = "1.0.81"
-solana-client = "~1.16.16"
-solana-sdk = "~1.16.16"
-solana-transaction-status = "~1.16.16"
-thiserror = "1.0.31"
-tokio = { version = "1.23.0", features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
-tokio-stream = { version = "0.1.14", features = ["io-util"] }
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+env_logger = { workspace = true }
+figment = { workspace = true }
+flatbuffers = { workspace = true }
+futures = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+plerkle_messenger = { workspace = true, features = ['redis'] }
+plerkle_serialization = { workspace = true }
+prometheus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
+tokio-stream = { workspace = true, features = ["io-util"] }
+
+[lints]
+workspace = true
