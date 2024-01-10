@@ -42,20 +42,25 @@ where
             ..Default::default()
         };
 
-        // Upsert asset table `burnt` column.
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
+        // Upsert asset table `burnt` column.  Note we don't check for decompression (asset.seq = 0)
+        // because we know if the item was burnt it could not have been decompressed later.
         let query = asset::Entity::insert(asset_model)
             .on_conflict(
                 OnConflict::columns([asset::Column::Id])
-                    .update_columns([
-                        asset::Column::Burnt,
-                        //TODO maybe handle slot updated.
-                    ])
+                    .update_columns([asset::Column::Burnt])
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        txn.execute(query).await?;
+        multi_txn.execute(query).await?;
 
-        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+        upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
+
+        multi_txn.commit().await?;
 
         return Ok(());
     }
