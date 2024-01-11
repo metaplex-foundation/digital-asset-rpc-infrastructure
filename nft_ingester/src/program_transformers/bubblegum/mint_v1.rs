@@ -113,7 +113,7 @@ where
 
                 // Upsert `asset` table base info and `asset_creators` table.
                 upsert_asset_base_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     OwnerType::Single,
                     false,
@@ -165,7 +165,7 @@ where
 
                 // Upsert creators to `asset_creators` table.
                 upsert_asset_creators(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     &metadata.creators,
                     slot_i,
@@ -194,6 +194,8 @@ where
                 )
                 .await?;
 
+                multi_txn.commit().await?;
+
                 if uri.is_empty() {
                     warn!(
                         "URI is empty for mint {}. Skipping background task.",
@@ -201,8 +203,6 @@ where
                     );
                     return Ok(None);
                 }
-
-                multi_txn.commit().await?;
 
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),

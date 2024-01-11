@@ -146,11 +146,6 @@ where
                     &current_metadata.creators
                 };
 
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
-
                 upsert_asset_base_info(
                     &multi_txn,
                     id_bytes.to_vec(),
