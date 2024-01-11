@@ -180,7 +180,7 @@ impl Instruction {
         }
     }
 
-    pub fn to_str(s: &Self) -> &str {
+    pub const fn to_str(s: &Self) -> &str {
         match s {
             Instruction::Burn => "Burn",
             Instruction::CancelRedeem => "CancelReddem",
