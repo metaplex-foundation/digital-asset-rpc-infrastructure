@@ -83,8 +83,13 @@ where
                     false => ChainMutability::Immutable,
                 };
 
+                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+                // an error and this function returns it using the `?` operator), then the transaction is
+                // automatically rolled back.
+                let multi_txn = txn.begin().await?;
+
                 upsert_asset_data(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     chain_mutability,
                     chain_data_json,
@@ -105,11 +110,6 @@ where
                 } else {
                     Some(delegate.to_bytes().to_vec())
                 };
-
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
 
                 // Upsert `asset` table base info and `asset_creators` table.
                 upsert_asset_base_info(
@@ -163,8 +163,6 @@ where
 
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-                multi_txn.commit().await?;
-
                 // Upsert creators to `asset_creators` table.
                 upsert_asset_creators(
                     txn,
@@ -178,7 +176,7 @@ where
                 // Insert into `asset_authority` table.
                 //TODO - we need to remove the optional bubblegum signer logic
                 upsert_asset_authority(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     authority.to_vec(),
                     seq as i64,
@@ -188,7 +186,7 @@ where
 
                 // Upsert into `asset_grouping` table with base collection info.
                 upsert_collection_info(
-                    txn,
+                    &multi_txn,
                     id_bytes.to_vec(),
                     metadata.collection.clone(),
                     slot_i,
@@ -203,6 +201,8 @@ where
                     );
                     return Ok(None);
                 }
+
+                multi_txn.commit().await?;
 
                 let mut task = DownloadMetadata {
                     asset_data_id: id_bytes.to_vec(),

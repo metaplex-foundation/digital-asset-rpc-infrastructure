@@ -12,7 +12,6 @@ mod cancel_redeem;
 mod collection_verification;
 mod creator_verification;
 mod db;
-mod decompress;
 mod delegate;
 mod mint_v1;
 mod redeem;
@@ -83,7 +82,7 @@ where
             cancel_redeem::cancel_redeem(parsing_result, bundle, txn, cl_audits).await?;
         }
         InstructionName::DecompressV1 => {
-            decompress::decompress(parsing_result, bundle, txn).await?;
+            debug!("No action necessary for decompression")
         }
         InstructionName::VerifyCreator | InstructionName::UnverifyCreator => {
             creator_verification::process(parsing_result, bundle, txn, cl_audits).await?;
