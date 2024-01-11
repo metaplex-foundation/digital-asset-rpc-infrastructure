@@ -195,58 +195,6 @@ where
     Ok(())
 }
 
-pub async fn upsert_asset_with_leaf_and_compression_info_for_decompression<T>(
-    txn: &T,
-    id: Vec<u8>,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let model = asset::ActiveModel {
-        id: Set(id.clone()),
-        nonce: Set(Some(0)),
-        tree_id: Set(None),
-        leaf: Set(None),
-        data_hash: Set(None),
-        creator_hash: Set(None),
-        compressed: Set(false),
-        compressible: Set(false),
-        supply: Set(1),
-        supply_mint: Set(Some(id)),
-        seq: Set(Some(0)),
-        ..Default::default()
-    };
-
-    let mut query = asset::Entity::insert(model)
-        .on_conflict(
-            OnConflict::column(asset::Column::Id)
-                .update_columns([
-                    asset::Column::Nonce,
-                    asset::Column::TreeId,
-                    asset::Column::Leaf,
-                    asset::Column::DataHash,
-                    asset::Column::CreatorHash,
-                    asset::Column::LeafSeq,
-                    asset::Column::Compressed,
-                    asset::Column::Compressible,
-                    asset::Column::Supply,
-                    asset::Column::SupplyMint,
-                    asset::Column::Seq,
-                ])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    // Do not overwrite changes that happened after decompression (asset.seq = 0).
-    query.sql = format!("{} WHERE asset.seq != 0 OR asset.seq IS NULL", query.sql);
-
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-    Ok(())
-}
-
 pub async fn upsert_asset_with_owner_and_delegate_info<T>(
     txn: &T,
     id: Vec<u8>,

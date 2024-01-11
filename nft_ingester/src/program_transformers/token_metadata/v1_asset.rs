@@ -221,6 +221,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset::Column::Nonce,
                     asset::Column::Seq,
                     asset::Column::Leaf,
+                    asset::Column::DataHash,
+                    asset::Column::CreatorHash,
                     asset::Column::Compressed,
                     asset::Column::Compressible,
                     asset::Column::RoyaltyTargetType,
@@ -234,7 +236,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset.slot_updated",
+        "{} WHERE excluded.slot_updated > asset.slot_updated OR asset.slot_updated IS NULL",
         query.sql
     );
     txn.execute(query)

@@ -59,7 +59,7 @@ where
         );
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
 
-        let asset_id_bytes = match le.schema {
+        match le.schema {
             LeafSchema::V1 {
                 id,
                 owner,
@@ -107,21 +107,19 @@ where
 
                 upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-                multi_txn.commit().await?;
+                // Upsert creators to `asset_creators` table.
+                upsert_asset_creators(
+                    &multi_txn,
+                    id_bytes.to_vec(),
+                    &updated_creators,
+                    bundle.slot as i64,
+                    seq as i64,
+                )
+                .await?;
 
-                id_bytes.to_vec()
+                multi_txn.commit().await?;
             }
         };
-
-        // Upsert creators to `asset_creators` table.
-        upsert_asset_creators(
-            txn,
-            asset_id_bytes,
-            &updated_creators,
-            bundle.slot as i64,
-            seq as i64,
-        )
-        .await?;
 
         return Ok(());
     }

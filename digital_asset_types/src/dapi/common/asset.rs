@@ -363,11 +363,11 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .unwrap_or_default(),
             data_hash: asset
                 .data_hash
-                .map(|e| e.trim().to_string())
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
             creator_hash: asset
                 .creator_hash
-                .map(|e| e.trim().to_string())
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
