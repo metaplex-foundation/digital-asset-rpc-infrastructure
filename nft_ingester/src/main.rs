@@ -145,7 +145,6 @@ pub async fn main() -> Result<(), IngesterError> {
                         } else {
                             ConsumptionType::New
                         },
-                        config.cl_audits.unwrap_or(false),
                         stream_name,
                     );
                 }

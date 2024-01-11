@@ -487,8 +487,7 @@ impl ApiContract for DasApi {
         let id = validate_opt_pubkey(&id)?;
         let tree = validate_opt_pubkey(&tree)?;
 
-        let page_options =
-            self.validate_pagination(&limit, &page, &before, &after, &cursor, &None)?;
+        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
 
         get_signatures_for_asset(&self.db_connection, id, tree, leaf_index, page_options)
             .await

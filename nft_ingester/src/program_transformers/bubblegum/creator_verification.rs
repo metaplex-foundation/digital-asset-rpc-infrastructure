@@ -17,7 +17,6 @@ pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
-    value: bool,
     instruction: &str,
 ) -> Result<(), IngesterError>
 where

@@ -84,11 +84,8 @@ where
         InstructionName::DecompressV1 => {
             decompress::decompress(parsing_result, bundle, txn).await?;
         }
-        InstructionName::VerifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, true, ix_str).await?;
-        }
-        InstructionName::UnverifyCreator => {
-            creator_verification::process(parsing_result, bundle, txn, false, ix_str).await?;
+        InstructionName::VerifyCreator | InstructionName::UnverifyCreator => {
+            creator_verification::process(parsing_result, bundle, txn, ix_str).await?;
         }
         InstructionName::VerifyCollection
         | InstructionName::UnverifyCollection
@@ -98,7 +95,7 @@ where
         InstructionName::SetDecompressibleState => (), // Nothing to index.
         InstructionName::UpdateMetadata => {
             let task =
-                update_metadata::update_metadata(parsing_result, bundle, txn, cl_audits).await?;
+                update_metadata::update_metadata(parsing_result, bundle, txn, ix_str).await?;
 
             if let Some(t) = task {
                 task_manager.send(t)?;

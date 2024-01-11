@@ -503,6 +503,8 @@ pub async fn get_signatures_for_asset(
         Ok(transactions)
     } else {
         Ok(Vec::new())
+    }
+}
 
 fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     // If the first creator is an empty Vec, it means the creator array is empty (which is allowed
