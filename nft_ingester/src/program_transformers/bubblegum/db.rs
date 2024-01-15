@@ -1,14 +1,17 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2, cl_items,
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
+    cl_audits_v2, cl_items,
     sea_orm_active_enums::{
         ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
         SpecificationAssetClass, SpecificationVersions,
     },
 };
-use log::{debug, error};
+use log::{debug, error, info};
 use mpl_bubblegum::types::{Collection, Creator};
-use sea_orm::{query::*, sea_query::OnConflict, ActiveValue::Set, DbBackend, EntityTrait};
+use sea_orm::{
+    query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
+};
 use spl_account_compression::events::ChangeLogEventV1;
 use std::collections::HashSet;
 
@@ -18,11 +21,12 @@ pub async fn save_changelog_event<'c, T>(
     txn_id: &str,
     txn: &T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<u64, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn_id, txn, instruction).await?;
+    insert_change_log(change_log_event, slot, txn_id, txn, instruction, cl_audits).await?;
     Ok(change_log_event.seq)
 }
 
@@ -32,10 +36,11 @@ const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
 
 pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
-    _slot: u64,
+    slot: u64,
     txn_id: &str,
     txn: &T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -90,33 +95,66 @@ where
     }
 
     // Insert the audit item after the insert into cl_items have been completed
-    let tx_id_bytes = bs58::decode(txn_id)
-        .into_vec()
-        .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
-    let audit_item_v2 = cl_audits_v2::ActiveModel {
-        tree: Set(tree_id.to_vec()),
-        leaf_idx: Set(change_log_event.index as i64),
-        seq: Set(change_log_event.seq as i64),
-        tx: Set(tx_id_bytes),
-        instruction: Set(Instruction::from_str(instruction)),
-        ..Default::default()
-    };
-    let query = cl_audits_v2::Entity::insert(audit_item_v2)
-        .on_conflict(
-            OnConflict::columns([
-                cl_audits_v2::Column::Tree,
-                cl_audits_v2::Column::LeafIdx,
-                cl_audits_v2::Column::Seq,
-            ])
-            .do_nothing()
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    match txn.execute(query).await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("Error while inserting into cl_audits_v2: {:?}", e);
+    if cl_audits {
+        let tx_id_bytes = bs58::decode(txn_id)
+            .into_vec()
+            .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
+        let audit_item_v2 = cl_audits_v2::ActiveModel {
+            tree: Set(tree_id.to_vec()),
+            leaf_idx: Set(change_log_event.index as i64),
+            seq: Set(change_log_event.seq as i64),
+            tx: Set(tx_id_bytes),
+            instruction: Set(Instruction::from_str(instruction)),
+            ..Default::default()
+        };
+        let query = cl_audits_v2::Entity::insert(audit_item_v2)
+            .on_conflict(
+                OnConflict::columns([
+                    cl_audits_v2::Column::Tree,
+                    cl_audits_v2::Column::LeafIdx,
+                    cl_audits_v2::Column::Seq,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        match txn.execute(query).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Error while inserting into cl_audits_v2: {:?}", e);
+            }
         }
+    }
+
+    // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
+    // a single row into the `backfill_items` table.  This way if an incomplete path was inserted
+    // into `cl_items` due to an error, a gap will be created for the tree and the backfiller will
+    // fix it.
+    if i - 1 == depth as i64 {
+        // See if the tree already exists in the `backfill_items` table.
+        let rows = backfill_items::Entity::find()
+            .filter(backfill_items::Column::Tree.eq(tree_id))
+            .limit(1)
+            .all(txn)
+            .await?;
+
+        // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
+        // then we know we will need to backfill the tree from sequence number 1 up to the current
+        // sequence number.  So in this case we set at flag to force checking the tree.
+        let force_chk = rows.is_empty() && change_log_event.seq > 1;
+
+        info!("Adding to backfill_items table at level {}", i - 1);
+        let item = backfill_items::ActiveModel {
+            tree: Set(tree_id.to_vec()),
+            seq: Set(change_log_event.seq as i64),
+            slot: Set(slot as i64),
+            force_chk: Set(force_chk),
+            backfilled: Set(false),
+            failed: Set(false),
+            ..Default::default()
+        };
+
+        backfill_items::Entity::insert(item).exec(txn).await?;
     }
 
     Ok(())

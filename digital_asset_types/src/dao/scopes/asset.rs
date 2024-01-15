@@ -461,7 +461,7 @@ pub async fn fetch_transactions(
     Ok(transaction_list)
 }
 
-pub async fn get_signatures_for_asset(
+pub async fn get_asset_signatures(
     conn: &impl ConnectionTrait,
     asset_id: Option<Vec<u8>>,
     tree_id: Option<Vec<u8>>,

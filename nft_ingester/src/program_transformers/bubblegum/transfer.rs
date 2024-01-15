@@ -17,12 +17,14 @@ pub async fn transfer<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
+            .await?;
         match le.schema {
             LeafSchema::V1 {
                 id,

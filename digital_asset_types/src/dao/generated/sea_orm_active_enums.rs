@@ -157,6 +157,8 @@ pub enum Instruction {
     VerifyCollection,
     #[sea_orm(string_value = "verify_creator")]
     VerifyCreator,
+    #[sea_orm(string_value = "update_metadata")]
+    UpdateMetadata,
 }
 // Added manually for convenience.
 impl Instruction {
@@ -176,6 +178,7 @@ impl Instruction {
             "UnverifyCreator" => Instruction::UnverifyCreator,
             "VerifyCollection" => Instruction::VerifyCollection,
             "VerifyCreator" => Instruction::VerifyCreator,
+            "UpdateMetadata" => Instruction::UpdateMetadata,
             _ => Instruction::Unknown,
         }
     }
@@ -196,6 +199,7 @@ impl Instruction {
             Instruction::UnverifyCreator => "UnverifyCreator",
             Instruction::VerifyCollection => "VerifyCollection",
             Instruction::VerifyCreator => "VerifyCreator",
+            Instruction::UpdateMetadata => "UpdateMetadata",
             _ => "Unknown",
         }
     }

@@ -26,10 +26,7 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
-use plerkle_messenger::{
-    redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_BACKFILL_STREAM, ACCOUNT_STREAM,
-    TRANSACTION_BACKFILL_STREAM, TRANSACTION_STREAM,
-};
+use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
 
@@ -145,6 +142,7 @@ pub async fn main() -> Result<(), IngesterError> {
                         } else {
                             ConsumptionType::New
                         },
+                        config.cl_audits.unwrap_or(false),
                         stream_name,
                     );
                 }

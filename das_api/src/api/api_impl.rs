@@ -7,8 +7,8 @@ use digital_asset_types::{
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_asset_proofs, get_assets, get_assets_by_authority, get_assets_by_creator,
-        get_assets_by_group, get_assets_by_owner, get_proof_for_asset, get_signatures_for_asset,
+        get_asset, get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
+        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
         search_assets,
     },
     rpc::{
@@ -462,11 +462,11 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
-    async fn get_signatures_for_asset(
+    async fn get_asset_signatures(
         self: &DasApi,
-        payload: GetSignaturesForAsset,
+        payload: GetAssetSignatures,
     ) -> Result<TransactionSignatureList, DasApiError> {
-        let GetSignaturesForAsset {
+        let GetAssetSignatures {
             id,
             limit,
             page,
@@ -489,7 +489,7 @@ impl ApiContract for DasApi {
 
         let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
 
-        get_signatures_for_asset(&self.db_connection, id, tree, leaf_index, page_options)
+        get_asset_signatures(&self.db_connection, id, tree, leaf_index, page_options)
             .await
             .map_err(Into::into)
     }

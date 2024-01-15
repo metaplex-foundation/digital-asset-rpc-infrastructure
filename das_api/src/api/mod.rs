@@ -149,7 +149,7 @@ pub struct GetGrouping {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetSignaturesForAsset {
+pub struct GetAssetSignatures {
     pub id: Option<String>,
     pub limit: Option<u32>,
     pub page: Option<u32>,
@@ -235,13 +235,13 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError>;
     #[rpc(
-        name = "getSignaturesForAsset",
+        name = "getAssetSignatures",
         params = "named",
         summary = "Get transaction signatures for an asset"
     )]
-    async fn get_signatures_for_asset(
+    async fn get_asset_signatures(
         &self,
-        payload: GetSignaturesForAsset,
+        payload: GetAssetSignatures,
     ) -> Result<TransactionSignatureList, DasApiError>;
     #[rpc(
         name = "getGrouping",

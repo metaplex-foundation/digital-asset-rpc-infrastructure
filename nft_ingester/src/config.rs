@@ -30,6 +30,7 @@ pub struct IngesterConfig {
     pub worker_config: Option<Vec<WorkerConfig>>,
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
+    pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
 }
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]

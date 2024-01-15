@@ -7,7 +7,7 @@ use sea_orm::DbErr;
 
 use super::common::{build_transaction_signatures_response, create_pagination};
 
-pub async fn get_signatures_for_asset(
+pub async fn get_asset_signatures(
     db: &DatabaseConnection,
     asset_id: Option<Vec<u8>>,
     tree: Option<Vec<u8>>,
@@ -15,7 +15,7 @@ pub async fn get_signatures_for_asset(
     page_options: PageOptions,
 ) -> Result<TransactionSignatureList, DbErr> {
     let pagination = create_pagination(&page_options)?;
-    let transactions = scopes::asset::get_signatures_for_asset(
+    let transactions = scopes::asset::get_asset_signatures(
         db,
         asset_id,
         tree,

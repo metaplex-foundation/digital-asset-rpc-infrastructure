@@ -95,15 +95,16 @@ impl RpcApiBuilder {
         module.register_alias("getAssetsByGroup", "get_assets_by_group")?;
 
         module.register_async_method(
-            "getSignaturesForAsset",
+            "getAssetSignatures",
             |rpc_params, rpc_context| async move {
-                let payload = rpc_params.parse::<GetSignaturesForAsset>()?;
+                let payload = rpc_params.parse::<GetAssetSignatures>()?;
                 rpc_context
-                    .get_signatures_for_asset(payload)
+                    .get_asset_signatures(payload)
                     .await
                     .map_err(Into::into)
             },
         )?;
+        module.register_alias("getSignaturesForAsset", "getAssetSignatures")?;
 
         module.register_async_method("search_assets", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<SearchAssets>()?;
