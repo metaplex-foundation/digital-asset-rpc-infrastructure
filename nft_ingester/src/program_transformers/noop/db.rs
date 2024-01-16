@@ -26,6 +26,7 @@ pub async fn insert_application_data<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    debug!("Inserting AppData");
     let buf = &mut &application_data.application_data[..];
     let event = CompressedDataEvent::deserialize(buf)
         .map_err(|db_err| IngesterError::CompressedDataParseError(db_err.to_string()))?;
@@ -66,7 +67,7 @@ where
             seq,
             stream_type,
         } => match stream_type {
-            CompressedDataEventStream::Full { data } => {
+            CompressedDataEventStream::Full { mut data } => {
                 info!(
                     "Found new leaf for {} at index {}",
                     bs58::encode(tree_id).into_string(),
@@ -79,29 +80,25 @@ where
 
                 debug!("Find tree query executed successfully");
 
-                if tree.is_none() {
-                    return Err(IngesterError::StorageReadError(
-                        "Could not find tree in db".to_string(),
-                    ));
-                }
+                let mut schema_validated: bool = false;
+                if let Some(tree) = tree {
+                    debug!("Parsing tree data schema");
+                    let schema =
+                        Schema::deserialize(&mut &tree.data_schema[..]).map_err(|db_err| {
+                            IngesterError::CompressedDataParseError(db_err.to_string())
+                        })?;
 
-                debug!("Found tree of the leaf");
+                    debug!("Parsed tree data schema");
+                    if !schema.validate(&mut data) {
+                        return Err(IngesterError::CompressedDataParseError(format!(
+                            "Schema value validation failed for data: {} with schema: {}",
+                            data.to_string(),
+                            schema.to_string()
+                        ))
+                        .into());
+                    }
 
-                let tree = tree.unwrap();
-
-                debug!("Parsing tree data schema");
-                let schema = Schema::deserialize(&mut &tree.data_schema[..]).map_err(|db_err| {
-                    IngesterError::CompressedDataParseError(db_err.to_string())
-                })?;
-
-                debug!("Parsed tree data schema");
-                if !schema.validate(&data) {
-                    return Err(IngesterError::CompressedDataParseError(format!(
-                        "Schema value validation failed for data: {} with schema: {}",
-                        data.to_string(),
-                        schema.to_string()
-                    ))
-                    .into());
+                    schema_validated = true;
                 }
 
                 debug!("Serializing raw data");
@@ -114,6 +111,7 @@ where
                     tree_id: Set(tree_id.to_vec()),
                     leaf_idx: Set(leaf_idx as i64),
                     seq: Set(seq as i64),
+                    schema_validated: Set(schema_validated),
                     raw_data: Set(raw_data),
                     parsed_data: Set(data.into()),
                     slot_updated: Set(slot as i64),
@@ -130,6 +128,7 @@ where
                             compressed_data::Column::TreeId,
                             compressed_data::Column::LeafIdx,
                             compressed_data::Column::Seq,
+                            compressed_data::Column::SchemaValidated,
                             compressed_data::Column::RawData,
                             compressed_data::Column::ParsedData,
                             compressed_data::Column::SlotUpdated,
@@ -185,8 +184,17 @@ where
                         v1_map.insert(key, data);
                         let json: serde_json::Value = v1_map.get(&k).unwrap().clone().into();
                         debug!("Patched Data: {} on {}", json.to_string(), k);
+                    } else if object.contains_key(&key) {
+                        debug!("SchemaValue does not have V1");
+                        let json: serde_json::Value = data.clone().into();
+                        let k = key.clone();
+                        debug!("Patching Data: {} on {}", json.to_string(), k);
+                        object.insert(key, data);
+                        let json: serde_json::Value = object.get(&k).unwrap().clone().into();
+                        debug!("Patched Data: {} on {}", json.to_string(), k);
                     }
                 }
+
                 db_data.raw_data = Set(schema_value.try_to_vec()?);
                 debug!("SchemaValue serialized");
                 let parsed_data: serde_json::Value = schema_value.into();
@@ -208,6 +216,7 @@ where
                     .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
                 debug!("Query executed successfully");
             }
+            _ => {}
         },
     }
     Ok(())
