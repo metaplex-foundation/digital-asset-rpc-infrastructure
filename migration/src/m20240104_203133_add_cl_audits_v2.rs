@@ -78,7 +78,7 @@ impl MigrationTrait for Migration {
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-enum ClAuditsV2 {
+pub enum ClAuditsV2 {
     Table,
     Id,
     Tree,
