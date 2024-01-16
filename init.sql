@@ -313,6 +313,7 @@ create table compressed_data
     tree_id                   bytea not null,
     leaf_idx                  bigint not null, -- This is the index of the leaf in the tree, equivalent to nonce in the asset table
     seq                       bigint not null,
+    schema_validated          boolean not null DEFAULT FALSE,
 
     -- Compressed Data
     raw_data                      bytea not null,
