@@ -1,8 +1,8 @@
 use blockbuster::{self, instruction::InstructionBundle, programs::noop::NoopInstruction};
 // use log::info;
+use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
-
 mod db;
 
 pub use db::*;
@@ -19,7 +19,9 @@ pub async fn handle_noop_instruction<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    debug!("Handling NOOP Ix");
     if let Some(app) = &parsing_result.application_data {
+        debug!("Found AppData Event");
         let _seq = save_applicationdata_event(app, txn).await?;
     }
     Ok(())
