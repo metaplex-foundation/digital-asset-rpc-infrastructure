@@ -2609,9 +2609,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-attribute-compressed-account"
-version = "0.0.1-beta.1"
+version = "0.0.1-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce7269993811c11a8d68f79772f8108d5652975b78bdd149f3677d7af871a2a8"
+checksum = "236b21dd9d6884c673bed7390909f6167f27f1255cc303fdf9f1adfa9f159fcf"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
@@ -2621,9 +2621,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-compression"
-version = "0.1.8-beta.10"
+version = "0.1.8-beta.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36f1d79c05ee075a28fa3c4d4738cb55589d59ed6f6d5d01ab6b8a3d9bbfe14b"
+checksum = "3dc2b89866014835a7b5b01d640fc3a518caabd4935f6b35581d7bf4a7cf8260"
 dependencies = [
  "anchor-lang",
  "hpl-attribute-compressed-account",
@@ -2636,9 +2636,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-compression-macro-merkle-tree-apply-fn"
-version = "0.0.2"
+version = "0.0.3-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa4fbea6f7e7f6d2ca8ebc33473525e2bdb83a6fc9f9d8626ff7445972e9385e"
+checksum = "a68e2aa870424855dac3a7b44740e2cd9c3383aa624633a8d9750222ea05ce4f"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -2647,9 +2647,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-compression-macro-merkle-tree-apply-fn-deep"
-version = "0.0.2"
+version = "0.0.3-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85debf5db12b48bcd5f480a94f2628bb438bd6c89eb9e50ce1357021731d1b1d"
+checksum = "0f8ff570a467cc1cec74c855421bb95079c0595aad984646bb48aee130499988"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -2658,9 +2658,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-compression-macro-merkle-tree-utils"
-version = "0.0.3-beta.2"
+version = "0.0.3-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29d7f87f9d69a9d3856cb1872ce1a8435ade29723fa1942071f86eae822d2a1e"
+checksum = "ed317c8a828620723875291c255428deecdec8c5b3c1c45e1666256029b2d442"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -5302,9 +5302,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.107"
+version = "1.0.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
+checksum = "3d1c7e3eac408d115102c4c24ad393e0821bb3a5df4d506a80f85f7a742a526b"
 dependencies = [
  "indexmap 2.0.2",
  "itoa",
