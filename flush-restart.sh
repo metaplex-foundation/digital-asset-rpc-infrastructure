@@ -19,4 +19,4 @@ solana airdrop 30 -k keys/admin.json
 solana airdrop 10 -k keys/driver.json
 solana airdrop 10 -k keys/user.json
 solana airdrop 10 -k key.json
-yarn ts-node scripts/createGlobal.ts
+# yarn ts-node scripts/createGlobal.ts
