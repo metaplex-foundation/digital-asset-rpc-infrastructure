@@ -80,6 +80,9 @@ args=(
   --rpc-port 8899
   --geyser-plugin-config /plugin-config/accountsdb-plugin-config.json
   --clone EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL --clone UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM
+  --clone EventNxhSA3AcXD14PmXaYUiNQWwoKbLeGHtwydixRzX --clone 3EQtfTBVgEDbrQsgEpWH6rg2HGBUdxyxYfsNn2on4ZPm
+  --clone HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm --clone 5ZJG4CchgDXQ9LVS5a7pmib1VS69t8SSsV5riexibwTk
+  --clone ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg --clone U7w6LJRtG4jvUQv4WjTinkHnv9UAfHjBiVdr2HERiX2
   --url https://devnet.helius-rpc.com/?api-key=ccca5bb2-58dc-4b94-838b-664df478cf45
 )
 
