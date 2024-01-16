@@ -12,10 +12,19 @@
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
       "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
-      "EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL"
+      "EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL",
+      "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg"
     ]
   },
   "transaction_selector": {
-    "mentions": ["EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL"]
+    "mentions": [
+      "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
+      "EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL",
+      "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg"
+    ]
   }
 }
