@@ -11,7 +11,7 @@ pub struct AssetSorting {
 impl Default for AssetSorting {
     fn default() -> AssetSorting {
         AssetSorting {
-            sort_by: AssetSortBy::Created,
+            sort_by: AssetSortBy::Id,
             sort_direction: Some(AssetSortDirection::default()),
         }
     }
