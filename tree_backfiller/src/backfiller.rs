@@ -1,11 +1,12 @@
 use crate::{
     db,
-    metrics::{Metrics, MetricsArgs},
+    metrics::{setup_metrics, MetricsArgs},
     queue,
     rpc::{Rpc, SolanaRpcArgs},
     tree::{self, TreeGapFill, TreeGapModel},
 };
 use anyhow::Result;
+use cadence_macros::{statsd_count, statsd_time};
 use clap::{Parser, ValueEnum};
 use digital_asset_types::dao::cl_audits_v2;
 use indicatif::HumanDuration;
@@ -136,10 +137,7 @@ pub async fn run(config: Args) -> Result<()> {
     let transaction_solana_rpc = solana_rpc.clone();
     let gap_solana_rpc = solana_rpc.clone();
 
-    let metrics = Metrics::try_from_config(config.metrics)?;
-    let tree_metrics = metrics.clone();
-    let transaction_metrics = metrics.clone();
-    let gap_metrics = metrics.clone();
+    setup_metrics(config.metrics)?;
 
     let (sig_sender, mut sig_receiver) = mpsc::channel::<Signature>(config.signature_channel_size);
     let (gap_sender, mut gap_receiver) = mpsc::channel::<TreeGapFill>(config.gap_channel_size);
@@ -157,7 +155,6 @@ pub async fn run(config: Args) -> Result<()> {
 
         while let Some(signature) = sig_receiver.recv().await {
             let solana_rpc = transaction_solana_rpc.clone();
-            let metrics = transaction_metrics.clone();
             let queue = queue.clone();
             let semaphore = semaphore.clone();
             let count = transaction_worker_transaction_count.clone();
@@ -171,12 +168,12 @@ pub async fn run(config: Args) -> Result<()> {
 
                 if let Err(e) = tree::transaction(&solana_rpc, queue, signature).await {
                     error!("tree transaction: {:?}", e);
-                    metrics.increment("transaction.failed");
+                    statsd_count!("transaction.failed", 1);
                 } else {
-                    metrics.increment("transaction.succeeded");
+                    statsd_count!("transaction.succeeded", 1);
                 }
 
-                metrics.time("transaction.queued", timing.elapsed());
+                statsd_time!("transaction.queued", timing.elapsed());
 
                 count.decrement();
 
@@ -192,7 +189,6 @@ pub async fn run(config: Args) -> Result<()> {
 
         while let Some(gap) = gap_receiver.recv().await {
             let solana_rpc = gap_solana_rpc.clone();
-            let metrics = gap_metrics.clone();
             let sig_sender = sig_sender.clone();
             let semaphore = semaphore.clone();
             let count = gap_worker_gap_count.clone();
@@ -206,12 +202,13 @@ pub async fn run(config: Args) -> Result<()> {
 
                 if let Err(e) = gap.crawl(&solana_rpc, sig_sender).await {
                     error!("tree transaction: {:?}", e);
-                    metrics.increment("gap.failed");
+
+                    statsd_count!("gap.failed", 1);
                 } else {
-                    metrics.increment("gap.succeeded");
+                    statsd_count!("gap.succeeded", 1);
                 }
 
-                metrics.time("gap.queued", timing.elapsed());
+                statsd_time!("gap.queued", timing.elapsed());
 
                 count.decrement();
 
@@ -243,7 +240,6 @@ pub async fn run(config: Args) -> Result<()> {
     for tree in trees {
         let semaphore = semaphore.clone();
         let gap_sender = gap_sender.clone();
-        let metrics = tree_metrics.clone();
         let pool = pool.clone();
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
@@ -299,15 +295,15 @@ pub async fn run(config: Args) -> Result<()> {
 
             for gap in gaps {
                 if let Err(e) = gap_sender.send(gap).await {
-                    metrics.increment("gap.failed");
+                    statsd_count!("gap.failed", 1);
                     error!("send gap: {:?}", e);
                 }
             }
 
             info!("crawling tree {} with {} gaps", tree.pubkey, gap_count);
 
-            metrics.increment("tree.succeeded");
-            metrics.time("tree.crawled", timing.elapsed());
+            statsd_count!("tree.succeeded", 1);
+            statsd_time!("tree.crawled", timing.elapsed());
 
             Ok::<(), anyhow::Error>(())
         });
@@ -324,7 +320,7 @@ pub async fn run(config: Args) -> Result<()> {
     transaction_count.zero().await;
     info!("all transactions queued");
 
-    metrics.time("job.completed", started.elapsed());
+    statsd_time!("job.completed", started.elapsed());
 
     info!(
         "crawled {} trees in {}",

@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "digital_asset_types",
+  "metadata_json",
   "metaplex-rpc-proxy",
   "nft_ingester",
   "tree_backfiller",

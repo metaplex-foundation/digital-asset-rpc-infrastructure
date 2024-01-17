@@ -1,16 +1,13 @@
 [package]
-name = "das-tree-backfiller"
+name = "das-metadata-json"
 version = "0.1.0"
 edition = "2021"
-publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-
 [lib]
 
 [[bin]]
-name = "das-tree-backfiller"
+name = "das-metadata-json"
 
 [dependencies]
 
@@ -18,6 +15,7 @@ backon = "0.4.1"
 log = "0.4.17"
 env_logger = "0.10.0"
 anyhow = "1.0.75"
+derive_more = "0.99.17"
 redis = { version = "0.22.3", features = [
   "aio",
   "tokio-comp",
@@ -25,15 +23,10 @@ redis = { version = "0.22.3", features = [
   "tokio-native-tls-comp",
 ] }
 futures = { version = "0.3.25" }
-futures-util = "0.3.27"
-base64 = "0.21.0"
 indicatif = "0.17.5"
 thiserror = "1.0.31"
 serde_json = "1.0.81"
-cadence = "0.29.0"
-cadence-macros = "0.29.0"
-hyper = "0.14.23"
-anchor-client = "0.28.0"
+das-tree-backfiller = { path = "../tree_backfiller" }
 tokio = { version = "1.26.0", features = ["full", "tracing"] }
 sqlx = { version = "0.6.2", features = [
   "macros",
@@ -52,46 +45,21 @@ sea-orm = { version = "0.10.6", features = [
 ] }
 sea-query = { version = "0.28.1", features = ["postgres-array"] }
 chrono = "0.4.19"
+cadence = "0.29.0"
+cadence-macros = "0.29.0"
 tokio-postgres = "0.7.7"
 serde = "1.0.136"
 bs58 = "0.4.0"
 reqwest = "0.11.11"
 plerkle_messenger = { version = "1.6.0", features = ['redis'] }
-plerkle_serialization = { version = "1.6.0" }
-flatbuffers = "23.1.21"
-lazy_static = "1.4.0"
-regex = "1.5.5"
 digital_asset_types = { path = "../digital_asset_types", features = [
   "json_types",
   "sql_types",
 ] }
-mpl-bubblegum = "1.0.1-beta.3"
-spl-account-compression = { version = "0.2.0", features = ["no-entrypoint"] }
-spl-concurrent-merkle-tree = "0.2.0"
-uuid = "1.0.0"
-async-trait = "0.1.53"
-num-traits = "0.2.15"
-blockbuster = "0.9.0-beta.1"
 figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
-solana-sdk = "~1.16.16"
-solana-client = "~1.16.16"
-spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
-solana-transaction-status = "~1.16.16"
-solana-account-decoder = "~1.16.16"
-solana-geyser-plugin-interface = "~1.16.16"
-solana-sdk-macro = "~1.16.16"
 rand = "0.8.5"
-rust-crypto = "0.2.36"
 url = "2.3.1"
-anchor-lang = "0.28.0"
-borsh = "~0.10.3"
-stretto = { version = "0.7", features = ["async"] }
 tokio-stream = "0.1.12"
-tracing-subscriber = { version = "0.3.16", features = [
-  "json",
-  "env-filter",
-  "ansi",
-] }
 clap = { version = "4.2.2", features = ["derive", "cargo", "env"] }
 
 [lints]

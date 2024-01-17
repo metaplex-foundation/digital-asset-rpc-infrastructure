@@ -1,9 +1,8 @@
 use anyhow::Result;
-use cadence::{BufferedUdpMetricSink, Counted, Gauged, QueuingMetricSink, StatsdClient, Timed};
+use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient, Timed};
+use cadence_macros::set_global_default;
 use clap::Parser;
-use log::error;
-use std::time::Duration;
-use std::{net::UdpSocket, sync::Arc};
+use std::net::UdpSocket;
 
 #[derive(Clone, Parser, Debug)]
 pub struct MetricsArgs {
@@ -15,32 +14,18 @@ pub struct MetricsArgs {
     pub metrics_prefix: String,
 }
 
-#[derive(Clone, Debug)]
-pub struct Metrics(Arc<StatsdClient>);
+pub fn setup_metrics(config: MetricsArgs) -> Result<()> {
+    let host = (config.metrics_host, config.metrics_port);
 
-impl Metrics {
-    pub fn try_from_config(config: MetricsArgs) -> Result<Self> {
-        let host = (config.metrics_host, config.metrics_port);
+    let socket = UdpSocket::bind("0.0.0.0:0")?;
+    socket.set_nonblocking(true)?;
 
-        let socket = UdpSocket::bind("0.0.0.0:0")?;
-        socket.set_nonblocking(true)?;
+    let udp_sink = BufferedUdpMetricSink::from(host, socket)?;
+    let queuing_sink = QueuingMetricSink::from(udp_sink);
 
-        let udp_sink = BufferedUdpMetricSink::from(host, socket)?;
-        let queuing_sink = QueuingMetricSink::from(udp_sink);
-        let client = StatsdClient::from_sink(&config.metrics_prefix, queuing_sink);
+    let client = StatsdClient::from_sink(&config.metrics_prefix, queuing_sink);
 
-        Ok(Metrics(Arc::new(client)))
-    }
+    set_global_default(client);
 
-    pub fn time(&self, key: &str, duration: Duration) {
-        if let Err(e) = self.0.time(key, duration) {
-            error!("submitting time: {:?}", e)
-        }
-    }
-
-    pub fn increment(&self, key: &str) {
-        if let Err(e) = self.0.count(key, 1) {
-            error!("submitting increment: {:?}", e)
-        }
-    }
+    Ok(())
 }

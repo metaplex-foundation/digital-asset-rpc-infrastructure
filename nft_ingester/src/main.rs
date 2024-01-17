@@ -25,6 +25,8 @@ use crate::{
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
+use das_metadata_json::{SenderPool, METADATA_JSON_STREAM};
+use futures_util::sink::Send;
 use log::{error, info};
 use plerkle_messenger::{
     redis_messenger::RedisMessenger, ConsumptionType, ACCOUNT_BACKFILL_STREAM, ACCOUNT_STREAM,
@@ -87,9 +89,18 @@ pub async fn main() -> Result<(), IngesterError> {
             task_runner_config.timeout.unwrap_or(3),
         )),
     })];
+    let sender_pool = if let Some(args) = config.metadata_json_sender.clone() {
+        Some(SenderPool::try_from_config(args).await.unwrap())
+    } else {
+        None
+    };
 
-    let mut background_task_manager =
-        TaskManager::new(rand_string(), database_pool.clone(), bg_task_definitions);
+    let mut background_task_manager = TaskManager::new(
+        rand_string(),
+        database_pool.clone(),
+        sender_pool,
+        bg_task_definitions,
+    );
     // This is how we send new bg tasks
     let bg_task_listener = background_task_manager
         .start_listener(role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All);
@@ -118,6 +129,11 @@ pub async fn main() -> Result<(), IngesterError> {
         config.messenger_config.clone(),
         TRANSACTION_BACKFILL_STREAM,
     )?;
+    let mut timer_metadata_json = StreamSizeTimer::new(
+        stream_metrics_timer,
+        config.messenger_config.clone(),
+        METADATA_JSON_STREAM,
+    )?;
 
     if let Some(t) = timer_acc.start::<RedisMessenger>().await {
         tasks.spawn(t);
@@ -129,6 +145,9 @@ pub async fn main() -> Result<(), IngesterError> {
         tasks.spawn(t);
     }
     if let Some(t) = timer_backfiller_txn.start::<RedisMessenger>().await {
+        tasks.spawn(t);
+    }
+    if let Some(t) = timer_metadata_json.start::<RedisMessenger>().await {
         tasks.spawn(t);
     }
 

@@ -25,6 +25,7 @@ pub fn account_worker<T: Messenger>(
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let source = T::new(config).await;
+
         if let Ok(mut msg) = source {
             let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
             loop {

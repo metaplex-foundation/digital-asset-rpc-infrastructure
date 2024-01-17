@@ -1,28 +1,35 @@
+use super::METADATA_JSON_STREAM;
 use anyhow::Result;
 use clap::Parser;
 use figment::value::{Dict, Value};
 use plerkle_messenger::{Messenger, MessengerConfig, MessengerType};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde::Deserialize;
 use std::num::TryFromIntError;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{mpsc::error::TrySendError, Mutex};
 
-const TRANSACTION_BACKFILL_STREAM: &'static str = "TXNFILL";
-
-#[derive(Clone, Debug, Parser)]
-pub struct QueueArgs {
+#[derive(Clone, Debug, Parser, Deserialize, PartialEq)]
+pub struct SenderArgs {
     #[arg(long, env)]
     pub messenger_redis_url: String,
     #[arg(long, env, default_value = "100")]
     pub messenger_redis_batch_size: String,
-    #[arg(long, env, default_value = "25")]
+    #[arg(long, env, default_value = "5")]
     pub messenger_queue_connections: u64,
-    #[arg(long, env, default_value = "TXNFILL")]
-    pub messenger_queue_stream: String,
 }
 
-impl From<QueueArgs> for MessengerConfig {
-    fn from(args: QueueArgs) -> Self {
+fn rand_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
+}
+
+impl From<SenderArgs> for MessengerConfig {
+    fn from(args: SenderArgs) -> Self {
         let mut connection_config = Dict::new();
 
         connection_config.insert(
@@ -37,16 +44,17 @@ impl From<QueueArgs> for MessengerConfig {
             "pipeline_size_bytes".to_string(),
             Value::from(1u128.to_string()),
         );
+        connection_config.insert("consumer_id".to_string(), Value::from(rand_string()));
 
         Self {
             messenger_type: MessengerType::Redis,
-            connection_config: connection_config,
+            connection_config,
         }
     }
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum QueuePoolError {
+pub enum SenderPoolError {
     #[error("messenger")]
     Messenger(#[from] plerkle_messenger::MessengerError),
     #[error("tokio try send to channel")]
@@ -60,22 +68,23 @@ pub enum QueuePoolError {
 }
 
 #[derive(Debug, Clone)]
-pub struct QueuePool {
+pub struct SenderPool {
     tx: mpsc::Sender<Box<dyn plerkle_messenger::Messenger>>,
     rx: Arc<Mutex<mpsc::Receiver<Box<dyn plerkle_messenger::Messenger>>>>,
 }
 
-impl QueuePool {
-    pub async fn try_from_config(config: QueueArgs) -> anyhow::Result<Self, QueuePoolError> {
+impl SenderPool {
+    #[allow(dead_code)]
+    pub async fn try_from_config(config: SenderArgs) -> anyhow::Result<Self, SenderPoolError> {
         let size = usize::try_from(config.messenger_queue_connections)?;
         let (tx, rx) = mpsc::channel(size);
 
         for _ in 0..config.messenger_queue_connections {
             let messenger_config: MessengerConfig = config.clone().into();
             let mut messenger = plerkle_messenger::select_messenger(messenger_config).await?;
-            messenger.add_stream(TRANSACTION_BACKFILL_STREAM).await?;
+            messenger.add_stream(METADATA_JSON_STREAM).await?;
             messenger
-                .set_buffer_size(TRANSACTION_BACKFILL_STREAM, 10000000000000000)
+                .set_buffer_size(METADATA_JSON_STREAM, 10000000000000000)
                 .await;
 
             tx.try_send(messenger)?;
@@ -86,15 +95,15 @@ impl QueuePool {
             rx: Arc::new(Mutex::new(rx)),
         })
     }
-
-    pub async fn push(&self, message: &[u8]) -> Result<(), QueuePoolError> {
+    #[allow(dead_code)]
+    pub async fn push(&self, message: &[u8]) -> Result<(), SenderPoolError> {
         let mut rx = self.rx.lock().await;
         let mut messenger = rx
             .recv()
             .await
-            .ok_or(QueuePoolError::RecvMessengerConnection)?;
+            .ok_or(SenderPoolError::RecvMessengerConnection)?;
 
-        messenger.send(TRANSACTION_BACKFILL_STREAM, message).await?;
+        messenger.send(METADATA_JSON_STREAM, message).await?;
 
         self.tx.send(messenger).await?;
 

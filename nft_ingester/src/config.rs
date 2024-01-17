@@ -1,3 +1,4 @@
+use das_metadata_json::SenderArgs;
 use figment::{
     providers::{Env, Format, Yaml},
     value::Value,
@@ -34,6 +35,7 @@ pub struct IngesterConfig {
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
     pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
+    pub metadata_json_sender: Option<SenderArgs>,
 }
 
 impl IngesterConfig {

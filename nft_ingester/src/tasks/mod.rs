@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
+use das_metadata_json::SenderPool;
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
 use log::{debug, error, info, warn};
 use sea_orm::{
@@ -97,6 +98,7 @@ pub trait IntoTaskData: Sized {
 pub struct TaskManager {
     instance_name: String,
     pool: Pool<Postgres>,
+    metadata_json_sender: Option<SenderPool>,
     producer: Option<UnboundedSender<TaskData>>,
     registered_task_types: Arc<HashMap<String, Box<dyn BgTask>>>,
 }
@@ -234,6 +236,7 @@ impl TaskManager {
     pub fn new(
         instance_name: String,
         pool: Pool<Postgres>,
+        metadata_json_sender: Option<SenderPool>,
         task_defs: Vec<Box<dyn BgTask>>,
     ) -> Self {
         let mut tasks = HashMap::new();
@@ -244,6 +247,7 @@ impl TaskManager {
             instance_name,
             pool,
             producer: None,
+            metadata_json_sender,
             registered_task_types: Arc::new(tasks),
         }
     }
@@ -251,7 +255,6 @@ impl TaskManager {
     pub fn new_task_handler(
         pool: Pool<Postgres>,
         instance_name: String,
-        _name: String,
         task: TaskData,
         tasks_def: Arc<HashMap<String, Box<dyn BgTask>>>,
         process_now: bool,
@@ -319,9 +322,14 @@ impl TaskManager {
         let task_map = self.registered_task_types.clone();
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
+        let sender_pool = self.metadata_json_sender.clone();
 
         tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
+                let instance_name = instance_name.clone();
+                let task_name = task.name;
+                let sender_pool = sender_pool.clone();
+
                 if let Some(task_created_time) = task.created_at {
                     let bus_time =
                         Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
@@ -329,30 +337,59 @@ impl TaskManager {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     }
                 }
-                let name = instance_name.clone();
+
+                if task_name == "DownloadMetadata" {
+                    if let Some(sender_pool) = sender_pool {
+                        let download_metadata_task = DownloadMetadata::from_task_data(task);
+
+                        if let Ok(download_metadata_task) = download_metadata_task {
+                            if let Err(_) = sender_pool
+                                .push(&download_metadata_task.asset_data_id)
+                                .await
+                            {
+                                metric! {
+                                    statsd_count!("ingester.metadata_json.send.failed", 1);
+                                }
+                            } else {
+                                metric! {
+                                    statsd_count!("ingester.bgtask.new", 1, "type" => task_name);
+                                }
+                            }
+                        } else {
+                            metric! {
+                                statsd_count!("ingester.metadata_json.send.failed", 1);
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+
                 if let Ok(hash) = task.hash() {
                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
                     let task_entry = tasks::Entity::find_by_id(hash.clone())
                         .filter(tasks::Column::Status.ne(TaskStatus::Pending))
                         .one(&conn)
                         .await;
+
                     if let Ok(Some(e)) = task_entry {
                         metric! {
                             statsd_count!("ingester.bgtask.identical", 1, "type" => &e.task_type);
                         }
                         continue;
                     }
-                    metric! {
-                        statsd_count!("ingester.bgtask.new", 1, "type" => &task.name);
-                    }
+
                     TaskManager::new_task_handler(
                         pool.clone(),
-                        instance_name.clone(),
-                        name,
+                        instance_name,
                         task,
                         task_map.clone(),
                         process_on_receive,
                     );
+
+                    metric! {
+                        statsd_count!("ingester.bgtask.new", 1, "type" => task_name);
+                    }
                 }
             }
         })

@@ -2,34 +2,26 @@ use reqwest::Client;
 
 use {
     clap::{value_parser, Arg, ArgAction, Command},
-    das_tree_backfiller::{
-        backfiller::Counter,
-        metrics::{Metrics, MetricsArgs},
-    },
     digital_asset_types::dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
         sea_orm_active_enums::TaskStatus, tasks, tokens,
     },
     futures::TryStreamExt,
-    indicatif::HumanDuration,
     log::{debug, error, info},
     nft_ingester::{
         config::{init_logger, rand_string, setup_config},
         database::setup_database,
         error::IngesterError,
-        metrics::setup_metrics,
         tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
     },
     prometheus::{IntGaugeVec, Opts, Registry},
-    reqwest::ClientBuilder,
     sea_orm::{
         entity::*, query::*, DbBackend, DeleteResult, EntityTrait, JsonValue, SqlxPostgresConnector,
     },
     solana_sdk::pubkey::Pubkey,
     sqlx::types::chrono::Utc,
     std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time},
-    time::{Duration, Instant},
-    tokio::sync::{mpsc, Semaphore},
+    time::Duration,
     txn_forwarder::save_metrics,
 };
 
@@ -140,64 +132,6 @@ async fn main() -> anyhow::Result<()> {
             Command::new("create")
                 .about("Create new background tasks for missing assets (reindex=true)"),
         )
-        .subcommand(
-            Command::new("run")
-                .about("Reindex flagged asset_data. Query the database for all assets with reindex=true and try to fetch the metadata in a worker thread.")
-                .arg(
-                    Arg::new("worker_count")
-                        .long("worker-count")
-                        .help("Number of worker threads to use")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(usize))
-                        .default_value("200")
-                )
-                .arg(
-                    Arg::new("timeout")
-                        .long("timeout")
-                        .help("Request time out in milliseconds for a metadata json request")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(u64))
-                        .default_value("30000")
-                )
-                .arg(
-                    Arg::new("queue_size")
-                        .long("queue-size")
-                        .help("The channel size for the worker threads")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(usize))
-                        .default_value("10000")
-                )
-                .arg(
-                    Arg::new("metrics_host")
-                        .long("metrics-host")
-                        .help("Metrics host")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(String))
-                        .default_value("127.0.0.1")
-                )
-                .arg(
-                    Arg::new("metrics_port")
-                        .long("metrics-port")
-                        .help("Metrics port")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(u16))
-                        .default_value("8125")
-                )
-                .arg(
-                    Arg::new("metrics_prefix")
-                        .long("metrics-prefix")
-                        .help("Metrics naming prefix")
-                        .required(false)
-                        .action(ArgAction::Set)
-                        .value_parser(value_parser!(String))
-                        .default_value("das_ingester")
-                )
-        )
         .subcommand(Command::new("delete").about("Delete ALL pending background tasks"))
         .get_matches();
 
@@ -222,9 +156,6 @@ async fn main() -> anyhow::Result<()> {
 
     // Pull Env variables into config struct
     let config = setup_config(config_path);
-
-    // Optionally setup metrics if config demands it
-    setup_metrics(&config);
 
     // One pool many clones, this thing is thread safe and send sync
     let database_pool = setup_database(config.clone()).await;
@@ -369,135 +300,6 @@ WHERE
                 }
             }
         }
-        Some(("run", sub_matches)) => {
-            let worker_count = sub_matches
-                .get_one::<usize>("worker_count")
-                .copied()
-                .ok_or(anyhow::anyhow!("Missing worker count"))?;
-            let timeout = sub_matches
-                .get_one::<u64>("timeout")
-                .copied()
-                .ok_or(anyhow::anyhow!("Missing requeest timeout"))?;
-            let batch_size = matches
-                .get_one::<u64>("batch_size")
-                .copied()
-                .ok_or(anyhow::anyhow!("Missing batch size"))?;
-            let queue_size = sub_matches
-                .get_one::<usize>("queue_size")
-                .copied()
-                .ok_or(anyhow::anyhow!("Missing queue size"))?;
-            let metrics_host = sub_matches
-                .get_one::<String>("metrics_host")
-                .ok_or(anyhow::anyhow!("Missing metrics host"))?
-                .to_string();
-            let metrics_port = sub_matches
-                .get_one::<u16>("metrics_port")
-                .copied()
-                .ok_or(anyhow::anyhow!("Missing metrics port"))?;
-            let metrics_prefix = sub_matches
-                .get_one::<String>("metrics_prefix")
-                .ok_or(anyhow::anyhow!("Missing metrics prefix"))?
-                .to_string();
-
-            let config_path = matches.get_one::<PathBuf>("config");
-            if let Some(config_path) = config_path {
-                info!("Loading config from: {}", config_path.display());
-            }
-
-            let config = setup_config(config_path);
-
-            setup_metrics(&config);
-
-            let metrics_config = MetricsArgs {
-                metrics_host,
-                metrics_port,
-                metrics_prefix,
-            };
-            let metrics = Metrics::try_from_config(metrics_config)?;
-
-            let pool = setup_database(config.clone()).await;
-
-            let client = ClientBuilder::new()
-                .timeout(Duration::from_millis(timeout))
-                .build()?;
-            let client = Arc::new(client);
-
-            let condition = asset_data::Column::Reindex.eq(true);
-            let asset_data = find_by_type(authority, collection, creator, mint, condition);
-
-            let mut asset_data_missing = asset_data
-                .0
-                .order_by(asset_data::Column::Id, Order::Asc)
-                .paginate(&conn, batch_size)
-                .into_stream();
-
-            let (tx, mut rx) = mpsc::channel::<asset_data::Model>(queue_size);
-
-            let count = Counter::new();
-            let task_count = count.clone();
-
-            tokio::spawn(async move {
-                let semaphore = Arc::new(Semaphore::new(worker_count));
-
-                while let Some(asset_data) = rx.recv().await {
-                    let semaphore = semaphore.clone();
-                    let count = task_count.clone();
-                    let client = Arc::clone(&client);
-                    let pool = pool.clone();
-                    let metrics = metrics.clone();
-
-                    tokio::spawn(async move {
-                        count.increment();
-
-                        let _permit = semaphore.acquire().await?;
-
-                        let timing = Instant::now();
-
-                        let asset_data_id = asset_data.id.clone();
-                        let asset_data_id = bs58::encode(asset_data_id).into_string();
-
-                        if let Err(e) = perform_metadata_json_task(&client, pool, asset_data).await
-                        {
-                            error!("Asset {} metadata json task: {}", asset_data_id, e);
-
-                            metrics.increment("ingester.bgtask.error");
-                        } else {
-                            metrics.increment("ingester.bgtask.success");
-                        }
-
-                        debug!(
-                            "Asset {} finished in {}",
-                            asset_data_id,
-                            HumanDuration(timing.elapsed())
-                        );
-
-                        count.decrement();
-
-                        Ok::<(), anyhow::Error>(())
-                    });
-                }
-
-                Ok::<(), anyhow::Error>(())
-            });
-
-            while let Some(assets) = asset_data_missing.try_next().await? {
-                let assets_count = assets.len();
-
-                for asset in assets {
-                    tx.send(asset).await?;
-                }
-
-                if assets_count < usize::try_from(batch_size)? {
-                    break;
-                }
-            }
-
-            info!("Waiting for tasks to finish");
-            count.zero().await;
-
-            info!("Tasks finished");
-            ()
-        }
         Some(("create", _)) => {
             // @TODO : add a delete option that first deletes all matching tasks to the criteria or condition
 
@@ -554,7 +356,6 @@ WHERE
                             let res = TaskManager::new_task_handler(
                                 database_pool.clone(),
                                 name.clone(),
-                                name,
                                 task_data,
                                 task_map.clone(),
                                 false,
