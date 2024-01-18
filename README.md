@@ -96,17 +96,16 @@ Developing with Docker is much easier, but has some nuances to it. This test doc
 * Token 2022
 * Latest version of the Associated token program
 
-You need to run the following script (which takes a long time) in order to get all those .so files.
+You need to run the following script in order to get the .so files.
 
 ```bash
-chmod +x ./prepare-local-docker-env.sh
 ./prepare-local-docker-env.sh
 ```
-This script grabs all the code for these programs and compiles it, and chucks it into your programs folder. Go grab some coffe because this will take a while/
-If you get some permissions errors, just sudo delete the programs directory and start again.
+This script downloads these programs from mainnet and puts them in the `programs/` folder.
 
 #### Authentication with Docker and AWS
 
+_This step is not normally needed for basic local docker usage._
 ```aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {your aws container registry}```
 
 #### Running the application
@@ -129,6 +128,48 @@ Also when mucking about with the docker file if your gut tells you that somethin
 
 Sometimes you will want to delete the db do so with `sudo rm -rf db-data`.  You can also delete the ledger with `sudo rm -rf ledger`.
 
+#### Running Bubblegum Test Sequences
+
+While running the multi-container Docker application locally, you can run a script located in `tools/txn_forwarder/bubblegum_tests` that will send sequences of bubblegum transactions via the `txn_forwarder`, and then use `psql` to read and verify the indexing results in the local Postgres database.
+
+```bash
+sudo rm -rf db-data/
+sudo rm -rf ledger/
+docker compose up --force-recreate --build
+```
+_In another terminal:_
+```bash
+cd tools/txn_forwarder/bubblegum_tests/
+./run-bubblegum-sequences.sh
+```
+
+You should see it log something like:
+```
+Running 10 scenarios forwards
+mint_transfer_burn.scenario initial asset table state passed
+mint_transfer_burn.scenario initial asset_creators table state passed
+mint_transfer_burn.scenario initial asset_grouping table state passed
+mint_transfer_burn.scenario initial cl_items table state passed
+...
+mint_to_collection_unverify_collection.scenario asset table passed
+mint_to_collection_unverify_collection.scenario asset_creators table passed
+mint_to_collection_unverify_collection.scenario asset_grouping table passed
+mint_to_collection_unverify_collection.scenario cl_items table passed
+
+ALL TESTS PASSED FORWARDS!
+```
+
+You can also run the sequences in reverse:
+```bash
+./run-bubblegum-sequences.sh reverse
+```
+And after it runs you should see `ALL TESTS PASSED IN REVERSE!`
+
+A few detailed notes about this test script:
+* This script is not all-encompassing.  It is only meant to automate some normal basic tests that were previously done manually.  The reason this test is not added to CI is because requires a more powerful system to run the Docker application, which contains the no-vote Solana validator.
+* The test sequences are in `.scenario` files, but instead of sending those files to the `txn_forwarder` directly (which supports the file format), we parse them out and send them individually using the `single` parameter.  This is because using the `.scenario` file directly results in random ordering of the transactions and we are explicity trying to test them going forwards and in reverse.
+* In general the expected database results are the same when running the transactions forwards and backwards.  However, for assets that are decompressed, this is not true because we don't index some of the asset information from Bubblegum mint indexing if we already know the asset has been decompressed.  We instead let Token Metadata account based indexing fill in that information.  This is not reflected by this test script so the results differ when running these sequences in reverse.  The differing results are reflected in test files with the `_reverse` suffix.
+
 #### Logs
 To get a reasonable amount of logs while running Docker, direct grafana logs to a file:
 ```
@@ -138,7 +179,7 @@ grafana:
       ...
       - GF_LOG_MODE=file
 ```
-and set Solana Rust logs to error level:
+and set Solana Rust logs to error level (it is already set to error level now in the current docker compose file):
 ```
   solana:
     ...

@@ -1,0 +1,18 @@
+                                tree                                | node_idx | leaf_idx | seq | level |                                hash                                
+--------------------------------------------------------------------+----------+----------+-----+-------+--------------------------------------------------------------------
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |    16384 |        0 |   3 |     0 | \xa0df0b8f5870c42cf5f000cb93ac2407dc05a7b0e5708027cea879deaf672b86
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |     8192 |          |   3 |     1 | \x26636b1d764882db28d344654e080f97c4e471d8078fdf90e77210df986844c4
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |     4096 |          |   3 |     2 | \x5a7eddee1704d208b2c9286f8f6f57e11fb4088b26b4490086d8e1f866220a1e
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |     2048 |          |   3 |     3 | \x514fb9d4695c72ca8976c59670fd7108ca2b01962837687856b445cca95a273e
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |     1024 |          |   3 |     4 | \x6765d6f0594bdb48d2fe2eff283e66c966e9751c64c9c6d54c9052a1da6cb3ba
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |      512 |          |   3 |     5 | \x55aebf7da4895b8336ed31a9cd2d3690813a5521fd0c06b98bee582aefb4e9b6
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |      256 |          |   3 |     6 | \x9bf9878fdb11dcf5409555da88815ea2fa36f6274bbf766396cbc115fbdc9971
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |      128 |          |   3 |     7 | \xc3b2fb6bfaa3572d89e585fc1c01c424526125ee4d61b0351dd171538d8656e7
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |       64 |          |   3 |     8 | \x1ddb72f4872089fe09e731304bb37abf087091d76b538de8337c2667bbf71771
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |       32 |          |   3 |     9 | \x7c550bff142bb8ea40dd8077f5ef107f59ddb41485b59f75cc79bf4a32f672d4
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |       16 |          |   3 |    10 | \xcf945e99644b0bce7a632f75d5583af3bd253347060b46cb4b9a6b37680f23e2
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |        8 |          |   3 |    11 | \x8f8437650f74136e93236fadbe982efe7a3c7242fe5e1a7dbb828df498085787
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |        4 |          |   3 |    12 | \x6ad32435b390970745116398cfdbafcefeb17d9593c95d395654454c897942a2
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |        2 |          |   3 |    13 | \x61d24822e4adb1eb6fcd15acb5af19cb87e7a7696f5feef168a7b26da4ca99a1
+ \x5be27efa6443d455b8a30f07cccfe55ad425858aaab1f9bf958a9ee28a3e71ef |        1 |          |   3 |    14 | \xfd63d7da0c2dda3f85d7c393a9c5b4ae1c1d953834c5371a67ee282e8cc47149
+(15 rows)
