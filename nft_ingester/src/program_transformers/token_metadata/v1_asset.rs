@@ -1,23 +1,24 @@
-use crate::{error::IngesterError, tasks::TaskData};
+use crate::tasks::{DownloadMetadata, IntoTaskData};
+use crate::{error::IngesterError, metric, tasks::TaskData};
 use blockbuster::token_metadata::{
     pda::find_master_edition_account,
     state::{Metadata, TokenStandard, UseMethod, Uses},
 };
+use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Utc;
+use digital_asset_types::dao::{asset_authority, asset_data, asset_grouping, token_accounts};
 use digital_asset_types::{
     dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        asset_v1_account_attachments,
+        asset, asset_creators, asset_v1_account_attachments,
         sea_orm_active_enums::{
             ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
             SpecificationVersions, V1AccountAttachments,
         },
-        token_accounts, tokens,
+        tokens,
     },
     json::ChainDataV1,
 };
-
-use crate::tasks::{DownloadMetadata, IntoTaskData};
+use lazy_static::lazy_static;
 use log::warn;
 use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
@@ -25,7 +26,11 @@ use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
     DbErr, EntityTrait, JsonValue,
 };
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
+use std::str::FromStr;
+use std::time::Duration;
+use tokio::time::sleep;
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
@@ -54,74 +59,128 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(())
 }
 
+const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
+const WSOL_ADDRESS: &str = "So11111111111111111111111111111111111111112";
+
+lazy_static! {
+    static ref WSOL_PUBKEY: Pubkey =
+        Pubkey::from_str(WSOL_ADDRESS).expect("Invalid public key format");
+}
+
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: FBPubkey,
-    slot: u64,
     metadata: &Metadata,
+    slot: u64,
 ) -> Result<Option<TaskData>, IngesterError> {
     let metadata = metadata.clone();
     let data = metadata.data;
-    let meta_mint_pubkey = metadata.mint;
-    let (edition_attachment_address, _) = find_master_edition_account(&meta_mint_pubkey);
-    let mint = metadata.mint.to_bytes().to_vec();
+    let mint_pubkey = metadata.mint;
+    let mint_pubkey_array = mint_pubkey.to_bytes();
+    let mint_pubkey_vec = mint_pubkey_array.to_vec();
+
+    let (edition_attachment_address, _) = find_master_edition_account(&mint_pubkey);
+
     let authority = metadata.update_authority.to_bytes().to_vec();
-    let id = id.0;
     let slot_i = slot as i64;
     let uri = data.uri.trim().replace('\0', "");
     let _spec = SpecificationVersions::V1;
-    let class = match metadata.token_standard {
+    let mut class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
         Some(TokenStandard::FungibleAsset) => SpecificationAssetClass::FungibleAsset,
         Some(TokenStandard::Fungible) => SpecificationAssetClass::FungibleToken,
+        Some(TokenStandard::NonFungibleEdition) => SpecificationAssetClass::Nft,
+        Some(TokenStandard::ProgrammableNonFungible) => SpecificationAssetClass::ProgrammableNft,
+        Some(TokenStandard::ProgrammableNonFungibleEdition) => {
+            SpecificationAssetClass::ProgrammableNft
+        }
         _ => SpecificationAssetClass::Unknown,
     };
-    let ownership_type = match class {
+    let mut ownership_type = match class {
         SpecificationAssetClass::FungibleAsset => OwnerType::Token,
         SpecificationAssetClass::FungibleToken => OwnerType::Token,
-        // FIX: SPL tokens with associated metadata that do not set the token standard are incorrectly marked as single ownership.
-        _ => OwnerType::Single,
+        SpecificationAssetClass::Nft | SpecificationAssetClass::ProgrammableNft => {
+            OwnerType::Single
+        }
+        _ => OwnerType::Unknown,
     };
 
-    // gets the token and token account for the mint to populate the asset. This is required when the token and token account are indexed, but not the metadata account.
-    // If the metadata account is indexed, then the token and the ingester will update the asset with the correct data
+    // Wrapped Solana is a special token that has supply 0 (infinite).
+    // It's a fungible token with a metadata account, but without any token standard, meaning the code above will misabel it as an NFT.
+    if mint_pubkey == *WSOL_PUBKEY {
+        ownership_type = OwnerType::Token;
+        class = SpecificationAssetClass::FungibleToken;
+    }
 
-    let (token, token_account): (Option<tokens::Model>, Option<token_accounts::Model>) =
-        match ownership_type {
-            OwnerType::Single => {
-                let token: Option<tokens::Model> =
-                    tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
-                // query for token account associated with mint with amount of 1 since single ownership is a token account with amount of 1.
-                // In the case of a transfer the current owner's token account amount is deducted by 1 and the new owner's token account amount for the mint is incremented by 1.
-                let token_account: Option<token_accounts::Model> = token_accounts::Entity::find()
-                    .filter(token_accounts::Column::Mint.eq(mint.clone()))
-                    .filter(token_accounts::Column::Amount.eq(1))
-                    .one(conn)
-                    .await?;
-                Ok((token, token_account))
-            }
-            _ => {
-                let token = tokens::Entity::find_by_id(mint.clone()).one(conn).await?;
-                Ok((token, None))
-            }
-        }
-        .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+    // Gets the token and token account for the mint to populate the asset.
+    // This is required when the token and token account are indexed, but not the metadata account.
+    // If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data.
+    let token: Option<tokens::Model> = find_model_with_retry(
+        conn,
+        "token",
+        &tokens::Entity::find_by_id(mint_pubkey_vec.clone()),
+        RETRY_INTERVALS,
+    )
+    .await?;
 
     // get supply of token, default to 1 since most cases will be NFTs. Token mint ingester will properly set supply if token_result is None
     let (supply, supply_mint) = match token {
-        Some(t) => (Set(t.supply), Set(Some(t.mint))),
-        None => (Set(1), NotSet),
+        Some(t) => (t.supply, Some(t.mint)),
+        None => {
+            warn!(
+                target: "Account not found",
+                "Token/Mint not found in 'tokens' table for mint {}",
+                bs58::encode(&mint_pubkey_vec).into_string()
+            );
+            (1, None)
+        }
+    };
+
+    // Map unknown ownership types based on the supply.
+    if ownership_type == OwnerType::Unknown {
+        ownership_type = match supply.cmp(&1) {
+            std::cmp::Ordering::Equal => OwnerType::Single,
+            std::cmp::Ordering::Greater => OwnerType::Token,
+            _ => OwnerType::Unknown,
+        }
+    }
+
+    let token_account: Option<token_accounts::Model> = match ownership_type {
+        OwnerType::Single | OwnerType::Unknown => {
+            // query for token account associated with mint with positive balance with latest slot
+            let token_account: Option<token_accounts::Model> = find_model_with_retry(
+                conn,
+                "token_accounts",
+                &token_accounts::Entity::find()
+                    .filter(token_accounts::Column::Mint.eq(mint_pubkey_vec.clone()))
+                    .filter(token_accounts::Column::Amount.gt(0))
+                    .order_by(token_accounts::Column::SlotUpdated, Order::Desc),
+                RETRY_INTERVALS,
+            )
+            .await
+            .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+
+            token_account
+        }
+        _ => None,
     };
 
     // owner and delegate should be from the token account with the mint
     let (owner, delegate) = match token_account {
         Some(ta) => (Set(Some(ta.owner)), Set(ta.delegate)),
-        None => (NotSet, NotSet),
+        None => {
+            if supply == 1 && ownership_type == OwnerType::Single {
+                warn!(
+                    target: "Account not found",
+                    "Token acc not found in 'token_accounts' table for mint {}",
+                    bs58::encode(&mint_pubkey_vec).into_string()
+                );
+            }
+            (NotSet, NotSet)
+        }
     };
 
     let name = data.name.clone().into_bytes();
     let symbol = data.symbol.clone().into_bytes();
-
     let mut chain_data = ChainDataV1 {
         name: data.name.clone(),
         symbol: data.symbol.clone(),
@@ -149,7 +208,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         metadata_mutability: Set(Mutability::Mutable),
         slot_updated: Set(slot_i),
         reindex: Set(Some(true)),
-        id: Set(id.to_vec()),
+        id: Set(mint_pubkey_vec.clone()),
         raw_name: Set(Some(name.to_vec())),
         raw_symbol: Set(Some(symbol.to_vec())),
         base_info_seq: Set(Some(0)),
@@ -179,14 +238,15 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
     let model = asset::ActiveModel {
-        id: Set(id.to_vec()),
+        id: Set(mint_pubkey_vec.clone()),
         owner,
         owner_type: Set(ownership_type),
         delegate,
         frozen: Set(false),
-        supply,
-        supply_mint,
+        supply: Set(supply),
+        supply_mint: Set(supply_mint),
         specification_version: Set(Some(SpecificationVersions::V1)),
         specification_asset_class: Set(Some(class)),
         tree_id: Set(None),
@@ -200,7 +260,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         royalty_target_type: Set(RoyaltyTargetType::Creators),
         royalty_target: Set(None),
         royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
-        asset_data: Set(Some(id.to_vec())),
+        asset_data: Set(Some(mint_pubkey_vec.clone())),
         slot_updated: Set(Some(slot_i)),
         burnt: Set(false),
         ..Default::default()
@@ -236,12 +296,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset.slot_updated OR asset.slot_updated IS NULL",
+        "{} WHERE excluded.slot_updated >= asset.slot_updated OR asset.slot_updated IS NULL",
         query.sql
     );
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
     let attachment = asset_v1_account_attachments::ActiveModel {
         id: Set(edition_attachment_address.to_bytes().to_vec()),
         slot_updated: Set(slot_i),
@@ -258,8 +319,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
     let model = asset_authority::ActiveModel {
-        asset_id: Set(id.to_vec()),
+        asset_id: Set(mint_pubkey_vec.clone()),
         authority: Set(authority),
         seq: Set(0),
         slot_updated: Set(slot_i),
@@ -286,7 +348,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     if let Some(c) = &metadata.collection {
         let model = asset_grouping::ActiveModel {
-            asset_id: Set(id.to_vec()),
+            asset_id: Set(mint_pubkey_vec.clone()),
             group_key: Set("collection".to_string()),
             group_value: Set(Some(c.key.to_string())),
             verified: Set(c.verified),
@@ -317,9 +379,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .await
             .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
     }
-    txn.commit().await?;
-    let creators = data.creators.unwrap_or_default();
 
+    let creators = data.creators.unwrap_or_default();
     if !creators.is_empty() {
         let mut creators_set = HashSet::new();
         let mut db_creators = Vec::with_capacity(creators.len());
@@ -328,7 +389,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 continue;
             }
             db_creators.push(asset_creators::ActiveModel {
-                asset_id: Set(id.to_vec()),
+                asset_id: Set(mint_pubkey_vec.clone()),
                 position: Set(i as i16),
                 creator: Set(c.address.to_bytes().to_vec()),
                 share: Set(c.share as i32),
@@ -340,7 +401,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             creators_set.insert(c.address);
         }
 
-        let txn = conn.begin().await?;
         if !db_creators.is_empty() {
             let mut query = asset_creators::Entity::insert_many(db_creators)
                 .on_conflict(
@@ -352,8 +412,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                         asset_creators::Column::Creator,
                         asset_creators::Column::Share,
                         asset_creators::Column::Verified,
-                        asset_creators::Column::SlotUpdated,
                         asset_creators::Column::Seq,
+                        asset_creators::Column::SlotUpdated,
                     ])
                     .to_owned(),
                 )
@@ -366,22 +426,56 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 .await
                 .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
         }
-        txn.commit().await?;
     }
+    txn.commit().await?;
+
     if uri.is_empty() {
         warn!(
             "URI is empty for mint {}. Skipping background task.",
-            bs58::encode(mint).into_string()
+            bs58::encode(mint_pubkey_vec).into_string()
         );
         return Ok(None);
     }
 
     let mut task = DownloadMetadata {
-        asset_data_id: id.to_vec(),
+        asset_data_id: mint_pubkey_vec.clone(),
         uri,
         created_at: Some(Utc::now().naive_utc()),
     };
     task.sanitize();
     let t = task.into_task_data()?;
     Ok(Some(t))
+}
+
+async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityTrait>(
+    conn: &T,
+    model_name: &str,
+    select: &Select<K>,
+    retry_intervals: &[u64],
+) -> Result<Option<K::Model>, DbErr> {
+    let mut retries = 0;
+    let metric_name = format!("{}_found", model_name);
+
+    for interval in retry_intervals {
+        let interval_duration = Duration::from_millis(interval.to_owned());
+        sleep(interval_duration).await;
+
+        let model = select.clone().one(conn).await?;
+        if let Some(m) = model {
+            record_metric(&metric_name, true, retries);
+            return Ok(Some(m));
+        }
+        retries += 1;
+    }
+
+    record_metric(&metric_name, false, retries - 1);
+    Ok(None)
+}
+
+fn record_metric(metric_name: &str, success: bool, retries: u32) {
+    let retry_count = &retries.to_string();
+    let success = if success { "true" } else { "false" };
+    metric! {
+        statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    }
 }
