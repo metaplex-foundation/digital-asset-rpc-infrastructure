@@ -439,7 +439,7 @@ pub async fn fetch_transactions(
     let stmt = cl_audits_v2::Entity::find()
         .filter(cl_audits_v2::Column::Tree.eq(tree))
         .filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx))
-        .order_by(cl_audits_v2::Column::Seq, sea_orm::Order::Asc);
+        .order_by(cl_audits_v2::Column::Seq, sea_orm::Order::Desc);
 
     let stmt = paginate(
         pagination,

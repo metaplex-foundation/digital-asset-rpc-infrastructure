@@ -99,12 +99,16 @@ where
         let tx_id_bytes = bs58::decode(txn_id)
             .into_vec()
             .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
+        let ix = Instruction::from_str(instruction);
+        if ix == Instruction::Unknown {
+            error!("Unknown instruction: {}", instruction);
+        }
         let audit_item_v2 = cl_audits_v2::ActiveModel {
             tree: Set(tree_id.to_vec()),
             leaf_idx: Set(change_log_event.index as i64),
             seq: Set(change_log_event.seq as i64),
             tx: Set(tx_id_bytes),
-            instruction: Set(Instruction::from_str(instruction)),
+            instruction: Set(ix),
             ..Default::default()
         };
         let query = cl_audits_v2::Entity::insert(audit_item_v2)
