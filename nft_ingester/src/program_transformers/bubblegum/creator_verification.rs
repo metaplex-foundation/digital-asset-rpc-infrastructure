@@ -17,6 +17,7 @@ pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
+    instruction: &str,
     cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
@@ -57,7 +58,8 @@ where
             "Handling creator verification event for creator {} (verify: {}): {}",
             creator, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
+            .await?;
 
         match le.schema {
             LeafSchema::V1 {

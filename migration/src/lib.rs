@@ -32,6 +32,9 @@ mod m20230918_182123_add_raw_name_symbol;
 mod m20230919_072154_cl_audits;
 mod m20231019_120101_add_seq_numbers_bgum_update_metadata;
 mod m20231206_120101_remove_was_decompressed;
+mod m20240104_203133_add_cl_audits_v2;
+mod m20240104_203328_remove_cl_audits;
+mod m20240116_130744_add_update_metadata_ix;
 
 pub struct Migrator;
 
@@ -71,6 +74,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20230919_072154_cl_audits::Migration),
             Box::new(m20231019_120101_add_seq_numbers_bgum_update_metadata::Migration),
             Box::new(m20231206_120101_remove_was_decompressed::Migration),
+            Box::new(m20240104_203133_add_cl_audits_v2::Migration),
+            Box::new(m20240104_203328_remove_cl_audits::Migration),
+            Box::new(m20240116_130744_add_update_metadata_ix::Migration),
         ]
     }
 }

@@ -1,13 +1,13 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items, cl_audits,
-    cl_items,
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
+    cl_audits_v2, cl_items,
     sea_orm_active_enums::{
-        ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
-        SpecificationVersions,
+        ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
+        SpecificationAssetClass, SpecificationVersions,
     },
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use mpl_bubblegum::types::{Collection, Creator};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
@@ -20,12 +20,13 @@ pub async fn save_changelog_event<'c, T>(
     slot: u64,
     txn_id: &str,
     txn: &T,
+    instruction: &str,
     cl_audits: bool,
 ) -> Result<u64, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn_id, txn, cl_audits).await?;
+    insert_change_log(change_log_event, slot, txn_id, txn, instruction, cl_audits).await?;
     Ok(change_log_event.seq)
 }
 
@@ -38,6 +39,7 @@ pub async fn insert_change_log<'c, T>(
     slot: u64,
     txn_id: &str,
     txn: &T,
+    instruction: &str,
     cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
@@ -49,12 +51,13 @@ where
     for p in change_log_event.path.iter() {
         let node_idx = p.index as i64;
         debug!(
-            "seq {}, index {} level {}, node {:?}, txn: {:?}",
+            "seq {}, index {} level {}, node {:?}, txn: {:?}, instruction {}",
             change_log_event.seq,
             p.index,
             i,
             bs58::encode(p.node).into_string(),
             txn_id,
+            instruction
         );
         let leaf_idx = if i == 0 {
             Some(node_idx_to_leaf_idx(node_idx, depth as u32))
@@ -70,14 +73,6 @@ where
             seq: Set(change_log_event.seq as i64),
             leaf_idx: Set(leaf_idx),
             ..Default::default()
-        };
-
-        let audit_item: Option<cl_audits::ActiveModel> = if cl_audits {
-            let mut ai: cl_audits::ActiveModel = item.clone().into();
-            ai.tx = Set(txn_id.to_string());
-            Some(ai)
-        } else {
-            None
         };
 
         i += 1;
@@ -97,10 +92,41 @@ where
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+    }
 
-        // Insert the audit item after the insert into cl_items have been completed
-        if let Some(audit_item) = audit_item {
-            cl_audits::Entity::insert(audit_item).exec(txn).await?;
+    // Insert the audit item after the insert into cl_items have been completed
+    if cl_audits {
+        let tx_id_bytes = bs58::decode(txn_id)
+            .into_vec()
+            .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
+        let ix = Instruction::from_str(instruction);
+        if ix == Instruction::Unknown {
+            error!("Unknown instruction: {}", instruction);
+        }
+        let audit_item_v2 = cl_audits_v2::ActiveModel {
+            tree: Set(tree_id.to_vec()),
+            leaf_idx: Set(change_log_event.index as i64),
+            seq: Set(change_log_event.seq as i64),
+            tx: Set(tx_id_bytes),
+            instruction: Set(ix),
+            ..Default::default()
+        };
+        let query = cl_audits_v2::Entity::insert(audit_item_v2)
+            .on_conflict(
+                OnConflict::columns([
+                    cl_audits_v2::Column::Tree,
+                    cl_audits_v2::Column::LeafIdx,
+                    cl_audits_v2::Column::Seq,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        match txn.execute(query).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Error while inserting into cl_audits_v2: {:?}", e);
+            }
         }
     }
 
@@ -136,7 +162,6 @@ where
     }
 
     Ok(())
-    //TODO -> set maximum size of path and break into multiple statements
 }
 
 #[allow(clippy::too_many_arguments)]
