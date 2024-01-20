@@ -1,8 +1,11 @@
-use crate::dao::{
-    asset::{self},
-    asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
-    sea_orm_active_enums::Instruction,
-    Cursor, FullAsset, GroupingSize, Pagination,
+use crate::{
+    dao::{
+        asset::{self},
+        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        sea_orm_active_enums::Instruction,
+        Cursor, FullAsset, GroupingSize, Pagination,
+    },
+    rpc::filter::AssetSortDirection,
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -435,18 +438,26 @@ pub async fn fetch_transactions(
     leaf_idx: i64,
     pagination: &Pagination,
     limit: u64,
+    sort_direction: Option<AssetSortDirection>,
 ) -> Result<Vec<(String, String)>, DbErr> {
-    let stmt = cl_audits_v2::Entity::find()
-        .filter(cl_audits_v2::Column::Tree.eq(tree))
-        .filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx))
-        .order_by(cl_audits_v2::Column::Seq, sea_orm::Order::Desc);
+    // Default sort direction is Desc
+    // Similar to GetSignaturesForAddress in the Solana API
+    let sort_direction = sort_direction.unwrap_or(AssetSortDirection::Desc);
+    let sort_order = match sort_direction {
+        AssetSortDirection::Asc => sea_orm::Order::Asc,
+        AssetSortDirection::Desc => sea_orm::Order::Desc,
+    };
 
-    let stmt = paginate(
+    let mut stmt = cl_audits_v2::Entity::find().filter(cl_audits_v2::Column::Tree.eq(tree));
+    stmt = stmt.filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
+    stmt = stmt.order_by(cl_audits_v2::Column::Seq, sort_order.clone());
+
+    stmt = paginate(
         pagination,
         limit,
         stmt,
-        sea_orm::Order::Asc,
-        asset::Column::Id,
+        sort_order,
+        cl_audits_v2::Column::Seq,
     );
     let transactions = stmt.all(conn).await?;
     let transaction_list = transactions
@@ -468,10 +479,12 @@ pub async fn get_asset_signatures(
     leaf_idx: Option<i64>,
     pagination: &Pagination,
     limit: u64,
+    sort_direction: Option<AssetSortDirection>,
 ) -> Result<Vec<(String, String)>, DbErr> {
     // if tree_id and leaf_idx are provided, use them directly to fetch transactions
     if let (Some(tree_id), Some(leaf_idx)) = (tree_id, leaf_idx) {
-        let transactions = fetch_transactions(conn, tree_id, leaf_idx, pagination, limit).await?;
+        let transactions =
+            fetch_transactions(conn, tree_id, leaf_idx, pagination, limit, sort_direction).await?;
         return Ok(transactions);
     }
 
@@ -499,7 +512,8 @@ pub async fn get_asset_signatures(
         let leaf_idx = asset
             .nonce
             .ok_or(DbErr::RecordNotFound("Leaf ID does not exist".to_string()))?;
-        let transactions = fetch_transactions(conn, tree, leaf_idx, pagination, limit).await?;
+        let transactions =
+            fetch_transactions(conn, tree, leaf_idx, pagination, limit, sort_direction).await?;
         Ok(transactions)
     } else {
         Ok(Vec::new())

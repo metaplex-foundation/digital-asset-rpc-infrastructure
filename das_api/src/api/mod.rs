@@ -1,6 +1,6 @@
 use crate::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::filter::SearchConditionType;
+use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
 use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{AssetList, TransactionSignatureList};
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
@@ -159,6 +159,8 @@ pub struct GetAssetSignatures {
     pub leaf_index: Option<i64>,
     #[serde(default)]
     pub cursor: Option<String>,
+    #[serde(default)]
+    pub sort_direction: Option<AssetSortDirection>,
 }
 
 #[document_rpc]

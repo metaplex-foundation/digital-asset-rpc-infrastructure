@@ -475,6 +475,7 @@ impl ApiContract for DasApi {
             tree,
             leaf_index,
             cursor,
+            sort_direction,
         } = payload;
 
         if !((id.is_some() && tree.is_none() && leaf_index.is_none())
@@ -489,11 +490,17 @@ impl ApiContract for DasApi {
 
         let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
 
-        get_asset_signatures(&self.db_connection, id, tree, leaf_index, page_options)
-            .await
-            .map_err(Into::into)
+        get_asset_signatures(
+            &self.db_connection,
+            id,
+            tree,
+            leaf_index,
+            page_options,
+            sort_direction,
+        )
+        .await
+        .map_err(Into::into)
     }
-
     async fn get_grouping(
         self: &DasApi,
         payload: GetGrouping,
