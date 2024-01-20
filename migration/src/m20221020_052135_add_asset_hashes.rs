@@ -1,4 +1,3 @@
-use digital_asset_types::dao::asset;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -10,7 +9,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Alias::new("asset"))
                     .add_column(
                         ColumnDef::new(Alias::new("data_hash"))
                             .string()
@@ -22,7 +21,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Alias::new("asset"))
                     .add_column(
                         ColumnDef::new(Alias::new("creator_hash"))
                             .string()
@@ -38,7 +37,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Alias::new("asset"))
                     .drop_column(Alias::new("data_hash"))
                     .to_owned(),
             )
@@ -46,7 +45,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Alias::new("asset"))
                     .drop_column(Alias::new("creator_hash"))
                     .to_owned(),
             )

@@ -31,7 +31,10 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Tasks::Data).json_binary().not_null())
                     .col(
                         ColumnDef::new(Tasks::Status)
-                            .enumeration(Tasks::TaskStatus, all::<TaskStatus>().collect::<Vec<_>>())
+                            .enumeration(
+                                Tasks::TaskStatus,
+                                all::<TaskStatus>().map(|e| e).collect::<Vec<_>>(),
+                            )
                             .not_null(),
                     )
                     .col(ColumnDef::new(Tasks::CreatedAt).date_time().not_null())

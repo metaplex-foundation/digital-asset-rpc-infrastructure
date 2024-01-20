@@ -1,5 +1,6 @@
-use digital_asset_types::dao::{asset, asset_data};
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::{Asset, AssetData};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -10,8 +11,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_data::Entity)
-                    .add_column(ColumnDef::new(Alias::new("base_info_seq")).big_integer())
+                    .table(AssetData::Table)
+                    .add_column(ColumnDef::new(AssetData::BaseInfoSeq).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -19,8 +20,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
-                    .add_column(ColumnDef::new(Alias::new("base_info_seq")).big_integer())
+                    .table(Asset::Table)
+                    .add_column(ColumnDef::new(Asset::BaseInfoSeq).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -32,8 +33,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_data::Entity)
-                    .drop_column(Alias::new("base_info_seq"))
+                    .table(AssetData::Table)
+                    .drop_column(AssetData::BaseInfoSeq)
                     .to_owned(),
             )
             .await?;
@@ -41,8 +42,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
-                    .drop_column(Alias::new("base_info_seq"))
+                    .table(Asset::Table)
+                    .drop_column(Asset::BaseInfoSeq)
                     .to_owned(),
             )
             .await?;

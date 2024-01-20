@@ -36,6 +36,8 @@ mod m20240104_203133_add_cl_audits_v2;
 mod m20240104_203328_remove_cl_audits;
 mod m20240116_130744_add_update_metadata_ix;
 
+pub mod model;
+
 pub struct Migrator;
 
 #[async_trait::async_trait]

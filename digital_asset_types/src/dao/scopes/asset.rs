@@ -2,6 +2,7 @@ use crate::{
     dao::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
         Cursor, FullAsset, GroupingSize, Pagination,
     },
@@ -70,7 +71,7 @@ pub async fn get_by_creator(
     get_by_related_condition(
         conn,
         condition,
-        asset::Relation::AssetCreators,
+        extensions::asset::Relation::AssetCreators,
         sort_by,
         sort_direction,
         pagination,
@@ -130,7 +131,7 @@ pub async fn get_by_grouping(
         Condition::all()
             .add(condition)
             .add(asset::Column::Supply.gt(0)),
-        asset::Relation::AssetGrouping,
+        extensions::asset::Relation::AssetGrouping,
         sort_by,
         sort_direction,
         pagination,
@@ -204,7 +205,7 @@ pub async fn get_by_authority(
     get_by_related_condition(
         conn,
         cond,
-        asset::Relation::AssetAuthority,
+        extensions::asset::Relation::AssetAuthority,
         sort_by,
         sort_direction,
         pagination,
@@ -464,7 +465,7 @@ pub async fn fetch_transactions(
         .into_iter()
         .map(|transaction| {
             let tx = bs58::encode(transaction.tx).into_string();
-            let ix = Instruction::to_str(&transaction.instruction).to_string();
+            let ix = Instruction::to_pascal_case(&transaction.instruction).to_string();
             (tx, ix)
         })
         .collect();

@@ -4,32 +4,14 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
-pub enum TaskStatus {
-    #[sea_orm(string_value = "failed")]
-    Failed,
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "running")]
-    Running,
-    #[sea_orm(string_value = "success")]
-    Success,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "specification_versions"
-)]
-pub enum SpecificationVersions {
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
+pub enum OwnerType {
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "token")]
+    Token,
     #[sea_orm(string_value = "unknown")]
     Unknown,
-    #[sea_orm(string_value = "v0")]
-    V0,
-    #[sea_orm(string_value = "v1")]
-    V1,
-    #[sea_orm(string_value = "v2")]
-    V2,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
@@ -48,16 +30,6 @@ pub enum RoyaltyTargetType {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
 pub enum Mutability {
     #[sea_orm(string_value = "immutable")]
@@ -68,12 +40,20 @@ pub enum Mutability {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "v1_account_attachments"
+)]
+pub enum V1AccountAttachments {
+    #[sea_orm(string_value = "edition")]
+    Edition,
+    #[sea_orm(string_value = "edition_marker")]
+    EditionMarker,
+    #[sea_orm(string_value = "master_edition_v1")]
+    MasterEditionV1,
+    #[sea_orm(string_value = "master_edition_v2")]
+    MasterEditionV2,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
@@ -106,24 +86,43 @@ pub enum SpecificationAssetClass {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "v1_account_attachments"
-)]
-pub enum V1AccountAttachments {
-    #[sea_orm(string_value = "edition")]
-    Edition,
-    #[sea_orm(string_value = "edition_marker")]
-    EditionMarker,
-    #[sea_orm(string_value = "master_edition_v1")]
-    MasterEditionV1,
-    #[sea_orm(string_value = "master_edition_v2")]
-    MasterEditionV2,
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
-
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
+pub enum TaskStatus {
+    #[sea_orm(string_value = "failed")]
+    Failed,
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "running")]
+    Running,
+    #[sea_orm(string_value = "success")]
+    Success,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "specification_versions"
+)]
+pub enum SpecificationVersions {
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "v0")]
+    V0,
+    #[sea_orm(string_value = "v1")]
+    V1,
+    #[sea_orm(string_value = "v2")]
+    V2,
+}
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "instruction")]
 pub enum Instruction {
@@ -153,54 +152,10 @@ pub enum Instruction {
     UnverifyCollection,
     #[sea_orm(string_value = "unverify_creator")]
     UnverifyCreator,
+    #[sea_orm(string_value = "update_metadata")]
+    UpdateMetadata,
     #[sea_orm(string_value = "verify_collection")]
     VerifyCollection,
     #[sea_orm(string_value = "verify_creator")]
     VerifyCreator,
-    #[sea_orm(string_value = "update_metadata")]
-    UpdateMetadata,
-}
-// Added manually for convenience.
-impl Instruction {
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "Burn" => Instruction::Burn,
-            "CancelRedeem" => Instruction::CancelRedeem,
-            "Compress" => Instruction::Compress,
-            "DecompressV1" => Instruction::DecompressV1,
-            "Delegate" => Instruction::Delegate,
-            "MintToCollectionV1" => Instruction::MintToCollectionV1,
-            "MintV1" => Instruction::MintV1,
-            "Redeem" => Instruction::Redeem,
-            "SetAndVerifyCollection" => Instruction::SetAndVerifyCollection,
-            "Transfer" => Instruction::Transfer,
-            "UnverifyCollection" => Instruction::UnverifyCollection,
-            "UnverifyCreator" => Instruction::UnverifyCreator,
-            "VerifyCollection" => Instruction::VerifyCollection,
-            "VerifyCreator" => Instruction::VerifyCreator,
-            "UpdateMetadata" => Instruction::UpdateMetadata,
-            _ => Instruction::Unknown,
-        }
-    }
-
-    pub const fn to_str(s: &Self) -> &str {
-        match s {
-            Instruction::Burn => "Burn",
-            Instruction::CancelRedeem => "CancelReddem",
-            Instruction::Compress => "Compress",
-            Instruction::DecompressV1 => "DecompressV1",
-            Instruction::Delegate => "Delegate",
-            Instruction::MintToCollectionV1 => "MintToCollectionV1",
-            Instruction::MintV1 => "MintV1",
-            Instruction::Redeem => "Redeem",
-            Instruction::SetAndVerifyCollection => "SetAndVerifyCollection",
-            Instruction::Transfer => "Transfer",
-            Instruction::UnverifyCollection => "UnverifyCollection",
-            Instruction::UnverifyCreator => "UnverifyCreator",
-            Instruction::VerifyCollection => "VerifyCollection",
-            Instruction::VerifyCreator => "VerifyCreator",
-            Instruction::UpdateMetadata => "UpdateMetadata",
-            _ => "Unknown",
-        }
-    }
 }

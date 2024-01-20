@@ -1,5 +1,6 @@
-use digital_asset_types::dao::backfill_items;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::BackfillItems;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,7 +12,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .add_column(
                         ColumnDef::new(Alias::new("locked"))
                             .boolean()
@@ -28,7 +29,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .drop_column(Alias::new("locked"))
                     .to_owned(),
             )

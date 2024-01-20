@@ -1,5 +1,6 @@
-use crate::m20240104_203133_add_cl_audits_v2::ClAuditsV2;
 use sea_orm_migration::{prelude::*, sea_query::extension::postgres::Type};
+
+use crate::model::table::ClAuditsV2;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

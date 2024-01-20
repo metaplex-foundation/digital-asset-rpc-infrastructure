@@ -2,6 +2,7 @@ use crate::error::IngesterError;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
     cl_audits_v2, cl_items,
+    extensions::instruction::PascalCase,
     sea_orm_active_enums::{
         ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
         SpecificationAssetClass, SpecificationVersions,
@@ -99,7 +100,7 @@ where
         let tx_id_bytes = bs58::decode(txn_id)
             .into_vec()
             .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
-        let ix = Instruction::from_str(instruction);
+        let ix = Instruction::from(instruction);
         if ix == Instruction::Unknown {
             error!("Unknown instruction: {}", instruction);
         }

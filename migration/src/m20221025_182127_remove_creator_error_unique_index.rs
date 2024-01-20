@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset_creators;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::AssetCreators;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -12,7 +13,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_creators_asset_id")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;

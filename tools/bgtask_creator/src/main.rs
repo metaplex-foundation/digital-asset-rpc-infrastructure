@@ -476,7 +476,10 @@ fn find_by_type<'a>(
 
         (
             asset_data::Entity::find()
-                .join(JoinType::InnerJoin, asset_data::Relation::Asset.def())
+                .join(
+                    JoinType::InnerJoin,
+                    extensions::asset_data::Relation::Asset.def(),
+                )
                 .join_rev(
                     JoinType::InnerJoin,
                     tokens::Entity::belongs_to(asset::Entity)

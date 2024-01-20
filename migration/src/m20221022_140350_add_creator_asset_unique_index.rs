@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset_creators;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::AssetCreators;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,14 +12,14 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_creator")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .add_column(
                         ColumnDef::new(Alias::new("position"))
                             .small_integer()
@@ -33,9 +34,9 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .unique()
                     .name("asset_creator_unique")
-                    .col(asset_creators::Column::AssetId)
-                    .col(asset_creators::Column::Creator)
-                    .table(asset_creators::Entity)
+                    .col(AssetCreators::AssetId)
+                    .col(AssetCreators::Creator)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -44,9 +45,9 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .unique()
                     .name("asset_creator_pos_unique")
-                    .col(asset_creators::Column::AssetId)
+                    .col(AssetCreators::AssetId)
                     .col(Alias::new("position"))
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -58,7 +59,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_creator_unique")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -66,7 +67,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_creator_pos_unique")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -74,9 +75,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 sea_query::Index::create()
                     .name("asset_creator")
-                    .col(asset_creators::Column::AssetId)
-                    .col(asset_creators::Column::Creator)
-                    .table(asset_creators::Entity)
+                    .col(AssetCreators::AssetId)
+                    .col(AssetCreators::Creator)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;

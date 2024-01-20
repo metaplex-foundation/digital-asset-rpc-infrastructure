@@ -1,4 +1,3 @@
-use digital_asset_types::dao::asset_grouping;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -11,7 +10,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_grouping::Entity)
+                    .table(Alias::new("asset_grouping"))
                     .add_column(
                         ColumnDef::new(Alias::new("verified"))
                             .boolean()
@@ -28,7 +27,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset_grouping::Entity)
+                    .table(Alias::new("asset_grouping"))
                     .drop_column(Alias::new("verified"))
                     .to_owned(),
             )
