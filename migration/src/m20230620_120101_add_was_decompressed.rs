@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::Asset;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -10,7 +11,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .add_column(
                         ColumnDef::new(Alias::new("was_decompressed"))
                             .boolean()
@@ -28,7 +29,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .drop_column(Alias::new("was_decompressed"))
                     .to_owned(),
             )

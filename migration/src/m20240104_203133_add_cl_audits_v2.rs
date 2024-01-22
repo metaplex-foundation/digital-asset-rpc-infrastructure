@@ -1,7 +1,10 @@
-use enum_iterator::{all, Sequence};
+use enum_iterator::all;
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use sea_orm_migration::sea_query::extension::postgres::Type;
+
+use crate::model::r#enum::BubblegumInstruction;
+use crate::model::table::ClAuditsV2;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -74,36 +77,4 @@ impl MigrationTrait for Migration {
             .await?;
         Ok(())
     }
-}
-
-/// Learn more at https://docs.rs/sea-query#iden
-#[derive(Iden)]
-pub enum ClAuditsV2 {
-    Table,
-    Id,
-    Tree,
-    LeafIdx,
-    Seq,
-    CreatedAt,
-    Tx,
-    Instruction,
-}
-
-#[derive(Iden, Debug, PartialEq, Sequence)]
-enum BubblegumInstruction {
-    Unknown,
-    MintV1,
-    Redeem,
-    CancelRedeem,
-    Transfer,
-    Delegate,
-    DecompressV1,
-    Compress,
-    Burn,
-    VerifyCreator,
-    UnverifyCreator,
-    VerifyCollection,
-    UnverifyCollection,
-    SetAndVerifyCollection,
-    MintToCollectionV1,
 }

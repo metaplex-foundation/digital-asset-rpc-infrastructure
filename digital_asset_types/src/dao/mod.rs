@@ -7,6 +7,8 @@ use self::sea_orm_active_enums::{
 };
 pub use full_asset::*;
 pub use generated::*;
+pub mod extensions;
+
 use sea_orm::{
     entity::*,
     sea_query::Expr,
@@ -168,7 +170,7 @@ impl SearchAssetsQuery {
         // If creator_address or creator_verified is set, join with asset_creators
         let mut joins = Vec::new();
         if self.creator_address.is_some() || self.creator_verified.is_some() {
-            let rel = asset_creators::Relation::Asset
+            let rel = extensions::asset_creators::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -181,7 +183,7 @@ impl SearchAssetsQuery {
 
         if let Some(a) = self.authority_address.to_owned() {
             conditions = conditions.add(asset_authority::Column::Authority.eq(a));
-            let rel = asset_authority::Relation::Asset
+            let rel = extensions::asset_authority::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -197,7 +199,7 @@ impl SearchAssetsQuery {
                 .add(asset_grouping::Column::GroupKey.eq(g.0))
                 .add(asset_grouping::Column::GroupValue.eq(g.1));
             conditions = conditions.add(cond);
-            let rel = asset_grouping::Relation::Asset
+            let rel = extensions::asset_grouping::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -211,7 +213,7 @@ impl SearchAssetsQuery {
         if let Some(ju) = self.json_uri.to_owned() {
             let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju));
             conditions = conditions.add(cond);
-            let rel = asset_data::Relation::Asset
+            let rel = extensions::asset_data::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -233,7 +235,7 @@ impl SearchAssetsQuery {
                 SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
 
             conditions = conditions.add(name_expr);
-            let rel = asset_data::Relation::Asset
+            let rel = extensions::asset_data::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {

@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::Asset;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -10,8 +11,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
-                    .add_column(ColumnDef::new(Alias::new("leaf_seq")).big_integer())
+                    .table(Asset::Table)
+                    .add_column(ColumnDef::new(Asset::LeafSeq).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -23,8 +24,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(asset::Entity)
-                    .drop_column(Alias::new("leaf_seq"))
+                    .table(Asset::Table)
+                    .drop_column(Asset::LeafSeq)
                     .to_owned(),
             )
             .await?;

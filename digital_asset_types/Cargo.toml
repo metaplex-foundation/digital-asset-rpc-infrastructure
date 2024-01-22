@@ -8,6 +8,8 @@ publish = { workspace = true }
 [dependencies]
 async-trait = { workspace = true }
 blockbuster = { workspace = true }
+borsh = { version = "0.9.3", optional = true }
+borsh-derive = { version = "0.9.3", optional = true }
 bs58 = { workspace = true }
 futures = { workspace = true }
 indexmap = { workspace = true }

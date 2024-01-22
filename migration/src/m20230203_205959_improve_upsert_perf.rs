@@ -1,8 +1,9 @@
-use digital_asset_types::dao::{asset_data, tokens};
 use sea_orm_migration::{
     prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
 };
+
+use crate::model::table::{AssetData, Tokens};
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -13,7 +14,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("t_slot_updated_idx")
-                    .table(tokens::Entity)
+                    .table(Tokens::Table)
                     .to_owned(),
             )
             .await?;
@@ -22,7 +23,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("t_supply")
-                    .table(tokens::Entity)
+                    .table(Tokens::Table)
                     .to_owned(),
             )
             .await?;
@@ -31,7 +32,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("t_decimals")
-                    .table(tokens::Entity)
+                    .table(Tokens::Table)
                     .to_owned(),
             )
             .await?;
@@ -64,7 +65,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("slot_updated_idx")
-                    .table(asset_data::Entity)
+                    .table(AssetData::Table)
                     .to_owned(),
             )
             .await?;

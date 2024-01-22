@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::Asset;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -10,7 +11,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .add_column(ColumnDef::new(Alias::new("collection")).binary())
                     .to_owned(),
             )
@@ -19,7 +20,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .add_column(
                         ColumnDef::new(Alias::new("collection_verified"))
                             .boolean()
@@ -37,7 +38,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .drop_column(Alias::new("collection"))
                     .to_owned(),
             )
@@ -45,7 +46,7 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset::Entity)
+                    .table(Asset::Table)
                     .drop_column(Alias::new("collection_verified"))
                     .to_owned(),
             )

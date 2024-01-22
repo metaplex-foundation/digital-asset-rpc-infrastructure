@@ -1,8 +1,9 @@
-use digital_asset_types::dao::tasks;
 use sea_orm_migration::{
     prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
 };
+
+use crate::model::table::Tasks;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -50,7 +51,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("tasks_created_at")
-                    .table(tasks::Entity)
+                    .table(Tasks::Table)
                     .to_owned(),
             )
             .await?;
@@ -58,7 +59,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("tasks_locked_until")
-                    .table(tasks::Entity)
+                    .table(Tasks::Table)
                     .to_owned(),
             )
             .await?;
@@ -66,7 +67,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("task_attempts")
-                    .table(tasks::Entity)
+                    .table(Tasks::Table)
                     .to_owned(),
             )
             .await?;
@@ -74,7 +75,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("task_status")
-                    .table(tasks::Entity)
+                    .table(Tasks::Table)
                     .to_owned(),
             )
             .await?;

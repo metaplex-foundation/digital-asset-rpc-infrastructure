@@ -2,7 +2,7 @@ use sea_orm::Statement;
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::sea_orm::{ConnectionTrait, DatabaseBackend};
 
-use crate::m20230919_072154_cl_audits::ClAudits;
+use crate::model::table::ClAudits;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
