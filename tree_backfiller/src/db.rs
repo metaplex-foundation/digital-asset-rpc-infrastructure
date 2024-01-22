@@ -7,10 +7,13 @@ use sqlx::{
 
 #[derive(Debug, Parser, Clone)]
 pub struct PoolArgs {
+    /// The database URL.
     #[arg(long, env)]
     pub database_url: String,
+    /// The maximum number of connections to the database.
     #[arg(long, env, default_value = "125")]
     pub database_max_connections: u32,
+    /// The minimum number of connections to the database.
     #[arg(long, env, default_value = "5")]
     pub database_min_connections: u32,
 }

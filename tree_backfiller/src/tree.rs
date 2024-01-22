@@ -1,9 +1,6 @@
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Args;
-use flatbuffers::FlatBufferBuilder;
-use log::error;
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
@@ -15,10 +12,7 @@ use std::str::FromStr;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
-use crate::{
-    queue::{QueuePool, QueuePoolError},
-    rpc::Rpc,
-};
+use crate::{queue::QueuePoolError, rpc::Rpc};
 
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
 
@@ -256,7 +250,7 @@ impl TreeResponse {
                 let accounts = client.get_multiple_accounts(batch).await?;
 
                 let results: Vec<(&Pubkey, Option<Account>)> =
-                    batch.into_iter().zip(accounts).collect();
+                    batch.iter().zip(accounts).collect();
 
                 Ok::<_, TreeErrorKind>(results)
             })
@@ -268,29 +262,11 @@ impl TreeResponse {
             .into_iter()
             .flatten()
             .filter_map(|(pubkey, account)| {
-                if let Some(account) = account {
-                    Some(Self::try_from_rpc(*pubkey, account))
-                } else {
-                    None
-                }
+                account.map(|account| Self::try_from_rpc(*pubkey, account))
             })
             .collect::<Result<Vec<TreeResponse>, _>>()
             .map_err(|_| TreeErrorKind::SerializeTreeResponse)?;
 
         Ok(trees)
     }
-}
-
-pub async fn transaction<'a>(
-    client: &Rpc,
-    queue: QueuePool,
-    signature: Signature,
-) -> Result<(), TreeErrorKind> {
-    let transaction = client.get_transaction(&signature).await?;
-
-    let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
-
-    queue.push(message.finished_data()).await?;
-
-    Ok(())
 }

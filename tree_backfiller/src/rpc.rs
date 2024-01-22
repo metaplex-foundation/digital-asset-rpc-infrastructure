@@ -49,7 +49,6 @@ impl Rpc {
                         commitment: Some(CommitmentConfig {
                             commitment: CommitmentLevel::Finalized,
                         }),
-                        ..RpcTransactionConfig::default()
                     },
                 )
                 .await

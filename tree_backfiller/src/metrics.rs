@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient, Timed};
+use cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient};
 use cadence_macros::set_global_default;
 use clap::Parser;
 use std::net::UdpSocket;

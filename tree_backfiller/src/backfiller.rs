@@ -1,23 +1,23 @@
 use crate::{
     db,
     metrics::{setup_metrics, MetricsArgs},
-    queue,
+    queue::{QueueArgs, QueuePool},
     rpc::{Rpc, SolanaRpcArgs},
-    tree::{self, TreeGapFill, TreeGapModel},
+    tree::{TreeErrorKind, TreeGapFill, TreeGapModel, TreeResponse},
 };
 use anyhow::Result;
 use cadence_macros::{statsd_count, statsd_time};
 use clap::{Parser, ValueEnum};
 use digital_asset_types::dao::cl_audits_v2;
+use flatbuffers::FlatBufferBuilder;
+use futures::{stream::FuturesUnordered, StreamExt};
 use indicatif::HumanDuration;
 use log::{error, info};
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector};
 use solana_sdk::signature::Signature;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
 use std::time::Instant;
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Parser, Clone, ValueEnum, PartialEq, Eq)]
 pub enum CrawlDirection {
@@ -31,25 +31,25 @@ pub struct Args {
     #[arg(long, env, default_value = "20")]
     pub tree_crawler_count: usize,
 
-    /// The size of the signature channel. This is the number of signatures that can be queued up.
+    /// The size of the signature channel.
     #[arg(long, env, default_value = "10000")]
     pub signature_channel_size: usize,
 
-    /// The size of the signature channel. This is the number of signatures that can be queued up.
+    /// The size of the signature channel.
     #[arg(long, env, default_value = "1000")]
     pub gap_channel_size: usize,
 
+    /// The number of transaction workers.
     #[arg(long, env, default_value = "100")]
     pub transaction_worker_count: usize,
 
+    /// The number of gap workers.
     #[arg(long, env, default_value = "25")]
     pub gap_worker_count: usize,
 
+    /// The list of trees to crawl. If not specified, all trees will be crawled.
     #[arg(long, env, use_value_delimiter = true)]
     pub only_trees: Option<Vec<String>>,
-
-    #[arg(long, env, default_value = "forward")]
-    pub crawl_direction: CrawlDirection,
 
     /// Database configuration
     #[clap(flatten)]
@@ -57,7 +57,7 @@ pub struct Args {
 
     /// Redis configuration
     #[clap(flatten)]
-    pub queue: queue::QueueArgs,
+    pub queue: QueueArgs,
 
     /// Metrics configuration
     #[clap(flatten)]
@@ -68,68 +68,35 @@ pub struct Args {
     pub solana: SolanaRpcArgs,
 }
 
-/// A thread-safe counter.
-pub struct Counter(Arc<AtomicUsize>);
-
-impl Counter {
-    /// Creates a new counter initialized to zero.
-    pub fn new() -> Self {
-        Self(Arc::new(AtomicUsize::new(0)))
-    }
-
-    /// Increments the counter by one.
-    pub fn increment(&self) {
-        self.0.fetch_add(1, Ordering::SeqCst);
-    }
-
-    /// Decrements the counter by one.
-    pub fn decrement(&self) {
-        self.0.fetch_sub(1, Ordering::SeqCst);
-    }
-
-    /// Returns the current value of the counter.
-    pub fn get(&self) -> usize {
-        self.0.load(Ordering::SeqCst)
-    }
-
-    /// Returns a future that resolves when the counter reaches zero.
-    /// The future periodically checks the counter value and sleeps for a short duration.
-    pub fn zero(&self) -> impl std::future::Future<Output = ()> {
-        let counter = self.clone();
-        async move {
-            while counter.get() > 0 {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
-    }
-}
-
-impl Clone for Counter {
-    /// Returns a clone of the counter.
-    /// The returned counter shares the same underlying atomic integer.
-    fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
-    }
-}
-
-/// Runs the backfilling process for trees.
+/// Runs the backfilling process for the tree crawler.
 ///
-/// This function initializes the necessary components such as the Solana RPC client,
-/// database connection, metrics, and worker queues. It then fetches all trees and
-/// starts the crawling process for each tree in parallel, respecting the configured
-/// concurrency limits. It also listens for signatures and processes transactions
-/// concurrently. After crawling all trees, it completes the transaction handling
-/// and logs the total time taken for the job.
+/// This function initializes the necessary components for the backfilling process,
+/// including database connections, RPC clients, and worker managers for handling
+/// transactions and gaps. It then proceeds to fetch the trees that need to be crawled
+/// and manages the crawling process across multiple workers.
+///
+/// The function handles the following major tasks:
+/// - Establishing connections to the database and initializing RPC clients.
+/// - Setting up channels for communication between different parts of the system.
+/// - Spawning worker managers for processing transactions and gaps.
+/// - Fetching trees from the database and managing their crawling process.
+/// - Reporting metrics and logging information throughout the process.
 ///
 /// # Arguments
 ///
-/// * `config` - The configuration settings for the backfiller, including RPC URLs,
-///              database settings, and worker counts.
+/// * `config` - A configuration object containing settings for the backfilling process,
+///   including database, RPC, and worker configurations.
 ///
 /// # Returns
 ///
 /// This function returns a `Result` which is `Ok` if the backfilling process completes
-/// successfully, or an `Error` if any part of the process fails.
+/// successfully, or an `Err` with an appropriate error message if any part of the process
+/// fails.
+///
+/// # Errors
+///
+/// This function can return errors related to database connectivity, RPC failures,
+/// or issues with spawning and managing worker tasks.
 pub async fn run(config: Args) -> Result<()> {
     let pool = db::connect(config.database).await?;
 
@@ -140,33 +107,28 @@ pub async fn run(config: Args) -> Result<()> {
     setup_metrics(config.metrics)?;
 
     let (sig_sender, mut sig_receiver) = mpsc::channel::<Signature>(config.signature_channel_size);
+    let gap_sig_sender = sig_sender.clone();
     let (gap_sender, mut gap_receiver) = mpsc::channel::<TreeGapFill>(config.gap_channel_size);
 
-    let gap_count = Counter::new();
-    let gap_worker_gap_count = gap_count.clone();
+    let queue = QueuePool::try_from_config(config.queue).await?;
 
-    let transaction_count = Counter::new();
-    let transaction_worker_transaction_count = transaction_count.clone();
+    let transaction_worker_count = config.transaction_worker_count;
 
-    let queue = queue::QueuePool::try_from_config(config.queue).await?;
-
-    tokio::spawn(async move {
-        let semaphore = Arc::new(Semaphore::new(config.transaction_worker_count));
+    let transaction_worker_manager = tokio::spawn(async move {
+        let mut handlers = FuturesUnordered::new();
 
         while let Some(signature) = sig_receiver.recv().await {
+            if handlers.len() >= transaction_worker_count {
+                handlers.next().await;
+            }
+
             let solana_rpc = transaction_solana_rpc.clone();
             let queue = queue.clone();
-            let semaphore = semaphore.clone();
-            let count = transaction_worker_transaction_count.clone();
 
-            count.increment();
-
-            tokio::spawn(async move {
-                let _permit = semaphore.acquire().await?;
-
+            let handle = tokio::spawn(async move {
                 let timing = Instant::now();
 
-                if let Err(e) = tree::transaction(&solana_rpc, queue, signature).await {
+                if let Err(e) = queue_transaction(&solana_rpc, queue, signature).await {
                     error!("tree transaction: {:?}", e);
                     statsd_count!("transaction.failed", 1);
                 } else {
@@ -174,30 +136,28 @@ pub async fn run(config: Args) -> Result<()> {
                 }
 
                 statsd_time!("transaction.queued", timing.elapsed());
-
-                count.decrement();
-
-                Ok::<(), anyhow::Error>(())
             });
+
+            handlers.push(handle);
         }
 
-        Ok::<(), anyhow::Error>(())
+        futures::future::join_all(handlers).await;
     });
 
-    tokio::spawn(async move {
-        let semaphore = Arc::new(Semaphore::new(config.gap_worker_count));
+    let gap_worker_count = config.gap_worker_count;
+
+    let gap_worker_manager = tokio::spawn(async move {
+        let mut handlers = FuturesUnordered::new();
 
         while let Some(gap) = gap_receiver.recv().await {
+            if handlers.len() >= gap_worker_count {
+                handlers.next().await;
+            }
+
             let solana_rpc = gap_solana_rpc.clone();
-            let sig_sender = sig_sender.clone();
-            let semaphore = semaphore.clone();
-            let count = gap_worker_gap_count.clone();
+            let sig_sender = gap_sig_sender.clone();
 
-            count.increment();
-
-            tokio::spawn(async move {
-                let _permit = semaphore.acquire().await?;
-
+            let handle = tokio::spawn(async move {
                 let timing = Instant::now();
 
                 if let Err(e) = gap.crawl(&solana_rpc, sig_sender).await {
@@ -209,23 +169,22 @@ pub async fn run(config: Args) -> Result<()> {
                 }
 
                 statsd_time!("gap.queued", timing.elapsed());
-
-                count.decrement();
-
-                Ok::<(), anyhow::Error>(())
             });
+
+            handlers.push(handle);
         }
 
-        Ok::<(), anyhow::Error>(())
+        futures::future::join_all(handlers).await;
     });
 
     let started = Instant::now();
 
     let trees = if let Some(only_trees) = config.only_trees {
-        tree::TreeResponse::find(&solana_rpc, only_trees).await?
+        TreeResponse::find(&solana_rpc, only_trees).await?
     } else {
-        tree::TreeResponse::all(&solana_rpc).await?
+        TreeResponse::all(&solana_rpc).await?
     };
+
     let tree_count = trees.len();
 
     info!(
@@ -234,18 +193,19 @@ pub async fn run(config: Args) -> Result<()> {
         HumanDuration(started.elapsed())
     );
 
-    let semaphore = Arc::new(Semaphore::new(config.tree_crawler_count));
-    let mut crawl_handles = Vec::with_capacity(tree_count);
+    let tree_crawler_count = config.tree_crawler_count;
+    let mut crawl_handles = FuturesUnordered::new();
 
     for tree in trees {
-        let semaphore = semaphore.clone();
+        if crawl_handles.len() >= tree_crawler_count {
+            crawl_handles.next().await;
+        }
+
         let gap_sender = gap_sender.clone();
         let pool = pool.clone();
         let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
         let crawl_handle = tokio::spawn(async move {
-            let _permit = semaphore.acquire().await?;
-
             let timing = Instant::now();
 
             let mut gaps = TreeGapModel::find(&conn, tree.pubkey)
@@ -281,13 +241,14 @@ pub async fn run(config: Args) -> Result<()> {
                 gaps.push(TreeGapFill::new(tree.pubkey, None, None));
             }
 
-            if let Some(lower_seq) = lower_known_seq {
+            if let Some(lower_seq) = lower_known_seq.filter(|seq| seq.seq > 1) {
                 let signature = Signature::try_from(lower_seq.tx.as_ref())?;
 
                 info!(
                     "tree {} has known lowest seq {} filling tree starting at {}",
                     tree.pubkey, lower_seq.seq, signature
                 );
+
                 gaps.push(TreeGapFill::new(tree.pubkey, Some(signature), None));
             }
 
@@ -312,12 +273,14 @@ pub async fn run(config: Args) -> Result<()> {
     }
 
     futures::future::try_join_all(crawl_handles).await?;
+    drop(gap_sender);
     info!("crawled all trees");
 
-    gap_count.zero().await;
-    info!("all gaps queued");
+    gap_worker_manager.await?;
+    drop(sig_sender);
+    info!("all gaps processed");
 
-    transaction_count.zero().await;
+    transaction_worker_manager.await?;
     info!("all transactions queued");
 
     statsd_time!("job.completed", started.elapsed());
@@ -327,6 +290,20 @@ pub async fn run(config: Args) -> Result<()> {
         tree_count,
         HumanDuration(started.elapsed())
     );
+
+    Ok(())
+}
+
+async fn queue_transaction<'a>(
+    client: &Rpc,
+    queue: QueuePool,
+    signature: Signature,
+) -> Result<(), TreeErrorKind> {
+    let transaction = client.get_transaction(&signature).await?;
+
+    let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
+
+    queue.push(message.finished_data()).await?;
 
     Ok(())
 }

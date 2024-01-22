@@ -13,7 +13,6 @@ struct Args {
 enum Command {
     /// The 'run' command is used to cross-reference the index against on-chain accounts.
     /// It crawls through trees and backfills any missed tree transactions.
-    /// This is particularly useful for ensuring data consistency and completeness.
     #[command(name = "run")]
     Run(backfiller::Args),
 }
