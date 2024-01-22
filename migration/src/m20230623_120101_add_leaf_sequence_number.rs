@@ -12,7 +12,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Asset::Table)
-                    .add_column(ColumnDef::new(Alias::new("leaf_seq")).big_integer())
+                    .add_column(ColumnDef::new(Asset::LeafSeq).big_integer())
                     .to_owned(),
             )
             .await?;
@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Asset::Table)
-                    .drop_column(Alias::new("leaf_seq"))
+                    .drop_column(Asset::LeafSeq)
                     .to_owned(),
             )
             .await?;

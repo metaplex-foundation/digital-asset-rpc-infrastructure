@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(BackfillItems::Table)
                     .add_column(
-                        ColumnDef::new(Alias::new("locked"))
+                        ColumnDef::new(BackfillItems::Locked)
                             .boolean()
                             .not_null()
                             .default(false),
@@ -30,7 +30,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(BackfillItems::Table)
-                    .drop_column(Alias::new("locked"))
+                    .drop_column(BackfillItems::Locked)
                     .to_owned(),
             )
             .await

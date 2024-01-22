@@ -6,6 +6,7 @@ pub enum AssetCreators {
     Id,
     AssetId,
     Creator,
+    Position,
     Share,
     Verified,
     Seq,
@@ -25,6 +26,7 @@ pub enum AssetAuthority {
 pub enum AssetGrouping {
     Table,
     Id,
+    AssetId,
     GroupKey,
     GroupValue,
     Seq,

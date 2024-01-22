@@ -19,7 +19,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::AssetData => asset::Entity::belongs_to(asset_data::Entity)
-                .from(asset::Column::Id)
+                .from(asset::Column::AssetData)
                 .to(asset_data::Column::Id)
                 .into(),
             Self::AssetV1AccountAttachments => {

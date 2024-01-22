@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use crate::model::table::AssetGrouping;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -10,9 +12,9 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(Alias::new("asset_grouping"))
+                    .table(AssetGrouping::Table)
                     .add_column(
-                        ColumnDef::new(Alias::new("verified"))
+                        ColumnDef::new(AssetGrouping::Verified)
                             .boolean()
                             .not_null()
                             .default(false),
@@ -27,8 +29,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 Table::alter()
-                    .table(Alias::new("asset_grouping"))
-                    .drop_column(Alias::new("verified"))
+                    .table(AssetGrouping::Table)
+                    .drop_column(AssetGrouping::Verified)
                     .to_owned(),
             )
             .await

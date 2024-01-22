@@ -1,3 +1,5 @@
+use digital_asset_types::dao::extensions;
+
 use {
     clap::{value_parser, Arg, ArgAction, Command},
     digital_asset_types::dao::{
