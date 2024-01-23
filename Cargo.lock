@@ -1840,6 +1840,8 @@ version = "0.7.2"
 dependencies = [
  "async-trait",
  "blockbuster",
+ "borsh 0.9.3",
+ "borsh-derive 0.9.3",
  "bs58 0.4.0",
  "futures",
  "indexmap 1.9.3",
@@ -3219,7 +3221,6 @@ name = "migration"
 version = "0.7.2"
 dependencies = [
  "async-std",
- "digital_asset_types",
  "enum-iterator",
  "enum-iterator-derive",
  "sea-orm-migration",

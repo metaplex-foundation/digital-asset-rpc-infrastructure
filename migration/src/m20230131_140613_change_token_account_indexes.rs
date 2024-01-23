@@ -1,8 +1,9 @@
-use digital_asset_types::dao::token_accounts;
 use sea_orm_migration::{
     prelude::*,
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
 };
+
+use crate::model::table::TokenAccounts;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -13,7 +14,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("ta_amount")
-                    .table(token_accounts::Entity)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -22,7 +23,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("ta_amount_del")
-                    .table(token_accounts::Entity)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -31,7 +32,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("ta_slot_updated_idx")
-                    .table(token_accounts::Entity)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -59,8 +60,8 @@ impl MigrationTrait for Migration {
                 sea_query::Index::create()
                     .name("ta_amount")
                     .index_type(sea_query::IndexType::BTree)
-                    .col(token_accounts::Column::Amount)
-                    .table(token_accounts::Entity)
+                    .col(TokenAccounts::Amount)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -70,8 +71,8 @@ impl MigrationTrait for Migration {
                 sea_query::Index::create()
                     .name("ta_amount_del")
                     .index_type(sea_query::IndexType::BTree)
-                    .col(token_accounts::Column::DelegatedAmount)
-                    .table(token_accounts::Entity)
+                    .col(TokenAccounts::DelegatedAmount)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -81,18 +82,10 @@ impl MigrationTrait for Migration {
                 sea_query::Index::create()
                     .name("ta_slot_updated_idx")
                     .index_type(sea_query::IndexType::BTree)
-                    .table(token_accounts::Entity)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
         Ok(())
     }
-}
-
-/// Learn more at https://docs.rs/sea-query#iden
-#[allow(dead_code)]
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Iden)]
-enum Index {
-    BRIN,
 }

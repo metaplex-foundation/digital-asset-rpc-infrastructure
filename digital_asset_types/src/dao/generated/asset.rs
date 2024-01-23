@@ -93,13 +93,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    AssetData,
-    AssetV1AccountAttachments,
-    AssetCreators,
-    AssetAuthority,
-    AssetGrouping,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -139,48 +133,7 @@ impl ColumnTrait for Column {
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::AssetData => Entity::belongs_to(super::asset_data::Entity)
-                .from(Column::AssetData)
-                .to(super::asset_data::Column::Id)
-                .into(),
-            Self::AssetV1AccountAttachments => {
-                Entity::has_many(super::asset_v1_account_attachments::Entity).into()
-            }
-            Self::AssetCreators => Entity::has_many(super::asset_creators::Entity).into(),
-            Self::AssetAuthority => Entity::has_many(super::asset_authority::Entity).into(),
-            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::asset_data::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetData.def()
-    }
-}
-
-impl Related<super::asset_v1_account_attachments::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetV1AccountAttachments.def()
-    }
-}
-
-impl Related<super::asset_creators::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetCreators.def()
-    }
-}
-
-impl Related<super::asset_authority::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetAuthority.def()
-    }
-}
-
-impl Related<super::asset_grouping::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetGrouping.def()
+        panic!("No RelationDef")
     }
 }
 

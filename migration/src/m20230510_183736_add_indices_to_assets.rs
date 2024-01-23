@@ -1,5 +1,6 @@
-use digital_asset_types::dao::{asset_authority, asset_creators};
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::{AssetAuthority, AssetCreators};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,8 +12,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_asset_creators_asset_id")
-                    .col(asset_creators::Column::AssetId)
-                    .table(asset_creators::Entity)
+                    .col(AssetCreators::AssetId)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -21,8 +22,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_asset_creators_creator")
-                    .col(asset_creators::Column::Creator)
-                    .table(asset_creators::Entity)
+                    .col(AssetCreators::Creator)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -31,8 +32,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_asset_authority_authority")
-                    .col(asset_authority::Column::Authority)
-                    .table(asset_authority::Entity)
+                    .col(AssetAuthority::Authority)
+                    .table(AssetAuthority::Table)
                     .to_owned(),
             )
             .await?;
@@ -44,7 +45,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 Index::drop()
                     .name("idx_asset_creators_asset_id")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -53,7 +54,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 Index::drop()
                     .name("idx_asset_creators_creator")
-                    .table(asset_creators::Entity)
+                    .table(AssetCreators::Table)
                     .to_owned(),
             )
             .await?;
@@ -62,7 +63,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 Index::drop()
                     .name("idx_asset_authority_authority")
-                    .table(asset_authority::Entity)
+                    .table(AssetAuthority::Table)
                     .to_owned(),
             )
             .await?;

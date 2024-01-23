@@ -49,9 +49,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    Asset,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -71,18 +69,7 @@ impl ColumnTrait for Column {
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::Asset => Entity::belongs_to(super::asset::Entity)
-                .from(Column::AssetId)
-                .to(super::asset::Column::Id)
-                .into(),
-        }
-    }
-}
-
-impl Related<super::asset::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Asset.def()
+        panic!("No RelationDef")
     }
 }
 

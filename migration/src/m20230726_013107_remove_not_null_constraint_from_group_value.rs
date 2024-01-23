@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset_grouping;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::AssetGrouping;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -10,8 +11,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset_grouping::Entity)
-                    .modify_column(ColumnDef::new(asset_grouping::Column::GroupValue).null())
+                    .table(AssetGrouping::Table)
+                    .modify_column(ColumnDef::new(AssetGrouping::GroupValue).null())
                     .to_owned(),
             )
             .await?;
@@ -25,8 +26,8 @@ impl MigrationTrait for Migration {
         manager
             .alter_table(
                 sea_query::Table::alter()
-                    .table(asset_grouping::Entity)
-                    .modify_column(ColumnDef::new(asset_grouping::Column::GroupValue).not_null())
+                    .table(AssetGrouping::Table)
+                    .modify_column(ColumnDef::new(AssetGrouping::GroupValue).not_null())
                     .to_owned(),
             )
             .await?;

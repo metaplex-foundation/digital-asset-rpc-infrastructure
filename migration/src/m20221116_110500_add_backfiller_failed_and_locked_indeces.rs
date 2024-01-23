@@ -1,5 +1,6 @@
-use digital_asset_types::dao::backfill_items;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::BackfillItems;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,8 +12,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("backfill_items_failed_idx")
-                    .col(backfill_items::Column::Failed)
-                    .table(backfill_items::Entity)
+                    .col(BackfillItems::Failed)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -20,9 +21,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("backfill_items_tree_failed_idx")
-                    .col(backfill_items::Column::Tree)
-                    .col(backfill_items::Column::Failed)
-                    .table(backfill_items::Entity)
+                    .col(BackfillItems::Tree)
+                    .col(BackfillItems::Failed)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -30,8 +31,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("backfill_items_locked_idx")
-                    .col(backfill_items::Column::Locked)
-                    .table(backfill_items::Entity)
+                    .col(BackfillItems::Locked)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -39,9 +40,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("backfill_items_tree_locked_idx")
-                    .col(backfill_items::Column::Tree)
-                    .col(backfill_items::Column::Locked)
-                    .table(backfill_items::Entity)
+                    .col(BackfillItems::Tree)
+                    .col(BackfillItems::Locked)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -54,7 +55,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("backfill_items_failed_idx")
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -62,7 +63,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("backfill_items_tree_failed_idx")
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -70,7 +71,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("backfill_items_locked_idx")
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;
@@ -78,7 +79,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("backfill_items_tree_locked_idx")
-                    .table(backfill_items::Entity)
+                    .table(BackfillItems::Table)
                     .to_owned(),
             )
             .await?;

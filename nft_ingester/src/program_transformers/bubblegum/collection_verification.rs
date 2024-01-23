@@ -13,6 +13,7 @@ pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
+    instruction: &str,
     cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
@@ -37,7 +38,8 @@ where
             "Handling collection verification event for {} (verify: {}): {}",
             collection, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
+            .await?;
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };

@@ -27,6 +27,7 @@ pub async fn update_metadata<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
+    instruction: &str,
     cl_audits: bool,
 ) -> Result<Option<TaskData>, IngesterError>
 where
@@ -45,7 +46,8 @@ where
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, cl_audits).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
+            .await?;
 
         #[allow(unreachable_patterns)]
         return match le.schema {

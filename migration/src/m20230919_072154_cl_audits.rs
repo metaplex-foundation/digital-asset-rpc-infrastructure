@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use crate::model::table::ClAudits;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -41,19 +43,4 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(ClAudits::Table).to_owned())
             .await
     }
-}
-
-/// Learn more at https://docs.rs/sea-query#iden
-#[derive(Iden)]
-enum ClAudits {
-    Table,
-    Id,
-    Tree,
-    NodeIdx,
-    LeafIdx,
-    Seq,
-    Level,
-    Hash,
-    CreatedAt,
-    Tx,
 }

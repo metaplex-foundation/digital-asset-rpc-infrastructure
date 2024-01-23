@@ -1,5 +1,6 @@
-use digital_asset_types::dao::asset_grouping;
 use sea_orm_migration::prelude::*;
+
+use crate::model::table::AssetGrouping;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,7 +12,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_grouping_value")
-                    .table(asset_grouping::Entity)
+                    .table(AssetGrouping::Table)
                     .to_owned(),
             )
             .await?;
@@ -20,9 +21,9 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .unique()
                     .name("asset_grouping_key_unique")
-                    .col(asset_grouping::Column::AssetId)
-                    .col(asset_grouping::Column::GroupKey)
-                    .table(asset_grouping::Entity)
+                    .col(AssetGrouping::AssetId)
+                    .col(AssetGrouping::GroupKey)
+                    .table(AssetGrouping::Table)
                     .to_owned(),
             )
             .await?;
@@ -34,7 +35,7 @@ impl MigrationTrait for Migration {
             .drop_index(
                 sea_query::Index::drop()
                     .name("asset_grouping_key_unique")
-                    .table(asset_grouping::Entity)
+                    .table(AssetGrouping::Table)
                     .to_owned(),
             )
             .await?;
@@ -43,9 +44,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 sea_query::Index::create()
                     .name("asset_grouping_value")
-                    .col(asset_grouping::Column::AssetId)
-                    .col(asset_grouping::Column::GroupKey)
-                    .table(asset_grouping::Entity)
+                    .col(AssetGrouping::AssetId)
+                    .col(AssetGrouping::GroupKey)
+                    .table(AssetGrouping::Table)
                     .to_owned(),
             )
             .await?;

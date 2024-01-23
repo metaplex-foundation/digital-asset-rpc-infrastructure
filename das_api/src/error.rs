@@ -29,7 +29,7 @@ pub enum DasApiError {
     PaginationExceededError,
     #[error("Cursor Validation Err: {0} is invalid")]
     CursorValidationError(String),
-    #[error("Pagination Sorting Error. Only sorting based on id is support for this pagination")]
+    #[error("Pagination Sorting Error. Only sorting based on id is supported for this pagination option.")]
     PaginationSortingValidationError,
 }
 
