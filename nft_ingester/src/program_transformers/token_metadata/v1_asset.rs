@@ -380,52 +380,47 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
     }
 
-    let creators = data.creators.unwrap_or_default();
-    if !creators.is_empty() {
-        let mut creators_set = HashSet::new();
-        let mut db_creators = Vec::with_capacity(creators.len());
-        for (i, c) in creators.into_iter().enumerate() {
-            if creators_set.contains(&c.address) {
-                continue;
-            }
-            db_creators.push(asset_creators::ActiveModel {
-                asset_id: Set(mint_pubkey_vec.clone()),
-                position: Set(i as i16),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                slot_updated: Set(Some(slot_i)),
-                seq: Set(Some(0)),
-                ..Default::default()
-            });
-            creators_set.insert(c.address);
-        }
+    let creators = data
+        .creators
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .map(|(i, creator)| asset_creators::ActiveModel {
+            asset_id: Set(mint_pubkey_vec.clone()),
+            position: Set(i as i16),
+            creator: Set(creator.address.to_bytes().to_vec()),
+            share: Set(creator.share as i32),
+            verified: Set(creator.verified),
+            slot_updated: Set(Some(slot_i)),
+            seq: Set(Some(0)),
+            ..Default::default()
+        })
+        .collect::<Vec<_>>();
 
-        if !db_creators.is_empty() {
-            let mut query = asset_creators::Entity::insert_many(db_creators)
-                .on_conflict(
-                    OnConflict::columns([
-                        asset_creators::Column::AssetId,
-                        asset_creators::Column::Position,
-                    ])
-                    .update_columns([
-                        asset_creators::Column::Creator,
-                        asset_creators::Column::Share,
-                        asset_creators::Column::Verified,
-                        asset_creators::Column::Seq,
-                        asset_creators::Column::SlotUpdated,
-                    ])
-                    .to_owned(),
-                )
-                .build(DbBackend::Postgres);
-            query.sql = format!(
-                "{} WHERE excluded.slot_updated > asset_creators.slot_updated",
+    if !creators.is_empty() {
+        let mut query = asset_creators::Entity::insert_many(creators)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+                "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
                 query.sql
             );
-            txn.execute(query)
-                .await
-                .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
-        }
+        txn.execute(query)
+            .await
+            .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
     }
     txn.commit().await?;
 

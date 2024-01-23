@@ -532,70 +532,46 @@ pub async fn upsert_asset_creators<T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    // Vec to hold base creator information.
-    let mut db_creators = Vec::with_capacity(creators.len());
-
-    if creators.is_empty() {
-        // Bubblegum supports empty creator array.  In this case insert an empty Vec
-        // for the creator.
-        db_creators.push(asset_creators::ActiveModel {
+    let db_creators = creators
+        .iter()
+        .enumerate()
+        .map(|(i, creator)| asset_creators::ActiveModel {
             asset_id: Set(id.clone()),
-            position: Set(0),
-            creator: Set(vec![]),
-            share: Set(100),
-            verified: Set(false),
+            position: Set(i as i16),
+            creator: Set(creator.address.to_bytes().to_vec()),
+            share: Set(creator.share as i32),
+            verified: Set(creator.verified),
             slot_updated: Set(Some(slot_updated)),
             seq: Set(Some(seq)),
             ..Default::default()
-        });
-    } else {
-        // Set to prevent duplicates.
-        let mut creators_set = HashSet::new();
+        })
+        .collect::<Vec<_>>();
 
-        for (i, c) in creators.iter().enumerate() {
-            if creators_set.contains(&c.address) {
-                continue;
-            }
+    if !db_creators.is_empty() {
+        // This statement will update base information for each creator.
+        let mut query = asset_creators::Entity::insert_many(db_creators)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
 
-            db_creators.push(asset_creators::ActiveModel {
-                asset_id: Set(id.clone()),
-                position: Set(i as i16),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                slot_updated: Set(Some(slot_updated)),
-                seq: Set(Some(seq)),
-                ..Default::default()
-            });
-
-            creators_set.insert(c.address);
-        }
-    }
-
-    // This statement will update base information for each creator.
-    let mut query = asset_creators::Entity::insert_many(db_creators)
-        .on_conflict(
-            OnConflict::columns([
-                asset_creators::Column::AssetId,
-                asset_creators::Column::Position,
-            ])
-            .update_columns([
-                asset_creators::Column::Creator,
-                asset_creators::Column::Share,
-                asset_creators::Column::Verified,
-                asset_creators::Column::SlotUpdated,
-                asset_creators::Column::Seq,
-            ])
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    query.sql = format!(
+        query.sql = format!(
         "{} WHERE (asset_creators.seq != 0 AND excluded.seq >= asset_creators.seq) OR asset_creators.seq IS NULL",
         query.sql
     );
-
-    txn.execute(query).await?;
+        txn.execute(query).await?;
+    }
 
     Ok(())
 }
