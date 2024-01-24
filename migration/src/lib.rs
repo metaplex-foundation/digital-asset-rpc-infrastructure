@@ -35,6 +35,7 @@ mod m20231206_120101_remove_was_decompressed;
 mod m20240104_203133_add_cl_audits_v2;
 mod m20240104_203328_remove_cl_audits;
 mod m20240116_130744_add_update_metadata_ix;
+mod m20240117_120101_alter_creator_indices;
 
 pub mod model;
 
@@ -79,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240104_203133_add_cl_audits_v2::Migration),
             Box::new(m20240104_203328_remove_cl_audits::Migration),
             Box::new(m20240116_130744_add_update_metadata_ix::Migration),
+            Box::new(m20240117_120101_alter_creator_indices::Migration),
         ]
     }
 }
