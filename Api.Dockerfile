@@ -1,21 +1,38 @@
 FROM rust:1.73-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
-COPY das_api /rust/das_api/
+
+RUN mkdir /rust
+COPY Cargo.toml /rust
+COPY das_api /rust/das_api
+COPY digital_asset_types /rust/digital_asset_types
+COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
+COPY migration /rust/migration
+COPY nft_ingester /rust/nft_ingester
+COPY tools /rust/tools
+
 WORKDIR /rust/das_api
-RUN cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path /rust/das_api/recipe.json
 
 FROM chef AS builder
 RUN apt-get update -y && \
     apt-get install -y build-essential make git
+
+RUN mkdir /rust
+COPY Cargo.toml /rust
+COPY das_api /rust/das_api
 COPY digital_asset_types /rust/digital_asset_types
-WORKDIR /
-RUN mkdir -p /rust/das_api
+COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
+COPY migration /rust/migration
+COPY nft_ingester /rust/nft_ingester
+COPY tools /rust/tools
+
 WORKDIR /rust/das_api
 COPY --from=planner /rust/das_api/recipe.json recipe.json
+
 # Build dependencies - this is the caching Docker layer!
-COPY das_api/Cargo.toml .
-COPY das_api .
+RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/target
+
 # Build application
 RUN cargo build --release
 
@@ -29,7 +46,7 @@ ENV TZ=Etc/UTC \
 RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER \
     && mkdir -p ${APP}
-COPY --from=builder /rust/das_api/target/release/das_api ${APP}
+COPY --from=builder /rust/target/release/das_api ${APP}
 RUN chown -R $APP_USER:$APP_USER ${APP}
 USER $APP_USER
 WORKDIR ${APP}
