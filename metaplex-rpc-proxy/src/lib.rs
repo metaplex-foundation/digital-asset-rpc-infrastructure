@@ -85,10 +85,11 @@ impl Context for RpcProxy {
 impl HttpContext for RpcProxy {
     fn on_http_request_body(&mut self, body_size: usize, end_of_stream: bool) -> Action {
         lazy_static! {
-            static ref FILTER: Regex = RegexBuilder::new(r"asset|schema|proof|compressed")
-                .case_insensitive(true)
-                .build()
-                .unwrap();
+            static ref FILTER: Regex =
+                RegexBuilder::new(r"asset|schema|proof|compressed|character")
+                    .case_insensitive(true)
+                    .build()
+                    .unwrap();
         }
         if !end_of_stream {
             return Action::Pause;

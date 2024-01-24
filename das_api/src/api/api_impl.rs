@@ -8,8 +8,8 @@ use digital_asset_types::{
     },
     dapi::{
         get_asset, get_asset_proofs, get_assets, get_assets_by_authority, get_assets_by_creator,
-        get_assets_by_group, get_assets_by_owner, get_compressed_data, get_proof,
-        get_proof_for_asset, search_assets,
+        get_assets_by_group, get_assets_by_owner, get_characters, get_compressed_accounts,
+        get_compressed_data, get_proof, get_proof_for_asset, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
@@ -185,6 +185,38 @@ impl ApiContract for DasApi {
         let tree = validate_pubkey(payload.tree.clone())?;
         let tree_bytes = tree.to_bytes().to_vec();
         get_compressed_data(&self.db_connection, tree_bytes, payload.leaf_idx)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn get_compressed_accounts(
+        &self,
+        payload: GetCompressedAccounts,
+    ) -> Result<Vec<CompressedData>, DasApiError> {
+        let program_id = validate_pubkey(payload.program_id.clone())?;
+        get_compressed_accounts(
+            &self.db_connection,
+            anchor_lang::solana_program::keccak::hashv(
+                &[program_id.as_ref(), payload.account_name.as_bytes()][..],
+            )
+            .to_bytes()
+            .to_vec(),
+        )
+        .await
+        .map_err(Into::into)
+    }
+
+    async fn get_characters(
+        &self,
+        payload: GetCharacters,
+    ) -> Result<Vec<CompressedData>, DasApiError> {
+        let wallet = validate_pubkey(payload.wallet)?;
+        let merkle_tree = if let Some(merkle_tree) = payload.merkle_tree {
+            Some(validate_pubkey(merkle_tree)?.to_bytes().to_vec())
+        } else {
+            None
+        };
+        get_characters(&self.db_connection, wallet.to_string(), merkle_tree)
             .await
             .map_err(Into::into)
     }

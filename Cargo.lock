@@ -2621,9 +2621,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-compression"
-version = "0.1.8-beta.13"
+version = "0.1.8-beta.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dc2b89866014835a7b5b01d640fc3a518caabd4935f6b35581d7bf4a7cf8260"
+checksum = "2a8884e931e0f9fff2e520db8dde2e23fe5c22254d2770cc11286a9884b638c8"
 dependencies = [
  "anchor-lang",
  "hpl-attribute-compressed-account",

@@ -40,6 +40,27 @@ impl RpcApiBuilder {
         )?;
         module.register_alias("getCompressedData", "get_compressed_data")?;
 
+        module.register_async_method(
+            "get_compressed_accounts",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetCompressedAccounts>()?;
+                rpc_context
+                    .get_compressed_accounts(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+        module.register_alias("getCompressedAccounts", "get_compressed_accounts")?;
+
+        module.register_async_method("get_characters", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetCharacters>()?;
+            rpc_context
+                .get_characters(payload)
+                .await
+                .map_err(Into::into)
+        })?;
+        module.register_alias("getCharacters", "get_characters")?;
+
         module.register_async_method("get_asset_proofs", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<GetAssetProofs>()?;
             rpc_context

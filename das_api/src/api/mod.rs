@@ -77,6 +77,20 @@ pub struct LeafTreePayload {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetCompressedAccounts {
+    pub program_id: String,
+    pub account_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetCharacters {
+    pub wallet: String,
+    pub merkle_tree: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetProofs {
     pub ids: Vec<String>,
 }
@@ -175,6 +189,24 @@ pub trait ApiContract: Send + Sync + 'static {
         &self,
         payload: LeafTreePayload,
     ) -> Result<CompressedData, DasApiError>;
+    #[rpc(
+        name = "getCompressedAccounts",
+        params = "named",
+        summary = "Get compressed account data"
+    )]
+    async fn get_compressed_accounts(
+        &self,
+        payload: GetCompressedAccounts,
+    ) -> Result<Vec<CompressedData>, DasApiError>;
+    #[rpc(
+        name = "getCharacters",
+        params = "named",
+        summary = "Get compressed data for leaf of a tree"
+    )]
+    async fn get_characters(
+        &self,
+        payload: GetCharacters,
+    ) -> Result<Vec<CompressedData>, DasApiError>;
     #[rpc(
         name = "getProof",
         params = "named",
