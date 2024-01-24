@@ -18,9 +18,9 @@ pub struct Model {
     pub tree_id: Vec<u8>,
     pub leaf_idx: i64,
     pub seq: i64,
+    pub schema_validated: bool,
     pub raw_data: Vec<u8>,
     pub parsed_data: Json,
-    pub program: Option<Vec<u8>>,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub slot_updated: i64,
 }
@@ -31,9 +31,9 @@ pub enum Column {
     TreeId,
     LeafIdx,
     Seq,
+    SchemaValidated,
     RawData,
     ParsedData,
-    Program,
     CreatedAt,
     SlotUpdated,
 }
@@ -61,9 +61,9 @@ impl ColumnTrait for Column {
             Self::TreeId => ColumnType::Binary.def(),
             Self::LeafIdx => ColumnType::BigInteger.def(),
             Self::Seq => ColumnType::BigInteger.def(),
+            Self::SchemaValidated => ColumnType::Boolean.def(),
             Self::RawData => ColumnType::Binary.def(),
             Self::ParsedData => ColumnType::JsonBinary.def(),
-            Self::Program => ColumnType::Binary.def().null(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
         }

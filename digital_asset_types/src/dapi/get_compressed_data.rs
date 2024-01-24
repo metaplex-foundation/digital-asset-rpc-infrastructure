@@ -42,6 +42,7 @@ pub async fn get_compressed_data(
         id: db_data.id,
         tree_id: bs58::encode(db_data.tree_id).into_string(),
         leaf_idx: db_data.leaf_idx,
+        schema_validated: db_data.schema_validated,
         parsed_data: db_data.parsed_data,
         slot_updated: db_data.slot_updated,
     })

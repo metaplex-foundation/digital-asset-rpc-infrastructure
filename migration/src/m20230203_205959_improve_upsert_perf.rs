@@ -52,13 +52,13 @@ impl MigrationTrait for Migration {
             ))
             .await?;
 
-            manager
+        manager
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
                 "ALTER TABLE asset SET (fillfactor = 85);".to_string(),
             ))
-            .await?;    
+            .await?;
 
         manager
             .drop_index(

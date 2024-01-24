@@ -19,13 +19,35 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CompressedData::TreeId).binary().not_null())
-                    .col(ColumnDef::new(CompressedData::LeafIdx).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(CompressedData::LeafIdx)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(CompressedData::Seq).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(CompressedData::SchemaValidated)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .col(ColumnDef::new(CompressedData::RawData).binary().not_null())
-                    .col(ColumnDef::new(CompressedData::ParsedData).json_binary().not_null())
-                    .col(ColumnDef::new(CompressedData::Program).binary())
-                    .col(ColumnDef::new(CompressedData::CreatedAt).date_time().default(SimpleExpr::Keyword(Keyword::CurrentTimestamp)).not_null())
-                    .col(ColumnDef::new(CompressedData::SlotUpdated).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(CompressedData::ParsedData)
+                            .json_binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(CompressedData::CreatedAt)
+                            .date_time()
+                            .default(SimpleExpr::Keyword(Keyword::CurrentTimestamp))
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(CompressedData::SlotUpdated)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -46,9 +68,9 @@ enum CompressedData {
     TreeId,
     LeafIdx,
     Seq,
+    SchemaValidated,
     RawData,
     ParsedData,
-    Program,
     CreatedAt,
-    SlotUpdated
+    SlotUpdated,
 }

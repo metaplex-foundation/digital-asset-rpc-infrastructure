@@ -18,8 +18,19 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
+                    .col(
+                        ColumnDef::new(MerkleTree::Discriminator)
+                            .binary()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(MerkleTree::Program).binary())
                     .col(ColumnDef::new(MerkleTree::DataSchema).binary().not_null())
-                    .col(ColumnDef::new(MerkleTree::CreatedAt).date_time().default(SimpleExpr::Keyword(Keyword::CurrentTimestamp)).not_null())
+                    .col(
+                        ColumnDef::new(MerkleTree::CreatedAt)
+                            .date_time()
+                            .default(SimpleExpr::Keyword(Keyword::CurrentTimestamp))
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -36,6 +47,8 @@ impl MigrationTrait for Migration {
 enum MerkleTree {
     Table,
     Id,
+    Discriminator,
+    Program,
     DataSchema,
     CreatedAt,
 }

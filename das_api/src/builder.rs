@@ -24,27 +24,67 @@ impl RpcApiBuilder {
 
         module.register_async_method("get_proof", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<LeafTreePayload>()?;
-            rpc_context
-                .get_proof(payload)
-                .await
-                .map_err(Into::into)
+            rpc_context.get_proof(payload).await.map_err(Into::into)
         })?;
         module.register_alias("getProof", "get_proof")?;
 
-        module.register_async_method("get_compressed_data", |rpc_params, rpc_context| async move {
-            let payload = rpc_params.parse::<LeafTreePayload>()?;
+        module.register_async_method(
+            "get_compressed_data",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<LeafTreePayload>()?;
+                rpc_context
+                    .get_compressed_data(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+        module.register_alias("getCompressedData", "get_compressed_data")?;
+
+        module.register_async_method(
+            "get_compressed_accounts",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetCompressedAccounts>()?;
+                rpc_context
+                    .get_compressed_accounts(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+        module.register_alias("getCompressedAccounts", "get_compressed_accounts")?;
+
+        module.register_async_method("get_characters", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetCharacters>()?;
             rpc_context
-                .get_compressed_data(payload)
+                .get_characters(payload)
                 .await
                 .map_err(Into::into)
         })?;
-        module.register_alias("getCompressedData", "get_compressed_data")?;
+        module.register_alias("getCharacters", "get_characters")?;
+
+        module.register_async_method("get_asset_proofs", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetAssetProofs>()?;
+            rpc_context
+                .get_asset_proofs(payload)
+                .await
+                .map_err(Into::into)
+        })?;
+        module.register_alias("getAssetProofs", "get_asset_proofs")?;
+        module.register_alias("get_asset_proof_batch", "get_asset_proofs")?;
+        module.register_alias("getAssetProofBatch", "get_asset_proofs")?;
 
         module.register_async_method("get_asset", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<GetAsset>()?;
             rpc_context.get_asset(payload).await.map_err(Into::into)
         })?;
         module.register_alias("getAsset", "get_asset")?;
+
+        module.register_async_method("get_assets", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetAssets>()?;
+            rpc_context.get_assets(payload).await.map_err(Into::into)
+        })?;
+        module.register_alias("getAssets", "get_assets")?;
+        module.register_alias("get_asset_batch", "get_assets")?;
+        module.register_alias("getAssetBatch", "get_assets")?;
 
         module.register_async_method(
             "get_assets_by_owner",

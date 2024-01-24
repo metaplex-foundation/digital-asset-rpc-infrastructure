@@ -295,7 +295,13 @@ create table merkle_tree
     -- Tree Indexing
     id                   bytea PRIMARY KEY,
 
-    -- Parsed
+    -- Identification
+    discriminator                    bytea not null,
+
+    -- Origin
+    program                     bytea,
+
+    -- Schema
     data_schema                    bytea not null,
 
     -- visibility
@@ -313,15 +319,13 @@ create table compressed_data
     tree_id                   bytea not null,
     leaf_idx                  bigint not null, -- This is the index of the leaf in the tree, equivalent to nonce in the asset table
     seq                       bigint not null,
+    schema_validated          boolean not null DEFAULT FALSE,
 
     -- Compressed Data
     raw_data                      bytea not null,
 
     -- Parsed
     parsed_data                   jsonb not null,
-
-    -- Origin
-    program                     bytea,
 
     -- visibility
     created_at                timestamp with time zone           default (now() at time zone 'utc'),

@@ -1,8 +1,10 @@
 [workspace]
+resolver = "2"
 members = [
   "das_api",
   "digital_asset_types",
   "metaplex-rpc-proxy",
+  "migration",
   "nft_ingester",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
@@ -11,12 +13,105 @@ members = [
   "tools/tree-status",
   "tools/txn_forwarder",
 ]
-exclude = [
-  # "das_api",
-  "migration",
-  "metaplex_program_library",
-  "solana_program_library",
-]
+
+[workspace.package]
+version = "0.7.2"
+edition = "2021"
+repository = "https://github.com/metaplex-foundation/digital-asset-rpc-infrastructure"
+publish = false
+
+[workspace.dependencies]
+anchor-client = "0.28.0"
+anchor-lang = "0.28.0"
+anyhow = "1.0.75"
+async-std = "1.0.0"
+async-trait = "0.1.60"
+base64 = "0.21.0"
+blockbuster = { version = "0.9.0-beta.5", git = "https://github.com/Honeycomb-Protocol/blockbuster.git", branch = "beta" }
+hpl-compression = "0.1.8-beta.14"
+borsh = "~0.10.3"
+bs58 = "0.4.0"
+cadence = "0.29.0"
+cadence-macros = "0.29.0"
+chrono = "0.4.19"
+clap = "4.2.2"
+digital_asset_types = { path = "digital_asset_types" }
+enum-iterator = "1.2.0"
+enum-iterator-derive = "1.1.0"
+env_logger = "0.10.0"
+fake = "2.5.0"
+figment = "0.10.8"
+flatbuffers = "23.1.21"
+futures = "0.3.28"
+futures-util = "0.3.27"
+hex = "0.4.3"
+hyper = "0.14.23"
+indexmap = "1.9.3"
+jsonpath_lib = "0.3.0"
+jsonrpsee = "0.16.2"
+jsonrpsee-core = "0.16.2"
+lazy_static = "1.4.0"
+log = "0.4.17"
+metrics = "0.20.1"
+mime_guess = "2.0.4"
+mpl-bubblegum = "=1.0.1-beta.4"
+mpl-candy-guard = "2.0.0"
+mpl-candy-machine-core = "2.0.1"
+mpl-token-metadata = "=2.0.0-beta.1"
+nft_ingester = { path = "nft_ingester" }
+num-derive = "0.3.3"
+num-integer = { version = "0.1.44", default_features = false }
+num-traits = "0.2.15"
+open-rpc-derive = "0.0.4"
+open-rpc-schema = "0.0.4"
+plerkle_messenger = "1.6.0"
+plerkle_serialization = "1.6.0"
+prometheus = "0.13.3"
+proxy-wasm = "0.2.0"
+rand = "0.8.5"
+redis = "0.22.3"
+regex = "1.6.0"
+reqwest = "0.11.13"
+rust-crypto = "0.2.36"
+schemars = "0.8.6"
+schemars_derive = "0.8.6"
+sea-orm = "0.10.6"
+sea-orm-migration = "0.10.6"
+sea-query = "0.28.1"
+serde = "1.0.137"
+serde_json = "1.0.81"
+solana-account-decoder = "~1.16.16"
+solana-client = "~1.16.16"
+solana-geyser-plugin-interface = "~1.16.16"
+solana-program = "~1.16.16"
+solana-sdk = "~1.16.16"
+solana-sdk-macro = "~1.16.16"
+solana-transaction-status = "~1.16.16"
+spl-account-compression = "0.2.0"
+spl-associated-token-account = ">= 1.1.3, < 3.0"
+spl-concurrent-merkle-tree = "0.2.0"
+spl-noop = "0.2.0"
+spl-token = ">= 3.5.0, < 5.0"
+sqlx = "0.6.2"
+stretto = "0.7.2"
+thiserror = "1.0.31"
+tokio = "1.30.0"
+tokio-postgres = "0.7.7"
+tokio-stream = "0.1.14"
+tower = "0.4.13"
+tower-http = "0.3.5"
+tracing = "0.1.35"
+tracing-subscriber = "0.3.16"
+txn_forwarder = { path = "tools/txn_forwarder" }
+url = "2.3.1"
+uuid = "1.0.0"
+wasi = "0.7.0"
+wasm-bindgen = "0.2.83"
+
+[workspace.lints.clippy]
+clone_on_ref_ptr = "deny"
+missing_const_for_fn = "deny"
+trivially_copy_pass_by_ref = "deny"
 
 [profile.release]
 lto = true

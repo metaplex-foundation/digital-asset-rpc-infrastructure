@@ -59,7 +59,7 @@ impl ProgramTransformer {
             task_sender,
             matchers,
             key_set: hs,
-            cl_audits: cl_audits,
+            cl_audits,
         }
     }
 
@@ -71,8 +71,15 @@ impl ProgramTransformer {
         order_instructions(ref_set, tx)
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
-        self.matchers.get(&Pubkey::new(key.0.as_slice()))
+        match Pubkey::try_from(key.0.as_slice()) {
+            Ok(pubkey) => self.matchers.get(&pubkey),
+            Err(_error) => {
+                log::warn!("failed to parse key: {key:?}");
+                None
+            }
+        }
     }
 
     pub async fn handle_transaction<'a>(
@@ -81,7 +88,7 @@ impl ProgramTransformer {
     ) -> Result<(), IngesterError> {
         let sig: Option<&str> = tx.signature();
         info!("Handling Transaction: {:?}", sig);
-        let instructions = self.break_transaction(&tx);
+        let instructions = self.break_transaction(tx);
         let accounts = tx.account_keys().unwrap_or_default();
         let slot = tx.slot();
         let txn_id = tx.signature().unwrap_or("");
@@ -113,7 +120,7 @@ impl ProgramTransformer {
                         acc
                     });
             let ix = InstructionBundle {
-                txn_id: txn_id,
+                txn_id,
                 program,
                 instruction: Some(instruction),
                 inner_ix,
@@ -140,7 +147,7 @@ impl ProgramTransformer {
                                 "Failed to handle bubblegum instruction for txn {:?}: {:?}",
                                 sig, err
                             );
-                            return err;
+                            err
                         })?;
                     }
                     ProgramParseResult::AccountCompression(parsing_result) => {
@@ -161,7 +168,8 @@ impl ProgramTransformer {
                         })?;
                     }
                     ProgramParseResult::Noop(parsing_result) => {
-                        handle_noop_instruction(
+                        debug!("Handling NOOP Instruction");
+                        match handle_noop_instruction(
                             parsing_result,
                             &ix,
                             &self.storage,
@@ -169,77 +177,19 @@ impl ProgramTransformer {
                             self.cl_audits,
                         )
                         .await
-                        .map_err(|err| {
-                            error!(
-                                "Failed to handle noop instruction for txn {:?}: {:?}",
-                                sig, err
-                            );
-                            return err;
-                        })?;
+                        {
+                            Ok(_) => {}
+                            Err(err) => {
+                                error!(
+                                    "Failed to handle noop instruction for txn {:?}: {:?}",
+                                    sig, err
+                                );
+                            }
+                        }
                     }
                     _ => {
                         not_impl += 1;
-                        // if let Some(inner_ix) = &ix.inner_ix {
-                        //     let noop_parser = NoopParser {};
-                        //     let mut ixs = inner_ix.clone();
-                        //     ixs.retain(|i| Pubkey::new_from_array(i.0 .0) == noop_parser.key());
-
-                        //     for ix in ixs {
-                        //         let (program, instruction) = ix;
-                        //         let ix_accounts =
-                        //             instruction.accounts().unwrap().iter().collect::<Vec<_>>();
-                        //         let ix_account_len = ix_accounts.len();
-                        //         let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
-                        //         if keys.len() < max {
-                        //             return Err(IngesterError::DeserializationError(
-                        //                 "Missing Accounts in Serialized Ixn/Txn".to_string(),
-                        //             ));
-                        //         }
-                        //         let ix_accounts = ix_accounts.iter().fold(
-                        //             Vec::with_capacity(ix_account_len),
-                        //             |mut acc, a| {
-                        //                 if let Some(key) = keys.get(*a as usize) {
-                        //                     acc.push(*key);
-                        //                 }
-                        //                 acc
-                        //             },
-                        //         );
-                        //         let ix = InstructionBundle {
-                        //             txn_id,
-                        //             program,
-                        //             instruction: Some(instruction),
-                        //             inner_ix: None,
-                        //             keys: ix_accounts.as_slice(),
-                        //             slot,
-                        //         };
-
-                        //         debug!("Found a ix for program: {:?}", noop_parser.key());
-                        //         let result = noop_parser.handle_instruction(&ix)?;
-                        //         let concrete = result.result_type();
-                        //         match concrete {
-                        //             ProgramParseResult::Noop(parsing_result) => {
-                        //                 handle_noop_instruction(
-                        //                     parsing_result,
-                        //                     &ix,
-                        //                     &self.storage,
-                        //                     &self.task_sender,
-                        //                     self.cl_audits,
-                        //                 )
-                        //                 .await
-                        //                 .map_err(|err| {
-                        //                     error!(
-                        //                         "Failed to handle noop instruction for txn {:?}: {:?}",
-                        //                         sig, err
-                        //                     );
-                        //                     return err;
-                        //                 })?;
-                        //             }
-                        //             _ => not_impl += 1,
-                        //         }
-                        //     }
-                        // } else {
-                        //     not_impl += 1;
-                        // }
+                        debug!("Could not handle this ix")
                     }
                 };
             }

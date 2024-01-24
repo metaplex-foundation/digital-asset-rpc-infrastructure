@@ -22,7 +22,7 @@ pub struct Model {
     pub seq: i64,
     pub level: i64,
     pub hash: Vec<u8>,
-    pub created_at: Option<DateTime>,
+    pub created_at: DateTime,
     pub tx: String,
 }
 
@@ -81,7 +81,7 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl From<crate::dao::cl_items::ActiveModel> for ActiveModel {
     fn from(item: crate::dao::cl_items::ActiveModel) -> Self {
-        return ActiveModel {
+        ActiveModel {
             tree: item.tree,
             level: item.level,
             node_idx: item.node_idx,
