@@ -37,7 +37,6 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(CompressedData::Program).binary())
                     .col(
                         ColumnDef::new(CompressedData::CreatedAt)
                             .date_time()
@@ -72,7 +71,6 @@ enum CompressedData {
     SchemaValidated,
     RawData,
     ParsedData,
-    Program,
     CreatedAt,
     SlotUpdated,
 }

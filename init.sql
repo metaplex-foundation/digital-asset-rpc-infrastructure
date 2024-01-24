@@ -295,7 +295,13 @@ create table merkle_tree
     -- Tree Indexing
     id                   bytea PRIMARY KEY,
 
-    -- Parsed
+    -- Identification
+    discriminator                    bytea not null,
+
+    -- Origin
+    program                     bytea,
+
+    -- Schema
     data_schema                    bytea not null,
 
     -- visibility
@@ -320,9 +326,6 @@ create table compressed_data
 
     -- Parsed
     parsed_data                   jsonb not null,
-
-    -- Origin
-    program                     bytea,
 
     -- visibility
     created_at                timestamp with time zone           default (now() at time zone 'utc'),

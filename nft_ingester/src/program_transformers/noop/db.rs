@@ -32,7 +32,11 @@ where
         .map_err(|db_err| IngesterError::CompressedDataParseError(db_err.to_string()))?;
     debug!("Application data parsed successfully");
     match event {
-        CompressedDataEvent::TreeSchemaValue { tree_id, schema } => {
+        CompressedDataEvent::TreeSchemaValue {
+            discriminator,
+            tree_id,
+            schema,
+        } => {
             info!("Found new tree {}", bs58::encode(tree_id).into_string());
 
             let data_schema = schema
@@ -44,6 +48,7 @@ where
             let item = merkle_tree::ActiveModel {
                 id: Set(tree_id.to_vec()),
                 data_schema: Set(data_schema),
+                discriminator: Set(discriminator.to_vec()),
                 ..Default::default()
             };
 

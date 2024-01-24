@@ -21,7 +21,6 @@ pub struct Model {
     pub schema_validated: bool,
     pub raw_data: Vec<u8>,
     pub parsed_data: Json,
-    pub program: Option<Vec<u8>>,
     pub created_at: Option<DateTimeWithTimeZone>,
     pub slot_updated: i64,
 }
@@ -35,7 +34,6 @@ pub enum Column {
     SchemaValidated,
     RawData,
     ParsedData,
-    Program,
     CreatedAt,
     SlotUpdated,
 }
@@ -66,7 +64,6 @@ impl ColumnTrait for Column {
             Self::SchemaValidated => ColumnType::Boolean.def(),
             Self::RawData => ColumnType::Binary.def(),
             Self::ParsedData => ColumnType::JsonBinary.def(),
-            Self::Program => ColumnType::Binary.def().null(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
         }

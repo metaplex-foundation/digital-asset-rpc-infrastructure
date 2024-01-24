@@ -15,6 +15,8 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: Vec<u8>,
+    pub discriminator: Vec<u8>,
+    pub program: Option<Vec<u8>>,
     pub data_schema: Vec<u8>,
     pub created_at: Option<DateTimeWithTimeZone>,
 }
@@ -22,6 +24,8 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
+    Discriminator,
+    Program,
     DataSchema,
     CreatedAt,
 }
@@ -46,6 +50,8 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
+            Self::Discriminator => ColumnType::Binary.def(),
+            Self::Program => ColumnType::Binary.def().null(),
             Self::DataSchema => ColumnType::Binary.def(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),
         }
