@@ -8,7 +8,7 @@ publish = { workspace = true }
 [dependencies]
 async-trait = { workspace = true }
 blockbuster = { workspace = true }
-borsh = { workspace = true }
+borsh = { workspace = true, optional = true  }
 borsh-derive = { workspace = true, optional = true }
 bs58 = { workspace = true }
 futures = { workspace = true }

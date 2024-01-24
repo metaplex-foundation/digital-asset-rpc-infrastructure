@@ -532,13 +532,10 @@ pub async fn upsert_asset_creators<T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    // Vec to hold base creator information.
-    let mut db_creators = Vec::with_capacity(creators.len());
-
-    if creators.is_empty() {
-        // Bubblegum supports empty creator array.  In this case insert an empty Vec
-        // for the creator.
-        db_creators.push(asset_creators::ActiveModel {
+    let db_creators = if creators.is_empty() {
+        // If creators are empty, insert an empty creator with the current sequence.
+        // This prevents accidental errors during out-of-order updates.
+        vec![asset_creators::ActiveModel {
             asset_id: Set(id.clone()),
             position: Set(0),
             creator: Set(vec![]),
@@ -547,17 +544,12 @@ where
             slot_updated: Set(Some(slot_updated)),
             seq: Set(Some(seq)),
             ..Default::default()
-        });
+        }]
     } else {
-        // Set to prevent duplicates.
-        let mut creators_set = HashSet::new();
-
-        for (i, c) in creators.iter().enumerate() {
-            if creators_set.contains(&c.address) {
-                continue;
-            }
-
-            db_creators.push(asset_creators::ActiveModel {
+        creators
+            .iter()
+            .enumerate()
+            .map(|(i, c)| asset_creators::ActiveModel {
                 asset_id: Set(id.clone()),
                 position: Set(i as i16),
                 creator: Set(c.address.to_bytes().to_vec()),
@@ -566,11 +558,9 @@ where
                 slot_updated: Set(Some(slot_updated)),
                 seq: Set(Some(seq)),
                 ..Default::default()
-            });
-
-            creators_set.insert(c.address);
-        }
-    }
+            })
+            .collect()
+    };
 
     // This statement will update base information for each creator.
     let mut query = asset_creators::Entity::insert_many(db_creators)
@@ -583,8 +573,8 @@ where
                 asset_creators::Column::Creator,
                 asset_creators::Column::Share,
                 asset_creators::Column::Verified,
-                asset_creators::Column::SlotUpdated,
                 asset_creators::Column::Seq,
+                asset_creators::Column::SlotUpdated,
             ])
             .to_owned(),
         )
