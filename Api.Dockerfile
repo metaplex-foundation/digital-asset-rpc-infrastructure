@@ -31,7 +31,10 @@ WORKDIR /rust/das_api
 COPY --from=planner /rust/das_api/recipe.json recipe.json
 
 # Build dependencies - this is the caching Docker layer!
-RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/target
+# TODO: Fix this.  For now we are building without the cached dependencies as there's apparently
+# some problem with digital-asset-types feature activation.
+
+# RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/target --all-features
 
 # Build application
 RUN cargo build --release

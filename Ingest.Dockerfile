@@ -31,7 +31,10 @@ WORKDIR /rust/nft_ingester
 COPY --from=planner /rust/nft_ingester/recipe.json recipe.json
 
 # Build dependencies - this is the caching Docker layer!
-RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/target
+# TODO: Fix this.  For now we are building without the cached dependencies as there's apparently
+# some problem with digital-asset-types feature activation.
+
+# RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/target --all-features
 
 # Build application
 RUN cargo build --release
