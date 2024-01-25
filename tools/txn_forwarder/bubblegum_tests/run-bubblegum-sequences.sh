@@ -1,11 +1,14 @@
 #!/bin/bash
 
 # Pass `reverse` to run scenarios in reverse.
-if [ "$1" = "reverse" ]; then
-    REVERSE="true"
-else
-    REVERSE="false"
-fi
+case $1 in
+    "reverse"|"--reverse"|"-r")
+        REVERSE="true"
+        ;;
+    *)
+        REVERSE="false"
+        ;;
+esac
 
 SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_redeem_decompress.scenario"
