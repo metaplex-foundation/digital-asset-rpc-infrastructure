@@ -27,7 +27,6 @@ use sea_orm::{
     DbErr, EntityTrait, JsonValue,
 };
 use solana_sdk::pubkey::Pubkey;
-
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::time::sleep;
