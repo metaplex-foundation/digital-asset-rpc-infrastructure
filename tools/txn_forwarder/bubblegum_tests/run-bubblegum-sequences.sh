@@ -19,7 +19,8 @@ SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_verify_collection.scenario" \
 "mint_verify_collection_unverify_collection.scenario" \
 "mint_set_and_verify_collection.scenario" \
-"mint_to_collection_unverify_collection.scenario"
+"mint_to_collection_unverify_collection.scenario" \
+"mint_verify_creator_unverify_creator_update_metadata.scenario"
 )
 
 TEST_SCENARIO_DATA_DIR="test_scenario_data"
@@ -62,13 +63,6 @@ CHECK_DATABASE() {
 # If successful, prints contents of file on stdout and returns 0, otherwise returns 1.
 READ_IN_EXPECTED_DATA() {
     local BASE_NAME=$(basename "$1" .scenario)
-    if [ "$REVERSE" = "true" ]; then
-        local EXPECTED_DATA_FILE_BW="$TEST_SCENARIO_DATA_DIR/${BASE_NAME}_"$2"_reverse.txt"
-        if [ -f "$EXPECTED_DATA_FILE_BW" ]; then
-            cat "$EXPECTED_DATA_FILE_BW"
-            return 0
-        fi
-    fi
 
     local EXPECTED_DATA_FILE="$TEST_SCENARIO_DATA_DIR/${BASE_NAME}_"$2".txt"
     if [ -f "$EXPECTED_DATA_FILE" ]; then
@@ -93,6 +87,7 @@ STATUS=0
 for i in ${!SCENARIOS[@]}; do
     # Read in the expected database data for this scenario.
     EXPECTED_ASSET_VALUE=$(READ_IN_EXPECTED_DATA "${SCENARIOS[$i]}" "asset") || { STATUS=1; continue; }
+    EXPECTED_ASSET_DATA_VALUE=$(READ_IN_EXPECTED_DATA "${SCENARIOS[$i]}" "asset_data") || { STATUS=1; continue; }
     EXPECTED_ASSET_CREATORS=$(READ_IN_EXPECTED_DATA "${SCENARIOS[$i]}" "asset_creators") || { STATUS=1; continue; }
     EXPECTED_ASSET_GROUPING=$(READ_IN_EXPECTED_DATA "${SCENARIOS[$i]}" "asset_grouping") || { STATUS=1; continue; }
     EXPECTED_CL_ITEMS=$(READ_IN_EXPECTED_DATA "${SCENARIOS[$i]}" "cl_items") || { STATUS=1; continue; }
@@ -119,6 +114,9 @@ for i in ${!SCENARIOS[@]}; do
     ASSET_SQL="SELECT * FROM asset WHERE id = '$ASSET_ID';"
     CHECK_DATABASE "$ASSET_SQL" "-x" "(0 rows)" "initial asset table state" || STATUS=1
 
+    ASSET_DATA_SQL="SELECT * FROM asset_data WHERE id = '$ASSET_ID';"
+    CHECK_DATABASE "$ASSET_DATA_SQL" "-x" "(0 rows)" "initial asset table state" || STATUS=1
+
     ASSET_CREATORS_SQL="SELECT asset_id, creator, share, verified, seq, slot_updated, position \
         FROM asset_creators \
         WHERE asset_id = '$ASSET_ID' \
@@ -136,6 +134,12 @@ for i in ${!SCENARIOS[@]}; do
     # Run the scenario file that indexes the asset.  These are done with separate calls to the `txn_forwarder`
     # in order to enforce order.  Just calling the `txn_forwarder` with the file results in random ordering.
     readarray -t TXS < "$TEST_SCENARIO_DATA_DIR/${SCENARIOS[$i]}"
+
+    if [ ${#TXS[@]} = 0 ]; then
+        echo $(RED "No scenarios found for  ${SCENARIOS[$i]}!")
+        STATUS=1
+        continue
+    fi
 
     # Reverse transactions if necessary.
     if [ "$REVERSE" = "true" ]; then
@@ -160,6 +164,7 @@ for i in ${!SCENARIOS[@]}; do
 
     # Asset should now be in the database and all fields match (except `created_at` in `asset`` table).
     CHECK_DATABASE "$ASSET_SQL" "-x" "$EXPECTED_ASSET_VALUE" "asset table" || STATUS=1
+    CHECK_DATABASE "$ASSET_DATA_SQL" "-x" "$EXPECTED_ASSET_DATA_VALUE" "asset_data table" || STATUS=1
     CHECK_DATABASE "$ASSET_CREATORS_SQL" "-x" "$EXPECTED_ASSET_CREATORS" "asset_creators table" || STATUS=1
     CHECK_DATABASE "$ASSET_GROUPING_SQL" "-x" "$EXPECTED_ASSET_GROUPING" "asset_grouping table" || STATUS=1
     CHECK_DATABASE "$CL_ITEMS_SQL" "" "$EXPECTED_CL_ITEMS" "cl_items table" || STATUS=1
