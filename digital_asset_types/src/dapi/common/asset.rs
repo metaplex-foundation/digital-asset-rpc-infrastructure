@@ -3,8 +3,8 @@ use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
-use crate::rpc::display_options::DisplayOptions;
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
+use crate::rpc::options::Options;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
@@ -23,7 +23,7 @@ use std::path::Path;
 use url::Url;
 
 pub fn to_uri(uri: String) -> Option<Url> {
-    Url::parse(&*uri).ok()
+    Url::parse(&uri).ok()
 }
 
 pub fn get_mime(url: Url) -> Option<Mime> {
@@ -51,7 +51,7 @@ pub fn build_asset_response(
     assets: Vec<FullAsset>,
     limit: u64,
     pagination: &Pagination,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> AssetList {
     let total = assets.len() as u32;
     let (page, before, after, cursor) = match pagination {
@@ -71,7 +71,7 @@ pub fn build_asset_response(
         }
     };
 
-    let (items, errors) = asset_list_to_rpc(assets, display_options);
+    let (items, errors) = asset_list_to_rpc(assets, options);
     AssetList {
         total,
         limit: limit as u32,
@@ -85,22 +85,19 @@ pub fn build_asset_response(
 }
 
 pub fn build_transaction_signatures_response(
-    items: Vec<(String, Option<String>)>,
+    items: Vec<(String, String)>,
     limit: u64,
     pagination: &Pagination,
 ) -> TransactionSignatureList {
     let total = items.len() as u32;
-    let (page, before, after, cursor) = match pagination {
+    let (page, before, after) = match pagination {
         Pagination::Keyset { before, after } => {
             let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
             let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
-            (None, bef, aft, None)
+            (None, bef, aft)
         }
-        Pagination::Page { page } => (Some(*page), None, None, None),
-        Pagination::Cursor(_) => {
-            // tmp: helius please fix it ;)
-            (None, None, None, None)
-        }
+        Pagination::Page { page } => (Some(*page), None, None),
+        Pagination::Cursor { .. } => (None, None, None),
     };
     TransactionSignatureList {
         total,
@@ -108,7 +105,6 @@ pub fn build_transaction_signatures_response(
         page: page.map(|x| x as u32),
         before,
         after,
-        cursor,
         items,
     }
 }
@@ -315,12 +311,12 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
 
 pub fn to_grouping(
     groups: Vec<asset_grouping::Model>,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> Result<Vec<Group>, DbErr> {
     let result: Vec<Group> = groups
         .iter()
         .filter_map(|model| {
-            let verified = match display_options.show_unverified_collections {
+            let verified = match options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
                 true => Some(model.verified),
                 false => None,
@@ -352,7 +348,7 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
 }
 
 //TODO -> impl custom error type
-pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Result<RpcAsset, DbErr> {
+pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbErr> {
     let FullAsset {
         asset,
         data,
@@ -362,7 +358,7 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
-    let rpc_groups = to_grouping(groups, display_options)?;
+    let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
@@ -381,8 +377,8 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
-            leaf_id: asset.nonce.unwrap_or(0 as i64),
-            seq: asset.seq.unwrap_or(0 as i64),
+            leaf_id: asset.nonce.unwrap_or(0),
+            seq: asset.seq.unwrap_or(0),
             tree: asset
                 .tree_id
                 .map(|s| bs58::encode(s).into_string())
@@ -393,11 +389,11 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
                 .unwrap_or_default(),
             data_hash: asset
                 .data_hash
-                .map(|e| e.trim().to_string())
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
             creator_hash: asset
                 .creator_hash
-                .map(|e| e.trim().to_string())
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
         }),
         grouping: Some(rpc_groups),
@@ -444,13 +440,13 @@ pub fn asset_to_rpc(asset: FullAsset, display_options: &DisplayOptions) -> Resul
 
 pub fn asset_list_to_rpc(
     asset_list: Vec<FullAsset>,
-    display_options: &DisplayOptions,
+    options: &Options,
 ) -> (Vec<RpcAsset>, Vec<AssetError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
             let id = bs58::encode(asset.asset.id.clone()).into_string();
-            match asset_to_rpc(asset, display_options) {
+            match asset_to_rpc(asset, options) {
                 Ok(rpc_asset) => assets.push(rpc_asset),
                 Err(e) => errors.push(AssetError {
                     id,

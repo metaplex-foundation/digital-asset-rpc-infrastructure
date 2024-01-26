@@ -22,17 +22,16 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getAssetProof", "get_asset_proof")?;
 
-        module.register_async_method(
-            "get_asset_proof_batch",
-            |rpc_params, rpc_context| async move {
-                let payload = rpc_params.parse::<GetAssetProofBatch>()?;
-                rpc_context
-                    .get_asset_proof_batch(payload)
-                    .await
-                    .map_err(Into::into)
-            },
-        )?;
-        module.register_alias("getAssetProofBatch", "get_asset_proof_batch")?;
+        module.register_async_method("get_asset_proofs", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetAssetProofs>()?;
+            rpc_context
+                .get_asset_proofs(payload)
+                .await
+                .map_err(Into::into)
+        })?;
+        module.register_alias("getAssetProofs", "get_asset_proofs")?;
+        module.register_alias("get_asset_proof_batch", "get_asset_proofs")?;
+        module.register_alias("getAssetProofBatch", "get_asset_proofs")?;
 
         module.register_async_method("get_asset", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<GetAsset>()?;
@@ -40,14 +39,13 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getAsset", "get_asset")?;
 
-        module.register_async_method("get_asset_batch", |rpc_params, rpc_context| async move {
-            let payload = rpc_params.parse::<GetAssetBatch>()?;
-            rpc_context
-                .get_asset_batch(payload)
-                .await
-                .map_err(Into::into)
+        module.register_async_method("get_assets", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetAssets>()?;
+            rpc_context.get_assets(payload).await.map_err(Into::into)
         })?;
-        module.register_alias("getAssetBatch", "get_asset_batch")?;
+        module.register_alias("getAssets", "get_assets")?;
+        module.register_alias("get_asset_batch", "get_assets")?;
+        module.register_alias("getAssetBatch", "get_assets")?;
 
         module.register_async_method(
             "get_assets_by_owner",
@@ -96,23 +94,23 @@ impl RpcApiBuilder {
         )?;
         module.register_alias("getAssetsByGroup", "get_assets_by_group")?;
 
+        module.register_async_method(
+            "getAssetSignatures",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetAssetSignatures>()?;
+                rpc_context
+                    .get_asset_signatures(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+        module.register_alias("getSignaturesForAsset", "getAssetSignatures")?;
+
         module.register_async_method("search_assets", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<SearchAssets>()?;
             rpc_context.search_assets(payload).await.map_err(Into::into)
         })?;
         module.register_alias("searchAssets", "search_assets")?;
-
-        module.register_async_method(
-            "get_signatures_for_asset",
-            |rpc_params, rpc_context| async move {
-                let payload = rpc_params.parse::<GetSignaturesForAsset>()?;
-                rpc_context
-                    .get_signatures_for_asset(payload)
-                    .await
-                    .map_err(Into::into)
-            },
-        )?;
-        module.register_alias("getSignaturesForAsset", "get_signatures_for_asset")?;
 
         module.register_async_method("schema", |_, rpc_context| async move {
             Ok(rpc_context.schema())

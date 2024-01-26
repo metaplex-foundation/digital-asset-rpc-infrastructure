@@ -25,9 +25,8 @@ pub fn account_worker<T: Messenger>(
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let source = T::new(config).await;
-
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender));
+            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, false));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();
@@ -49,14 +48,12 @@ pub fn account_worker<T: Messenger>(
                     }
                 }
                 while let Some(res) = tasks.join_next().await {
-                    if let Ok(id) = res {
-                        if let Some(id) = id {
-                            let send = ack_channel.send((stream_key, id));
-                            if let Err(err) = send {
-                                metric! {
+                    if let Ok(Some(id)) = res {
+                        let send = ack_channel.send((stream_key, id));
+                        if let Err(err) = send {
+                            metric! {
                                     error!("Account stream ack error: {}", err);
                                     statsd_count!("ingester.stream.ack_error", 1, "stream" => stream_key);
-                                }
                             }
                         }
                     }

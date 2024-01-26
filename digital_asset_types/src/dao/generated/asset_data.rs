@@ -26,6 +26,7 @@ pub struct Model {
     pub reindex: Option<bool>,
     pub raw_name: Option<Vec<u8>>,
     pub raw_symbol: Option<Vec<u8>>,
+    pub base_info_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -40,6 +41,7 @@ pub enum Column {
     Reindex,
     RawName,
     RawSymbol,
+    BaseInfoSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -55,9 +57,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    Asset,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -73,21 +73,14 @@ impl ColumnTrait for Column {
             Self::Reindex => ColumnType::Boolean.def().null(),
             Self::RawName => ColumnType::Binary.def().null(),
             Self::RawSymbol => ColumnType::Binary.def().null(),
+            Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::Asset => Entity::has_many(super::asset::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::asset::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Asset.def()
+        panic!("No RelationDef")
     }
 }
 

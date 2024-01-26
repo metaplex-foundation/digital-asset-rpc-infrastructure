@@ -14,6 +14,7 @@ pub async fn process<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -26,7 +27,7 @@ where
         let (collection, verify) = match payload {
             Payload::CollectionVerification {
                 collection, verify, ..
-            } => (collection.clone(), verify.clone()),
+            } => (collection, verify),
             _ => {
                 return Err(IngesterError::ParsingError(
                     "Ix not parsed correctly".to_string(),
@@ -37,16 +38,23 @@ where
             "Handling collection verification event for {} (verify: {}): {}",
             collection, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.txn_id, txn, instruction).await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
+            .await?;
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };
+
         let tree_id = cl.id.to_bytes();
         let nonce = cl.index as i64;
 
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
         // Partial update of asset table with just leaf.
         upsert_asset_with_leaf_info(
-            txn,
+            &multi_txn,
             id_bytes.to_vec(),
             nonce,
             tree_id.to_vec(),
@@ -54,23 +62,24 @@ where
             le.schema.data_hash(),
             le.schema.creator_hash(),
             seq as i64,
-            false,
         )
         .await?;
 
-        upsert_asset_with_seq(txn, id_bytes.to_vec(), seq as i64).await?;
+        upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
         upsert_collection_info(
-            txn,
+            &multi_txn,
             id_bytes.to_vec(),
             Some(Collection {
-                key: collection.clone(),
-                verified: verify,
+                key: *collection,
+                verified: *verify,
             }),
             bundle.slot as i64,
             seq as i64,
         )
         .await?;
+
+        multi_txn.commit().await?;
 
         return Ok(());
     };

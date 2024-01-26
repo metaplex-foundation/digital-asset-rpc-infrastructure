@@ -1,4 +1,4 @@
-use das_metadata_json::SenderArgs;
+use das_metadata_json::sender::SenderArgs;
 use figment::{
     providers::{Env, Format, Yaml},
     value::Value,
@@ -28,14 +28,24 @@ pub struct IngesterConfig {
     pub backfiller_trees: Option<Vec<String>>,
     pub role: Option<IngesterRole>,
     pub max_postgres_connections: Option<u32>,
-    pub account_stream_worker_count: Option<u32>,
-    pub account_backfill_stream_worker_count: Option<u32>,
-    pub transaction_stream_worker_count: Option<u32>,
-    pub transaction_backfill_stream_worker_count: Option<u32>,
+    pub worker_config: Option<Vec<WorkerConfig>>,
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
     pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
     pub metadata_json_sender: Option<SenderArgs>,
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub struct WorkerConfig {
+    pub stream_name: String,
+    pub worker_type: WorkerType,
+    pub worker_count: u32,
+}
+
+#[derive(Deserialize, PartialEq, Debug, Clone)]
+pub enum WorkerType {
+    Account,
+    Transaction,
 }
 
 impl IngesterConfig {
@@ -61,27 +71,38 @@ impl IngesterConfig {
             .unwrap()
     }
 
-    pub fn get_messneger_client_config(&self) -> MessengerConfig {
+    pub fn get_messenger_client_config(&self) -> MessengerConfig {
         let mut mc = self.messenger_config.clone();
         mc.connection_config
             .insert("consumer_id".to_string(), Value::from(rand_string()));
         mc
     }
 
-    pub fn get_account_stream_worker_count(&self) -> u32 {
-        self.account_stream_worker_count.unwrap_or(2)
+    pub fn get_worker_config(&self) -> Vec<WorkerConfig> {
+        if let Some(wc) = &self.worker_config {
+            wc.to_vec()
+        } else {
+            vec![
+                WorkerConfig {
+                    stream_name: "ACC".to_string(),
+                    worker_count: 2,
+                    worker_type: WorkerType::Account,
+                },
+                WorkerConfig {
+                    stream_name: "TXN".to_string(),
+                    worker_count: 2,
+                    worker_type: WorkerType::Transaction,
+                },
+            ]
+        }
     }
 
-    pub fn get_account_backfill_stream_worker_count(&self) -> u32 {
-        self.account_backfill_stream_worker_count.unwrap_or(0)
-    }
-
-    pub fn get_transaction_stream_worker_count(&self) -> u32 {
-        self.transaction_stream_worker_count.unwrap_or(2)
-    }
-
-    pub fn get_transaction_backfill_stream_worker_count(&self) -> u32 {
-        self.transaction_backfill_stream_worker_count.unwrap_or(0)
+    pub fn get_worker_count(&self) -> u32 {
+        let mut count = 0;
+        for wc in self.get_worker_config() {
+            count += wc.worker_count;
+        }
+        count
     }
 }
 
@@ -97,18 +118,13 @@ pub const RPC_URL_KEY: &str = "url";
 pub const RPC_COMMITMENT_KEY: &str = "commitment";
 pub const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone)]
+#[derive(Deserialize, Default, PartialEq, Eq, Debug, Clone)]
 pub enum IngesterRole {
+    #[default]
     All,
     Backfiller,
     BackgroundTaskRunner,
     Ingester,
-}
-
-impl Default for IngesterRole {
-    fn default() -> Self {
-        IngesterRole::All
-    }
 }
 
 impl Display for IngesterRole {
@@ -148,9 +164,7 @@ pub fn setup_config(config_file: Option<&PathBuf>) -> IngesterConfig {
 }
 
 pub fn init_logger() {
-    let env_filter = env::var("RUST_LOG")
-        .or::<Result<String, ()>>(Ok("info".to_string()))
-        .unwrap();
+    let env_filter = env::var("RUST_LOG").unwrap_or("info".to_string());
     let t = tracing_subscriber::fmt().with_env_filter(env_filter);
     t.event_format(fmt::format::json()).init();
 }

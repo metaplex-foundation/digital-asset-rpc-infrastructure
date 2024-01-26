@@ -1,7 +1,9 @@
 [package]
 name = "das-metadata-json"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -11,24 +13,44 @@ name = "das-metadata-json"
 
 [dependencies]
 
+anyhow = { workspace = true }
 backon = "0.4.1"
-log = "0.4.17"
-env_logger = "0.10.0"
-anyhow = "1.0.75"
-derive_more = "0.99.17"
-redis = { version = "0.22.3", features = [
+bs58 = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
+das-tree-backfiller = { workspace = true }
+digital_asset_types = { workspace = true, features = [
+  "json_types",
+  "sql_types",
+] }
+derive_more = { version = "0.99.17" }
+env_logger = { workspace = true }
+figment = { workspace = true, features = ["env", "toml", "yaml"] }
+futures = { workspace = true }
+indicatif = "0.17.5"
+log = { workspace = true }
+plerkle_messenger = { workspace = true, features = ['redis'] }
+rand = { workspace = true }
+redis = { workspace = true, features = [
   "aio",
   "tokio-comp",
   "streams",
   "tokio-native-tls-comp",
 ] }
-futures = { version = "0.3.25" }
-indicatif = "0.17.5"
-thiserror = "1.0.31"
-serde_json = "1.0.81"
-das-tree-backfiller = { path = "../tree_backfiller" }
-tokio = { version = "1.26.0", features = ["full", "tracing"] }
-sqlx = { version = "0.6.2", features = [
+reqwest = { workspace = true }
+sea-orm = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-postgres",
+  "with-chrono",
+  "mock",
+] }
+sea-query = { workspace = true, features = ["postgres-array"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = [
   "macros",
   "runtime-tokio-rustls",
   "postgres",
@@ -36,31 +58,11 @@ sqlx = { version = "0.6.2", features = [
   "offline",
   "json",
 ] }
-sea-orm = { version = "0.10.6", features = [
-  "macros",
-  "runtime-tokio-rustls",
-  "sqlx-postgres",
-  "with-chrono",
-  "mock",
-] }
-sea-query = { version = "0.28.1", features = ["postgres-array"] }
-chrono = "0.4.19"
-cadence = "0.29.0"
-cadence-macros = "0.29.0"
-tokio-postgres = "0.7.7"
-serde = "1.0.136"
-bs58 = "0.4.0"
-reqwest = "0.11.11"
-plerkle_messenger = { version = "1.6.0", features = ['redis'] }
-digital_asset_types = { path = "../digital_asset_types", features = [
-  "json_types",
-  "sql_types",
-] }
-figment = { version = "0.10.6", features = ["env", "toml", "yaml"] }
-rand = "0.8.5"
-url = "2.3.1"
-tokio-stream = "0.1.12"
-clap = { version = "4.2.2", features = ["derive", "cargo", "env"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full", "tracing"] }
+tokio-postgres = { workspace = true }
+tokio-stream = { workspace = true }
+url = { workspace = true }
 
 [lints]
 workspace = true

@@ -2,6 +2,7 @@ use log::{debug, error};
 
 use {jsonrpsee::core::Error as RpcError, jsonrpsee::types::error::CallError, thiserror::Error};
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 pub enum DasApiError {
     #[error("Config Missing or Error: {0}")]
@@ -28,20 +29,20 @@ pub enum DasApiError {
     PaginationExceededError,
     #[error("Cursor Validation Err: {0} is invalid")]
     CursorValidationError(String),
-    #[error("Pagination Sorting Error. Only sorting based on id is support for this pagination")]
+    #[error("Pagination Sorting Error. Only sorting based on id is supported for this pagination option.")]
     PaginationSortingValidationError,
 }
 
-impl Into<RpcError> for DasApiError {
-    fn into(self) -> RpcError {
-        match self {
-            Self::ValidationError(_) => {
-                debug!("{}", self);
+impl From<DasApiError> for RpcError {
+    fn from(error: DasApiError) -> RpcError {
+        match error {
+            DasApiError::ValidationError(_) => {
+                debug!("{}", error);
             }
             _ => {
-                error!("{}", self);
+                error!("{}", error);
             }
         }
-        RpcError::Call(CallError::from_std_error(self))
+        RpcError::Call(CallError::from_std_error(error))
     }
 }

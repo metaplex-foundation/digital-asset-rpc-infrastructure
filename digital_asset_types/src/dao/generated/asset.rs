@@ -44,8 +44,8 @@ pub struct Model {
     pub data_hash: Option<String>,
     pub creator_hash: Option<String>,
     pub owner_delegate_seq: Option<i64>,
-    pub was_decompressed: bool,
     pub leaf_seq: Option<i64>,
+    pub base_info_seq: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -76,8 +76,8 @@ pub enum Column {
     DataHash,
     CreatorHash,
     OwnerDelegateSeq,
-    WasDecompressed,
     LeafSeq,
+    BaseInfoSeq,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -93,13 +93,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {
-    AssetData,
-    AssetV1AccountAttachments,
-    AssetCreators,
-    AssetAuthority,
-    AssetGrouping,
-}
+pub enum Relation {}
 
 impl ColumnTrait for Column {
     type EntityName = Entity;
@@ -131,56 +125,15 @@ impl ColumnTrait for Column {
             Self::DataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::CreatorHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
-            Self::WasDecompressed => ColumnType::Boolean.def(),
             Self::LeafSeq => ColumnType::BigInteger.def().null(),
+            Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
         }
     }
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
-        match self {
-            Self::AssetData => Entity::belongs_to(super::asset_data::Entity)
-                .from(Column::AssetData)
-                .to(super::asset_data::Column::Id)
-                .into(),
-            Self::AssetV1AccountAttachments => {
-                Entity::has_many(super::asset_v1_account_attachments::Entity).into()
-            }
-            Self::AssetCreators => Entity::has_many(super::asset_creators::Entity).into(),
-            Self::AssetAuthority => Entity::has_many(super::asset_authority::Entity).into(),
-            Self::AssetGrouping => Entity::has_many(super::asset_grouping::Entity).into(),
-        }
-    }
-}
-
-impl Related<super::asset_data::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetData.def()
-    }
-}
-
-impl Related<super::asset_v1_account_attachments::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetV1AccountAttachments.def()
-    }
-}
-
-impl Related<super::asset_creators::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetCreators.def()
-    }
-}
-
-impl Related<super::asset_authority::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetAuthority.def()
-    }
-}
-
-impl Related<super::asset_grouping::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::AssetGrouping.def()
+        panic!("No RelationDef")
     }
 }
 

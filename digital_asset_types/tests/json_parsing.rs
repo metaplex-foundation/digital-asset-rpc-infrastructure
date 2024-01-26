@@ -36,6 +36,7 @@ pub async fn parse_onchain_json(json: serde_json::Value) -> Content {
         reindex: None,
         raw_name: Some(String::from("Handalf").into_bytes().to_vec()),
         raw_symbol: Some(String::from("").into_bytes().to_vec()),
+        base_info_seq: Some(0),
     };
 
     v1_content_from_json(&asset_data).unwrap()
@@ -79,7 +80,6 @@ async fn simple_content() {
     );
     assert_eq!(
         parsed
-            .clone()
             .links
             .unwrap()
             .get("external_url")
@@ -130,7 +130,6 @@ async fn complex_content() {
     );
     assert_eq!(
         parsed
-            .clone()
             .links
             .unwrap()
             .get("animation_url")

@@ -33,8 +33,7 @@ async fn get_asset_by_id() -> Result<(), DbErr> {
             address: creator_1,
             share: 100,
             verified: true,
-        }]
-        .to_vec(),
+        }],
         seller_fee_basis_points: 100,
     };
 

@@ -64,7 +64,7 @@ impl Worker {
                 handlers.push(spawn_task(client, pool, asset_data));
             }
 
-            while let Some(_) = handlers.next().await {}
+            while handlers.next().await.is_some() {}
         });
 
         (tx, handle)
@@ -198,11 +198,11 @@ async fn fetch_metadata_json(
                     .map(StatusCode::Code)
                     .unwrap_or(StatusCode::Unknown);
 
-                return Err(FetchMetadataJsonError::Response {
+                Err(FetchMetadataJsonError::Response {
                     source,
                     url,
                     status,
-                });
+                })
             }
         }
     })

@@ -7,6 +7,8 @@ use self::sea_orm_active_enums::{
 };
 pub use full_asset::*;
 pub use generated::*;
+pub mod extensions;
+
 use sea_orm::{
     entity::*,
     sea_query::Expr,
@@ -73,79 +75,12 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-    pub fn count_conditions(&self) -> usize {
-        // Initialize counter
-        // todo ever heard of a flipping macro
-        let mut num_conditions = 0;
-        if self.specification_version.is_some() {
-            num_conditions += 1;
-        }
-        if self.specification_asset_class.is_some() {
-            num_conditions += 1;
-        }
-        if self.owner_address.is_some() {
-            num_conditions += 1;
-        }
-        if self.owner_type.is_some() {
-            num_conditions += 1;
-        }
-        if self.delegate.is_some() {
-            num_conditions += 1;
-        }
-        if self.frozen.is_some() {
-            num_conditions += 1;
-        }
-        if self.supply.is_some() {
-            num_conditions += 1;
-        }
-        if self.supply_mint.is_some() {
-            num_conditions += 1;
-        }
-        if self.compressed.is_some() {
-            num_conditions += 1;
-        }
-        if self.compressible.is_some() {
-            num_conditions += 1;
-        }
-        if self.royalty_target_type.is_some() {
-            num_conditions += 1;
-        }
-        if self.royalty_target.is_some() {
-            num_conditions += 1;
-        }
-        if self.royalty_amount.is_some() {
-            num_conditions += 1;
-        }
-        if self.burnt.is_some() {
-            num_conditions += 1;
-        }
-        if self.creator_address.is_some() {
-            num_conditions += 1;
-        }
-        if self.creator_address.is_some() {
-            num_conditions += 1;
-        }
-        if self.grouping.is_some() {
-            num_conditions += 1;
-        }
-        if self.json_uri.is_some() {
-            num_conditions += 1;
-        }
-        if self.name.is_some() {
-            num_conditions += 1;
-        }
-
-        num_conditions
-    }
-
     pub fn conditions(&self) -> Result<(Condition, Vec<RelationDef>), DbErr> {
         let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
             None | Some(ConditionType::All) => Condition::all(),
             Some(ConditionType::Any) => Condition::any(),
         };
-
-        let mut joins = Vec::new();
 
         conditions = conditions
             .add_option(
@@ -164,17 +99,11 @@ impl SearchAssetsQuery {
                     .map(|x| asset::Column::Owner.eq(x)),
             )
             .add_option(
-                self.owner_type
-                    .clone()
-                    .map(|x| asset::Column::OwnerType.eq(x)),
-            )
-            .add_option(
                 self.delegate
                     .to_owned()
                     .map(|x| asset::Column::Delegate.eq(x)),
             )
             .add_option(self.frozen.map(|x| asset::Column::Frozen.eq(x)))
-            .add_option(self.supply.map(|x| asset::Column::Supply.eq(x)))
             .add_option(
                 self.supply_mint
                     .to_owned()
@@ -198,6 +127,36 @@ impl SearchAssetsQuery {
             )
             .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)));
 
+        if let Some(s) = self.supply {
+            conditions = conditions.add(asset::Column::Supply.eq(s));
+        } else {
+            // By default, we ignore malformed tokens by ignoring tokens with supply=0
+            // unless they are burnt.
+            //
+            // cNFTs keep supply=1 after they are burnt.
+            // Regular NFTs go to supply=0 after they are burnt.
+            conditions = conditions.add(
+                asset::Column::Supply
+                    .ne(0)
+                    .or(asset::Column::Burnt.eq(true)),
+            )
+        }
+
+        if let Some(o) = self.owner_type.clone() {
+            conditions = conditions.add(asset::Column::OwnerType.eq(o));
+        } else {
+            // Default to NFTs
+            //
+            // In theory, the owner_type=single check should be sufficient,
+            // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
+            // The supply check guarentees we do not include those.
+            conditions = conditions.add_option(Some(
+                asset::Column::OwnerType
+                    .eq(OwnerType::Single)
+                    .and(asset::Column::Supply.lte(1)),
+            ));
+        }
+
         if let Some(c) = self.creator_address.to_owned() {
             conditions = conditions.add(asset_creators::Column::Creator.eq(c));
         }
@@ -209,8 +168,9 @@ impl SearchAssetsQuery {
         }
 
         // If creator_address or creator_verified is set, join with asset_creators
+        let mut joins = Vec::new();
         if self.creator_address.is_some() || self.creator_verified.is_some() {
-            let rel = asset_creators::Relation::Asset
+            let rel = extensions::asset_creators::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -222,8 +182,8 @@ impl SearchAssetsQuery {
         }
 
         if let Some(a) = self.authority_address.to_owned() {
-            conditions = conditions.add(asset_authority::Column::Authority.eq(a.clone()));
-            let rel = asset_authority::Relation::Asset
+            conditions = conditions.add(asset_authority::Column::Authority.eq(a));
+            let rel = extensions::asset_authority::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -239,7 +199,7 @@ impl SearchAssetsQuery {
                 .add(asset_grouping::Column::GroupKey.eq(g.0))
                 .add(asset_grouping::Column::GroupValue.eq(g.1));
             conditions = conditions.add(cond);
-            let rel = asset_grouping::Relation::Asset
+            let rel = extensions::asset_grouping::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -253,7 +213,7 @@ impl SearchAssetsQuery {
         if let Some(ju) = self.json_uri.to_owned() {
             let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju));
             conditions = conditions.add(cond);
-            let rel = asset_data::Relation::Asset
+            let rel = extensions::asset_data::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {
@@ -272,10 +232,10 @@ impl SearchAssetsQuery {
             })?;
 
             let name_expr =
-                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str).into());
+                SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
 
             conditions = conditions.add(name_expr);
-            let rel = asset_data::Relation::Asset
+            let rel = extensions::asset_data::Relation::Asset
                 .def()
                 .rev()
                 .on_condition(|left, right| {

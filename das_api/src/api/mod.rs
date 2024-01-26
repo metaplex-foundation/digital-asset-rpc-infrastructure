@@ -1,7 +1,7 @@
 use crate::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::display_options::DisplayOptions;
-use digital_asset_types::rpc::filter::SearchConditionType;
+use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
+use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{AssetList, TransactionSignatureList};
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
@@ -23,8 +23,8 @@ pub struct GetAssetsByGroup {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -38,8 +38,8 @@ pub struct GetAssetsByOwner {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -48,16 +48,16 @@ pub struct GetAssetsByOwner {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetAssetBatch {
+pub struct GetAssets {
     pub ids: Vec<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -68,7 +68,7 @@ pub struct GetAssetProof {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetAssetProofBatch {
+pub struct GetAssetProofs {
     pub ids: Vec<String>,
 }
 
@@ -82,8 +82,8 @@ pub struct GetAssetsByCreator {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -117,8 +117,8 @@ pub struct SearchAssets {
     pub after: Option<String>,
     #[serde(default)]
     pub json_uri: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
     #[serde(default)]
@@ -134,8 +134,8 @@ pub struct GetAssetsByAuthority {
     pub page: Option<u32>,
     pub before: Option<String>,
     pub after: Option<String>,
-    #[serde(default)]
-    pub display_options: Option<DisplayOptions>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
     #[serde(default)]
     pub cursor: Option<String>,
 }
@@ -147,9 +147,9 @@ pub struct GetGrouping {
     pub group_value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct GetSignaturesForAsset {
+pub struct GetAssetSignatures {
     pub id: Option<String>,
     pub limit: Option<u32>,
     pub page: Option<u32>,
@@ -157,9 +157,10 @@ pub struct GetSignaturesForAsset {
     pub after: Option<String>,
     pub tree: Option<String>,
     pub leaf_index: Option<i64>,
-    pub sort_by: Option<AssetSorting>,
     #[serde(default)]
     pub cursor: Option<String>,
+    #[serde(default)]
+    pub sort_direction: Option<AssetSortDirection>,
 }
 
 #[document_rpc]
@@ -173,13 +174,13 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset_proof(&self, payload: GetAssetProof) -> Result<AssetProof, DasApiError>;
     #[rpc(
-        name = "getAssetProofBatch",
+        name = "getAssetProofs",
         params = "named",
         summary = "Get merkle proofs for compressed assets by their IDs"
     )]
-    async fn get_asset_proof_batch(
+    async fn get_asset_proofs(
         &self,
-        payload: GetAssetProofBatch,
+        payload: GetAssetProofs,
     ) -> Result<HashMap<String, Option<AssetProof>>, DasApiError>;
     #[rpc(
         name = "getAsset",
@@ -188,14 +189,11 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn get_asset(&self, payload: GetAsset) -> Result<Asset, DasApiError>;
     #[rpc(
-        name = "getAssetBatch",
+        name = "getAssets",
         params = "named",
         summary = "Get assets by their IDs"
     )]
-    async fn get_asset_batch(
-        &self,
-        payload: GetAssetBatch,
-    ) -> Result<Vec<Option<Asset>>, DasApiError>;
+    async fn get_assets(&self, payload: GetAssets) -> Result<Vec<Option<Asset>>, DasApiError>;
     #[rpc(
         name = "getAssetsByOwner",
         params = "named",
@@ -239,18 +237,18 @@ pub trait ApiContract: Send + Sync + 'static {
     )]
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError>;
     #[rpc(
+        name = "getAssetSignatures",
+        params = "named",
+        summary = "Get transaction signatures for an asset"
+    )]
+    async fn get_asset_signatures(
+        &self,
+        payload: GetAssetSignatures,
+    ) -> Result<TransactionSignatureList, DasApiError>;
+    #[rpc(
         name = "getGrouping",
         params = "named",
         summary = "Get a list of assets grouped by a specific authority"
     )]
     async fn get_grouping(&self, payload: GetGrouping) -> Result<GetGroupingResponse, DasApiError>;
-    #[rpc(
-        name = "getSignaturesForAsset",
-        params = "named",
-        summary = "Get transaction signatures for an asset"
-    )]
-    async fn get_signatures_for_asset(
-        &self,
-        payload: GetSignaturesForAsset,
-    ) -> Result<TransactionSignatureList, DasApiError>;
 }

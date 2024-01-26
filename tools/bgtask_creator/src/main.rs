@@ -1,4 +1,4 @@
-use reqwest::Client;
+use digital_asset_types::dao::extensions;
 
 use {
     clap::{value_parser, Arg, ArgAction, Command},
@@ -12,6 +12,7 @@ use {
         config::{init_logger, rand_string, setup_config},
         database::setup_database,
         error::IngesterError,
+        metrics::setup_metrics,
         tasks::{BgTask, DownloadMetadata, DownloadMetadataTask, IntoTaskData, TaskManager},
     },
     prometheus::{IntGaugeVec, Opts, Registry},
@@ -21,7 +22,7 @@ use {
     solana_sdk::pubkey::Pubkey,
     sqlx::types::chrono::Utc,
     std::{collections::HashMap, path::PathBuf, str::FromStr, sync::Arc, time},
-    time::Duration,
+    tokio::time::Duration,
     txn_forwarder::save_metrics,
 };
 
@@ -157,6 +158,9 @@ async fn main() -> anyhow::Result<()> {
     // Pull Env variables into config struct
     let config = setup_config(config_path);
 
+    // Optionally setup metrics if config demands it
+    setup_metrics(&config);
+
     // One pool many clones, this thing is thread safe and send sync
     let database_pool = setup_database(config.clone()).await;
 
@@ -197,8 +201,8 @@ async fn main() -> anyhow::Result<()> {
      ad.metadata=to_jsonb('processing'::text);
       */
 
-    match matches.subcommand() {
-        Some(("reindex", _)) => {
+    match matches.subcommand_name() {
+        Some("reindex") => {
             let exec_res = conn
                 .execute(Statement::from_string(
                     DbBackend::Postgres,
@@ -216,7 +220,7 @@ WHERE
                 .await;
             info!("Updated {:?} assets", exec_res.unwrap().rows_affected());
         }
-        Some(("show", _)) => {
+        Some("show") => {
             // Check the total number of assets in the DB
             let condition_found =
                 asset_data::Column::Metadata.ne(JsonValue::String("processing".to_string()));
@@ -282,7 +286,7 @@ WHERE
                 .with_label_values(&[tp, "total"])
                 .set(total_assets as i64);
         }
-        Some(("delete", _)) => {
+        Some("delete") => {
             println!("Deleting all existing tasks");
 
             // Delete all existing tasks
@@ -300,7 +304,7 @@ WHERE
                 }
             }
         }
-        Some(("create", _)) => {
+        Some("create") => {
             // @TODO : add a delete option that first deletes all matching tasks to the criteria or condition
 
             let condition = asset_data::Column::Reindex.eq(true);
@@ -330,7 +334,7 @@ WHERE
                     let name = instance_name.clone();
                     if let Ok(hash) = task_data.hash() {
                         let database_pool = database_pool.clone();
-                        let task_map = task_map.clone();
+                        let task_map = Arc::clone(&task_map);
                         let name = name.clone();
                         let tp = asset_data.1.clone();
                         let new_task = tokio::task::spawn(async move {
@@ -357,7 +361,7 @@ WHERE
                                 database_pool.clone(),
                                 name.clone(),
                                 task_data,
-                                task_map.clone(),
+                                Arc::clone(&task_map),
                                 false,
                             )
                             .await;
@@ -403,46 +407,6 @@ WHERE
     }
 
     metrics_jh.await
-}
-
-#[derive(thiserror::Error, Debug)]
-enum MetadataJsonTaskError {
-    #[error("reqwest: {0}")]
-    Reqwest(#[from] reqwest::Error),
-    #[error("sea orm: {0}")]
-    SeaOrm(#[from] sea_orm::DbErr),
-}
-
-async fn perform_metadata_json_task(
-    client: &Arc<Client>,
-    pool: sqlx::PgPool,
-    asset_data: asset_data::Model,
-) -> Result<asset_data::Model, MetadataJsonTaskError> {
-    let metadata = fetch_metadata_json(client, &asset_data.metadata_url).await?;
-    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
-    let asset_data_active_model = asset_data::ActiveModel {
-        id: Set(asset_data.id),
-        metadata: Set(metadata),
-        reindex: Set(Some(false)),
-        ..Default::default()
-    };
-
-    asset_data_active_model
-        .update(&conn)
-        .await
-        .map_err(Into::into)
-}
-
-async fn fetch_metadata_json(
-    client: &Arc<Client>,
-    uri: &str,
-) -> Result<serde_json::Value, reqwest::Error> {
-    client
-        .get(uri)
-        .send()
-        .await?
-        .json::<serde_json::Value>()
-        .await
 }
 
 fn find_by_type<'a>(
@@ -513,7 +477,10 @@ fn find_by_type<'a>(
 
         (
             asset_data::Entity::find()
-                .join(JoinType::InnerJoin, asset_data::Relation::Asset.def())
+                .join(
+                    JoinType::InnerJoin,
+                    extensions::asset_data::Relation::Asset.def(),
+                )
                 .join_rev(
                     JoinType::InnerJoin,
                     tokens::Entity::belongs_to(asset::Entity)

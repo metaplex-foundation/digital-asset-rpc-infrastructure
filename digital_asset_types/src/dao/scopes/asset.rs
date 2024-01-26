@@ -1,19 +1,18 @@
 use crate::{
     dao::{
-        asset::{self, Entity},
-        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits, Cursor, FullAsset,
-        GroupingSize, Pagination,
+        asset::{self},
+        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        extensions::{self, instruction::PascalCase},
+        sea_orm_active_enums::Instruction,
+        Cursor, FullAsset, GroupingSize, Pagination,
     },
-    dapi::common::safe_select,
-    rpc::response::AssetList,
+    rpc::filter::AssetSortDirection,
 };
-// >>>>>>> helius-nikhil/get-sigs-for-asset
-
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
 use std::collections::HashMap;
 
-pub fn paginate<'db, T, C>(
+pub fn paginate<T, C>(
     pagination: &Pagination,
     limit: u64,
     stmt: T,
@@ -52,6 +51,7 @@ where
     stmt.limit(limit)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_by_creator(
     conn: &impl ConnectionTrait,
     creator: Vec<u8>,
@@ -63,7 +63,7 @@ pub async fn get_by_creator(
     show_unverified_collections: bool,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
-        .add(asset_creators::Column::Creator.eq(creator))
+        .add(asset_creators::Column::Creator.eq(creator.clone()))
         .add(asset::Column::Supply.gt(0));
     if only_verified {
         condition = condition.add(asset_creators::Column::Verified.eq(true));
@@ -71,12 +71,13 @@ pub async fn get_by_creator(
     get_by_related_condition(
         conn,
         condition,
-        asset::Relation::AssetCreators,
+        extensions::asset::Relation::AssetCreators,
         sort_by,
         sort_direction,
         pagination,
         limit,
         show_unverified_collections,
+        Some(creator),
     )
     .await
 }
@@ -102,6 +103,7 @@ pub async fn get_grouping(
     Ok(GroupingSize { size })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_by_grouping(
     conn: &impl ConnectionTrait,
     group_key: String,
@@ -129,12 +131,13 @@ pub async fn get_by_grouping(
         Condition::all()
             .add(condition)
             .add(asset::Column::Supply.gt(0)),
-        asset::Relation::AssetGrouping,
+        extensions::asset::Relation::AssetGrouping,
         sort_by,
         sort_direction,
         pagination,
         limit,
         show_unverified_collections,
+        None,
     )
     .await
 }
@@ -164,7 +167,7 @@ pub async fn get_assets_by_owner(
     .await
 }
 
-pub async fn get_asset_batch(
+pub async fn get_assets(
     conn: &impl ConnectionTrait,
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
@@ -202,16 +205,18 @@ pub async fn get_by_authority(
     get_by_related_condition(
         conn,
         cond,
-        asset::Relation::AssetAuthority,
+        extensions::asset::Relation::AssetAuthority,
         sort_by,
         sort_direction,
         pagination,
         limit,
         show_unverified_collections,
+        None,
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn get_by_related_condition<E>(
     conn: &impl ConnectionTrait,
     condition: Condition,
@@ -221,6 +226,7 @@ async fn get_by_related_condition<E>(
     pagination: &Pagination,
     limit: u64,
     show_unverified_collections: bool,
+    required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
     E: RelationTrait,
@@ -238,13 +244,14 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections).await
+    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
     show_unverified_collections: bool,
+    required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
@@ -277,6 +284,36 @@ pub async fn get_related_for_assets(
         acc
     });
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
+
+    // Get all creators for all assets in `assets_map``.
+    let creators = asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(asset_creators::Column::AssetId)
+        .order_by_asc(asset_creators::Column::Position)
+        .all(conn)
+        .await?;
+
+    // Add the creators to the assets in `asset_map``.
+    for c in creators.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+            asset.creators.push(c);
+        }
+    }
+
+    // Filter out stale creators from each asset.
+    for (_id, asset) in assets_map.iter_mut() {
+        filter_out_stale_creators(&mut asset.creators);
+    }
+
+    // If we passed in a required creator, we make sure that creator is still in the creator array
+    // of each asset after stale creators were filtered out above.  Only retain those assets that
+    // have the required creator.  This corrects `getAssetByCreators` from returning assets for
+    // which the required creator is no longer in the creator array.
+    if let Some(required) = required_creator {
+        assets_map.retain(|_id, asset| asset.creators.iter().any(|c| c.creator == required));
+    }
+
+    let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -285,18 +322,6 @@ pub async fn get_related_for_assets(
     for a in authorities.into_iter() {
         if let Some(asset) = assets_map.get_mut(&a.asset_id) {
             asset.authorities.push(a);
-        }
-    }
-
-    let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_creators::Column::AssetId)
-        .order_by_asc(asset_creators::Column::Position)
-        .all(conn)
-        .await?;
-    for c in creators.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
-            asset.creators.push(c);
         }
     }
 
@@ -326,6 +351,7 @@ pub async fn get_related_for_assets(
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_assets_by_condition(
     conn: &impl ConnectionTrait,
     condition: Condition,
@@ -350,7 +376,8 @@ pub async fn get_assets_by_condition(
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    let full_assets = get_related_for_assets(conn, assets, show_unverified_collections).await?;
+    let full_assets =
+        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
     Ok(full_assets)
 }
 
@@ -376,11 +403,14 @@ pub async fn get_by_id(
         .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
-    let creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
+    let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
+
+    filter_out_stale_creators(&mut creators);
+
     let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
@@ -403,19 +433,59 @@ pub async fn get_by_id(
     })
 }
 
-pub async fn get_signatures_for_asset(
+pub async fn fetch_transactions(
+    conn: &impl ConnectionTrait,
+    tree: Vec<u8>,
+    leaf_idx: i64,
+    pagination: &Pagination,
+    limit: u64,
+    sort_direction: Option<AssetSortDirection>,
+) -> Result<Vec<(String, String)>, DbErr> {
+    // Default sort direction is Desc
+    // Similar to GetSignaturesForAddress in the Solana API
+    let sort_direction = sort_direction.unwrap_or(AssetSortDirection::Desc);
+    let sort_order = match sort_direction {
+        AssetSortDirection::Asc => sea_orm::Order::Asc,
+        AssetSortDirection::Desc => sea_orm::Order::Desc,
+    };
+
+    let mut stmt = cl_audits_v2::Entity::find().filter(cl_audits_v2::Column::Tree.eq(tree));
+    stmt = stmt.filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
+    stmt = stmt.order_by(cl_audits_v2::Column::Seq, sort_order.clone());
+
+    stmt = paginate(
+        pagination,
+        limit,
+        stmt,
+        sort_order,
+        cl_audits_v2::Column::Seq,
+    );
+    let transactions = stmt.all(conn).await?;
+    let transaction_list = transactions
+        .into_iter()
+        .map(|transaction| {
+            let tx = bs58::encode(transaction.tx).into_string();
+            let ix = Instruction::to_pascal_case(&transaction.instruction).to_string();
+            (tx, ix)
+        })
+        .collect();
+
+    Ok(transaction_list)
+}
+
+pub async fn get_asset_signatures(
     conn: &impl ConnectionTrait,
     asset_id: Option<Vec<u8>>,
     tree_id: Option<Vec<u8>>,
     leaf_idx: Option<i64>,
-    sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-) -> Result<Vec<(String, Option<String>)>, DbErr> {
+    sort_direction: Option<AssetSortDirection>,
+) -> Result<Vec<(String, String)>, DbErr> {
     // if tree_id and leaf_idx are provided, use them directly to fetch transactions
     if let (Some(tree_id), Some(leaf_idx)) = (tree_id, leaf_idx) {
         let transactions =
-            fetch_transactions(conn, tree_id, leaf_idx, sort_direction, pagination, limit).await?;
+            fetch_transactions(conn, tree_id, leaf_idx, pagination, limit, sort_direction).await?;
         return Ok(transactions);
     }
 
@@ -440,41 +510,46 @@ pub async fn get_signatures_for_asset(
         if tree.is_empty() {
             return Err(DbErr::Custom("Empty tree for asset".to_string()));
         }
-        let leaf_id = asset
+        let leaf_idx = asset
             .nonce
             .ok_or(DbErr::RecordNotFound("Leaf ID does not exist".to_string()))?;
         let transactions =
-            fetch_transactions(conn, tree, leaf_id, sort_direction, pagination, limit).await?;
+            fetch_transactions(conn, tree, leaf_idx, pagination, limit, sort_direction).await?;
         Ok(transactions)
     } else {
         Ok(Vec::new())
     }
 }
 
-pub async fn fetch_transactions(
-    conn: &impl ConnectionTrait,
-    tree: Vec<u8>,
-    leaf_id: i64,
-    sort_direction: Order,
-    pagination: &Pagination,
-    limit: u64,
-) -> Result<Vec<(String, Option<String>)>, DbErr> {
-    let mut stmt = cl_audits::Entity::find().filter(cl_audits::Column::Tree.eq(tree));
-    stmt = stmt.filter(cl_audits::Column::LeafIdx.eq(leaf_id));
-    stmt = stmt.order_by(cl_audits::Column::CreatedAt, sea_orm::Order::Desc);
+fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
+    // If the first creator is an empty Vec, it means the creator array is empty (which is allowed
+    // for compressed assets in Bubblegum).
+    if !creators.is_empty() && creators[0].creator.is_empty() {
+        creators.clear();
+    } else {
+        // For both compressed and non-compressed assets, any creators that do not have the max
+        // `slot_updated` value are stale and should be removed.
+        let max_slot_updated = creators.iter().map(|creator| creator.slot_updated).max();
+        if let Some(max_slot_updated) = max_slot_updated {
+            creators.retain(|creator| creator.slot_updated == max_slot_updated);
+        }
 
-    stmt = paginate(
-        pagination,
-        limit,
-        stmt,
-        sort_direction,
-        cl_audits::Column::Id,
-    );
-    let transactions = stmt.all(conn).await?;
-    let transaction_list: Vec<(String, Option<String>)> = transactions
-        .into_iter()
-        .map(|transaction| (transaction.tx, transaction.instruction))
-        .collect();
+        // For compressed assets, any creators that do not have the max `seq` value are stale and
+        // should be removed.  A `seq` value of 0 indicates a decompressed or never-compressed
+        // asset.  So if a `seq` value of 0 is present, then all creators with nonzero `seq` values
+        // are stale and should be removed.
+        let seq = if creators
+            .iter()
+            .map(|creator| creator.seq)
+            .any(|seq| seq == Some(0))
+        {
+            Some(Some(0))
+        } else {
+            creators.iter().map(|creator| creator.seq).max()
+        };
 
-    Ok(transaction_list)
+        if let Some(seq) = seq {
+            creators.retain(|creator| creator.seq == seq);
+        }
+    }
 }

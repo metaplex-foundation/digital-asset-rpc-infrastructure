@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
             .create_type(
                 Type::create()
                     .as_enum(BubblegumInstruction::Table)
-                    .values(all::<BubblegumInstruction>().map(|e| e).collect::<Vec<_>>())
+                    .values(all::<BubblegumInstruction>().collect::<Vec<_>>())
                     .to_owned(),
             )
             .await?;
@@ -44,7 +44,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(ClAuditsV2::Instruction)
                             .custom(BubblegumInstruction::Table)
-                            .not_null()
+                            .not_null(),
                     )
                     .to_owned(),
             )
@@ -60,7 +60,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-            manager
+        manager
             .drop_type(
                 Type::drop()
                     .if_exists()

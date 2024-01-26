@@ -3,7 +3,8 @@ use clap::Parser;
 use figment::value::{Dict, Value};
 use plerkle_messenger::{select_messenger, Messenger, MessengerConfig, MessengerType, RecvData};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Debug, Parser)]
 pub struct ReceiverArgs {
@@ -48,8 +49,6 @@ impl From<ReceiverArgs> for MessengerConfig {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReceiverError {
-    #[error("unable to acquire mutex lock")]
-    Lock,
     #[error("messenger: {0}")]
     Messenger(#[from] plerkle_messenger::MessengerError),
 }
@@ -70,7 +69,7 @@ impl Receiver {
     }
 
     pub async fn recv(&self) -> Result<Vec<RecvData>, ReceiverError> {
-        let mut messenger = self.0.lock().map_err(|_| ReceiverError::Lock)?;
+        let mut messenger = self.0.lock().await;
 
         messenger
             .recv(
@@ -82,7 +81,7 @@ impl Receiver {
     }
 
     pub async fn ack(&self, ids: &[String]) -> Result<(), ReceiverError> {
-        let mut messenger = self.0.lock().map_err(|_| ReceiverError::Lock)?;
+        let mut messenger = self.0.lock().await;
 
         messenger
             .ack_msg(METADATA_JSON_STREAM, ids)

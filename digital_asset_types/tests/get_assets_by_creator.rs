@@ -47,8 +47,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
             address: creator_1,
             share: 100,
             verified: true,
-        }]
-        .to_vec(),
+        }],
         seller_fee_basis_points: 100,
     };
 
@@ -100,8 +99,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
             address: creator_2,
             share: 100,
             verified: true,
-        }]
-        .to_vec(),
+        }],
         seller_fee_basis_points: 100,
     };
 
@@ -160,8 +158,7 @@ async fn get_assets_by_creator() -> Result<(), DbErr> {
                 share: 90,
                 verified: true,
             },
-        ]
-        .to_vec(),
+        ],
         seller_fee_basis_points: 100,
     };
 

@@ -1,64 +1,56 @@
 use crate::error::IngesterError;
 use digital_asset_types::dao::{
-    asset, asset_creators, asset_grouping, cl_audits_v2, cl_items,
-    sea_orm_active_enums::BubblegumInstruction,
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
+    cl_audits_v2, cl_items,
+    sea_orm_active_enums::{
+        ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
+        SpecificationAssetClass, SpecificationVersions,
+    },
 };
 use log::{debug, error, info};
-use mpl_bubblegum::types::Collection;
+use mpl_bubblegum::types::{Collection, Creator};
 use sea_orm::{
-    query::*, sea_query::OnConflict, ActiveModelTrait, ActiveValue::Set, ColumnTrait, DbBackend,
-    EntityTrait,
+    query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
-use solana_sdk::signature::Signature;
 use spl_account_compression::events::ChangeLogEventV1;
-
-use std::convert::From;
-use std::str::FromStr;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
+    slot: u64,
     txn_id: &str,
     txn: &T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<u64, IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, txn_id, txn, instruction).await?;
+    insert_change_log(change_log_event, slot, txn_id, txn, instruction, cl_audits).await?;
     Ok(change_log_event.seq)
 }
 
-fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
+const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }
 
 pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
+    slot: u64,
     txn_id: &str,
     txn: &T,
     instruction: &str,
+    cl_audits: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
 {
+    let mut i: i64 = 0;
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();
-    let signature = Signature::from_str(txn_id)?;
-    let leaf_idx = node_idx_to_leaf_idx(
-        i64::from(
-            change_log_event
-                .path
-                .get(0)
-                .ok_or(IngesterError::MissingChangeLogPath)?
-                .index,
-        ),
-        u32::try_from(depth)?,
-    );
-
-    for (i, p) in change_log_event.path.iter().enumerate() {
+    for p in change_log_event.path.iter() {
         let node_idx = p.index as i64;
-        info!(
-            "seq {}, index {} level {}, node {}, txn {}, instruction {}",
+        debug!(
+            "seq {}, index {} level {}, node {:?}, txn: {:?}, instruction {}",
             change_log_event.seq,
             p.index,
             i,
@@ -66,11 +58,15 @@ where
             txn_id,
             instruction
         );
-        let leaf_idx = if i == 0 { Some(leaf_idx) } else { None };
+        let leaf_idx = if i == 0 {
+            Some(node_idx_to_leaf_idx(node_idx, depth as u32))
+        } else {
+            None
+        };
 
         let item = cl_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
-            level: Set(i64::try_from(i)?),
+            level: Set(i),
             node_idx: Set(node_idx),
             hash: Set(p.node.as_ref().to_vec()),
             seq: Set(change_log_event.seq as i64),
@@ -78,6 +74,7 @@ where
             ..Default::default()
         };
 
+        i += 1;
         let mut query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
@@ -96,35 +93,77 @@ where
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
     }
 
-    let cl_audit = cl_audits_v2::ActiveModel {
-        tree: Set(tree_id.to_vec()),
-        leaf_idx: Set(leaf_idx),
-        seq: Set(i64::try_from(change_log_event.seq)?),
-        tx: Set(signature.as_ref().to_vec()),
-        instruction: Set(BubblegumInstruction::from_str(instruction)?),
-        ..Default::default()
-    };
+    // Insert the audit item after the insert into cl_items have been completed
+    if cl_audits {
+        let tx_id_bytes = bs58::decode(txn_id)
+            .into_vec()
+            .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
+        let ix = Instruction::from(instruction);
+        if ix == Instruction::Unknown {
+            error!("Unknown instruction: {}", instruction);
+        }
+        let audit_item_v2 = cl_audits_v2::ActiveModel {
+            tree: Set(tree_id.to_vec()),
+            leaf_idx: Set(change_log_event.index as i64),
+            seq: Set(change_log_event.seq as i64),
+            tx: Set(tx_id_bytes),
+            instruction: Set(ix),
+            ..Default::default()
+        };
+        let query = cl_audits_v2::Entity::insert(audit_item_v2)
+            .on_conflict(
+                OnConflict::columns([
+                    cl_audits_v2::Column::Tree,
+                    cl_audits_v2::Column::LeafIdx,
+                    cl_audits_v2::Column::Seq,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        match txn.execute(query).await {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Error while inserting into cl_audits_v2: {:?}", e);
+            }
+        }
+    }
 
-    let query = cl_audits_v2::Entity::insert(cl_audit)
-        .on_conflict(
-            OnConflict::columns([
-                cl_audits_v2::Column::Tree,
-                cl_audits_v2::Column::LeafIdx,
-                cl_audits_v2::Column::Seq,
-            ])
-            .do_nothing()
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
+    // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
+    // a single row into the `backfill_items` table.  This way if an incomplete path was inserted
+    // into `cl_items` due to an error, a gap will be created for the tree and the backfiller will
+    // fix it.
+    if i - 1 == depth as i64 {
+        // See if the tree already exists in the `backfill_items` table.
+        let rows = backfill_items::Entity::find()
+            .filter(backfill_items::Column::Tree.eq(tree_id))
+            .limit(1)
+            .all(txn)
+            .await?;
 
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
+        // then we know we will need to backfill the tree from sequence number 1 up to the current
+        // sequence number.  So in this case we set at flag to force checking the tree.
+        let force_chk = rows.is_empty() && change_log_event.seq > 1;
+
+        info!("Adding to backfill_items table at level {}", i - 1);
+        let item = backfill_items::ActiveModel {
+            tree: Set(tree_id.to_vec()),
+            seq: Set(change_log_event.seq as i64),
+            slot: Set(slot as i64),
+            force_chk: Set(force_chk),
+            backfilled: Set(false),
+            failed: Set(false),
+            ..Default::default()
+        };
+
+        backfill_items::Entity::insert(item).exec(txn).await?;
+    }
 
     Ok(())
-    //TODO -> set maximum size of path and break into multiple statements
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_asset_with_leaf_info<T>(
     txn: &T,
     id: Vec<u8>,
@@ -134,7 +173,6 @@ pub async fn upsert_asset_with_leaf_info<T>(
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
     seq: i64,
-    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -159,63 +197,21 @@ where
                     asset::Column::Nonce,
                     asset::Column::TreeId,
                     asset::Column::Leaf,
-                    asset::Column::LeafSeq,
                     asset::Column::DataHash,
                     asset::Column::CreatorHash,
+                    asset::Column::LeafSeq,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
 
-    // If we are indexing decompression we will update the leaf regardless of if we have previously
-    // indexed decompression and regardless of seq.
-    if !was_decompressed {
-        query.sql = format!(
-            "{} WHERE (NOT asset.was_decompressed) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
-            query.sql
-        );
-    }
+    // Do not overwrite changes that happened after decompression (asset.seq = 0).
+    // Do not overwrite changes from a later Bubblegum instruction.
+    query.sql = format!(
+        "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.leaf_seq >= asset.leaf_seq OR asset.leaf_seq IS NULL)",
+        query.sql
+    );
 
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-    Ok(())
-}
-
-pub async fn upsert_asset_with_leaf_info_for_decompression<T>(
-    txn: &T,
-    id: Vec<u8>,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let model = asset::ActiveModel {
-        id: Set(id),
-        leaf: Set(None),
-        nonce: Set(Some(0)),
-        leaf_seq: Set(None),
-        data_hash: Set(None),
-        creator_hash: Set(None),
-        tree_id: Set(None),
-        seq: Set(Some(0)),
-        ..Default::default()
-    };
-    let query = asset::Entity::insert(model)
-        .on_conflict(
-            OnConflict::column(asset::Column::Id)
-                .update_columns([
-                    asset::Column::Leaf,
-                    asset::Column::LeafSeq,
-                    asset::Column::Nonce,
-                    asset::Column::DataHash,
-                    asset::Column::CreatorHash,
-                    asset::Column::TreeId,
-                    asset::Column::Seq,
-                ])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
@@ -237,7 +233,7 @@ where
         id: Set(id),
         owner: Set(Some(owner)),
         delegate: Set(delegate),
-        owner_delegate_seq: Set(Some(seq)), // gummyroll seq
+        owner_delegate_seq: Set(Some(seq)),
         ..Default::default()
     };
 
@@ -252,8 +248,11 @@ where
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+
+    // Do not overwrite changes that happened after decompression (asset.seq = 0).
+    // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-            "{} WHERE excluded.owner_delegate_seq >= asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL",
+            "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.owner_delegate_seq >= asset.owner_delegate_seq OR asset.owner_delegate_seq IS NULL)",
             query.sql
         );
 
@@ -271,7 +270,6 @@ pub async fn upsert_asset_with_compression_info<T>(
     compressible: bool,
     supply: i64,
     supply_mint: Option<Vec<u8>>,
-    was_decompressed: bool,
 ) -> Result<(), IngesterError>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -282,7 +280,6 @@ where
         compressible: Set(compressible),
         supply: Set(supply),
         supply_mint: Set(supply_mint),
-        was_decompressed: Set(was_decompressed),
         ..Default::default()
     };
 
@@ -294,12 +291,13 @@ where
                     asset::Column::Compressible,
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
-                    asset::Column::WasDecompressed,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!("{} WHERE NOT asset.was_decompressed", query.sql);
+
+    // Do not overwrite changes that happened after decompression (asset.seq = 0).
+    query.sql = format!("{} WHERE asset.seq != 0 OR asset.seq IS NULL", query.sql);
     txn.execute(query).await?;
 
     Ok(())
@@ -323,52 +321,10 @@ where
         )
         .build(DbBackend::Postgres);
 
+    // Do not overwrite changes that happened after decompression (asset.seq = 0).
+    // Do not overwrite changes from a later Bubblegum instruction.
     query.sql = format!(
-        "{} WHERE (NOT asset.was_decompressed) AND (excluded.seq >= asset.seq OR asset.seq IS NULL)",
-        query.sql
-    );
-
-    txn.execute(query)
-        .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-
-    Ok(())
-}
-
-pub async fn upsert_creator_verified<T>(
-    txn: &T,
-    asset_id: Vec<u8>,
-    creator: Vec<u8>,
-    verified: bool,
-    seq: i64,
-) -> Result<(), IngesterError>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let model = asset_creators::ActiveModel {
-        asset_id: Set(asset_id),
-        creator: Set(creator),
-        verified: Set(verified),
-        seq: Set(Some(seq)),
-        ..Default::default()
-    };
-
-    let mut query = asset_creators::Entity::insert(model)
-        .on_conflict(
-            OnConflict::columns([
-                asset_creators::Column::AssetId,
-                asset_creators::Column::Creator,
-            ])
-            .update_columns([
-                asset_creators::Column::Verified,
-                asset_creators::Column::Seq,
-            ])
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    query.sql = format!(
-        "{} WHERE excluded.seq >= asset_creators.seq OR asset_creators.seq is NULL",
+        "{} WHERE (asset.seq != 0 AND excluded.seq >= asset.seq) OR asset.seq IS NULL",
         query.sql
     );
 
@@ -420,14 +376,250 @@ where
         )
         .build(DbBackend::Postgres);
 
+    // Do not overwrite changes that happened after decompression (asset_grouping.group_info_seq = 0).
     query.sql = format!(
-        "{} WHERE excluded.group_info_seq >= asset_grouping.group_info_seq OR asset_grouping.group_info_seq IS NULL",
+        "{} WHERE (asset_grouping.group_info_seq != 0 AND excluded.group_info_seq >= asset_grouping.group_info_seq) OR asset_grouping.group_info_seq IS NULL",
         query.sql
     );
 
     txn.execute(query)
         .await
         .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn upsert_asset_data<T>(
+    txn: &T,
+    id: Vec<u8>,
+    chain_data_mutability: ChainMutability,
+    chain_data: JsonValue,
+    metadata_url: String,
+    metadata_mutability: Mutability,
+    metadata: JsonValue,
+    slot_updated: i64,
+    reindex: Option<bool>,
+    raw_name: Vec<u8>,
+    raw_symbol: Vec<u8>,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_data::ActiveModel {
+        id: Set(id.clone()),
+        chain_data_mutability: Set(chain_data_mutability),
+        chain_data: Set(chain_data),
+        metadata_url: Set(metadata_url),
+        metadata_mutability: Set(metadata_mutability),
+        metadata: Set(metadata),
+        slot_updated: Set(slot_updated),
+        reindex: Set(reindex),
+        raw_name: Set(Some(raw_name)),
+        raw_symbol: Set(Some(raw_symbol)),
+        base_info_seq: Set(Some(seq)),
+    };
+
+    let mut query = asset_data::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset_data::Column::Id])
+                .update_columns([
+                    asset_data::Column::ChainDataMutability,
+                    asset_data::Column::ChainData,
+                    asset_data::Column::MetadataUrl,
+                    asset_data::Column::MetadataMutability,
+                    // Don't update asset_data::Column::Metadata if it already exists.  Even if we
+                    // are indexing `update_metadata`` and there's a new URI, the new background
+                    // task will overwrite it.
+                    asset_data::Column::SlotUpdated,
+                    asset_data::Column::Reindex,
+                    asset_data::Column::RawName,
+                    asset_data::Column::RawSymbol,
+                    asset_data::Column::BaseInfoSeq,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    // Do not overwrite changes that happened after decompression (asset_data.base_info_seq = 0).
+    // Do not overwrite changes from a later Bubblegum instruction.
+    query.sql = format!(
+        "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL",
+        query.sql
+    );
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn upsert_asset_base_info<T>(
+    txn: &T,
+    id: Vec<u8>,
+    owner_type: OwnerType,
+    frozen: bool,
+    specification_version: SpecificationVersions,
+    specification_asset_class: SpecificationAssetClass,
+    royalty_target_type: RoyaltyTargetType,
+    royalty_target: Option<Vec<u8>>,
+    royalty_amount: i32,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    // Set base info for asset.
+    let asset_model = asset::ActiveModel {
+        id: Set(id.clone()),
+        owner_type: Set(owner_type),
+        frozen: Set(frozen),
+        specification_version: Set(Some(specification_version)),
+        specification_asset_class: Set(Some(specification_asset_class)),
+        royalty_target_type: Set(royalty_target_type),
+        royalty_target: Set(royalty_target),
+        royalty_amount: Set(royalty_amount),
+        asset_data: Set(Some(id.clone())),
+        slot_updated: Set(Some(slot_updated)),
+        base_info_seq: Set(Some(seq)),
+        ..Default::default()
+    };
+
+    // Upsert asset table base info.
+    let mut query = asset::Entity::insert(asset_model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([
+                    asset::Column::OwnerType,
+                    asset::Column::Frozen,
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::RoyaltyTargetType,
+                    asset::Column::RoyaltyTarget,
+                    asset::Column::RoyaltyAmount,
+                    asset::Column::AssetData,
+                    asset::Column::SlotUpdated,
+                    asset::Column::BaseInfoSeq,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    query.sql = format!(
+            "{} WHERE (asset.seq != 0 OR asset.seq IS NULL) AND (excluded.base_info_seq >= asset.base_info_seq OR asset.base_info_seq IS NULL)",
+            query.sql
+        );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn upsert_asset_creators<T>(
+    txn: &T,
+    id: Vec<u8>,
+    creators: &Vec<Creator>,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let db_creators = if creators.is_empty() {
+        // If creators are empty, insert an empty creator with the current sequence.
+        // This prevents accidental errors during out-of-order updates.
+        vec![asset_creators::ActiveModel {
+            asset_id: Set(id.clone()),
+            position: Set(0),
+            creator: Set(vec![]),
+            share: Set(100),
+            verified: Set(false),
+            slot_updated: Set(Some(slot_updated)),
+            seq: Set(Some(seq)),
+            ..Default::default()
+        }]
+    } else {
+        creators
+            .iter()
+            .enumerate()
+            .map(|(i, c)| asset_creators::ActiveModel {
+                asset_id: Set(id.clone()),
+                position: Set(i as i16),
+                creator: Set(c.address.to_bytes().to_vec()),
+                share: Set(c.share as i32),
+                verified: Set(c.verified),
+                slot_updated: Set(Some(slot_updated)),
+                seq: Set(Some(seq)),
+                ..Default::default()
+            })
+            .collect()
+    };
+
+    // This statement will update base information for each creator.
+    let mut query = asset_creators::Entity::insert_many(db_creators)
+        .on_conflict(
+            OnConflict::columns([
+                asset_creators::Column::AssetId,
+                asset_creators::Column::Position,
+            ])
+            .update_columns([
+                asset_creators::Column::Creator,
+                asset_creators::Column::Share,
+                asset_creators::Column::Verified,
+                asset_creators::Column::Seq,
+                asset_creators::Column::SlotUpdated,
+            ])
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE (asset_creators.seq != 0 AND excluded.seq >= asset_creators.seq) OR asset_creators.seq IS NULL",
+        query.sql
+    );
+
+    txn.execute(query).await?;
+
+    Ok(())
+}
+
+pub async fn upsert_asset_authority<T>(
+    txn: &T,
+    asset_id: Vec<u8>,
+    authority: Vec<u8>,
+    slot_updated: i64,
+    seq: i64,
+) -> Result<(), IngesterError>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = asset_authority::ActiveModel {
+        asset_id: Set(asset_id),
+        authority: Set(authority),
+        seq: Set(seq),
+        slot_updated: Set(slot_updated),
+        ..Default::default()
+    };
+
+    // This value is only written during `mint_V1`` or after an item is decompressed, so do not
+    // attempt to modify any existing values:
+    // `ON CONFLICT ('asset_id') DO NOTHING`.
+    let query = asset_authority::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([asset_authority::Column::AssetId])
+                .do_nothing()
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }

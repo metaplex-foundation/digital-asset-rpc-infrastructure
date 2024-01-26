@@ -130,7 +130,7 @@ pub struct TreeGapFill {
 }
 
 impl TreeGapFill {
-    pub fn new(tree: Pubkey, before: Option<Signature>, until: Option<Signature>) -> Self {
+    pub const fn new(tree: Pubkey, before: Option<Signature>, until: Option<Signature>) -> Self {
         Self {
             tree,
             before,
@@ -249,8 +249,7 @@ impl TreeResponse {
             gma_handles.push(async move {
                 let accounts = client.get_multiple_accounts(batch).await?;
 
-                let results: Vec<(&Pubkey, Option<Account>)> =
-                    batch.iter().zip(accounts).collect();
+                let results: Vec<(&Pubkey, Option<Account>)> = batch.iter().zip(accounts).collect();
 
                 Ok::<_, TreeErrorKind>(results)
             })

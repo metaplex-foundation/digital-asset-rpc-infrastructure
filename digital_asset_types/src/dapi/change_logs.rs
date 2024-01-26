@@ -89,7 +89,7 @@ pub async fn get_proof_for_asset(
     Ok(asset_proof)
 }
 
-pub async fn get_asset_proof_batch(
+pub async fn get_asset_proofs(
     db: &DatabaseConnection,
     asset_ids: Vec<Vec<u8>>,
 ) -> Result<HashMap<String, AssetProof>, DbErr> {
@@ -180,12 +180,12 @@ pub async fn get_asset_proof_batch(
             })
             .collect();
 
-        let leaf_info = asset_map.get(&leaf).unwrap();
+        let leaf_info = asset_map.get(leaf).unwrap();
         let asset_proof = build_asset_proof(
             leaf_info.tree_id.clone(),
             leaf_info.node_idx,
             leaf_info.hash.clone(),
-            &req_indexes,
+            req_indexes,
             &required_nodes,
         );
 
@@ -201,7 +201,7 @@ fn build_asset_proof(
     leaf_node_idx: i64,
     leaf_hash: Vec<u8>,
     req_indexes: &Vec<i64>,
-    required_nodes: &Vec<SimpleChangeLog>,
+    required_nodes: &[SimpleChangeLog],
 ) -> AssetProof {
     let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
     for node in required_nodes.iter() {
@@ -252,5 +252,5 @@ pub fn get_required_nodes_for_proof(index: i64) -> Vec<i64> {
         idx >>= 1
     }
     indexes.push(1);
-    return indexes;
+    indexes
 }

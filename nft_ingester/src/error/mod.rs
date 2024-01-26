@@ -52,16 +52,6 @@ pub enum IngesterError {
     HttpError { status_code: String },
     #[error("AssetIndex Error {0}")]
     AssetIndexError(String),
-    #[error("TryFromInt Error {0}")]
-    TryFromInt(#[from] std::num::TryFromIntError),
-    #[error("Chrono FixedOffset Error")]
-    ChronoFixedOffset,
-    #[error("Pubkey parse")]
-    ParsePubkey,
-    #[error("Signature parse")]
-    ParseSignature(#[from] solana_sdk::signature::ParseSignatureError),
-    #[error("Missing Path at index for change log event")]
-    MissingChangeLogPath,
 }
 
 impl From<reqwest::Error> for IngesterError {

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_histogram};
 use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
-use das_metadata_json::SenderPool;
+use das_metadata_json::sender::{SenderArgs, SenderPool};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
 use log::{debug, error, info, warn};
 use sea_orm::{
@@ -98,12 +98,13 @@ pub trait IntoTaskData: Sized {
 pub struct TaskManager {
     instance_name: String,
     pool: Pool<Postgres>,
-    metadata_json_sender: Option<SenderPool>,
     producer: Option<UnboundedSender<TaskData>>,
+    metadata_json_sender: Option<SenderPool>,
     registered_task_types: Arc<HashMap<String, Box<dyn BgTask>>>,
 }
 
 impl TaskManager {
+    #[allow(clippy::borrowed_box)]
     async fn execute_task(
         db: &DatabaseConnection,
         task_def: &Box<dyn BgTask>,
@@ -125,7 +126,7 @@ impl TaskManager {
         }?;
 
         let start = Utc::now();
-        let res = task_def.task(&db, *data_json).await;
+        let res = task_def.task(db, *data_json).await;
         let end = Utc::now();
         task.duration = Set(Some(
             ((end.timestamp_millis() - start.timestamp_millis()) / 1000) as i32,
@@ -233,23 +234,34 @@ impl TaskManager {
         task.locked_by = Set(Some(instance_name));
     }
 
-    pub fn new(
+    pub async fn try_new_async(
         instance_name: String,
         pool: Pool<Postgres>,
-        metadata_json_sender: Option<SenderPool>,
+        metadata_json_sender_config: Option<SenderArgs>,
         task_defs: Vec<Box<dyn BgTask>>,
-    ) -> Self {
+    ) -> Result<Self, IngesterError> {
         let mut tasks = HashMap::new();
         for task in task_defs {
             tasks.insert(task.name().to_string(), task);
         }
-        TaskManager {
+
+        let metadata_json_sender = if let Some(config) = metadata_json_sender_config {
+            Some(SenderPool::try_from_config(config).await.map_err(|_| {
+                IngesterError::TaskManagerError(
+                    "Failed to connect to metadata json sender".to_string(),
+                )
+            })?)
+        } else {
+            None
+        };
+
+        Ok(TaskManager {
             instance_name,
             pool,
             producer: None,
             metadata_json_sender,
             registered_task_types: Arc::new(tasks),
-        }
+        })
     }
 
     pub fn new_task_handler(
@@ -306,20 +318,10 @@ impl TaskManager {
             .map_err(|e| e.into())
     }
 
-    async fn save_task<A>(
-        txn: &A,
-        task: tasks::ActiveModel,
-    ) -> Result<tasks::ActiveModel, IngesterError>
-    where
-        A: ConnectionTrait,
-    {
-        let act: tasks::ActiveModel = task;
-        act.save(txn).await.map_err(|e| e.into())
-    }
     pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
-        let task_map = self.registered_task_types.clone();
+        let task_map = Arc::clone(&self.registered_task_types);
         let pool = self.pool.clone();
         let instance_name = self.instance_name.clone();
         let sender_pool = self.metadata_json_sender.clone();
@@ -343,9 +345,10 @@ impl TaskManager {
                         let download_metadata_task = DownloadMetadata::from_task_data(task);
 
                         if let Ok(download_metadata_task) = download_metadata_task {
-                            if let Err(_) = sender_pool
+                            if sender_pool
                                 .push(&download_metadata_task.asset_data_id)
                                 .await
+                                .is_err()
                             {
                                 metric! {
                                     statsd_count!("ingester.metadata_json.send.failed", 1);
@@ -383,7 +386,7 @@ impl TaskManager {
                         pool.clone(),
                         instance_name,
                         task,
-                        task_map.clone(),
+                        Arc::clone(&task_map),
                         process_on_receive,
                     );
 
@@ -395,8 +398,19 @@ impl TaskManager {
         })
     }
 
+    async fn save_task<A>(
+        txn: &A,
+        task: tasks::ActiveModel,
+    ) -> Result<tasks::ActiveModel, IngesterError>
+    where
+        A: ConnectionTrait,
+    {
+        let act: tasks::ActiveModel = task;
+        act.save(txn).await.map_err(|e| e.into())
+    }
+
     pub fn start_runner(&self, config: Option<BackgroundTaskRunnerConfig>) -> JoinHandle<()> {
-        let task_map = self.registered_task_types.clone();
+        let task_map = Arc::clone(&self.registered_task_types);
         let instance_name = self.instance_name.clone();
 
         // Load the config values
@@ -464,22 +478,18 @@ impl TaskManager {
                 match tasks_res {
                     Ok(tasks) => {
                         debug!("tasks that need to be executed: {}", tasks.len());
-                        let _task_map_clone = task_map.clone();
-                        let instance_name = instance_name.clone();
                         for task in tasks {
-                            let task_map_clone = task_map.clone();
-                            let instance_name_clone = instance_name.clone();
+                            let task_map = Arc::clone(&task_map);
+                            let instance_name = instance_name.clone();
                             let pool = pool.clone();
                             tokio::task::spawn(async move {
-                                if let Some(task_executor) =
-                                    task_map_clone.clone().get(&*task.task_type)
-                                {
+                                if let Some(task_executor) = task_map.get(&*task.task_type) {
                                     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
                                     let mut active_model: tasks::ActiveModel = task.into();
                                     TaskManager::lock_task(
                                         &mut active_model,
                                         Duration::seconds(task_executor.lock_duration()),
-                                        instance_name_clone,
+                                        instance_name,
                                     );
                                     // can ignore as txn will bubble up errors
                                     let active_model =

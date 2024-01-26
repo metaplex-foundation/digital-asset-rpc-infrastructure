@@ -4,36 +4,14 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
+pub enum OwnerType {
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "token")]
+    Token,
     #[sea_orm(string_value = "unknown")]
     Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
-pub enum Mutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
-pub enum TaskStatus {
-    #[sea_orm(string_value = "failed")]
-    Failed,
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "running")]
-    Running,
-    #[sea_orm(string_value = "success")]
-    Success,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
@@ -52,20 +30,32 @@ pub enum RoyaltyTargetType {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
+pub enum Mutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
-    enum_name = "specification_versions"
+    enum_name = "v1_account_attachments"
 )]
-pub enum SpecificationVersions {
+pub enum V1AccountAttachments {
+    #[sea_orm(string_value = "edition")]
+    Edition,
+    #[sea_orm(string_value = "edition_marker")]
+    EditionMarker,
+    #[sea_orm(string_value = "master_edition_v1")]
+    MasterEditionV1,
+    #[sea_orm(string_value = "master_edition_v2")]
+    MasterEditionV2,
     #[sea_orm(string_value = "unknown")]
     Unknown,
-    #[sea_orm(string_value = "v0")]
-    V0,
-    #[sea_orm(string_value = "v1")]
-    V1,
-    #[sea_orm(string_value = "v2")]
-    V2,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
@@ -96,42 +86,46 @@ pub enum SpecificationAssetClass {
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "v1_account_attachments"
-)]
-pub enum V1AccountAttachments {
-    #[sea_orm(string_value = "edition")]
-    Edition,
-    #[sea_orm(string_value = "edition_marker")]
-    EditionMarker,
-    #[sea_orm(string_value = "master_edition_v1")]
-    MasterEditionV1,
-    #[sea_orm(string_value = "master_edition_v2")]
-    MasterEditionV2,
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
-pub enum OwnerType {
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "token")]
-    Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
+pub enum TaskStatus {
+    #[sea_orm(string_value = "failed")]
+    Failed,
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "running")]
+    Running,
+    #[sea_orm(string_value = "success")]
+    Success,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
-    enum_name = "bubblegum_instruction"
+    enum_name = "specification_versions"
 )]
-pub enum BubblegumInstruction {
-    #[sea_orm(string_value = "bubblegum_instruction")]
-    BubblegumInstruction,
+pub enum SpecificationVersions {
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+    #[sea_orm(string_value = "v0")]
+    V0,
+    #[sea_orm(string_value = "v1")]
+    V1,
+    #[sea_orm(string_value = "v2")]
+    V2,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "instruction")]
+pub enum Instruction {
     #[sea_orm(string_value = "burn")]
     Burn,
     #[sea_orm(string_value = "cancel_redeem")]
@@ -158,39 +152,10 @@ pub enum BubblegumInstruction {
     UnverifyCollection,
     #[sea_orm(string_value = "unverify_creator")]
     UnverifyCreator,
+    #[sea_orm(string_value = "update_metadata")]
+    UpdateMetadata,
     #[sea_orm(string_value = "verify_collection")]
     VerifyCollection,
     #[sea_orm(string_value = "verify_creator")]
     VerifyCreator,
-    #[sea_orm(string_value = "create_tree")]
-    CreateTree,
-}
-
-impl std::str::FromStr for BubblegumInstruction {
-    type Err = sea_orm::DbErr;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "MintV1" => Ok(BubblegumInstruction::MintV1),
-            "MintToCollectionV1" => Ok(BubblegumInstruction::MintToCollectionV1),
-            "Redeem" => Ok(BubblegumInstruction::Redeem),
-            "CancelRedeem" => Ok(BubblegumInstruction::CancelRedeem),
-            "Transfer" => Ok(BubblegumInstruction::Transfer),
-            "Delegate" => Ok(BubblegumInstruction::Delegate),
-            "DecompressV1" => Ok(BubblegumInstruction::DecompressV1),
-            "Compress" => Ok(BubblegumInstruction::Compress),
-            "Burn" => Ok(BubblegumInstruction::Burn),
-            "CreateTree" => Ok(BubblegumInstruction::CreateTree),
-            "VerifyCreator" => Ok(BubblegumInstruction::VerifyCreator),
-            "UnverifyCreator" => Ok(BubblegumInstruction::UnverifyCreator),
-            "VerifyCollection" => Ok(BubblegumInstruction::VerifyCollection),
-            "UnverifyCollection" => Ok(BubblegumInstruction::UnverifyCollection),
-            "SetAndVerifyCollection" => Ok(BubblegumInstruction::SetAndVerifyCollection),
-            "Unknown" => Ok(BubblegumInstruction::Unknown),
-            _ => Err(sea_orm::DbErr::Custom(format!(
-                "Invalid value for BubblegumInstruction: {}",
-                s
-            ))),
-        }
-    }
 }

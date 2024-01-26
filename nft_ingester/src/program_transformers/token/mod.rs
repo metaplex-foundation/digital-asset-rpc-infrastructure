@@ -1,7 +1,6 @@
-use crate::{error::IngesterError, metric, tasks::TaskData};
+use crate::{error::IngesterError, tasks::TaskData};
 use blockbuster::programs::token_account::TokenProgramAccount;
-use cadence_macros::{is_global_default_set, statsd_count};
-use digital_asset_types::dao::{asset, token_accounts, tokens};
+use digital_asset_types::dao::{asset, sea_orm_active_enums::OwnerType, token_accounts, tokens};
 use plerkle_serialization::AccountInfo;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
@@ -27,10 +26,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::Some(d) => Some(d.to_bytes().to_vec()),
                 COption::None => None,
             };
-            let frozen = match ta.state {
-                AccountState::Frozen => true,
-                _ => false,
-            };
+            let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
                 pubkey: Set(key_bytes),
@@ -125,20 +121,38 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 )
                 .build(DbBackend::Postgres);
             query.sql = format!(
-                "{} WHERE excluded.slot_updated > tokens.slot_updated",
+                "{} WHERE excluded.slot_updated >= tokens.slot_updated",
                 query.sql
             );
             db.execute(query).await?;
+
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes.clone())
-                .filter(asset::Column::OwnerType.eq("single"))
+                .filter(
+                    asset::Column::OwnerType
+                        .eq(OwnerType::Single)
+                        .or(asset::Column::OwnerType
+                            .eq(OwnerType::Unknown)
+                            .and(asset::Column::Supply.eq(1))),
+                )
                 .one(db)
                 .await?;
             if let Some(asset) = asset_update {
-                let mut active: asset::ActiveModel = asset.into();
+                let mut active: asset::ActiveModel = asset.clone().into();
                 active.supply = Set(m.supply as i64);
                 active.supply_mint = Set(Some(key_bytes));
+
+                // Update owner_type based on the supply.
+                if asset.owner_type == OwnerType::Unknown {
+                    active.owner_type = match m.supply.cmp(&1) {
+                        std::cmp::Ordering::Equal => Set(OwnerType::Single),
+                        std::cmp::Ordering::Greater => Set(OwnerType::Token),
+                        _ => NotSet,
+                    }
+                }
+
                 active.save(db).await?;
             }
+
             Ok(())
         }
         _ => Err(IngesterError::NotImplemented),
