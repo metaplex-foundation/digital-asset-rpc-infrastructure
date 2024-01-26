@@ -311,6 +311,8 @@ create table merkle_tree
 
 create index merkle_tree_id on merkle_tree (id);
 -- @@@@@@
+create index merkle_tree_program on merkle_tree (program);
+-- @@@@@@
 
 create table compressed_data
 (
@@ -342,6 +344,4 @@ create index compressed_data_parsed_data on compressed_data (parsed_data);
 create unique index compressed_data_tree_leaf_idx on compressed_data (tree_id, leaf_idx);
 -- @@@@@@
 create index compressed_data_revision on compressed_data (tree_id, raw_data, leaf_idx);
--- @@@@@@
-create index compressed_data_program on compressed_data (program);
 -- @@@@@@
