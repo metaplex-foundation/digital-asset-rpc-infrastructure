@@ -1,0 +1,8 @@
+-[ RECORD 1 ]--+-------------------------------------------------------------------
+asset_id       | \xe96440d0b5eeaf5aba535fe1648286f62e2f75708b818e627ad80e3552bc48d4
+group_key      | collection
+group_value    | 
+seq            | 
+slot_updated   | 274904440
+verified       | f
+group_info_seq | 1

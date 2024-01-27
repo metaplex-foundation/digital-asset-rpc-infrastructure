@@ -1,0 +1,24 @@
+-[ RECORD 1 ]+-------------------------------------------------------------------
+asset_id     | \xd4f2620a226cb8bd6889d7c27d7164d3bd7f38ab7f39ca9276e237aa68b40ef3
+creator      | \xdc53343c46e5d7a1bd08f4780285621202f66b596f984e940a5eb423ac560fed
+share        | 50
+verified     | t
+seq          | 2
+slot_updated | 273252293
+position     | 0
+-[ RECORD 2 ]+-------------------------------------------------------------------
+asset_id     | \xd4f2620a226cb8bd6889d7c27d7164d3bd7f38ab7f39ca9276e237aa68b40ef3
+creator      | \x22bf65940c430032a3b25503d8bc294ea1ec5b212ef32b85209eb9ab95ac5c5c
+share        | 50
+verified     | f
+seq          | 2
+slot_updated | 273252293
+position     | 1
+-[ RECORD 3 ]+-------------------------------------------------------------------
+asset_id     | \xd4f2620a226cb8bd6889d7c27d7164d3bd7f38ab7f39ca9276e237aa68b40ef3
+creator      | \x22bf65940c430032a3b25503d8bc294ea1ec5b212ef32b85209eb9ab95ac5c5c
+share        | 10
+verified     | f
+seq          | 1
+slot_updated | 273252291
+position     | 2

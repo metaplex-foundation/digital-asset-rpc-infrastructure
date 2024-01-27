@@ -20,7 +20,9 @@ SCENARIOS=("mint_transfer_burn.scenario" \
 "mint_verify_collection_unverify_collection.scenario" \
 "mint_set_and_verify_collection.scenario" \
 "mint_to_collection_unverify_collection.scenario" \
-"mint_verify_creator_unverify_creator_update_metadata.scenario"
+"mint_verify_creator_unverify_creator_update_metadata.scenario" \
+"mint_update_metadata_creator_position_3_to_2.scenario" \
+"mint_update_metadata_remove_all_creators.scenario"
 )
 
 TEST_SCENARIO_DATA_DIR="test_scenario_data"
