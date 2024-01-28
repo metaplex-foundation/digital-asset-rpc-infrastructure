@@ -1,5 +1,5 @@
 -[ RECORD 1 ]-------------+-------------------------------------------------------------------
-id                        | \x4582ef313005487b924213937300a3c5cef8502646c8c182a2a9e1188adb196b
+id                        | \xdee18b450d1a279ad5ab41f17c2daccbf827f82113c32f08573872ef05869cb8
 alt_id                    | 
 specification_version     | v1
 specification_asset_class | NFT
@@ -12,17 +12,17 @@ supply_mint               |
 compressed                | t
 compressible              | f
 seq                       | 2
-tree_id                   | \x85de015db25b997c2c2dc80baa680016bf82c1d748a1c69361a54daee5c4e561
-leaf                      | \x0000000000000000000000000000000000000000000000000000000000000000
+tree_id                   | \x20fbd4120c7aa919cd7eeb145c35cbec14742170df1361e0c1504c278ecf0dbb
+leaf                      | \x162ee13e1c60c989dd3834618aece0a3a7f6b24b4815bb7f8eb8a186dd11867d
 nonce                     | 0
 royalty_target_type       | creators
 royalty_target            | 
 royalty_amount            | 0
-asset_data                | \x4582ef313005487b924213937300a3c5cef8502646c8c182a2a9e1188adb196b
+asset_data                | \xdee18b450d1a279ad5ab41f17c2daccbf827f82113c32f08573872ef05869cb8
 burnt                     | f
-slot_updated              | 224069842
-data_hash                 | 11111111111111111111111111111111                  
-creator_hash              | 11111111111111111111111111111111                  
-owner_delegate_seq        | 1
+slot_updated              | 275704003
+data_hash                 | BVPXiaGg74xazp8NvjtE6ypLeMsSwSt6Cvc7V2FJvmXd      
+creator_hash              | 6CTqFz9shqciWHtCeeS2kQwtctm6mZbkUjFtPpP51VvW      
+owner_delegate_seq        | 2
 leaf_seq                  | 2
 base_info_seq             | 1

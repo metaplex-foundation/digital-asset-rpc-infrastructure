@@ -1,0 +1,12 @@
+-[ RECORD 1 ]---------+--------------------------------------------------------------------------------------------------------------------------------
+id                    | \x5954e9d4e0c6d3b06c8c749b2a341a52550b43439a8d9c301e3c1f42ad09f103
+chain_data_mutability | mutable
+chain_data            | {"name": "NewName", "symbol": "NewSymbol", "edition_nonce": 0, "token_standard": "NonFungible", "primary_sale_happened": false}
+metadata_url          | https://foobar.com
+metadata_mutability   | mutable
+metadata              | "processing"
+slot_updated          | 275334061
+reindex               | t
+raw_name              | \x4e65774e616d65
+raw_symbol            | \x4e657753796d626f6c
+base_info_seq         | 4
