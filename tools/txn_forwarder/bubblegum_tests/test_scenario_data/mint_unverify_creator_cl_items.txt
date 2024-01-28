@@ -1,0 +1,7 @@
+                                tree                                | node_idx | leaf_idx | seq | level |                                hash                                
+--------------------------------------------------------------------+----------+----------+-----+-------+--------------------------------------------------------------------
+ \x20fbd4120c7aa919cd7eeb145c35cbec14742170df1361e0c1504c278ecf0dbb |        8 |        0 |   2 |     0 | \x162ee13e1c60c989dd3834618aece0a3a7f6b24b4815bb7f8eb8a186dd11867d
+ \x20fbd4120c7aa919cd7eeb145c35cbec14742170df1361e0c1504c278ecf0dbb |        4 |          |   2 |     1 | \xab9b631b333d83a92c4c943113ea0dc9d26e7eb7b056a762eb7dbeeb5a40ee53
+ \x20fbd4120c7aa919cd7eeb145c35cbec14742170df1361e0c1504c278ecf0dbb |        2 |          |   2 |     2 | \x7c1e4d6f2b2aa08d4d19b688c43352ecf568029805ca0feeea1cafea967747e8
+ \x20fbd4120c7aa919cd7eeb145c35cbec14742170df1361e0c1504c278ecf0dbb |        1 |          |   2 |     3 | \x9f9b18c1be658a116eb083b5d58365bc9519e1a8c0e7b79c235c65588dff707d
+(4 rows)
