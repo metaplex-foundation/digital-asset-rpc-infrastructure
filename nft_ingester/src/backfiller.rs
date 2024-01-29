@@ -515,7 +515,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .map(|(k, s)| MissingTree { tree: k, slot: s.0 })
             .collect::<Vec<MissingTree>>();
         if !missing_trees.is_empty() {
-            info!("Number of Missing local trees: {}", missing_trees.len());
+            debug!("Number of Missing local trees: {}", missing_trees.len());
         } else {
             debug!("No missing trees");
         }

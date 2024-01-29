@@ -7,7 +7,7 @@ use digital_asset_types::dao::{
         SpecificationAssetClass, SpecificationVersions,
     },
 };
-use log::{debug, error, info};
+use log::{debug, error};
 use mpl_bubblegum::types::{Collection, Creator};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
@@ -146,7 +146,7 @@ where
         // sequence number.  So in this case we set at flag to force checking the tree.
         let force_chk = rows.is_empty() && change_log_event.seq > 1;
 
-        info!("Adding to backfill_items table at level {}", i - 1);
+        debug!("Adding to backfill_items table at level {}", i - 1);
         let item = backfill_items::ActiveModel {
             tree: Set(tree_id.to_vec()),
             seq: Set(change_log_event.seq as i64),

@@ -167,6 +167,9 @@ impl ProgramTransformer {
         if let Some(program) = self.match_program(owner) {
             let result = program.handle_account(&acct)?;
             let concrete = result.result_type();
+
+            info!("Handling Account: {:?}", acct.pubkey());
+
             match concrete {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
                     handle_token_metadata_account(

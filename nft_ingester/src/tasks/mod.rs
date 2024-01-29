@@ -5,7 +5,7 @@ use chrono::{Duration, NaiveDateTime, Utc};
 use crypto::{digest::Digest, sha2::Sha256};
 use das_metadata_json::sender::{SenderArgs, SenderPool};
 use digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks};
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, ActiveValue::Set, ColumnTrait, DatabaseConnection,
     DeleteResult, SqlxPostgresConnector,
@@ -452,7 +452,7 @@ impl TaskManager {
                 let delete_res = TaskManager::purge_old_tasks(&conn, purge_time).await;
                 match delete_res {
                     Ok(res) => {
-                        info!("deleted {} tasks entries", res.rows_affected);
+                        debug!("deleted {} tasks entries", res.rows_affected);
                         metric! {
                             statsd_count!("ingester.bgtask.purged_tasks", i64::try_from(res.rows_affected).unwrap_or(1));
                         }

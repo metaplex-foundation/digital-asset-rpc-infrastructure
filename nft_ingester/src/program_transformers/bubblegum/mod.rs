@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use log::{debug, info};
+use log::{debug};
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -56,7 +56,7 @@ where
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
     };
-    info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
+    debug!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     match ix_type {
         InstructionName::Transfer => {
