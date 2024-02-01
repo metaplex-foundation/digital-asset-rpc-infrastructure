@@ -35,10 +35,12 @@ pub async fn save_v1_master_edition(
     me_data: &DeprecatedMasterEditionV1,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
+    // This discards the deprecated `MasterEditionV1` fields
+    // but sets the `Key`` as `MasterEditionV1`.
     let bridge = MasterEdition {
         supply: me_data.supply,
         max_supply: me_data.max_supply,
-        key: Key::MasterEditionV1, // is this weird?
+        key: Key::MasterEditionV1,
     };
     save_master_edition(
         V1AccountAttachments::MasterEditionV1,
@@ -50,7 +52,7 @@ pub async fn save_v1_master_edition(
     .await
 }
 pub async fn save_master_edition(
-    _version: V1AccountAttachments,
+    version: V1AccountAttachments,
     id: FBPubkey,
     slot: u64,
     me_data: &MasterEdition,
@@ -71,7 +73,7 @@ pub async fn save_master_edition(
 
     let model = asset_v1_account_attachments::ActiveModel {
         id: Set(id_bytes),
-        attachment_type: Set(V1AccountAttachments::MasterEditionV1),
+        attachment_type: Set(version),
         data: Set(Some(ser)),
         slot_updated: Set(slot as i64),
         ..Default::default()
