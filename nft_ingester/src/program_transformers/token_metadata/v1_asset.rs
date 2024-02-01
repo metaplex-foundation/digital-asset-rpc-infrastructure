@@ -1,8 +1,8 @@
 use crate::tasks::{DownloadMetadata, IntoTaskData};
 use crate::{error::IngesterError, metric, tasks::TaskData};
 use blockbuster::token_metadata::{
-    pda::find_master_edition_account,
-    state::{Metadata, TokenStandard, UseMethod, Uses},
+    accounts::{MasterEdition, Metadata},
+    types::TokenStandard,
 };
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Utc;
@@ -20,14 +20,12 @@ use digital_asset_types::{
 };
 use lazy_static::lazy_static;
 use log::warn;
-use num_traits::FromPrimitive;
 use plerkle_serialization::Pubkey as FBPubkey;
 use sea_orm::{
     entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
     DbErr, EntityTrait, JsonValue,
 };
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashSet;
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -73,16 +71,15 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     slot: u64,
 ) -> Result<Option<TaskData>, IngesterError> {
     let metadata = metadata.clone();
-    let data = metadata.data;
     let mint_pubkey = metadata.mint;
     let mint_pubkey_array = mint_pubkey.to_bytes();
     let mint_pubkey_vec = mint_pubkey_array.to_vec();
 
-    let (edition_attachment_address, _) = find_master_edition_account(&mint_pubkey);
+    let (edition_attachment_address, _) = MasterEdition::find_pda(&mint_pubkey);
 
     let authority = metadata.update_authority.to_bytes().to_vec();
     let slot_i = slot as i64;
-    let uri = data.uri.trim().replace('\0', "");
+    let uri = metadata.uri.trim().replace('\0', "");
     let _spec = SpecificationVersions::V1;
     let mut class = match metadata.token_standard {
         Some(TokenStandard::NonFungible) => SpecificationAssetClass::Nft,
@@ -179,19 +176,15 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         }
     };
 
-    let name = data.name.clone().into_bytes();
-    let symbol = data.symbol.clone().into_bytes();
+    let name = metadata.name.clone().into_bytes();
+    let symbol = metadata.symbol.clone().into_bytes();
     let mut chain_data = ChainDataV1 {
-        name: data.name.clone(),
-        symbol: data.symbol.clone(),
+        name: metadata.name.clone(),
+        symbol: metadata.symbol.clone(),
         edition_nonce: metadata.edition_nonce,
         primary_sale_happened: metadata.primary_sale_happened,
         token_standard: metadata.token_standard,
-        uses: metadata.uses.map(|u| Uses {
-            use_method: UseMethod::from_u8(u.use_method as u8).unwrap(),
-            remaining: u.remaining,
-            total: u.total,
-        }),
+        uses: metadata.uses,
     };
     chain_data.sanitize();
     let chain_data_json = serde_json::to_value(chain_data)
@@ -259,7 +252,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         compressible: Set(false),
         royalty_target_type: Set(RoyaltyTargetType::Creators),
         royalty_target: Set(None),
-        royalty_amount: Set(data.seller_fee_basis_points as i32), //basis points
+        royalty_amount: Set(metadata.seller_fee_basis_points as i32), //basis points
         asset_data: Set(Some(mint_pubkey_vec.clone())),
         slot_updated: Set(Some(slot_i)),
         burnt: Set(false),
@@ -380,7 +373,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
     }
 
-    let creators = data
+    let creators = metadata
         .creators
         .unwrap_or_default()
         .iter()

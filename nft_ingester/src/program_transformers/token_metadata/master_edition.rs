@@ -1,5 +1,8 @@
 use crate::error::IngesterError;
-use blockbuster::token_metadata::state::{Key, MasterEditionV1, MasterEditionV2};
+use blockbuster::token_metadata::{
+    accounts::{DeprecatedMasterEditionV1, MasterEdition},
+    types::Key,
+};
 use digital_asset_types::dao::{
     asset, asset_v1_account_attachments, extensions,
     sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
@@ -13,7 +16,7 @@ use sea_orm::{
 pub async fn save_v2_master_edition(
     id: FBPubkey,
     slot: u64,
-    me_data: &MasterEditionV2,
+    me_data: &MasterEdition,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     save_master_edition(
@@ -29,10 +32,10 @@ pub async fn save_v2_master_edition(
 pub async fn save_v1_master_edition(
     id: FBPubkey,
     slot: u64,
-    me_data: &MasterEditionV1,
+    me_data: &DeprecatedMasterEditionV1,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
-    let bridge = MasterEditionV2 {
+    let bridge = MasterEdition {
         supply: me_data.supply,
         max_supply: me_data.max_supply,
         key: Key::MasterEditionV1, // is this weird?
@@ -50,7 +53,7 @@ pub async fn save_master_edition(
     _version: V1AccountAttachments,
     id: FBPubkey,
     slot: u64,
-    me_data: &MasterEditionV2,
+    me_data: &MasterEdition,
     txn: &DatabaseTransaction,
 ) -> Result<(), IngesterError> {
     let id_bytes = id.0.to_vec();
