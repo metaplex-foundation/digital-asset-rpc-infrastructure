@@ -1,4 +1,4 @@
-# Integration Package
+# Integration Tests
 
 This Cargo package helps us run multi-package tests in our workspace. This setup is inspired by the tokio integration test setup.
 
