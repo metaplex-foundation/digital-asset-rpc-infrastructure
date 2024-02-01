@@ -498,10 +498,7 @@ pub async fn cached_fetch_account(
 }
 
 fn get_relative_project_path(path: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(path)
-        .canonicalize()
-        .unwrap()
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)
 }
 
 async fn cached_fetch_account_with_error_handling(
