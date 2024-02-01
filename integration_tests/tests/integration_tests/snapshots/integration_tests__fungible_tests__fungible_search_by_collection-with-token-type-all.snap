@@ -1,0 +1,76 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 1000,
+  "cursor": "JC2EeoeueTxKAovZGJoMJjgN7UX9MC6fsKGhMCDEtw2H",
+  "items": [
+    {
+      "interface": "FungibleAsset",
+      "id": "JC2EeoeueTxKAovZGJoMJjgN7UX9MC6fsKGhMCDEtw2H",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://positions.nft.helium.io/JC2EeoeueTxKAovZGJoMJjgN7UX9MC6fsKGhMCDEtw2H",
+        "files": [],
+        "metadata": {
+          "name": "Voting Escrow Token Position",
+          "symbol": "VSR",
+          "token_standard": "FungibleAsset"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "EmH495y4XtYjWE2vJcVysZi1AaAuCFCc4nhDVUnHRce6",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "HBgj24hUAAQs5ghzrrrM7T4WgZ7CQm3JiSUm3sUhTwGb"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "token",
+        "owner": "GtBcUSWUi9h6XD6z84p66hGDJfoc3BvdWgoTpdj1Y3gL"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "token_info": {
+        "balance": 0,
+        "supply": 0,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "associated_token_address": "9WGpA8zYb6NPvWWnn3j3wSeLiDro2sP3xUNZoH1YrZH4"
+      }
+    }
+  ]
+}

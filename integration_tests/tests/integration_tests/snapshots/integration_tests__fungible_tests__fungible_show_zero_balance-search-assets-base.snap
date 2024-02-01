@@ -1,0 +1,9 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 0,
+  "limit": 1000,
+  "items": []
+}

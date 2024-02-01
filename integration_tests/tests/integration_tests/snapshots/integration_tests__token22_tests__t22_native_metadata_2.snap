@@ -1,0 +1,75 @@
+---
+source: integration_tests/tests/integration_tests/token22_tests.rs
+expression: response
+---
+{
+  "interface": "Custom",
+  "id": "FumKKEEuQj8ZHqJi7Pj7uVCmjpGN5iv4nZdEeqPTuRM1",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://shdw-drive.genesysgo.net/GwJapVHVvfM4Mw4sWszkzywncUWuxxPd6s9VuFfXRgie/wen_meta.json",
+    "files": [],
+    "metadata": {
+      "name": "Wen Poem",
+      "symbol": "WEN"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "yaoYaopKcDsMxnjbT1jBdvYz6XRmjPdAPHczsCraERc",
+      "scopes": [
+        "metadata"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "token",
+    "owner": ""
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false,
+  "mint_extensions": {
+    "metadata": {
+      "uri": "https://shdw-drive.genesysgo.net/GwJapVHVvfM4Mw4sWszkzywncUWuxxPd6s9VuFfXRgie/wen_meta.json",
+      "mint": "FumKKEEuQj8ZHqJi7Pj7uVCmjpGN5iv4nZdEeqPTuRM1",
+      "name": "Wen Poem",
+      "symbol": "WEN",
+      "update_authority": "yaoYaopKcDsMxnjbT1jBdvYz6XRmjPdAPHczsCraERc",
+      "additional_metadata": []
+    },
+    "metadata_pointer": {
+      "authority": "yaoYaopKcDsMxnjbT1jBdvYz6XRmjPdAPHczsCraERc",
+      "metadata_address": "FumKKEEuQj8ZHqJi7Pj7uVCmjpGN5iv4nZdEeqPTuRM1"
+    }
+  },
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+  }
+}

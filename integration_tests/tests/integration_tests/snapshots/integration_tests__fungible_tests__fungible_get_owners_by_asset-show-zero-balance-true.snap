@@ -1,0 +1,22 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 3,
+  "limit": 1000,
+  "owners": [
+    {
+      "id": "45ruCyfdRkWpRNGEqWzjCiXRHkZs8WXCLQ67Pnpye7Hp",
+      "associated_token_address": "Ab9oewTGjNREqNXTKMS2FBDxjQf2GTw3LgcKsBL5s6vv"
+    },
+    {
+      "id": "8DhktDFTLF4sM1xDBTrwwFYxkY2sqSTTUATuH6DH24jD",
+      "associated_token_address": "RmCcDa1gaBjbfRJsi4mYnpoMg9yXp3PKMHCqSUUFFEJ"
+    },
+    {
+      "id": "GLGgL7sVv4pzP3qXfqfmfyj8BbedmK6Eqp4qKMgnaesR",
+      "associated_token_address": "Gm9koEU32UJLsTxJxtdFt7yMd6fbztpk8DVNBLM7TQV8"
+    }
+  ]
+}

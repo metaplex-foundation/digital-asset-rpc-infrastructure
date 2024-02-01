@@ -1,4 +1,4 @@
-use crate::DasApiError;
+use crate::error::DasApiError;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 

@@ -1,0 +1,80 @@
+---
+source: integration_tests/tests/integration_tests/general_scenario_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 5,
+  "page": 1,
+  "items": [
+    {
+      "interface": "ProgrammableNFT",
+      "id": "JEJcxTTqXqzQj1QnaGTSVDrTyQhX5tyfE72yMtiHd1sc",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://maker.macks.gg/macks/3991.json",
+        "files": [],
+        "metadata": {
+          "name": "MACK #3991",
+          "symbol": "MACK",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "mackxjTrPyxrr6wcs1aKUammKXi4TpH6LZTt5h4tsp8",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "3wsSCebzay39pghBbwzdaRytPCHbAmb33VDMP3p8XF4i"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "Hh4xBKHrcnYZk8h7gS1goHuNutjbcxPDUD3zjxdanaeT",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "mackxjTrPyxrr6wcs1aKUammKXi4TpH6LZTt5h4tsp8",
+          "share": 100,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "4zdNGgAtFsW1cQgHqkiWyRsxaAgxrSRRynnuunxzjxue"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+---
+source: integration_tests/tests/integration_tests/cnft_tests.rs
+expression: response
+---
+{
+  "interface": "V1_NFT",
+  "id": "7myVr8fEG52mZ3jAwgz88iQRWsuzuVR2nfH8n2AXnBxE",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://arweave.net/S40vvBVuCvZhAWI3kvk3QreUqVAvR0AaUDObOhB8WIY",
+    "files": [],
+    "metadata": {
+      "name": "Golden Azurite",
+      "symbol": "OEAs",
+      "token_standard": "NonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "EDAR6p4AUbv9SpD1pDm3gxdSAivdqsHxsf6V9pBc532U",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": true,
+    "data_hash": "B2tu4duCUPequnXh7DxbMnLeLcACHbDCQn3g34s5Cvbx",
+    "creator_hash": "6UiSCAv4r66MALaqhNE7qdTK84qKk1yJqR4UYtT8qEQ1",
+    "asset_hash": "45gbVkkwEaKhFatRQf1GPbkJVdhtVwefEzdCi9aNpHG8",
+    "tree": "4r2zZHZvC4Se1KUcCcyCM4ZoFQNGZm2M5FMmUypFocAP",
+    "seq": 43,
+    "leaf_id": 5
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "BwwjnxTHeVWdFieDWmoezta19q1NiwcNNyoon9S38bkM"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.05,
+    "basis_points": 500,
+    "primary_sale_happened": true,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "4gETqgEwFLkXX9yk6qBszA6LMjC2kRyyERXsAr2rwhwf",
+      "share": 100,
+      "verified": false
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "4fzLUnMx7CrmzVqgySNFkup1ACgZNnBWLx9sfpsaLEcK"
+  },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": null
+  },
+  "mutable": true,
+  "burnt": false
+}

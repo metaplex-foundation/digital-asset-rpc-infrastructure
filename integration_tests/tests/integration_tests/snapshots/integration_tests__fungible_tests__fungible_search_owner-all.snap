@@ -1,0 +1,71 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 1000,
+  "cursor": "n54ZwXEcLnc3o7zK48nhrLV4KTU5wWD4iq7Gvdt5tik",
+  "items": [
+    {
+      "interface": "FungibleToken",
+      "id": "n54ZwXEcLnc3o7zK48nhrLV4KTU5wWD4iq7Gvdt5tik",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://arweave.net/BKQlg-oPhrjHSqsXJwQlS1Ui4Wy9vkM-ChXXqWXTMxc",
+        "files": [],
+        "metadata": {
+          "name": "Peepo",
+          "symbol": "PEEP",
+          "token_standard": "Fungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "8yipzJTehBhvcbJPWBpJjydR4o8d924xusQJaXjdEGgJ",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "token",
+        "owner": "GgLAbLNTNHzjzF4WJmYDaXEXVEiYFoho6PWazisXbLVr"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "token_info": {
+        "balance": 1000000,
+        "supply": 54890001738479881,
+        "decimals": 6,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "associated_token_address": "GTBvbRXjYcs3qUn2o7fn1hgkF6pwLpdSb1WfWwnH4vpb"
+      }
+    }
+  ]
+}

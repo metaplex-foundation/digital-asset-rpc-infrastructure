@@ -1,0 +1,74 @@
+---
+source: integration_tests/tests/integration_tests/general_scenario_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 10,
+  "page": 1,
+  "items": [
+    {
+      "interface": "V1_NFT",
+      "id": "37PQh6AVYcTenLoA51AuPK6RxppC7Wx68viJUnA2Ur6Z",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://nftstorage.link/ipfs/bafkreidctxro2q5dxxpyh4w43vqzcj7463ys7qvmx2fxnm37i44zl74yhi",
+        "files": [],
+        "metadata": {
+          "name": "DING!",
+          "symbol": "DING",
+          "token_standard": "NonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "6JJtbdAL77u8d95NfHPkvTD67PM4Rm54BMzvFXXEsaQE",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": true,
+        "data_hash": "CRZfkbTd5hXpV9XgPiQdKP2Z4CP4FkXWPd8ZmXuagrZj",
+        "creator_hash": "7Aq4Ym2jUwZYtWPU1zjyUwRTqRuQ3vFbqQYosRfQZbcd",
+        "asset_hash": "6zGA1BbGu4GY7nJuBd7WNdd6yDTWbcbYsx5GPLek2772",
+        "tree": "HNZYX9DkCxW2ybwPo17apUjVAHUXNY1QTgpzYQPd8vVc",
+        "seq": 200,
+        "leaf_id": 199
+      },
+      "grouping": [],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "7LupMrz3VtJbsGziNEAy5YLDN6JM9JcFLw4Ln4SBAdZf",
+          "share": 100,
+          "verified": true
+        }
+      ],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "HZLGz18PCxD1bZgarBaQL7FGPswyLv65hzMn6Uj179WC"
+      },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": null
+      },
+      "mutable": false,
+      "burnt": false
+    }
+  ]
+}

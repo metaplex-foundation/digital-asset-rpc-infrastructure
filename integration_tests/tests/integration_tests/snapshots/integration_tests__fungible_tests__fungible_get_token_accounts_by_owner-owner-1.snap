@@ -1,0 +1,27 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 2,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "33JLPkn3u172De4xHV7WKzpeazzsFq514oDkxu9g6D4y",
+      "mint": "XzR7CUMqhDBzbAm4aUNvwhVCxjWGn1KEvqTp3Y8fFCD",
+      "owner": "A8UHfv6aHTVdQsYybK6NNbWsUwc3SXvNWKiWHFa3jZ8u",
+      "amount": 2000000000,
+      "delegated_amount": 0,
+      "frozen": false
+    },
+    {
+      "address": "BBNurWySByzp8qEjFRoZExp2zh5hkrdLuU8t2qUAMHw1",
+      "mint": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+      "owner": "A8UHfv6aHTVdQsYybK6NNbWsUwc3SXvNWKiWHFa3jZ8u",
+      "amount": 41930,
+      "delegate": "Fq92hTAA6xgPiqpYuq6V2MyDQKAt8qhBw8p3A5REFWvs",
+      "delegated_amount": 41930,
+      "frozen": false
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+---
+source: integration_tests/tests/integration_tests/cnft_tests.rs
+expression: response
+---
+{
+  "interface": "V1_NFT",
+  "id": "Az9QTysJj1LW1F7zkYF21HgBj3FRpq3zpxTFdPnAJYm8",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://baze.one/posts/rMb9dU7X2lSu/m",
+    "files": [],
+    "metadata": {
+      "name": "B-BCKSNW-4",
+      "symbol": "BCKSNW",
+      "token_standard": "NonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "5S5CHHQ69Q2gdRVRV45TVnZpy6eExzq5Zw5BRQozC3Ap",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "2MJeqBXcRmy3PXvQP5RRPqeig2CTfnXv5nGT3wRD1xW5"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.1,
+    "basis_points": 1000,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "8dpwoPxMkCd9LnsDEbrRuBL5sw3mqcWLf9vPcwgpeRMS",
+      "share": 100,
+      "verified": false
+    },
+    {
+      "address": "2kKisVa2VmNk6iA2avQpZdDXtDGBWgzEE9ib7iWmKemw",
+      "share": 0,
+      "verified": false
+    },
+    {
+      "address": "94huX4Ya45pA41AfeBkqadbBFjgFDrv5riZQXVLqsoVT",
+      "share": 0,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "HkdmoXct4zKyAfgZgpuavKzmuvf2Z5UZ35v1UUW3Z9Jk"
+  },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 253
+  },
+  "mutable": true,
+  "burnt": false
+}

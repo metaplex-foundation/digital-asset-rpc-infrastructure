@@ -1,0 +1,18 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "6A8TLiYURA18x7z3tJnwJoRVxhwBDe3ReZppr79KMPfz",
+      "mint": "66aR2yvyW75sW3HaoyK9KdhALRBb7aNiW31vxdWsCrRc",
+      "owner": "21sT5BUD82yVYs7fSnLZy1mWNDPEnsF1X3Brhqw93Uni",
+      "amount": 31000207,
+      "delegated_amount": 0,
+      "frozen": false
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+---
+source: integration_tests/tests/integration_tests/regular_nft_tests.rs
+expression: response
+---
+{
+  "grand_total": 2,
+  "total": 1,
+  "limit": 1,
+  "page": 1,
+  "items": [
+    {
+      "interface": "ProgrammableNFT",
+      "id": "Gk9A2rWYkoUkQdSqC5JLirpDoW4DHTUFxe2jJNhVMzFR",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://arweave.net/Kc1aeS89EehWsftnFYPAV8_3XLyEVEuQrlWOz2WrpJc",
+        "files": [],
+        "metadata": {
+          "name": "SMB #2383",
+          "symbol": "SMB",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "mdaoxg4DVGptU4WSpzGyVpK3zqsgn7Qzx5XNgWTcEA2",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "SMBtHCCC6RYRutFEPb4gZqeBLUZbMNhRKaMKZZLHi7W"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "mdaoxg4DVGptU4WSpzGyVpK3zqsgn7Qzx5XNgWTcEA2",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "HAryckvjyViFQEmhmMoCtqqBMJnpXEYViamyDhZUJfnG",
+          "share": 100,
+          "verified": false
+        },
+        {
+          "address": "9uBX3ASjxWvNBAD1xjbVaKA74mWGZys3RGSF7DdeDD3F",
+          "share": 0,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "76QgFrG4e8JgERYQa1YMLXPy1c9yZ1Udys1M9dPLhFAf"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false
+    }
+  ]
+}

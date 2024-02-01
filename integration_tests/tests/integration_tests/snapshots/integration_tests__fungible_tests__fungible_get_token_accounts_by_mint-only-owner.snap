@@ -1,0 +1,36 @@
+---
+source: integration_tests/tests/integration_tests/fungible_tests.rs
+expression: response
+---
+{
+  "total": 3,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "A35gLorchY5NLkceVC2Vhu881h6hYbpyjMTRQFoJAmKu",
+      "mint": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "owner": "4ertZug8cEznSaRLeNaYKyzwSbryBcPv951W1q5LXp7z",
+      "amount": 2,
+      "delegate": "83ZLqpvwvUUdFLtS1McXpjjuZufKtrnbmg5zkQprGV68",
+      "delegated_amount": 2,
+      "frozen": false
+    },
+    {
+      "address": "GWdWkH9dvpRTrgEibJsPX2gkRFFHyJJDN9dQXTur3qq1",
+      "mint": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "owner": "8fGXZmFyzHYFdnsmGNQ1g1YjM5hEGp93rEQ7jN6Jjw4x",
+      "amount": 112,
+      "delegate": "E6dyiigyZihDiSx2g1tuoL9WuhzQxWwCTvKKY6qP4Koe",
+      "delegated_amount": 112,
+      "frozen": false
+    },
+    {
+      "address": "A7hHRV3gksmQUvvbPx1phXvapVBGgGeAnfQ1zASX3zup",
+      "mint": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "owner": "9Ytyvs3LA5ebVtCD8UMmQabKkm9VuPNHYWiBvFTAe9k1",
+      "amount": 200467,
+      "delegated_amount": 0,
+      "frozen": false
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+---
+source: integration_tests/tests/integration_tests/cnft_tests.rs
+expression: response
+---
+{
+  "total": 0,
+  "limit": 10,
+  "page": 1,
+  "token_accounts": []
+}
