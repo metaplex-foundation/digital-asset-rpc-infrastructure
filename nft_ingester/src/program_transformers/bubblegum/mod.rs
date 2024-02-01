@@ -3,7 +3,7 @@ use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, InstructionName},
 };
-use log::{debug};
+use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 use tokio::sync::mpsc::UnboundedSender;
 

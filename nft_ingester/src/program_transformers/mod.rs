@@ -168,7 +168,9 @@ impl ProgramTransformer {
             let result = program.handle_account(&acct)?;
             let concrete = result.result_type();
 
-            info!("Handling Account: {:?}", acct.pubkey());
+            if let Some(pubkey) = acct.pubkey() {
+                info!("Handling Account: {}", bs58::encode(pubkey.0).into_string());
+            }
 
             match concrete {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
