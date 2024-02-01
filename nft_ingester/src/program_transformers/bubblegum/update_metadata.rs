@@ -60,11 +60,6 @@ where
                 } else {
                     current_metadata.uri.replace('\0', "")
                 };
-                if uri.is_empty() {
-                    return Err(IngesterError::DeserializationError(
-                        "URI is empty".to_string(),
-                    ));
-                }
 
                 let name = if let Some(name) = update_args.name.clone() {
                     name
