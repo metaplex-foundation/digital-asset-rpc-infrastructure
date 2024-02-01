@@ -5,7 +5,7 @@ This Cargo package helps us run multi-package tests in our workspace. This setup
 ## Setup
 
 First setup a local Postgres database and export the postgres database URL as follows:
-```export DATABASE_TEST_URL=postgres://ingest@localhost/<database_name>```
+```export DATABASE_TEST_URL=postgres://postgres@localhost/<database_name>```
 
 Also gain access to mainnet RPCs and devnet RPCs and export the URLs as follows. Currently,
 we only use these URLs for reading data and storing it locally. 
