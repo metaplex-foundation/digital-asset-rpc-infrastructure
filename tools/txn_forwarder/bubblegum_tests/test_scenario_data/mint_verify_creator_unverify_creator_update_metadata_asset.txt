@@ -1,5 +1,5 @@
 -[ RECORD 1 ]-------------+-------------------------------------------------------------------
-id                        | \x4302561a2799244936a3b020569bf90f58cd9b406af4cd084a82a2cf6415a8f0
+id                        | \x5954e9d4e0c6d3b06c8c749b2a341a52550b43439a8d9c301e3c1f42ad09f103
 alt_id                    | 
 specification_version     | v1
 specification_asset_class | NFT
@@ -12,17 +12,17 @@ supply_mint               |
 compressed                | t
 compressible              | f
 seq                       | 4
-tree_id                   | \xf8bf1069ff226eb41797417535cc5510ec75ffd006155dbda2371b5fee88bf7d
-leaf                      | \x0000000000000000000000000000000000000000000000000000000000000000
+tree_id                   | \x04c910e5dd9d3e356fb8433ff386861b334f8a9295ff4bfb9e7dd68103c09b4a
+leaf                      | \x9f938da6701da7f8a528d95457c260a2cbb5928159d517eee14c5bbce7cacc8b
 nonce                     | 0
 royalty_target_type       | creators
 royalty_target            | 
 royalty_amount            | 0
-asset_data                | \x4302561a2799244936a3b020569bf90f58cd9b406af4cd084a82a2cf6415a8f0
+asset_data                | \x5954e9d4e0c6d3b06c8c749b2a341a52550b43439a8d9c301e3c1f42ad09f103
 burnt                     | f
-slot_updated              | 224494461
-data_hash                 | 11111111111111111111111111111111                  
-creator_hash              | 11111111111111111111111111111111                  
+slot_updated              | 275334061
+data_hash                 | EqhuEA64Vpu9uyYDwtt6t7oZ8HE9o2nSVDCfseZPKA8e      
+creator_hash              | BWqKwAqmKVrCQeD3ryPDZsNDffvfE5ttnPyphwpYBDmq      
 owner_delegate_seq        | 3
 leaf_seq                  | 4
-base_info_seq             | 1
+base_info_seq             | 4

@@ -1,0 +1,16 @@
+-[ RECORD 1 ]+-------------------------------------------------------------------
+asset_id     | \x5954e9d4e0c6d3b06c8c749b2a341a52550b43439a8d9c301e3c1f42ad09f103
+creator      | \xdc53343c46e5d7a1bd08f4780285621202f66b596f984e940a5eb423ac560fed
+share        | 55
+verified     | t
+seq          | 4
+slot_updated | 275334061
+position     | 0
+-[ RECORD 2 ]+-------------------------------------------------------------------
+asset_id     | \x5954e9d4e0c6d3b06c8c749b2a341a52550b43439a8d9c301e3c1f42ad09f103
+creator      | \xfca997d6bc87574b21398fe24a0f27688bf914cd7a043c9f7cc1004fd59c2ae5
+share        | 45
+verified     | f
+seq          | 4
+slot_updated | 275334061
+position     | 1

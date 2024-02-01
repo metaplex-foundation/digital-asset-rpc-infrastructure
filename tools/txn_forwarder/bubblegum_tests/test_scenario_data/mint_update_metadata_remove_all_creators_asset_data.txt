@@ -1,0 +1,12 @@
+-[ RECORD 1 ]---------+-----------------------------------------------------------------------------------------------------------------------
+id                    | \xe96440d0b5eeaf5aba535fe1648286f62e2f75708b818e627ad80e3552bc48d4
+chain_data_mutability | mutable
+chain_data            | {"name": "test", "symbol": "TST", "edition_nonce": 0, "token_standard": "NonFungible", "primary_sale_happened": false}
+metadata_url          | https://metaplex.com
+metadata_mutability   | mutable
+metadata              | "processing"
+slot_updated          | 274904443
+reindex               | t
+raw_name              | \x74657374
+raw_symbol            | \x545354
+base_info_seq         | 2

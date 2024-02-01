@@ -1,0 +1,8 @@
+-[ RECORD 1 ]+-------------------------------------------------------------------
+asset_id     | \xdee18b450d1a279ad5ab41f17c2daccbf827f82113c32f08573872ef05869cb8
+creator      | \xdc53343c46e5d7a1bd08f4780285621202f66b596f984e940a5eb423ac560fed
+share        | 100
+verified     | f
+seq          | 2
+slot_updated | 275704005
+position     | 0
