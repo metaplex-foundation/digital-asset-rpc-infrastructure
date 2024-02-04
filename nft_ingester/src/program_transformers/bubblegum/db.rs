@@ -129,37 +129,6 @@ where
         }
     }
 
-    // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
-    // a single row into the `backfill_items` table.  This way if an incomplete path was inserted
-    // into `cl_items` due to an error, a gap will be created for the tree and the backfiller will
-    // fix it.
-    if i - 1 == depth as i64 {
-        // See if the tree already exists in the `backfill_items` table.
-        let rows = backfill_items::Entity::find()
-            .filter(backfill_items::Column::Tree.eq(tree_id))
-            .limit(1)
-            .all(txn)
-            .await?;
-
-        // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
-        // then we know we will need to backfill the tree from sequence number 1 up to the current
-        // sequence number.  So in this case we set at flag to force checking the tree.
-        let force_chk = rows.is_empty() && change_log_event.seq > 1;
-
-        debug!("Adding to backfill_items table at level {}", i - 1);
-        let item = backfill_items::ActiveModel {
-            tree: Set(tree_id.to_vec()),
-            seq: Set(change_log_event.seq as i64),
-            slot: Set(slot as i64),
-            force_chk: Set(force_chk),
-            backfilled: Set(false),
-            failed: Set(false),
-            ..Default::default()
-        };
-
-        backfill_items::Entity::insert(item).exec(txn).await?;
-    }
-
     Ok(())
 }
 
