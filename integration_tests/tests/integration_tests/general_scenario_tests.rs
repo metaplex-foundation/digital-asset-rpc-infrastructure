@@ -3,14 +3,9 @@ use std::str::FromStr;
 
 use das_api::api::{self, ApiContract};
 use digital_asset_types::dao::asset_creators;
-use digital_asset_types::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
-use digital_asset_types::rpc::options::Options;
-use itertools::Itertools;
 use migration::sea_orm::{ConnectionTrait, EntityTrait};
 
-use mpl_token_metadata::pda::find_metadata_account;
-
-use mpl_token_metadata::state::Creator;
+use mpl_token_metadata::types::Creator;
 use sea_orm::{DbBackend, QueryTrait, Set};
 use serial_test::serial;
 use solana_sdk::pubkey::Pubkey;

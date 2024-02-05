@@ -6,20 +6,15 @@ use das_api::api::DasApi;
 
 use das_api::config::Config;
 
-use figment::value::Dict;
-use itertools::Itertools;
-use plerkle_messenger::{MessengerConfig, MessengerType};
-
 use migration::sea_orm::{
     ConnectionTrait, DatabaseConnection, ExecResult, SqlxPostgresConnector, Statement,
 };
 use migration::{Migrator, MigratorTrait};
-use mpl_token_metadata::pda::find_metadata_account;
-use mpl_token_metadata::solana_program::{self};
+use mpl_token_metadata::accounts::Metadata;
 
 use nft_ingester::config::{self, rand_string};
+use nft_ingester::program_transformers::ProgramTransformer;
 use nft_ingester::tasks::TaskManager;
-use nft_ingester::{config::IngesterConfig, program_transformers::ProgramTransformer};
 use once_cell::sync::Lazy;
 use plerkle_serialization::root_as_account_info;
 use plerkle_serialization::root_as_transaction_info;
@@ -55,12 +50,7 @@ use solana_sdk::{
     commitment_config::{CommitmentConfig, CommitmentLevel},
 };
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
-use std::{
-    fmt,
-    fs::File,
-    io::{Read, Write},
-    time::Duration,
-};
+use std::{fmt, time::Duration};
 
 use std::path::PathBuf;
 
@@ -86,32 +76,13 @@ impl TestSetup {
         let mut database_config = config::DatabaseConfig::new();
         database_config.insert("database_url".to_string(), database_test_url.clone().into());
 
-        let mut connection_config = Dict::new();
-        connection_config.insert(
-            "redis_connection_str".to_string(),
-            "redis://localhost".into(),
-        );
-        connection_config.insert("batch_size".to_string(), 1.into());
-
-        let messenger_config = MessengerConfig {
-            messenger_type: MessengerType::Redis,
-            connection_config: connection_config,
-        };
-
-        let ingester_config: IngesterConfig = IngesterConfig {
-            database_config,
-            messenger_config,
-            ..IngesterConfig::default()
-        };
-
         if !(database_test_url.contains("localhost") || database_test_url.contains("127.0.0.1")) {
             panic!("Tests can only be run on a local database");
         }
 
         let pool = setup_pg_pool(database_test_url.clone()).await;
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
-        let transformer =
-            load_ingest_program_transformer(ingester_config.clone(), pool.clone()).await;
+        let transformer = load_ingest_program_transformer(pool.clone()).await;
 
         let rpc_url = match opts.network.unwrap_or_default() {
             Network::Mainnet => std::env::var("MAINNET_RPC_URL").unwrap(),
@@ -188,10 +159,7 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
         .unwrap();
 }
 
-async fn load_ingest_program_transformer(
-    config: IngesterConfig,
-    pool: sqlx::Pool<sqlx::Postgres>,
-) -> ProgramTransformer {
+async fn load_ingest_program_transformer(pool: sqlx::Pool<sqlx::Postgres>) -> ProgramTransformer {
     // HACK: We don't really use this background task handler but we need it to create the sender
     let mut background_task_manager = TaskManager::new(rand_string(), pool.clone(), vec![]);
     background_task_manager.start_listener(true);
@@ -363,96 +331,6 @@ pub async fn fetch_and_serialize_account(
     Ok(fbb.finished_data().to_vec())
 }
 
-// Other util functions
-pub fn write_bytes_to_file(path: &str, bytes: &[u8]) -> std::io::Result<()> {
-    let mut file = File::create(path)?;
-    file.write_all(bytes)?;
-    Ok(())
-}
-
-pub fn read_file_to_bytes(file_path: &str) -> anyhow::Result<Vec<u8>> {
-    let mut file = File::open(file_path)?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
-    return Ok(buffer);
-}
-
-pub async fn save_account(
-    client: &RpcClient,
-    pubkey: Pubkey,
-    temp_dir: &String,
-    ok_to_fail: bool,
-) -> anyhow::Result<()> {
-    let serialized = match fetch_and_serialize_account(&client, pubkey, None).await {
-        Ok(serialized) => serialized,
-        Err(e) => {
-            if ok_to_fail {
-                info!("Failed to fetch account: {:?}", e);
-                return Ok(());
-            } else {
-                return Err(anyhow::anyhow!("Failed to fetch account: {:?}", e));
-            }
-        }
-    };
-
-    let path: String = format!("{}/{}", temp_dir, pubkey.to_string());
-    write_bytes_to_file(&path, serialized.as_slice()).map_err(|e| {
-        error!("Failed to write message to file: {}", e);
-        e
-    })?;
-    info!("Successfully saved acc: {}", pubkey.to_string());
-
-    Ok(())
-}
-
-pub async fn save_mint(rpc_url: String, mint: Pubkey, temp_dir: String) -> anyhow::Result<()> {
-    let client = RpcClient::new(rpc_url);
-    let metadata_account = find_metadata_account(&mint).0;
-    let token_account = get_token_largest_account(&client, mint).await;
-
-    match token_account {
-        Ok(token_account) => {
-            for pubkey in &[mint, metadata_account, token_account] {
-                save_account(&client, pubkey.clone(), &temp_dir, false).await?;
-            }
-        }
-        Err(e) => error!("Failed to find mint account: {:?}", e),
-    }
-
-    Ok(())
-}
-
-pub async fn save_mint_token(
-    rpc_url: String,
-    mint: Pubkey,
-    temp_dir: String,
-) -> anyhow::Result<()> {
-    let client = RpcClient::new(rpc_url);
-    let metadata_account = find_metadata_account(&mint).0;
-    let token_account = get_token_largest_account(&client, mint).await;
-
-    match token_account {
-        Ok(token_account) => {
-            save_account(&client, mint.clone(), &temp_dir, false).await?;
-            save_account(&client, metadata_account.clone(), &temp_dir, true).await?;
-            save_account(&client, token_account.clone(), &temp_dir, false).await?;
-        }
-        Err(e) => error!("Failed to find mint account: {:?}", e),
-    }
-
-    Ok(())
-}
-
-pub async fn save_single_token(
-    rpc_url: String,
-    account: Pubkey,
-    temp_dir: String,
-) -> anyhow::Result<()> {
-    let client = RpcClient::new(rpc_url);
-    save_account(&client, account.clone(), &temp_dir, false).await?;
-    Ok(())
-}
-
 pub async fn get_token_largest_account(client: &RpcClient, mint: Pubkey) -> anyhow::Result<Pubkey> {
     let response: RpcResponse<Vec<RpcTokenAccountBalance>> = rpc_tx_with_retries(
         client,
@@ -568,6 +446,7 @@ async fn cached_fetch_largest_token_account_id(client: &RpcClient, mint: Pubkey)
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Copy, Debug)]
 pub enum SeedEvent {
     Account(Pubkey),
@@ -608,6 +487,7 @@ pub async fn index_seed_events(setup: &TestSetup, events: Vec<&SeedEvent>) {
     }
 }
 
+#[allow(unused)]
 pub fn seed_account(str: &str) -> SeedEvent {
     SeedEvent::Account(Pubkey::from_str(str).unwrap())
 }
@@ -616,6 +496,7 @@ pub fn seed_nft(str: &str) -> SeedEvent {
     SeedEvent::Nft(Pubkey::from_str(str).unwrap())
 }
 
+#[allow(unused)]
 pub fn seed_token_mint(str: &str) -> SeedEvent {
     SeedEvent::TokenMint(Pubkey::from_str(str).unwrap())
 }
@@ -632,6 +513,7 @@ where
     strs.into_iter().map(|s| seed_txn(s.as_ref())).collect()
 }
 
+#[allow(unused)]
 pub fn seed_accounts<I>(strs: I) -> Vec<SeedEvent>
 where
     I: IntoIterator,
@@ -648,6 +530,7 @@ where
     strs.into_iter().map(|s| seed_nft(s.as_ref())).collect()
 }
 
+#[allow(unused)]
 pub fn seed_token_mints<I>(strs: I) -> Vec<SeedEvent>
 where
     I: IntoIterator,
@@ -675,7 +558,7 @@ pub struct NftAccounts {
 }
 
 pub async fn get_nft_accounts(setup: &TestSetup, mint: Pubkey) -> NftAccounts {
-    let metadata_account = find_metadata_account(&mint).0;
+    let metadata_account = Metadata::find_pda(&mint).0;
     let token_account = cached_fetch_largest_token_account_id(&setup.client, mint).await;
     NftAccounts {
         mint,
@@ -699,7 +582,7 @@ async fn index_token_mint(setup: &TestSetup, mint: Pubkey) {
     // accounts because we need to factor the fact that some updates can be disregarded because
     // they are "stale".
     let slot = Some(1);
-    let metadata_account = find_metadata_account(&mint).0;
+    let metadata_account = Metadata::find_pda(&mint).0;
     match cached_fetch_account_with_error_handling(&setup, metadata_account, slot).await {
         Ok(account_bytes) => {
             index_account_bytes(setup, account_bytes).await;
@@ -718,26 +601,6 @@ pub async fn index_nft_accounts(setup: &TestSetup, nft_accounts: NftAccounts) {
     for account in vec![nft_accounts.mint, nft_accounts.metadata, nft_accounts.token] {
         index_account(setup, account).await;
     }
-}
-
-pub async fn index_account_burn(setup: &TestSetup, pubkey: Pubkey, slot: u64) {
-    let account_burn = ReplicaAccountInfoV2 {
-        pubkey: &pubkey.to_bytes(),
-        lamports: 0,
-        owner: &solana_program::system_program::id().to_bytes(),
-        executable: false,
-        rent_epoch: 0,
-        data: &[],
-        write_version: 0,
-        txn_signature: None,
-    };
-    let fbb = serialize_account(
-        flatbuffers::FlatBufferBuilder::new(),
-        &account_burn,
-        slot,
-        false,
-    );
-    index_account_bytes(setup, fbb.finished_data().to_vec()).await
 }
 
 pub fn trim_test_name(name: &str) -> String {
