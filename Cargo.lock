@@ -4045,6 +4045,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "program_transformers"
+version = "0.7.2"
+dependencies = [
+ "blockbuster",
+ "bs58 0.4.0",
+ "digital_asset_types",
+ "futures",
+ "mpl-bubblegum",
+ "num-traits",
+ "plerkle_serialization",
+ "sea-orm",
+ "serde_json",
+ "solana-sdk",
+ "spl-account-compression",
+ "spl-token",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "prometheus"
 version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
