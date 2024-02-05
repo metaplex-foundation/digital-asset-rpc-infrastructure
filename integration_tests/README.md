@@ -18,6 +18,7 @@ export MAINNET_RPC_URL=...
 Afterwards, you can simply run the following command to run tests:
 ```cargo test```
 
+The tests run migrations from fresh and populates the data. You don't need to any other setup.
 
 ## How do tests work? 
 
