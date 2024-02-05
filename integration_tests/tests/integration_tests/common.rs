@@ -212,7 +212,7 @@ pub async fn fetch_and_serialize_transaction(
 ) -> anyhow::Result<Option<Vec<u8>>> {
     let max_retries = 5;
     let tx: EncodedConfirmedTransactionWithStatusMeta =
-        get_transaction(&client, sig, max_retries).await?;
+        get_transaction(client, sig, max_retries).await?;
 
     // Ignore if tx failed or meta is missed
     let meta = tx.transaction.meta.as_ref();
@@ -297,7 +297,7 @@ pub async fn fetch_and_serialize_account(
 ) -> anyhow::Result<Vec<u8>> {
     let max_retries = 5;
 
-    let fetch_result = fetch_account(pubkey, &client, max_retries).await;
+    let fetch_result = fetch_account(pubkey, client, max_retries).await;
 
     let (account, actual_slot) = match fetch_result {
         Ok((account, actual_slot)) => (account, actual_slot),
@@ -389,7 +389,7 @@ async fn cached_fetch_account_with_error_handling(
     if !Path::new(&dir).exists() {
         std::fs::create_dir(&dir).unwrap();
     }
-    let file_path = dir.join(format!("{}", account.to_string()));
+    let file_path = dir.join(format!("{}", account));
 
     if file_path.exists() {
         Ok(std::fs::read(file_path).unwrap())
@@ -406,7 +406,7 @@ async fn cached_fetch_transaction(setup: &TestSetup, sig: Signature) -> Vec<u8> 
     if !Path::new(&dir).exists() {
         std::fs::create_dir(&dir).unwrap();
     }
-    let file_path = dir.join(format!("{}", sig.to_string()));
+    let file_path = dir.join(format!("{}", sig));
 
     if file_path.exists() {
         std::fs::read(file_path).unwrap()
@@ -427,21 +427,18 @@ pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
 }
 
 async fn cached_fetch_largest_token_account_id(client: &RpcClient, mint: Pubkey) -> Pubkey {
-    let dir = get_relative_project_path(&format!(
-        "tests/data/largest_token_account_ids/{}",
-        mint.to_string()
-    ));
+    let dir = get_relative_project_path(&format!("tests/data/largest_token_account_ids/{}", mint));
 
     if !Path::new(&dir).exists() {
         std::fs::create_dir(&dir).unwrap();
     }
-    let file_path = dir.join(format!("{}", mint.to_string()));
+    let file_path = dir.join(format!("{}", mint));
 
     if file_path.exists() {
         Pubkey::try_from(std::fs::read(file_path).unwrap()).unwrap()
     } else {
-        let token_account = get_token_largest_account(&client, mint).await.unwrap();
-        std::fs::write(file_path, &token_account.to_bytes()).unwrap();
+        let token_account = get_token_largest_account(client, mint).await.unwrap();
+        std::fs::write(file_path, token_account.to_bytes()).unwrap();
         token_account
     }
 }
@@ -472,7 +469,7 @@ pub async fn index_seed_events(setup: &TestSetup, events: Vec<&SeedEvent>) {
     for event in events {
         match event {
             SeedEvent::Account(account) => {
-                index_account_with_ordered_slot(setup, account.clone()).await;
+                index_account_with_ordered_slot(setup, *account).await;
             }
             SeedEvent::Nft(mint) => {
                 index_nft(setup, *mint).await;
@@ -583,7 +580,7 @@ async fn index_token_mint(setup: &TestSetup, mint: Pubkey) {
     // they are "stale".
     let slot = Some(1);
     let metadata_account = Metadata::find_pda(&mint).0;
-    match cached_fetch_account_with_error_handling(&setup, metadata_account, slot).await {
+    match cached_fetch_account_with_error_handling(setup, metadata_account, slot).await {
         Ok(account_bytes) => {
             index_account_bytes(setup, account_bytes).await;
         }
@@ -598,7 +595,7 @@ pub async fn index_nft(setup: &TestSetup, mint: Pubkey) {
 }
 
 pub async fn index_nft_accounts(setup: &TestSetup, nft_accounts: NftAccounts) {
-    for account in vec![nft_accounts.mint, nft_accounts.metadata, nft_accounts.token] {
+    for account in [nft_accounts.mint, nft_accounts.metadata, nft_accounts.token] {
         index_account(setup, account).await;
     }
 }

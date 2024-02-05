@@ -72,7 +72,7 @@ async fn test_creators_reordering() {
     .into_iter()
     .enumerate()
     .map(|(i, c)| asset_creators::ActiveModel {
-        asset_id: Set(asset_pubkey.clone().to_bytes().to_vec()),
+        asset_id: Set(asset_pubkey.to_bytes().to_vec()),
         position: Set(i as i16),
         creator: Set(c.address.to_bytes().to_vec()),
         share: Set(c.share as i32),
