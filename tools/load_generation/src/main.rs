@@ -1,5 +1,12 @@
 use {
-    mpl_token_metadata::state::Creator,
+    mpl_token_metadata::{
+        accounts::{MasterEdition, Metadata},
+        instructions::{
+            CreateMasterEditionV3Builder, CreateMetadataAccountV3Builder,
+            SetAndVerifyCollectionBuilder, UpdateMetadataAccountV2Builder,
+        },
+        types::{Creator, DataV2},
+    },
     solana_client::{
         client_error::ClientError, nonblocking::rpc_client::RpcClient,
         rpc_request::RpcError::RpcRequestError,
@@ -171,82 +178,70 @@ pub async fn make_a_nft_thing(
         1,
     )
     .await?;
-    let prg_uid = mpl_token_metadata::id();
-    let _metadata_seeds = &[
-        mpl_token_metadata::state::PREFIX.as_bytes(),
-        prg_uid.to_bytes().as_ref(),
-        mint.as_ref(),
-    ];
-    let (pubkey, _) = mpl_token_metadata::pda::find_metadata_account(&mint);
-    let (edition_pubkey, _) = mpl_token_metadata::pda::find_master_edition_account(&mint);
+    let prg_uid = mpl_token_metadata::ID;
+    let _metadata_seeds = &[Metadata::PREFIX, prg_uid.to_bytes().as_ref(), mint.as_ref()];
+    let (pubkey, _) = Metadata::find_pda(&mint);
+    let (edition_pubkey, _) = MasterEdition::find_pda(&mint);
     let tx = Transaction::new_signed_with_payer(
-        &[
-            mpl_token_metadata::instruction::create_metadata_accounts_v3(
-                prg_uid,
-                pubkey,
-                mint,
-                payer.pubkey(),
-                payer.pubkey(),
-                payer.pubkey(),
-                "fake".to_string(),
-                "fake".to_string(),
-                "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
-                Some(vec![Creator {
-                    address: payer.pubkey(),
-                    verified: true,
-                    share: 100,
-                }]),
-                0,
-                true,
-                true,
-                None,
-                None,
-                None,
-            ),
-            mpl_token_metadata::instruction::create_master_edition_v3(
-                prg_uid,
-                edition_pubkey,
-                mint,
-                payer.pubkey(),
-                payer.pubkey(),
-                pubkey,
-                payer.pubkey(),
-                Some(0),
-            ),
+        &[CreateMetadataAccountV3Builder::new()
+        .metadata(pubkey)
+        .mint(mint)
+        .mint_authority(payer.pubkey())
+        .payer(payer.pubkey())
+        .update_authority(payer.pubkey(), true)
+        .data(DataV2 {
+            name: "fake".to_string(),
+            symbol: "fake".to_string(),
+            uri: "https://usd363wqbeq4xmuyddhbicmvm5yzegh4ulnsmp67jebxi6mqe45q.arweave.net/pIe_btAJIcuymBjOFAmVZ3GSGPyi2yY_30kDdHmQJzs".to_string(),
+            creators: Some(vec![Creator {
+                address: payer.pubkey(),
+                verified: true,
+                share: 100,
+            }]),
+            collection: None,
+            seller_fee_basis_points: 0,
+            uses: None,
+        })
+        .is_mutable(true)
+        .instruction(),
+
+        CreateMasterEditionV3Builder::new()
+        .edition(edition_pubkey)
+        .mint(mint)
+        .update_authority(payer.pubkey())
+        .mint_authority(payer.pubkey())
+        .metadata(pubkey)
+        .payer(payer.pubkey())
+        .max_supply(0)
+        .instruction()
         ],
         Some(&payer.pubkey()),
         &[payer.as_ref()],
         solana_client.get_latest_blockhash().await?,
     );
     solana_client.send_and_confirm_transaction(&tx).await?;
-    let mut ix = vec![
-        mpl_token_metadata::instruction::update_metadata_accounts_v2(
-            prg_uid,
-            pubkey,
-            payer.pubkey(),
-            None,
-            None,
-            None,
-            Some(false),
-        ),
-    ];
+    let mut ix = vec![UpdateMetadataAccountV2Builder::new()
+        .metadata(pubkey)
+        .update_authority(payer.pubkey())
+        .is_mutable(false)
+        .instruction()];
 
     if let Some(collection_mint) = collection_mint {
-        let (collection_metadata, _u8) =
-            mpl_token_metadata::pda::find_metadata_account(&collection_mint);
-        let (collection_master_edition, _u8) =
-            mpl_token_metadata::pda::find_master_edition_account(&collection_mint);
-        ix.push(mpl_token_metadata::instruction::set_and_verify_collection(
-            prg_uid,
-            pubkey,
-            payer.pubkey(),
-            payer.pubkey(),
-            payer.pubkey(),
-            collection_mint,
-            collection_metadata,
-            collection_master_edition,
-            None,
-        ));
+        let (collection_metadata, _u8) = Metadata::find_pda(&collection_mint);
+        let (collection_master_edition, _u8) = MasterEdition::find_pda(&collection_mint);
+
+        ix.push(
+            SetAndVerifyCollectionBuilder::new()
+                .metadata(pubkey)
+                .collection_authority(payer.pubkey())
+                .payer(payer.pubkey())
+                .update_authority(payer.pubkey())
+                .collection_mint(collection_mint)
+                .collection(collection_metadata)
+                .collection_master_edition_account(collection_master_edition)
+                .collection_authority_record(None)
+                .instruction(),
+        );
     }
     let tx = Transaction::new_signed_with_payer(
         &ix,

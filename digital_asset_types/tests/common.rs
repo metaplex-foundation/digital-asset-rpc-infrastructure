@@ -1,4 +1,4 @@
-use blockbuster::token_metadata::state::*;
+use blockbuster::token_metadata::types::{Collection, Creator, TokenStandard, Uses};
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions,
 };

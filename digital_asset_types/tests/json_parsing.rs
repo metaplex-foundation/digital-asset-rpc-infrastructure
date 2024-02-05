@@ -1,5 +1,5 @@
 #[cfg(test)]
-use blockbuster::token_metadata::state::TokenStandard as TSBlockbuster;
+use blockbuster::token_metadata::types::TokenStandard as TSBlockbuster;
 use digital_asset_types::dao::asset_data;
 use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability};
 use digital_asset_types::dapi::common::v1_content_from_json;
