@@ -1,0 +1,68 @@
+---
+source: integration_tests/tests/integration_tests/general_scenario_tests.rs
+expression: response
+---
+{
+  "interface": "ProgrammableNFT",
+  "id": "843gdpsTE4DoJz3ZoBsEjAqT8UgAcyF5YojygGgGZE1f",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://nftstorage.link/ipfs/bafybeihaky4htq6obur3ziksyanpdoqmrnefben3dbecddru52xh2sdkii/1232.json",
+    "files": [],
+    "metadata": {
+      "name": "Phantom Mage #1233",
+      "symbol": "PM",
+      "token_standard": "ProgrammableNonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "GMhP98kXvfziKNfq1nP99AbWtZAweLu3DFz5Vs5ZaVTy",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0555,
+    "basis_points": 555,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "5KtTmcxYYzK5mR7gEtjVX2eBBK1g7YjVbvsMBAbyf9uK",
+      "share": 0,
+      "verified": true
+    },
+    {
+      "address": "HmkCMBPdY6MixHP8hxsM8G1UwJH3fBN2itWagnYoXASR",
+      "share": 100,
+      "verified": false
+    }
+  ],
+  "ownership": {
+    "frozen": true,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "BzbdvwEkQKeghTY53aZxTYjUienhdbkNVkgrLV6cErke"
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false
+}

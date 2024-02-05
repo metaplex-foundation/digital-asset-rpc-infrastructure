@@ -1,6 +1,8 @@
+use jsonrpsee::RpcModule;
 use log::debug;
 
-use crate::{api::*, DasApiError, RpcModule};
+use crate::{api::*, error::DasApiError};
+
 pub struct RpcApiBuilder;
 
 impl RpcApiBuilder {

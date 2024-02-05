@@ -1,0 +1,83 @@
+---
+source: integration_tests/tests/integration_tests/general_scenario_tests.rs
+expression: response
+---
+{
+  "interface": "ProgrammableNFT",
+  "id": "ANt9HygtvFmFJ1UcAHFLnM62JJWjk8fujMzjGfpKBfzk",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://shdw-drive.genesysgo.net/3sRtma7VsvgUrGroHkfQga8ipBmv4PAySFwS6rayXxbU/761158362554895.json",
+    "files": [],
+    "metadata": {
+      "name": "BVDCAT #5129",
+      "symbol": "BVD",
+      "token_standard": "ProgrammableNonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "4xJDyBw7RHgfzG2inyTHs8FP7wyqFSywcLKwX8GK6X55",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "HEAKpy99JuLhfinuLgji757JxHvPizBo7WaXvWBYc3kz"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.05,
+    "basis_points": 500,
+    "primary_sale_happened": true,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "8Jhy62JeG4rgPu4Q2tn3Q3eZ8XUZmHhYDKpVJkQ8RFhe",
+      "share": 0,
+      "verified": true
+    },
+    {
+      "address": "9sJ3GKyTpBaNJ9CVFV6DecV556G1jU9L32kJASxzWsQA",
+      "share": 10,
+      "verified": false
+    },
+    {
+      "address": "BDaobvsTU8Eu3R4sx1vLufKiToaZL3MDTHxPgHgvGWC7",
+      "share": 10,
+      "verified": false
+    },
+    {
+      "address": "F9xfmpggwgqH7ASZzNre8TxZztZwCogPBE8aQCNBLkBn",
+      "share": 80,
+      "verified": false
+    }
+  ],
+  "ownership": {
+    "frozen": true,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "AZgXpkRSetUJHy6C3NBvG6jNe49MpgrkZ2RkdMkjCjkW"
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false
+}

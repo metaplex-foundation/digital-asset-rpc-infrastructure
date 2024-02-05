@@ -1,0 +1,36 @@
+[package]
+edition = "2021"
+name = "integration_tests"
+publish = false
+version = "0.1.0"
+
+[dev-dependencies]
+anyhow = {workspace = true}
+das_api = {workspace = true}
+digital_asset_types = {workspace = true}
+env_logger = {workspace = true}
+figment = {workspace = true}
+flatbuffers = {workspace = true}
+function_name = {workspace = true}
+futures-util = {workspace = true}
+insta = {workspace = true}
+itertools = {workspace = true}
+log = {workspace = true}
+migration = {workspace = true}
+mpl-token-metadata = {workspace = true}
+nft_ingester = {workspace = true}
+once_cell = {workspace = true}
+plerkle_messenger = {workspace = true, features = ["redis"]}
+plerkle_serialization = {workspace = true}
+sea-orm = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+serial_test = {workspace = true}
+solana-account-decoder = {workspace = true}
+solana-client = {workspace = true}
+solana-sdk = {workspace = true}
+solana-transaction-status = {workspace = true}
+spl-token = {workspace = true}
+sqlx = {workspace = true}
+tokio = {workspace = true}
+tokio-stream = {workspace = true}

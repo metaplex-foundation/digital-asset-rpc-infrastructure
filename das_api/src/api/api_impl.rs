@@ -20,13 +20,13 @@ use digital_asset_types::{
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 
+use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use open_rpc_schema::document::OpenrpcDocument;
 use {
     crate::api::*,
     crate::config::Config,
     crate::validation::validate_pubkey,
-    crate::DasApiError,
     async_trait::async_trait,
     digital_asset_types::rpc::{response::AssetList, Asset, AssetProof},
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
