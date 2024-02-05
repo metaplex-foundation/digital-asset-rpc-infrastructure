@@ -16,7 +16,7 @@ impl MigrationTrait for Migration {
             .create_type(
                 Type::create()
                     .as_enum(ClAuditsV2::Instruction)
-                    .values(all::<BubblegumInstruction>().map(|e| e).collect::<Vec<_>>())
+                    .values(all::<BubblegumInstruction>().collect::<Vec<_>>())
                     .to_owned(),
             )
             .await?;
@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ClAuditsV2::Instruction)
                             .enumeration(
                                 ClAuditsV2::Instruction,
-                                all::<BubblegumInstruction>().map(|e| e).collect::<Vec<_>>(),
+                                all::<BubblegumInstruction>().collect::<Vec<_>>(),
                             )
                             .not_null(),
                     )
