@@ -1,18 +1,22 @@
-use std::sync::Arc;
-
-use crate::{
-    metric, metrics::capture_result, program_transformers::ProgramTransformer, tasks::TaskData,
-};
-use cadence_macros::{is_global_default_set, statsd_count, statsd_time};
-use chrono::Utc;
-use log::{debug, error};
-use plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData};
-use plerkle_serialization::root_as_account_info;
-use sqlx::{Pool, Postgres};
-use tokio::{
-    sync::mpsc::UnboundedSender,
-    task::{JoinHandle, JoinSet},
-    time::Instant,
+use {
+    crate::{
+        metric,
+        metrics::capture_result,
+        tasks::{create_download_metadata_notifier, TaskData},
+    },
+    cadence_macros::{is_global_default_set, statsd_count, statsd_time},
+    chrono::Utc,
+    log::{debug, error},
+    plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
+    plerkle_serialization::root_as_account_info,
+    program_transformers::ProgramTransformer,
+    sqlx::{Pool, Postgres},
+    std::sync::Arc,
+    tokio::{
+        sync::mpsc::UnboundedSender,
+        task::{JoinHandle, JoinSet},
+        time::Instant,
+    },
 };
 
 pub fn account_worker<T: Messenger>(
@@ -26,7 +30,11 @@ pub fn account_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(pool, bg_task_sender, false));
+            let manager = Arc::new(ProgramTransformer::new(
+                pool,
+                create_download_metadata_notifier(bg_task_sender),
+                false,
+            ));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();
