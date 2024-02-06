@@ -83,7 +83,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20240104_203328_remove_cl_audits::Migration),
             Box::new(m20240116_130744_add_update_metadata_ix::Migration),
             Box::new(m20240117_120101_alter_creator_indices::Migration),
-            Box::new(m20240124_151900_add_slot_updated_column_per_update_type::Migration),
             Box::new(m20240124_181900_add_slot_updated_column_per_update_type::Migration),
         ]
     }
