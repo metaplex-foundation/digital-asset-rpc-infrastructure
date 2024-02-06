@@ -152,7 +152,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                     AssetMintAccountColumns {
                         mint: key_bytes,
                         supply: m.supply,
-                        slot_updated_mint_account: account_update.slot() as u64,
+                        slot_updated_mint_account: account_update.slot(),
                     },
                     db,
                 )

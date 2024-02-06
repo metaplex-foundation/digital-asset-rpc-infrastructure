@@ -198,12 +198,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     // Map unknown ownership types based on the supply.
     if ownership_type == OwnerType::Unknown {
-        if supply == 1 {
-            ownership_type = OwnerType::Single;
-        } else if supply > 1 {
-            ownership_type = OwnerType::Token;
-        }
-    }
+        ownership_type = match supply.cmp(&1) {
+            std::cmp::Ordering::Equal => OwnerType::Single,
+            std::cmp::Ordering::Greater => OwnerType::Token,
+            _ => OwnerType::Unknown,
+        };
+    };
 
     if (ownership_type == OwnerType::Single) | (ownership_type == OwnerType::Unknown) {
         index_token_account_data(conn, mint_pubkey_vec.clone()).await?;

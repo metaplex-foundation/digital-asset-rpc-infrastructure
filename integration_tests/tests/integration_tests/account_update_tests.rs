@@ -50,7 +50,7 @@ macro_rules! update_field {
 }
 
 async fn index_account_update(setup: &TestSetup, pubkey: Pubkey, update: AccountUpdate, slot: u64) {
-    let account_bytes = cached_fetch_account(&setup, pubkey.clone(), None).await;
+    let account_bytes = cached_fetch_account(setup, pubkey, None).await;
 
     let account_info = root_as_account_info(&account_bytes).unwrap();
     let account_data = account_info.data().unwrap().iter().collect::<Vec<_>>();
