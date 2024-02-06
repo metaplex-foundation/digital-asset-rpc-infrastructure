@@ -30,6 +30,8 @@ use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
 
+use solana_client::nonblocking::rpc_client::RpcClient;
+
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), IngesterError> {
     init_logger();
@@ -132,9 +134,16 @@ pub async fn main() -> Result<(), IngesterError> {
                         stream_name,
                     );
                 } else if worker.worker_type == WorkerType::Transaction {
+                    // Rpc client to send or simulate transactions
+                    let rpc_client = RpcClient::new_with_commitment(
+                        config.get_rpc_url(),
+                        solana_sdk::commitment_config::CommitmentConfig::processed(),
+                    );
+
                     let _txn = transaction_worker::<RedisMessenger>(
                         database_pool.clone(),
                         config.get_messneger_client_config(),
+                        rpc_client,
                         bg_task_sender.clone(),
                         ack_sender.clone(),
                         if i == 0 {

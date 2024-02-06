@@ -345,3 +345,30 @@ create unique index compressed_data_tree_leaf_idx on compressed_data (tree_id, l
 -- @@@@@@
 create index compressed_data_revision on compressed_data (tree_id, raw_data, leaf_idx);
 -- @@@@@@
+
+
+create table account
+(
+    id                        bytea PRIMARY KEY,
+
+    program_id  bytea not null,
+
+    discriminator bytea not null,
+
+    -- Parsed
+    parsed_data                   jsonb not null,
+
+    -- visibility
+    created_at                timestamp with time zone           default (now() at time zone 'utc'),
+    slot_updated              bigint                    not null
+);
+-- @@@@@@
+
+create index account_program_id on account (program_id);
+-- @@@@@@
+create index account_discriminator on account (discriminator);
+-- @@@@@@
+create index account_parsed_data on account (parsed_data);
+-- @@@@@@
+create index account_revision on account (program_id, discriminator);
+-- @@@@@@

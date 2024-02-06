@@ -56,6 +56,8 @@ pub enum IngesterError {
     CompressedDataParseError(String),
     #[error("Storage Read Error: {0}")]
     StorageReadError(String),
+    #[error("Error reading pubkey from account_update")]
+    PubkeyReadError,
 }
 
 impl From<reqwest::Error> for IngesterError {

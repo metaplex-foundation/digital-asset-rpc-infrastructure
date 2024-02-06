@@ -58,6 +58,7 @@ tracing-subscriber = { workspace = true, features = ["json", "env-filter", "ansi
 url = { workspace = true }
 uuid = { workspace = true }
 hpl-compression = { workspace = true }
+hpl-toolkit = { workspace = true }
 
 [lints]
 workspace = true

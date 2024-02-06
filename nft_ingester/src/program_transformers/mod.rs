@@ -11,6 +11,7 @@ use blockbuster::{
 use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -18,18 +19,21 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
     account_compression::handle_account_compression_instruction,
-    bubblegum::handle_bubblegum_instruction, noop::handle_noop_instruction,
-    token::handle_token_program_account, token_metadata::handle_token_metadata_account,
+    bubblegum::handle_bubblegum_instruction, hpl_account_handler::etl_account_schema_values,
+    noop::handle_noop_instruction, token::handle_token_program_account,
+    token_metadata::handle_token_metadata_account,
 };
 
 mod account_compression;
 mod bubblegum;
+mod hpl_account_handler;
 mod noop;
 mod token;
 mod token_metadata;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
+    rpc_client: Option<RpcClient>,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
@@ -56,6 +60,7 @@ impl ProgramTransformer {
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
+            rpc_client: None,
             task_sender,
             matchers,
             key_set: hs,
@@ -63,6 +68,16 @@ impl ProgramTransformer {
         }
     }
 
+    pub fn new_with_rpc_client(
+        pool: PgPool,
+        rpc_client: RpcClient,
+        task_sender: UnboundedSender<TaskData>,
+        cl_audits: bool,
+    ) -> Self {
+        let mut this = Self::new(pool, task_sender, cl_audits);
+        this.rpc_client = Some(rpc_client);
+        this
+    }
     pub fn break_transaction<'i>(
         &self,
         tx: &'i TransactionInfo<'i>,
@@ -192,6 +207,18 @@ impl ProgramTransformer {
                         debug!("Could not handle this ix")
                     }
                 };
+            }
+            if let Some(rpc_client) = &self.rpc_client {
+                // let whitelist_programs = vec![pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")];
+                etl_account_schema_values(&ix, &self.storage, rpc_client, &self.task_sender)
+                    .await
+                    .map_err(|err| {
+                        error!(
+                            "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                            sig, err
+                        );
+                        err
+                    })?;
             }
         }
 
