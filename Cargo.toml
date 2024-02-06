@@ -1,10 +1,12 @@
 [workspace]
 members = [
+  "core",
   "das_api",
   "digital_asset_types",
   "metaplex-rpc-proxy",
   "migration",
   "nft_ingester",
+  "ops",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
   "tools/fetch_trees",
@@ -36,8 +38,14 @@ cadence = "0.29.0"
 cadence-macros = "0.29.0"
 chrono = "0.4.19"
 clap = "4.2.2"
+<<<<<<< HEAD
 das_api = {path = "das_api"}
 digital_asset_types = {path = "digital_asset_types"}
+=======
+das_api = { path = "das_api" }
+das-core = { path = "core" }
+digital_asset_types = { path = "digital_asset_types" }
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
 env_logger = "0.10.0"
@@ -50,7 +58,11 @@ futures-util = "0.3.27"
 hex = "0.4.3"
 hyper = "0.14.23"
 indexmap = "1.9.3"
+<<<<<<< HEAD
 insta = {version = "1.34.0", features = ["json"]}
+=======
+insta = { version = "1.34.0", features = ["json"] }
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
 itertools = "0.10.1"
 jsonpath_lib = "0.3.0"
 jsonrpsee = "0.16.2"
@@ -58,7 +70,11 @@ jsonrpsee-core = "0.16.2"
 lazy_static = "1.4.0"
 log = "0.4.17"
 metrics = "0.20.1"
+<<<<<<< HEAD
 migration = {path = "migration"}
+=======
+migration = { path = "migration" }
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
 mime_guess = "2.0.4"
 mpl-bubblegum = "1.2.0"
 mpl-token-metadata = "4.1.1"
@@ -80,13 +96,21 @@ reqwest = "0.11.13"
 rust-crypto = "0.2.36"
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
+<<<<<<< HEAD
 sea-orm = {version = "0.10.6", features = [
+=======
+sea-orm = { version = "0.10.6", features = [
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
   "macros",
   "runtime-tokio-rustls",
   "sqlx-postgres",
   "with-chrono",
   "mock",
+<<<<<<< HEAD
 ]}
+=======
+] }
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
 sea-orm-migration = "0.10.6"
 sea-query = "0.28.1"
 serde = "1.0.137"
@@ -103,18 +127,30 @@ spl-account-compression = "0.2.0"
 spl-associated-token-account = ">= 1.1.3, < 3.0"
 spl-concurrent-merkle-tree = "0.2.0"
 spl-noop = "0.2.0"
+<<<<<<< HEAD
 spl-token = {version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"]}
 sqlx = {version = "0.6.2", features = [
+=======
+spl-token = { version = ">= 3.5.0, < 5.0", features = ["no-entrypoint"] }
+sqlx = { version = "0.6.2", features = [
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
   "macros",
   "runtime-tokio-rustls",
   "postgres",
   "uuid",
   "offline",
   "json",
+<<<<<<< HEAD
 ]}
 stretto = "0.7.2"
 thiserror = "1.0.31"
 tokio = {version = "1.30.0", features = ["macros", "rt-multi-thread"]}
+=======
+] }
+stretto = "0.7.2"
+thiserror = "1.0.31"
+tokio = { version = "1.30.0", features = ["macros", "rt-multi-thread"] }
+>>>>>>> d4c912dc5ec2dae96ff0769b2f3a332a5537ae41
 tokio-postgres = "0.7.7"
 tokio-stream = "0.1.14"
 tower = "0.4.13"

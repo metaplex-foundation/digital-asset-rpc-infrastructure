@@ -36,7 +36,8 @@ mod m20240104_203133_add_cl_audits_v2;
 mod m20240104_203328_remove_cl_audits;
 mod m20240116_130744_add_update_metadata_ix;
 mod m20240117_120101_alter_creator_indices;
-mod m20240124_151900_add_slot_updated_column_per_update_type;
+mod m20240124_173104_add_tree_seq_index_to_cl_audits_v2;
+mod m20240124_181900_add_slot_updated_column_per_update_type;
 
 pub mod model;
 
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240116_130744_add_update_metadata_ix::Migration),
             Box::new(m20240117_120101_alter_creator_indices::Migration),
             Box::new(m20240124_151900_add_slot_updated_column_per_update_type::Migration),
+            Box::new(m20240124_181900_add_slot_updated_column_per_update_type::Migration),
         ]
     }
 }
