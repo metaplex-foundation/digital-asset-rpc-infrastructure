@@ -1,3 +1,4 @@
+mod account_update_tests;
 mod cnft_tests;
 mod common;
 mod general_scenario_tests;

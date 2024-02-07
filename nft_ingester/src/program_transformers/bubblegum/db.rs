@@ -483,7 +483,7 @@ where
         royalty_target: Set(royalty_target),
         royalty_amount: Set(royalty_amount),
         asset_data: Set(Some(id.clone())),
-        slot_updated: Set(Some(slot_updated)),
+        slot_updated_cnft_transaction: Set(Some(slot_updated)),
         base_info_seq: Set(Some(seq)),
         ..Default::default()
     };
@@ -501,7 +501,7 @@ where
                     asset::Column::RoyaltyTarget,
                     asset::Column::RoyaltyAmount,
                     asset::Column::AssetData,
-                    asset::Column::SlotUpdated,
+                    asset::Column::SlotUpdatedCnftTransaction,
                     asset::Column::BaseInfoSeq,
                 ])
                 .to_owned(),

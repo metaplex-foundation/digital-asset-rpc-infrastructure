@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dev-dependencies]
 anyhow = {workspace = true}
+borsh = {workspace = true}
 das_api = {workspace = true}
 digital_asset_types = {workspace = true}
 env_logger = {workspace = true}
