@@ -12,7 +12,7 @@ use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{pubkey, pubkey::Pubkey};
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
@@ -53,10 +53,11 @@ impl ProgramTransformer {
         matchers.insert(token_metadata.key(), Box::new(token_metadata));
         matchers.insert(token.key(), Box::new(token));
         matchers.insert(noop.key(), Box::new(noop));
-        let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
+        let mut hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
         });
+        hs.insert(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL"));
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
@@ -82,7 +83,7 @@ impl ProgramTransformer {
         &self,
         tx: &'i TransactionInfo<'i>,
     ) -> VecDeque<(IxPair<'i>, Option<Vec<IxPair<'i>>>)> {
-        let ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
+        let mut ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
         order_instructions(ref_set, tx)
     }
 
@@ -111,6 +112,8 @@ impl ProgramTransformer {
         for k in accounts.into_iter() {
             keys.push(*k);
         }
+        let payer = keys.get(0).map(|fk| Pubkey::from(fk.0));
+
         let mut not_impl = 0;
         let ixlen = instructions.len();
         debug!("Instructions: {}", ixlen);
@@ -210,15 +213,22 @@ impl ProgramTransformer {
             }
             if let Some(rpc_client) = &self.rpc_client {
                 // let whitelist_programs = vec![pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")];
-                etl_account_schema_values(&ix, &self.storage, rpc_client, &self.task_sender)
-                    .await
-                    .map_err(|err| {
-                        error!(
-                            "Failed to handle bubblegum instruction for txn {:?}: {:?}",
-                            sig, err
-                        );
-                        err
-                    })?;
+                etl_account_schema_values(
+                    &ix,
+                    keys.as_slice(),
+                    &payer,
+                    &self.storage,
+                    rpc_client,
+                    &self.task_sender,
+                )
+                .await
+                .map_err(|err| {
+                    error!(
+                        "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                        sig, err
+                    );
+                    err
+                })?;
             }
         }
 

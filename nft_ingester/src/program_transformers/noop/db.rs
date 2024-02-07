@@ -1,7 +1,7 @@
 use crate::error::IngesterError;
 use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
 use digital_asset_types::dao::{compressed_data, merkle_tree};
-use hpl_compression::{CompressedDataEvent, CompressedDataEventStream, Schema, SchemaValue};
+use hpl_toolkit::{compression::*, schema::*};
 use log::{debug, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,

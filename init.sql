@@ -347,7 +347,7 @@ create index compressed_data_revision on compressed_data (tree_id, raw_data, lea
 -- @@@@@@
 
 
-create table account
+create table accounts
 (
     id                        bytea PRIMARY KEY,
 
@@ -364,11 +364,11 @@ create table account
 );
 -- @@@@@@
 
-create index account_program_id on account (program_id);
+create index accounts_program_id on accounts (program_id);
 -- @@@@@@
-create index account_discriminator on account (discriminator);
+create index accounts_discriminator on accounts (discriminator);
 -- @@@@@@
-create index account_parsed_data on account (parsed_data);
+create index accounts_parsed_data on accounts (parsed_data);
 -- @@@@@@
-create index account_revision on account (program_id, discriminator);
+create index accounts_revision on accounts (program_id, discriminator);
 -- @@@@@@

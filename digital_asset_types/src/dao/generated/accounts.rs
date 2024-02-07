@@ -14,7 +14,7 @@ impl EntityName for Entity {
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
-    pub id: i64,
+    pub id: Vec<u8>,
     pub program_id: Vec<u8>,
     pub discriminator: Vec<u8>,
     pub parsed_data: Json,
@@ -51,7 +51,7 @@ impl ColumnTrait for Column {
     type EntityName = Entity;
     fn def(&self) -> ColumnDef {
         match self {
-            Self::Id => ColumnType::BigInteger.def(),
+            Self::Id => ColumnType::Binary.def(),
             Self::ProgramId => ColumnType::Binary.def(),
             Self::Discriminator => ColumnType::Binary.def(),
             Self::ParsedData => ColumnType::JsonBinary.def(),

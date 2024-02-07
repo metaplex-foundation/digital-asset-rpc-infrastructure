@@ -80,6 +80,9 @@ args=(
   --rpc-port 8899
   --geyser-plugin-config /plugin-config/accountsdb-plugin-config.json
   --clone EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL --clone UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM
+  --clone Ha71K2v3q9wL3hDLbGx5mRnAXd6CdgzNx5GJHDbWvPRg --clone G5s6HRnHwRTGcE1cXAZeeCsFeurVGuW2Wqhr7UBiDZWQ
+  --clone 4AZpzJtYZCu9yWrnK1D5W23VXHLgN1GPkL8h8CfaGBTW --clone 86h623JGQvvJAsPG7meWsUjFW6hBe5tLwqNPoa9baUfC
+  --clone BNdAHQMniLicundk1jo4qKWyNr9C8bK7oUrzgSwoSGmZ --clone FQErtH1zXPuHRxEwamXpWG711CVhqQS3Epsv4jao4Kn1
   --clone EventNxhSA3AcXD14PmXaYUiNQWwoKbLeGHtwydixRzX --clone 3EQtfTBVgEDbrQsgEpWH6rg2HGBUdxyxYfsNn2on4ZPm
   --clone HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm --clone 5ZJG4CchgDXQ9LVS5a7pmib1VS69t8SSsV5riexibwTk
   --clone ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg --clone U7w6LJRtG4jvUQv4WjTinkHnv9UAfHjBiVdr2HERiX2

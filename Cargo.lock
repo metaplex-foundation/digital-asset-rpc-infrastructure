@@ -2608,70 +2608,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "hpl-attribute-compressed-account"
-version = "0.0.1-beta.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "236b21dd9d6884c673bed7390909f6167f27f1255cc303fdf9f1adfa9f159fcf"
-dependencies = [
- "convert_case",
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "hpl-compression"
-version = "0.1.8-beta.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a8884e931e0f9fff2e520db8dde2e23fe5c22254d2770cc11286a9884b638c8"
-dependencies = [
- "anchor-lang",
- "hpl-attribute-compressed-account",
- "hpl-compression-macro-merkle-tree-apply-fn",
- "hpl-compression-macro-merkle-tree-apply-fn-deep",
- "hpl-compression-macro-merkle-tree-utils",
- "serde_json",
- "spl-account-compression",
-]
-
-[[package]]
-name = "hpl-compression-macro-merkle-tree-apply-fn"
-version = "0.0.3-beta.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a68e2aa870424855dac3a7b44740e2cd9c3383aa624633a8d9750222ea05ce4f"
-dependencies = [
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "hpl-compression-macro-merkle-tree-apply-fn-deep"
-version = "0.0.3-beta.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f8ff570a467cc1cec74c855421bb95079c0595aad984646bb48aee130499988"
-dependencies = [
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "hpl-compression-macro-merkle-tree-utils"
-version = "0.0.3-beta.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed317c8a828620723875291c255428deecdec8c5b3c1c45e1666256029b2d442"
-dependencies = [
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "syn 2.0.38",
-]
-
-[[package]]
 name = "hpl-toolkit"
-version = "0.0.1-beta.2"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24566152405de9e6d46cacf30f0c9011ed5de6b0f3da423d2f17f6de8c6eb648"
+checksum = "8be9d6878f0347abff5679cd6e7c9832fb39aba15b2714236169ca6f7353e57a"
 dependencies = [
  "anchor-lang",
  "hpl-toolkit-attribute-compressed-account",
@@ -2687,9 +2627,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-attribute-compressed-account"
-version = "0.0.1-beta.2"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d56d42b8579f0c145eeeafd8ef90a617d1be76028df0e99bb19dce2c8d5152ae"
+checksum = "1bc43891c7d0a6b3f9d2c53e5ff91a962d44160dc0193432d2071cf41270944b"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
@@ -2699,9 +2639,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-derive-to-node"
-version = "0.0.1-beta.2"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b31047659d542d0ef512e8ab2e2a40bd779e179ba31f851dec7b96199b627f2"
+checksum = "56865e2ef1b415f472eb39a25fc41d4cadb3ddafcbc8bc81b4db609beff8b359"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
@@ -2711,9 +2651,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-derive-to-schema"
-version = "0.0.1-beta.2"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347681b66da023d54a58252b13ab7d64d377e93050638a407c73a08446d79e6d"
+checksum = "0b2319abfa3a038b125e247491a9a41bde62d2515f30cb8a9f4932119c1d5227"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
@@ -2723,21 +2663,22 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-macro-account-schemas-instruction"
-version = "0.0.1-beta.1"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba7bd51950fd2c805a3583b1c5f853898b77167ae82930afec19ca168ecd24d1"
+checksum = "f43cda32a3c343c4f6fc73413fe7f6b36e2999f754aedaa3832f5226e78f839b"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
  "quote 1.0.33",
+ "regex",
  "syn 2.0.38",
 ]
 
 [[package]]
 name = "hpl-toolkit-macro-merkle-tree-apply-fn"
-version = "0.0.1-beta.1"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0669cf27c890a8b32341bc00cf616dd024958af084bfb8adc931ad9e1ac5188c"
+checksum = "0ba799d0ec092dfed811f41d772ba026f2c45d1362c046ed6d1a889c4633168b"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -2746,9 +2687,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-macro-merkle-tree-apply-fn-deep"
-version = "0.0.1-beta.1"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad0081f487e681f5e12e2d58d189273b8ebf13641955fd1c8dc68cf3ed7f84df"
+checksum = "35c82778786e641aaf73d20f654b4555988fe516ba06eedbc0489da2b50cf8b1"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -2757,9 +2698,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-macro-merkle-tree-utils"
-version = "0.0.1-beta.1"
+version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fcdb893e3f83e3548b45f6597648716aea8584cc0417c847e1f99879457fc27"
+checksum = "34b6624981feab7a478c6e1d775dbd15d8b7c7d1ab3806b77b56ddd114317c67"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
@@ -3603,7 +3544,6 @@ dependencies = [
  "futures",
  "futures-util",
  "hex",
- "hpl-compression",
  "hpl-toolkit",
  "lazy_static",
  "log",

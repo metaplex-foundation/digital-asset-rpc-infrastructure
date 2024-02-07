@@ -39,6 +39,11 @@ services:
     build:
       context: .
       dockerfile: Ingest.Dockerfile
+    logging:
+      driver: "json-file"
+      options:
+        max-size: 200k
+        max-file: 10
   # load:
   #   depends_on:
   #     - migrator
