@@ -2609,20 +2609,33 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit"
-version = "0.0.2"
+version = "0.0.3-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8be9d6878f0347abff5679cd6e7c9832fb39aba15b2714236169ca6f7353e57a"
+checksum = "a13a54689edb87e986dc9223236b986c65bd38f76882439f540a3e81fa37feae"
 dependencies = [
  "anchor-lang",
+ "hpl-toolkit-attribute-account-schemas-ix-injector",
  "hpl-toolkit-attribute-compressed-account",
  "hpl-toolkit-derive-to-node",
  "hpl-toolkit-derive-to-schema",
- "hpl-toolkit-macro-account-schemas-instruction",
  "hpl-toolkit-macro-merkle-tree-apply-fn",
  "hpl-toolkit-macro-merkle-tree-apply-fn-deep",
  "hpl-toolkit-macro-merkle-tree-utils",
  "serde_json",
  "spl-account-compression",
+]
+
+[[package]]
+name = "hpl-toolkit-attribute-account-schemas-ix-injector"
+version = "0.0.1-beta.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692acbe1408af461f469a42272bf2f54cf86a8e060e97084d105ad6436f63f63"
+dependencies = [
+ "convert_case",
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "regex",
+ "syn 2.0.38",
 ]
 
 [[package]]
@@ -2658,19 +2671,6 @@ dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",
  "quote 1.0.33",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "hpl-toolkit-macro-account-schemas-instruction"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f43cda32a3c343c4f6fc73413fe7f6b36e2999f754aedaa3832f5226e78f839b"
-dependencies = [
- "convert_case",
- "proc-macro2 1.0.69",
- "quote 1.0.33",
- "regex",
  "syn 2.0.38",
 ]
 
