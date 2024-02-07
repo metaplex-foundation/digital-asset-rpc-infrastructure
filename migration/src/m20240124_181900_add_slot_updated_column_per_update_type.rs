@@ -3,58 +3,67 @@ use sea_orm_migration::{
     sea_orm::{ConnectionTrait, DatabaseBackend, Statement},
 };
 
+use crate::model::table::Asset;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::SlotUpdatedMetadataAccount)
+                            .big_integer()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::SlotUpdatedTokenAccount)
+                            .big_integer()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::SlotUpdatedMintAccount)
+                            .big_integer()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::SlotUpdatedCnftTransaction)
+                            .big_integer()
+                            .null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
         let connection = manager.get_connection();
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            ADD COLUMN slot_updated_metadata_account int8;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            ADD COLUMN slot_updated_token_account int8;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            ADD COLUMN slot_updated_mint_account int8;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            ADD COLUMN slot_updated_cnft_transaction int8;
-            "
-                .to_string(),
-            ))
-            .await?;
-
         connection
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
@@ -88,51 +97,43 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .drop_column(Asset::SlotUpdatedMetadataAccount)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .drop_column(Asset::SlotUpdatedTokenAccount)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .drop_column(Asset::SlotUpdatedMintAccount)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Asset::Table)
+                    .drop_column(Asset::SlotUpdatedCnftTransaction)
+                    .to_owned(),
+            )
+            .await?;
+
         let connection = manager.get_connection();
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            DROP COLUMN IF EXISTS slot_updated_metadata_account;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            DROP COLUMN IF EXISTS slot_updated_token_account;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            DROP COLUMN IF EXISTS slot_updated_mint_account;
-            "
-                .to_string(),
-            ))
-            .await?;
-
-        connection
-            .execute(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "
-            ALTER TABLE asset
-            DROP COLUMN IF EXISTS slot_updated_cnft_transaction;
-            "
-                .to_string(),
-            ))
-            .await?;
 
         connection
             .execute(Statement::from_string(
