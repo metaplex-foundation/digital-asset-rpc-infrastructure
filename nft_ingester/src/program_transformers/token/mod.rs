@@ -150,7 +150,8 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             if let Some(_asset) = asset_update {
                 upsert_assets_mint_account_columns(
                     AssetMintAccountColumns {
-                        mint: key_bytes,
+                        mint: key_bytes.clone(),
+                        suppply_mint: Some(key_bytes),
                         supply: m.supply,
                         slot_updated_mint_account: account_update.slot(),
                     },

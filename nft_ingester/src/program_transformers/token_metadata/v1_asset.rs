@@ -89,6 +89,7 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         upsert_assets_mint_account_columns(
             AssetMintAccountColumns {
                 mint: mint_pubkey_vec.clone(),
+                suppply_mint: Some(token.mint.clone()),
                 supply: token.supply as u64,
                 slot_updated_mint_account: token.slot_updated as u64,
             },
@@ -268,7 +269,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     upsert_assets_metadata_account_columns(
         AssetMetadataAccountColumns {
             mint: mint_pubkey_vec.clone(),
-            metadata_account_id: mint_pubkey_vec.clone(),
             owner_type: ownership_type,
             specification_asset_class: Some(class),
             royalty_amount: metadata.seller_fee_basis_points as i32,

@@ -1,6 +1,8 @@
 use digital_asset_types::dao::{
     asset,
-    sea_orm_active_enums::{OwnerType, RoyaltyTargetType, SpecificationAssetClass},
+    sea_orm_active_enums::{
+        OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
+    },
 };
 use sea_orm::{
     sea_query::OnConflict, ConnectionTrait, DbBackend, DbErr, EntityTrait, QueryTrait, Set,
@@ -50,6 +52,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
     pub supply: u64,
+    pub suppply_mint: Option<Vec<u8>>,
     pub slot_updated_mint_account: u64,
 }
 
@@ -60,6 +63,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
         supply: Set(columns.supply as i64),
+        supply_mint: Set(columns.suppply_mint),
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
         ..Default::default()
     };
@@ -84,7 +88,6 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
 
 pub struct AssetMetadataAccountColumns {
     pub mint: Vec<u8>,
-    pub metadata_account_id: Vec<u8>,
     pub owner_type: OwnerType,
     pub specification_asset_class: Option<SpecificationAssetClass>,
     pub royalty_amount: i32,
@@ -99,9 +102,7 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
         owner_type: Set(columns.owner_type),
-        specification_version: Set(Some(
-            digital_asset_types::dao::sea_orm_active_enums::SpecificationVersions::V1,
-        )),
+        specification_version: Set(Some(SpecificationVersions::V1)),
         specification_asset_class: Set(columns.specification_asset_class),
         tree_id: Set(None),
         nonce: Set(Some(0)),
