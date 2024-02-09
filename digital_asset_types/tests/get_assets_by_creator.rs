@@ -6,7 +6,7 @@ use sea_orm::{
 };
 use solana_sdk::{signature::Keypair, signer::Signer};
 
-use blockbuster::token_metadata::state::*;
+use blockbuster::token_metadata::types::{Creator, TokenStandard};
 use common::*;
 use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{

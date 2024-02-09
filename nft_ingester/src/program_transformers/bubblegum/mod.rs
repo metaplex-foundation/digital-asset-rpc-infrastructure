@@ -1,7 +1,8 @@
 use blockbuster::{
     self,
     instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, InstructionName},
+    programs::bubblegum::{BubblegumInstruction, InstructionName, UseMethod as BubblegumUseMethod},
+    token_metadata::types::UseMethod as TokenMetadataUseMethod,
 };
 use log::debug;
 use sea_orm::{ConnectionTrait, TransactionTrait};
@@ -114,4 +115,14 @@ fn u32_to_u8_array(value: u32) -> [u8; 8] {
     let mut result: [u8; 8] = [0; 8];
     result[..4].copy_from_slice(&bytes);
     result
+}
+
+const fn bgum_use_method_to_token_metadata_use_method(
+    bubblegum_use_method: BubblegumUseMethod,
+) -> TokenMetadataUseMethod {
+    match bubblegum_use_method {
+        BubblegumUseMethod::Burn => TokenMetadataUseMethod::Burn,
+        BubblegumUseMethod::Multiple => TokenMetadataUseMethod::Multiple,
+        BubblegumUseMethod::Single => TokenMetadataUseMethod::Single,
+    }
 }

@@ -16,7 +16,7 @@ use tracing_subscriber::fmt;
 
 use crate::{error::IngesterError, tasks::BackgroundTaskRunnerConfig};
 
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct IngesterConfig {
     pub database_config: DatabaseConfig,
     pub messenger_config: MessengerConfig,

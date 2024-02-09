@@ -1,15 +1,16 @@
 use crate::{
     error::IngesterError,
     program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_base_info, upsert_asset_creators, upsert_asset_data,
-        upsert_asset_with_leaf_info, upsert_asset_with_seq,
+        bgum_use_method_to_token_metadata_use_method, save_changelog_event, upsert_asset_base_info,
+        upsert_asset_creators, upsert_asset_data, upsert_asset_with_leaf_info,
+        upsert_asset_with_seq,
     },
     tasks::{DownloadMetadata, IntoTaskData, TaskData},
 };
 use blockbuster::{
     instruction::InstructionBundle,
     programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-    token_metadata::state::{TokenStandard, UseMethod, Uses},
+    token_metadata::types::{TokenStandard, Uses},
 };
 use chrono::Utc;
 use digital_asset_types::{
@@ -20,7 +21,6 @@ use digital_asset_types::{
     json::ChainDataV1,
 };
 use log::warn;
-use num_traits::FromPrimitive;
 use sea_orm::{query::*, ConnectionTrait, JsonValue};
 
 pub async fn update_metadata<'c, T>(
@@ -87,7 +87,7 @@ where
                     primary_sale_happened,
                     token_standard: Some(TokenStandard::NonFungible),
                     uses: current_metadata.uses.clone().map(|u| Uses {
-                        use_method: UseMethod::from_u8(u.use_method as u8).unwrap(),
+                        use_method: bgum_use_method_to_token_metadata_use_method(u.use_method),
                         remaining: u.remaining,
                         total: u.total,
                     }),

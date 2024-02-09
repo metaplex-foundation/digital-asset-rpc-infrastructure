@@ -4,7 +4,7 @@ use {
     figment::{map, value::Value},
     futures::{future::try_join_all, stream::StreamExt},
     log::{info, warn},
-    mpl_token_metadata::{pda::find_metadata_account, state::Metadata},
+    mpl_token_metadata::accounts::Metadata,
     plerkle_messenger::{MessengerConfig, ACCOUNT_BACKFILL_STREAM},
     plerkle_serialization::{
         serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
@@ -150,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
         Action::Mint { mint } => {
             let mint =
                 Pubkey::from_str(&mint).with_context(|| format!("failed to parse mint {mint}"))?;
-            let metadata_account = find_metadata_account(&mint).0;
+            let metadata_account = Metadata::find_pda(&mint).0;
             let token_account = get_token_largest_account(&client, mint).await;
 
             match token_account {

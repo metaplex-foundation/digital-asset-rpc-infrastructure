@@ -1,4 +1,4 @@
-use blockbuster::token_metadata::state::*;
+use blockbuster::token_metadata::types::{Collection, Creator, TokenStandard, Uses};
 use digital_asset_types::dao::sea_orm_active_enums::{
     SpecificationAssetClass, SpecificationVersions,
 };
@@ -152,6 +152,10 @@ pub fn create_asset(
             created_at: None,
             specification_asset_class: Some(SpecificationAssetClass::Nft),
             slot_updated: Some(0),
+            slot_updated_metadata_account: Some(0),
+            slot_updated_mint_account: None,
+            slot_updated_token_account: None,
+            slot_updated_cnft_transaction: None,
             data_hash: None,
             alt_id: None,
             creator_hash: None,

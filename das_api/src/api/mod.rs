@@ -1,4 +1,4 @@
-use crate::DasApiError;
+use crate::error::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
 use digital_asset_types::rpc::options::Options;
@@ -44,7 +44,7 @@ pub struct GetAssetsByOwner {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAsset {
     pub id: String,
@@ -88,7 +88,7 @@ pub struct GetAssetsByCreator {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SearchAssets {
     pub negate: Option<bool>,

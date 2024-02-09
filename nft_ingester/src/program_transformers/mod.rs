@@ -20,6 +20,7 @@ use crate::program_transformers::{
     token_metadata::handle_token_metadata_account,
 };
 
+mod asset_upserts;
 mod bubblegum;
 mod token;
 mod token_metadata;
