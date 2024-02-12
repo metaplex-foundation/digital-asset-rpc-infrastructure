@@ -1,14 +1,17 @@
-FROM rust:1.73-bullseye AS chef
+FROM rust:1.75-bullseye AS chef
 RUN cargo install cargo-chef
 FROM chef AS planner
 
 RUN mkdir /rust
 COPY Cargo.toml /rust
+COPY core /rust/core
 COPY das_api /rust/das_api
 COPY digital_asset_types /rust/digital_asset_types
+COPY integration_tests /rust/integration_tests
 COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY migration /rust/migration
 COPY nft_ingester /rust/nft_ingester
+COPY ops /rust/ops
 COPY tools /rust/tools
 
 WORKDIR /rust/tools/load_generation
@@ -20,11 +23,14 @@ RUN apt-get update -y && \
 
 RUN mkdir /rust
 COPY Cargo.toml /rust
+COPY core /rust/core
 COPY das_api /rust/das_api
 COPY digital_asset_types /rust/digital_asset_types
+COPY integration_tests /rust/integration_tests
 COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY migration /rust/migration
 COPY nft_ingester /rust/nft_ingester
+COPY ops /rust/ops
 COPY tools /rust/tools
 
 WORKDIR /rust/tools/load_generation
@@ -36,7 +42,7 @@ RUN cargo chef cook --release --recipe-path recipe.json --target-dir /rust/targe
 # Build application
 RUN cargo build --release
 
-FROM rust:1.73-slim-bullseye
+FROM rust:1.75-slim-bullseye
 ARG APP=/usr/src/app
 RUN apt update \
     && apt install -y curl ca-certificates tzdata \
