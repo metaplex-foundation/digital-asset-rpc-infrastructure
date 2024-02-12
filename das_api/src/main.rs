@@ -25,7 +25,7 @@ use tower_http::cors::{Any, CorsLayer};
 use jsonrpsee::server::{
     logger::{Logger, TransportProtocol},
     middleware::proxy_get_request::ProxyGetRequestLayer,
-    RpcModule, ServerBuilder,
+    ServerBuilder,
 };
 
 use cadence_macros::{is_global_default_set, statsd_time};

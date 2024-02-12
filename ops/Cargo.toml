@@ -1,0 +1,37 @@
+[package]
+name = "das-ops"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "das-ops"
+
+[dependencies]
+anchor-client = { workspace = true }
+anyhow = { workspace = true }
+backon = { workspace = true }
+borsh = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
+das-core = { workspace = true }
+digital_asset_types = { workspace = true }
+env_logger = { workspace = true }
+figment = { workspace = true }
+flatbuffers = { workspace = true }
+futures = { workspace = true }
+indicatif = { workspace = true }
+log = { workspace = true }
+mpl-bubblegum = { workspace = true }
+plerkle_messenger = { workspace = true }
+plerkle_serialization = { workspace = true }
+sea-orm = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+spl-account-compression = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }

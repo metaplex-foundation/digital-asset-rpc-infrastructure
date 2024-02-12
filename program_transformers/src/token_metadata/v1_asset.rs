@@ -1,5 +1,10 @@
 use {
     crate::{
+        asset_upserts::{
+            upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
+            upsert_assets_token_account_columns, AssetMetadataAccountColumns,
+            AssetMintAccountColumns, AssetTokenAccountColumns,
+        },
         error::{ProgramTransformerError, ProgramTransformerResult},
         DownloadMetadataInfo,
     },
@@ -12,7 +17,7 @@ use {
             asset, asset_authority, asset_creators, asset_data, asset_grouping,
             asset_v1_account_attachments,
             sea_orm_active_enums::{
-                ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+                ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
                 SpecificationVersions, V1AccountAttachments,
             },
             token_accounts, tokens,
@@ -61,6 +66,84 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
 static WSOL_PUBKEY: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
+pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    mint_pubkey_vec: Vec<u8>,
+) -> ProgramTransformerResult<Option<tokens::Model>> {
+    // Gets the token and token account for the mint to populate the asset.
+    // This is required when the token and token account are indexed, but not the metadata account.
+    // If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data.
+    let token: Option<tokens::Model> = find_model_with_retry(
+        conn,
+        "token",
+        &tokens::Entity::find_by_id(mint_pubkey_vec.clone()),
+        RETRY_INTERVALS,
+    )
+    .await?;
+
+    if let Some(token) = token {
+        upsert_assets_mint_account_columns(
+            AssetMintAccountColumns {
+                mint: mint_pubkey_vec.clone(),
+                suppply_mint: Some(token.mint.clone()),
+                supply: token.supply as u64,
+                slot_updated_mint_account: token.slot_updated as u64,
+            },
+            conn,
+        )
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+        Ok(Some(token))
+    } else {
+        warn!(
+            target: "Mint not found",
+            "Mint not found in 'tokens' table for mint {}",
+            bs58::encode(&mint_pubkey_vec).into_string()
+        );
+        Ok(None)
+    }
+}
+
+async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    mint_pubkey_vec: Vec<u8>,
+) -> ProgramTransformerResult<()> {
+    let token_account: Option<token_accounts::Model> = find_model_with_retry(
+        conn,
+        "owners",
+        &token_accounts::Entity::find()
+            .filter(token_accounts::Column::Mint.eq(mint_pubkey_vec.clone()))
+            .filter(token_accounts::Column::Amount.gt(0))
+            .order_by(token_accounts::Column::SlotUpdated, Order::Desc),
+        RETRY_INTERVALS,
+    )
+    .await
+    .map_err(|e: DbErr| ProgramTransformerError::DatabaseError(e.to_string()))?;
+
+    if let Some(token_account) = token_account {
+        upsert_assets_token_account_columns(
+            AssetTokenAccountColumns {
+                mint: mint_pubkey_vec.clone(),
+                owner: Some(token_account.owner),
+                delegate: token_account.delegate,
+                frozen: token_account.frozen,
+                slot_updated_token_account: Some(token_account.slot_updated),
+            },
+            conn,
+        )
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    } else {
+        warn!(
+            target: "Account not found",
+            "Token acc not found in 'owners' table for mint {}",
+            bs58::encode(&mint_pubkey_vec).into_string()
+        );
+    }
+
+    Ok(())
+}
+
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     metadata: &Metadata,
@@ -104,29 +187,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         class = SpecificationAssetClass::FungibleToken;
     }
 
-    // Gets the token and token account for the mint to populate the asset.
-    // This is required when the token and token account are indexed, but not the metadata account.
-    // If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data.
-    let token: Option<tokens::Model> = find_model_with_retry(
-        conn,
-        "token",
-        &tokens::Entity::find_by_id(mint_pubkey_vec.clone()),
-        RETRY_INTERVALS,
-    )
-    .await?;
+    let token: Option<tokens::Model> =
+        index_and_fetch_mint_data(conn, mint_pubkey_vec.clone()).await?;
 
     // get supply of token, default to 1 since most cases will be NFTs. Token mint ingester will properly set supply if token_result is None
-    let (supply, supply_mint) = match token {
-        Some(t) => (t.supply, Some(t.mint)),
-        None => {
-            warn!(
-                target: "Account not found",
-                "Token/Mint not found in 'tokens' table for mint {}",
-                bs58::encode(&mint_pubkey_vec).into_string()
-            );
-            (1, None)
-        }
-    };
+    let supply = token.map(|t| t.supply).unwrap_or(1);
 
     // Map unknown ownership types based on the supply.
     if ownership_type == OwnerType::Unknown {
@@ -134,46 +199,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             std::cmp::Ordering::Equal => OwnerType::Single,
             std::cmp::Ordering::Greater => OwnerType::Token,
             _ => OwnerType::Unknown,
-        }
+        };
+    };
+
+    if (ownership_type == OwnerType::Single) | (ownership_type == OwnerType::Unknown) {
+        index_token_account_data(conn, mint_pubkey_vec.clone()).await?;
     }
-
-    let token_account: Option<token_accounts::Model> = match ownership_type {
-        OwnerType::Single | OwnerType::Unknown => {
-            // query for token account associated with mint with positive balance with latest slot
-            let token_account: Option<token_accounts::Model> = find_model_with_retry(
-                conn,
-                "token_accounts",
-                &token_accounts::Entity::find()
-                    .filter(token_accounts::Column::Mint.eq(mint_pubkey_vec.clone()))
-                    .filter(token_accounts::Column::Amount.gt(0))
-                    .order_by(token_accounts::Column::SlotUpdated, Order::Desc),
-                RETRY_INTERVALS,
-            )
-            .await
-            .map_err(|e: DbErr| ProgramTransformerError::DatabaseError(e.to_string()))?;
-
-            token_account
-        }
-        _ => None,
-    };
-
-    // owner and delegate should be from the token account with the mint
-    let (owner, delegate) = match token_account {
-        Some(ta) => (
-            ActiveValue::Set(Some(ta.owner)),
-            ActiveValue::Set(ta.delegate),
-        ),
-        None => {
-            if supply == 1 && ownership_type == OwnerType::Single {
-                warn!(
-                    target: "Account not found",
-                    "Token acc not found in 'token_accounts' table for mint {}",
-                    bs58::encode(&mint_pubkey_vec).into_string()
-                );
-            }
-            (ActiveValue::NotSet, ActiveValue::NotSet)
-        }
-    };
 
     let name = metadata.name.clone().into_bytes();
     let symbol = metadata.symbol.clone().into_bytes();
@@ -231,69 +262,18 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
-    let model = asset::ActiveModel {
-        id: ActiveValue::Set(mint_pubkey_vec.clone()),
-        owner,
-        owner_type: ActiveValue::Set(ownership_type),
-        delegate,
-        frozen: ActiveValue::Set(false),
-        supply: ActiveValue::Set(supply),
-        supply_mint: ActiveValue::Set(supply_mint),
-        specification_version: ActiveValue::Set(Some(SpecificationVersions::V1)),
-        specification_asset_class: ActiveValue::Set(Some(class)),
-        tree_id: ActiveValue::Set(None),
-        nonce: ActiveValue::Set(Some(0)),
-        seq: ActiveValue::Set(Some(0)),
-        leaf: ActiveValue::Set(None),
-        data_hash: ActiveValue::Set(None),
-        creator_hash: ActiveValue::Set(None),
-        compressed: ActiveValue::Set(false),
-        compressible: ActiveValue::Set(false),
-        royalty_target_type: ActiveValue::Set(RoyaltyTargetType::Creators),
-        royalty_target: ActiveValue::Set(None),
-        royalty_amount: ActiveValue::Set(metadata.seller_fee_basis_points as i32), //basis points
-        asset_data: ActiveValue::Set(Some(mint_pubkey_vec.clone())),
-        slot_updated: ActiveValue::Set(Some(slot_i)),
-        burnt: ActiveValue::Set(false),
-        ..Default::default()
-    };
-    let mut query = asset::Entity::insert(model)
-        .on_conflict(
-            OnConflict::columns([asset::Column::Id])
-                .update_columns([
-                    asset::Column::Owner,
-                    asset::Column::OwnerType,
-                    asset::Column::Delegate,
-                    asset::Column::Frozen,
-                    asset::Column::Supply,
-                    asset::Column::SupplyMint,
-                    asset::Column::SpecificationVersion,
-                    asset::Column::SpecificationAssetClass,
-                    asset::Column::TreeId,
-                    asset::Column::Nonce,
-                    asset::Column::Seq,
-                    asset::Column::Leaf,
-                    asset::Column::DataHash,
-                    asset::Column::CreatorHash,
-                    asset::Column::Compressed,
-                    asset::Column::Compressible,
-                    asset::Column::RoyaltyTargetType,
-                    asset::Column::RoyaltyTarget,
-                    asset::Column::RoyaltyAmount,
-                    asset::Column::AssetData,
-                    asset::Column::SlotUpdated,
-                    asset::Column::Burnt,
-                ])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated >= asset.slot_updated OR asset.slot_updated IS NULL",
-        query.sql
-    );
-    txn.execute(query)
-        .await
-        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    upsert_assets_metadata_account_columns(
+        AssetMetadataAccountColumns {
+            mint: mint_pubkey_vec.clone(),
+            owner_type: ownership_type,
+            specification_asset_class: Some(class),
+            royalty_amount: metadata.seller_fee_basis_points as i32,
+            asset_data: Some(mint_pubkey_vec.clone()),
+            slot_updated_metadata_account: slot_i as u64,
+        },
+        &txn,
+    )
+    .await?;
 
     let attachment = asset_v1_account_attachments::ActiveModel {
         id: ActiveValue::Set(edition_attachment_address.to_bytes().to_vec()),

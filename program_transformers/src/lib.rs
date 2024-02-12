@@ -22,6 +22,7 @@ use {
     tracing::{debug, error, info},
 };
 
+mod asset_upserts;
 mod bubblegum;
 pub mod error;
 mod token;

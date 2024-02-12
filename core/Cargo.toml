@@ -1,0 +1,16 @@
+[package]
+name = "das-core"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
+
+[lints]
+workspace = true
