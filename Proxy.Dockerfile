@@ -1,12 +1,15 @@
-FROM rust:1.73-bullseye AS builder
+FROM rust:1.75-bullseye AS builder
 
 RUN mkdir /rust
 COPY ./Cargo.toml /rust
+COPY ./core /rust/core
 COPY ./das_api /rust/das_api
 COPY ./digital_asset_types /rust/digital_asset_types
+COPY ./integration_tests /rust/integration_tests
 COPY ./metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY ./migration /rust/migration
 COPY ./nft_ingester /rust/nft_ingester
+COPY ./ops /rust/ops
 COPY ./tools /rust/tools
 
 WORKDIR /rust/metaplex-rpc-proxy
