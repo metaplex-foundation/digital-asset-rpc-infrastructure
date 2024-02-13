@@ -1,4 +1,4 @@
-FROM rust:1.73-bullseye
+FROM rust:1.74-bullseye
 COPY init.sql /rust/init.sql
 COPY migration /rust/migration
 COPY docker/migrator/Cargo.toml /rust

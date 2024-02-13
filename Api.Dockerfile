@@ -1,5 +1,5 @@
 # Stage: Build Application
-FROM rust:1.73-bullseye AS chef
+FROM rust:1.74-bullseye AS chef
 RUN cargo install cargo-chef
 
 ## Setup Work Directory

@@ -1,4 +1,4 @@
-FROM rust:1.73-bullseye AS builder
+FROM rust:1.74-bullseye AS builder
 COPY ./metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY docker/proxy/Cargo.toml /rust
 WORKDIR /rust/metaplex-rpc-proxy
