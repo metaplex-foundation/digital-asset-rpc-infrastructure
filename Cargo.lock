@@ -2609,9 +2609,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit"
-version = "0.0.3-beta.4"
+version = "0.0.3-beta.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13a54689edb87e986dc9223236b986c65bd38f76882439f540a3e81fa37feae"
+checksum = "d409933de9c8bfb418aa53c66dc2e182675552cd50f228ca968033c824220984"
 dependencies = [
  "anchor-lang",
  "hpl-toolkit-attribute-account-schemas-ix-injector",
@@ -2621,6 +2621,7 @@ dependencies = [
  "hpl-toolkit-macro-merkle-tree-apply-fn",
  "hpl-toolkit-macro-merkle-tree-apply-fn-deep",
  "hpl-toolkit-macro-merkle-tree-utils",
+ "log",
  "serde_json",
  "spl-account-compression",
 ]
