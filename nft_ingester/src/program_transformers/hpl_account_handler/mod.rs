@@ -1,7 +1,7 @@
-use std::{collections::HashSet, io::Cursor};
+use std::collections::HashSet;
 
 use crate::{error::IngesterError, tasks::TaskData};
-use base64::engine::general_purpose;
+use base64::Engine;
 use borsh::BorshDeserialize;
 use plerkle_serialization::{CompiledInstruction, Pubkey};
 
@@ -95,14 +95,17 @@ async fn extract_account_schema_values<'a>(
                 debug!("Tx Simualted success {:?}", res.value);
                 if let Some(return_data) = res.value.return_data {
                     debug!("Simulate Response {}", return_data.data.0);
-                    let mut wrapped_reader =
-                        Cursor::new([return_data.data.0.as_bytes(), &[65; 40][..]].concat());
-                    let mut decoder = base64::read::DecoderReader::new(
-                        &mut wrapped_reader,
-                        &general_purpose::STANDARD,
-                    );
+                    let mut bytes = base64::engine::general_purpose::STANDARD
+                        .decode(return_data.data.0)
+                        .unwrap();
 
-                    match Vec::<Option<AccountSchemaValue>>::deserialize_reader(&mut decoder) {
+                    let mut len_bytes = [0u8; 4];
+                    len_bytes.copy_from_slice(&bytes[0..4]);
+                    let len: usize = u32::from_le_bytes(len_bytes) as usize;
+                    bytes = [bytes, vec![0; len]].concat();
+                    debug!("Bytes {:?}", bytes);
+
+                    match Vec::<Option<AccountSchemaValue>>::deserialize_reader(&mut &bytes[..]) {
                         Ok(schema_values) => {
                             let mut i = 0;
                             schema_values.into_iter().for_each(|schema_value| {
