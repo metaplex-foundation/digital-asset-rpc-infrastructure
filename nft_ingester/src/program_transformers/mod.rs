@@ -57,7 +57,11 @@ impl ProgramTransformer {
             acc.insert(*k);
             acc
         });
-        hs.insert(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL"));
+        hs.insert(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")); // Test HiveControl
+        hs.insert(pubkey!("HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm")); // HiveControl
+        hs.insert(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
+        hs.insert(pubkey!("8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit")); // Test GuildKit
+        hs.insert(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
@@ -83,7 +87,7 @@ impl ProgramTransformer {
         &self,
         tx: &'i TransactionInfo<'i>,
     ) -> VecDeque<(IxPair<'i>, Option<Vec<IxPair<'i>>>)> {
-        let mut ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
+        let ref_set: HashSet<&[u8]> = self.key_set.iter().map(|k| k.as_ref()).collect();
         order_instructions(ref_set, tx)
     }
 
