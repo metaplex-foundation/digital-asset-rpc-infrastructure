@@ -409,12 +409,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
 async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityTrait>(
     conn: &T,
-    _model_name: &str,
+    model_name: &str,
     select: &Select<K>,
     retry_intervals: &[u64],
 ) -> Result<Option<K::Model>, DbErr> {
-    // let mut retries = 0;
-    // let metric_name = format!("{}_found", model_name);
+    let mut retries = 0;
+    let metric_name = format!("{}_found", model_name);
 
     for interval in retry_intervals {
         let interval_duration = Duration::from_millis(*interval);
@@ -422,20 +422,20 @@ async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityT
 
         let model = select.clone().one(conn).await?;
         if let Some(m) = model {
-            // record_metric(&metric_name, true, retries);
+            record_metric(&metric_name, true, retries);
             return Ok(Some(m));
         }
-        // retries += 1;
+        retries += 1;
     }
 
-    // record_metric(&metric_name, false, retries - 1);
+    record_metric(&metric_name, false, retries - 1);
     Ok(None)
 }
 
-// fn record_metric(metric_name: &str, success: bool, retries: u32) {
-//     let retry_count = &retries.to_string();
-//     let success = if success { "true" } else { "false" };
-//     metric! {
-//         statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
-//     }
-// }
+fn record_metric(metric_name: &str, success: bool, retries: u32) {
+    let retry_count = &retries.to_string();
+    let success = if success { "true" } else { "false" };
+    if cadence_macros::is_global_default_set() {
+        cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    }
+}

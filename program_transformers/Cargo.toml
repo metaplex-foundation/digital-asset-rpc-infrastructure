@@ -8,6 +8,8 @@ publish = { workspace = true }
 [dependencies]
 blockbuster = { workspace = true }
 bs58 = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
 digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
 futures = { workspace = true }
 mpl-bubblegum = { workspace = true }

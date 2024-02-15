@@ -4136,6 +4136,8 @@ version = "0.7.2"
 dependencies = [
  "blockbuster",
  "bs58 0.4.0",
+ "cadence",
+ "cadence-macros",
  "digital_asset_types",
  "futures",
  "mpl-bubblegum",
