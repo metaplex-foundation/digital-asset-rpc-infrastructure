@@ -10,6 +10,11 @@ use solana_sdk::program_option::COption;
 use spl_token::state::AccountState;
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::asset_upserts::{
+    upsert_assets_mint_account_columns, upsert_assets_token_account_columns,
+    AssetMintAccountColumns, AssetTokenAccountColumns,
+};
+
 pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenProgramAccount,
@@ -64,20 +69,26 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             );
             db.execute(query).await?;
             let txn = db.begin().await?;
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint)
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint.clone())
                 .filter(asset::Column::OwnerType.eq("single"))
                 .one(&txn)
                 .await?;
-            if let Some(asset) = asset_update {
+            if let Some(_asset) = asset_update {
                 // will only update owner if token account balance is non-zero
                 // since the asset is marked as single then the token account balance can only be 1. Greater implies a fungible token in which case no si
                 // TODO: this does not guarantee in case when wallet receives an amount of 1 for a token but its supply is more. is unlikely since mints often have a decimal
                 if ta.amount == 1 {
-                    let mut active: asset::ActiveModel = asset.into();
-                    active.owner = Set(Some(owner));
-                    active.delegate = Set(delegate);
-                    active.frozen = Set(frozen);
-                    active.save(&txn).await?;
+                    upsert_assets_token_account_columns(
+                        AssetTokenAccountColumns {
+                            mint: mint.clone(),
+                            owner: Some(owner.clone()),
+                            frozen,
+                            delegate,
+                            slot_updated_token_account: Some(account_update.slot() as i64),
+                        },
+                        &txn,
+                    )
+                    .await?;
                 }
             }
             txn.commit().await?;
@@ -136,21 +147,17 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 )
                 .one(db)
                 .await?;
-            if let Some(asset) = asset_update {
-                let mut active: asset::ActiveModel = asset.clone().into();
-                active.supply = Set(m.supply as i64);
-                active.supply_mint = Set(Some(key_bytes));
-
-                // Update owner_type based on the supply.
-                if asset.owner_type == OwnerType::Unknown {
-                    active.owner_type = match m.supply.cmp(&1) {
-                        std::cmp::Ordering::Equal => Set(OwnerType::Single),
-                        std::cmp::Ordering::Greater => Set(OwnerType::Token),
-                        _ => NotSet,
-                    }
-                }
-
-                active.save(db).await?;
+            if let Some(_asset) = asset_update {
+                upsert_assets_mint_account_columns(
+                    AssetMintAccountColumns {
+                        mint: key_bytes.clone(),
+                        suppply_mint: Some(key_bytes),
+                        supply: m.supply,
+                        slot_updated_mint_account: account_update.slot(),
+                    },
+                    db,
+                )
+                .await?;
             }
 
             Ok(())

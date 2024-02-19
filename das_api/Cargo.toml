@@ -21,9 +21,7 @@ jsonrpsee-core = { workspace = true, features =["server"]}
 log = { workspace = true }
 metrics = { workspace = true }
 mpl-bubblegum = { workspace = true }
-mpl-candy-guard = { workspace = true, features = ["no-entrypoint"] }
-mpl-candy-machine-core = { workspace = true, features = ["no-entrypoint"] }
-mpl-token-metadata = { workspace = true,  features = ["serde-feature"] }
+mpl-token-metadata = { workspace = true,  features = ["serde"] }
 open-rpc-derive = { workspace = true }
 open-rpc-schema = { workspace = true }
 schemars = { workspace = true }

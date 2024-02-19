@@ -2,7 +2,6 @@ use crate::error::IngesterError;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
     cl_audits_v2, cl_items,
-    extensions::instruction::PascalCase,
     sea_orm_active_enums::{
         ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
         SpecificationAssetClass, SpecificationVersions,
@@ -14,7 +13,6 @@ use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
 use spl_account_compression::events::ChangeLogEventV1;
-use std::collections::HashSet;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -485,7 +483,7 @@ where
         royalty_target: Set(royalty_target),
         royalty_amount: Set(royalty_amount),
         asset_data: Set(Some(id.clone())),
-        slot_updated: Set(Some(slot_updated)),
+        slot_updated_cnft_transaction: Set(Some(slot_updated)),
         base_info_seq: Set(Some(seq)),
         ..Default::default()
     };
@@ -503,7 +501,7 @@ where
                     asset::Column::RoyaltyTarget,
                     asset::Column::RoyaltyAmount,
                     asset::Column::AssetData,
-                    asset::Column::SlotUpdated,
+                    asset::Column::SlotUpdatedCnftTransaction,
                     asset::Column::BaseInfoSeq,
                 ])
                 .to_owned(),

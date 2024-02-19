@@ -4,7 +4,7 @@ use {
     serde::Deserialize,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct Config {
     pub database_url: String,
     pub metrics_port: Option<u16>,

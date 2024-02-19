@@ -1,0 +1,56 @@
+[package]
+name = "das-ops"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "das-ops"
+
+[dependencies]
+
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
+das-core = { workspace = true }
+backon = "0.4.1"
+log = { workspace = true }
+env_logger = { workspace = true }
+anyhow = { workspace = true }
+redis = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+base64 = { workspace = true }
+indicatif = "0.17.5"
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+anchor-client = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+chrono = { workspace = true }
+tokio-postgres = { workspace = true }
+serde = { workspace = true }
+bs58 = { workspace = true }
+reqwest = { workspace = true }
+plerkle_messenger = { workspace = true }
+plerkle_serialization = { workspace = true }
+flatbuffers = { workspace = true }
+lazy_static = { workspace = true }
+regex = { workspace = true }
+digital_asset_types = { workspace = true }
+mpl-bubblegum = { workspace = true }
+spl-account-compression = { workspace = true }
+spl-concurrent-merkle-tree = { workspace = true }
+uuid = { workspace = true }
+figment = { workspace = true }
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+solana-transaction-status = { workspace = true }
+solana-account-decoder = { workspace = true }
+rust-crypto = { workspace = true }
+url = { workspace = true }
+anchor-lang = { workspace = true }
+borsh = { workspace = true }

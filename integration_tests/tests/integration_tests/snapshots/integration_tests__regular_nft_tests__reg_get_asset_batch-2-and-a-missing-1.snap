@@ -1,0 +1,145 @@
+---
+source: integration_tests/tests/integration_tests/regular_nft_tests.rs
+expression: response
+---
+[
+  {
+    "interface": "ProgrammableNFT",
+    "id": "2NqdYX6kJmMUoChnDXU2UrP9BsoPZivRw3uJG8iDhRRd",
+    "content": {
+      "$schema": "https://schema.metaplex.com/nft1.0.json",
+      "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/9959.json",
+      "files": [],
+      "metadata": {
+        "name": "Mad Lads #9959",
+        "symbol": "MAD",
+        "token_standard": "ProgrammableNonFungible"
+      },
+      "links": {}
+    },
+    "authorities": [
+      {
+        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "scopes": [
+          "full"
+        ]
+      }
+    ],
+    "compression": {
+      "eligible": false,
+      "compressed": false,
+      "data_hash": "",
+      "creator_hash": "",
+      "asset_hash": "",
+      "tree": "",
+      "seq": 0,
+      "leaf_id": 0
+    },
+    "grouping": [
+      {
+        "group_key": "collection",
+        "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w"
+      }
+    ],
+    "royalty": {
+      "royalty_model": "creators",
+      "target": null,
+      "percent": 0.042,
+      "basis_points": 420,
+      "primary_sale_happened": true,
+      "locked": false
+    },
+    "creators": [
+      {
+        "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+        "share": 0,
+        "verified": true
+      },
+      {
+        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "share": 100,
+        "verified": true
+      }
+    ],
+    "ownership": {
+      "frozen": true,
+      "delegated": true,
+      "delegate": "CimD28VvDSHcGdErmLbbPimnkfwrKHvstNiQUutZDxWS",
+      "ownership_model": "single",
+      "owner": "9PacVenjPyQYiWBha89UYRM1nn6mf9bGY7vi32zY6DLn"
+    },
+    "supply": null,
+    "mutable": true,
+    "burnt": false
+  },
+  null,
+  {
+    "interface": "ProgrammableNFT",
+    "id": "5rEeYv8R25b8j6YTHJvYuCKEzq44UCw1Wx1Wx2VPPLz1",
+    "content": {
+      "$schema": "https://schema.metaplex.com/nft1.0.json",
+      "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/9963.json",
+      "files": [],
+      "metadata": {
+        "name": "Mad Lads #9963",
+        "symbol": "MAD",
+        "token_standard": "ProgrammableNonFungible"
+      },
+      "links": {}
+    },
+    "authorities": [
+      {
+        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "scopes": [
+          "full"
+        ]
+      }
+    ],
+    "compression": {
+      "eligible": false,
+      "compressed": false,
+      "data_hash": "",
+      "creator_hash": "",
+      "asset_hash": "",
+      "tree": "",
+      "seq": 0,
+      "leaf_id": 0
+    },
+    "grouping": [
+      {
+        "group_key": "collection",
+        "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w"
+      }
+    ],
+    "royalty": {
+      "royalty_model": "creators",
+      "target": null,
+      "percent": 0.042,
+      "basis_points": 420,
+      "primary_sale_happened": true,
+      "locked": false
+    },
+    "creators": [
+      {
+        "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+        "share": 0,
+        "verified": true
+      },
+      {
+        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "share": 100,
+        "verified": true
+      }
+    ],
+    "ownership": {
+      "frozen": true,
+      "delegated": true,
+      "delegate": "CcYTgeWQhsdyGYbJAzUuuPG6jvNhfyzXmNWVSrxbdC9a",
+      "ownership_model": "single",
+      "owner": "3H3d3hfpZVVdVwuFAxDtDSFN2AdR7kwiDA3ynbnbkhc9"
+    },
+    "supply": null,
+    "mutable": true,
+    "burnt": false
+  }
+]

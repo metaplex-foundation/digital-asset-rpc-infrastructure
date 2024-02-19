@@ -1,0 +1,80 @@
+---
+source: integration_tests/tests/integration_tests/regular_nft_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 2,
+  "page": 1,
+  "items": [
+    {
+      "interface": "ProgrammableNFT",
+      "id": "Dt3XDSAdXAJbHqvuycgCTHykKCC7tntMFGMmSvfBbpTL",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://arweave.net/3EM4n3RvYwji7FqwqZ5FX2ULDsLMV5R_AXXlNcI5ls4",
+        "files": [],
+        "metadata": {
+          "name": "Claynosaurz: Call of Saga #1887",
+          "symbol": "DINO",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "G2R7KKR9aycrMDzR2EK2Cs69f2NNBRK8AZUuaohQBg2r",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "1yPMtWU5aqcF72RdyRD5yipmcMRC8NGNK59NvYubLkZ"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
+          "share": 100,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "6Cr66AabRYymhZgYQSfTCo6FVpH18wXrMZswAbcErpyX"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false
+    }
+  ]
+}
