@@ -23,7 +23,9 @@ use crate::program_transformers::{
 mod asset_upserts;
 mod bubblegum;
 mod token;
+mod token_extensions;
 mod token_metadata;
+mod utils;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
