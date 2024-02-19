@@ -83,27 +83,17 @@ fn spawn_task(client: Client, pool: sqlx::PgPool, asset_data: Vec<u8>) -> JoinHa
 
             match e {
                 MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response {
-                    status,
-                    url,
-                    ..
+                    status, ..
                 }) => {
                     let status = &status.to_string();
-                    let host = url.host_str().unwrap_or("unknown");
 
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "status" => status, "host" => host);
+                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "status" => status);
                 }
-                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Parse { url, .. }) => {
-                    let host = url.host_str().unwrap_or("unknown");
-
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "host" => host);
+                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Parse { .. }) => {
+                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
                 }
-                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::GenericReqwest(e)) => {
-                    let host = e
-                        .url()
-                        .map(|url| url.host_str().unwrap_or("unknown"))
-                        .unwrap_or("unknown");
-
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "host" => host);
+                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::GenericReqwest(_e)) => {
+                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
                 }
                 _ => {
                     statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
@@ -124,7 +114,7 @@ fn spawn_task(client: Client, pool: sqlx::PgPool, asset_data: Vec<u8>) -> JoinHa
 }
 
 #[derive(thiserror::Error, Debug)]
-enum MetadataJsonTaskError {
+pub enum MetadataJsonTaskError {
     #[error("sea orm: {0}")]
     SeaOrm(#[from] sea_orm::DbErr),
     #[error("metadata json: {0}")]
@@ -133,7 +123,7 @@ enum MetadataJsonTaskError {
     AssetNotFound,
 }
 
-async fn perform_metadata_json_task(
+pub async fn perform_metadata_json_task(
     client: Client,
     pool: sqlx::PgPool,
     asset_data: Vec<u8>,
@@ -157,7 +147,7 @@ async fn perform_metadata_json_task(
 }
 
 #[derive(thiserror::Error, Debug)]
-enum FetchMetadataJsonError {
+pub enum FetchMetadataJsonError {
     #[error("reqwest: {0}")]
     GenericReqwest(#[from] reqwest::Error),
     #[error("json parse for url({url}) with {source}")]

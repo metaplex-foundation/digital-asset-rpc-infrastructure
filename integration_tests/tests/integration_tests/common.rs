@@ -161,7 +161,10 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
 
 async fn load_ingest_program_transformer(pool: sqlx::Pool<sqlx::Postgres>) -> ProgramTransformer {
     // HACK: We don't really use this background task handler but we need it to create the sender
-    let mut background_task_manager = TaskManager::new(rand_string(), pool.clone(), vec![]);
+    let mut background_task_manager =
+        TaskManager::try_new_async(rand_string(), pool.clone(), None, vec![])
+            .await
+            .unwrap();
     background_task_manager.start_listener(true);
     let bg_task_sender = background_task_manager.get_sender().unwrap();
     ProgramTransformer::new(pool, bg_task_sender, false)
