@@ -14,11 +14,68 @@ use {
         entity::{ActiveValue, ColumnTrait},
         query::{QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
+        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, Set, TransactionTrait,
     },
     solana_sdk::program_option::COption,
     spl_token::state::AccountState,
 };
+
+pub async fn upsert_owner_for_token_account<T>(
+    txn_or_conn: &T,
+    id: Vec<u8>,
+    token_account: Vec<u8>,
+    owner: Vec<u8>,
+    delegate: Option<Vec<u8>>,
+    slot: i64,
+    frozen: bool,
+    amount: u64,
+    delegate_amount: i64,
+    token_program: Vec<u8>,
+) -> ProgramTransformerResult<()>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    let model = token_accounts::ActiveModel {
+        pubkey: Set(token_account),
+        mint: Set(id),
+        delegate: Set(delegate.clone()),
+        owner: Set(owner.clone()),
+        frozen: Set(frozen),
+        delegated_amount: Set(delegate_amount),
+        token_program: Set(token_program),
+        slot_updated: Set(slot),
+        amount: Set(amount as i64),
+        close_authority: Set(None),
+    };
+
+    let mut query = token_accounts::Entity::insert(model)
+        .on_conflict(
+            OnConflict::columns([token_accounts::Column::Pubkey])
+                .update_columns([
+                    token_accounts::Column::Mint,
+                    token_accounts::Column::DelegatedAmount,
+                    token_accounts::Column::Delegate,
+                    token_accounts::Column::Amount,
+                    token_accounts::Column::Frozen,
+                    token_accounts::Column::TokenProgram,
+                    token_accounts::Column::Owner,
+                    token_accounts::Column::CloseAuthority,
+                    token_accounts::Column::SlotUpdated,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated >= token_accounts.slot_updated OR token_accounts.slot_updated IS NULL",
+        query.sql
+    );
+    txn_or_conn
+        .execute(query)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    Ok(())
+}
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
@@ -38,41 +95,21 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             };
             let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
-            let model = token_accounts::ActiveModel {
-                pubkey: ActiveValue::Set(key_bytes),
-                mint: ActiveValue::Set(mint.clone()),
-                delegate: ActiveValue::Set(delegate.clone()),
-                owner: ActiveValue::Set(owner.clone()),
-                frozen: ActiveValue::Set(frozen),
-                delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
-                token_program: ActiveValue::Set(spl_token_program),
-                slot_updated: ActiveValue::Set(account_update.slot() as i64),
-                amount: ActiveValue::Set(ta.amount as i64),
-                close_authority: ActiveValue::Set(None),
-            };
 
-            let mut query = token_accounts::Entity::insert(model)
-                .on_conflict(
-                    OnConflict::columns([token_accounts::Column::Pubkey])
-                        .update_columns([
-                            token_accounts::Column::Mint,
-                            token_accounts::Column::DelegatedAmount,
-                            token_accounts::Column::Delegate,
-                            token_accounts::Column::Amount,
-                            token_accounts::Column::Frozen,
-                            token_accounts::Column::TokenProgram,
-                            token_accounts::Column::Owner,
-                            token_accounts::Column::CloseAuthority,
-                            token_accounts::Column::SlotUpdated,
-                        ])
-                        .to_owned(),
-                )
-                .build(DbBackend::Postgres);
-            query.sql = format!(
-                "{} WHERE excluded.slot_updated > token_accounts.slot_updated",
-                query.sql
-            );
-            db.execute(query).await?;
+            upsert_owner_for_token_account(
+                db,
+                mint.clone(),
+                key_bytes,
+                owner.clone(),
+                delegate.clone(),
+                account_update.slot() as i64,
+                frozen,
+                ta.amount,
+                ta.delegated_amount as i64,
+                spl_token_program,
+            )
+            .await?;
+
             let txn = db.begin().await?;
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint.clone())
                 .filter(asset::Column::OwnerType.eq("single"))
@@ -118,6 +155,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 extension_data: ActiveValue::Set(None),
                 mint_authority: ActiveValue::Set(mint_auth),
                 freeze_authority: ActiveValue::Set(freeze_auth),
+                extensions: ActiveValue::Set(None),
             };
 
             let mut query = tokens::Entity::insert(model)

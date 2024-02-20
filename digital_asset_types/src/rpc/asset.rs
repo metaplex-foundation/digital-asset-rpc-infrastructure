@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
 use schemars::JsonSchema;
+use serde_json::Value;
 use {
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
@@ -364,4 +365,6 @@ pub struct Asset {
     pub supply: Option<Supply>,
     pub mutable: bool,
     pub burnt: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_extensions: Option<Value>,
 }
