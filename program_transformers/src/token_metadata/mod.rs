@@ -1,25 +1,26 @@
+use {
+    crate::{
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        token_metadata::{
+            master_edition::{save_v1_master_edition, save_v2_master_edition},
+            v1_asset::{burn_v1_asset, save_v1_asset},
+        },
+        DownloadMetadataNotifier,
+    },
+    blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
+    plerkle_serialization::AccountInfo,
+    sea_orm::{DatabaseConnection, TransactionTrait},
+};
+
 mod master_edition;
 mod v1_asset;
-
-use crate::{
-    error::IngesterError,
-    program_transformers::token_metadata::{
-        master_edition::{save_v1_master_edition, save_v2_master_edition},
-        v1_asset::{burn_v1_asset, save_v1_asset},
-    },
-    tasks::TaskData,
-};
-use blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState};
-use plerkle_serialization::AccountInfo;
-use sea_orm::{DatabaseConnection, TransactionTrait};
-use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn handle_token_metadata_account<'a, 'b, 'c>(
     account_update: &'a AccountInfo<'a>,
     parsing_result: &'b TokenMetadataAccountState,
     db: &'c DatabaseConnection,
-    task_manager: &UnboundedSender<TaskData>,
-) -> Result<(), IngesterError> {
+    download_metadata_notifier: &DownloadMetadataNotifier,
+) -> ProgramTransformerResult<()> {
     let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
         TokenMetadataAccountData::EmptyAccount => {
@@ -33,9 +34,10 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            let task = save_v1_asset(db, m, account_update.slot()).await?;
-            if let Some(task) = task {
-                task_manager.send(task)?;
+            if let Some(info) = save_v1_asset(db, m, account_update.slot()).await? {
+                download_metadata_notifier(info)
+                    .await
+                    .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
             Ok(())
         }
@@ -48,7 +50,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         // TokenMetadataAccountData::EditionMarker(_) => {}
         // TokenMetadataAccountData::UseAuthorityRecord(_) => {}
         // TokenMetadataAccountData::CollectionAuthorityRecord(_) => {}
-        _ => Err(IngesterError::NotImplemented),
+        _ => Err(ProgramTransformerError::NotImplemented),
     }?;
     Ok(())
 }

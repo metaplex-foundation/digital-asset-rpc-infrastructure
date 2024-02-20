@@ -1,56 +1,90 @@
-use crate::{error::IngesterError, tasks::TaskData};
-use blockbuster::{
-    instruction::{order_instructions, InstructionBundle, IxPair},
-    program_handler::ProgramParser,
-    programs::{
-        bubblegum::BubblegumParser, token_account::TokenAccountParser,
-        token_metadata::TokenMetadataParser, ProgramParseResult,
+use {
+    crate::{
+        bubblegum::handle_bubblegum_instruction,
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        token::handle_token_program_account,
+        token_metadata::handle_token_metadata_account,
     },
-};
-use log::{debug, error, info};
-use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
-use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
-use solana_sdk::pubkey::Pubkey;
-use sqlx::PgPool;
-use std::collections::{HashMap, HashSet, VecDeque};
-use tokio::sync::mpsc::UnboundedSender;
-
-use crate::program_transformers::{
-    bubblegum::handle_bubblegum_instruction, token::handle_token_program_account,
-    token_metadata::handle_token_metadata_account,
+    blockbuster::{
+        instruction::{order_instructions, InstructionBundle, IxPair},
+        program_handler::ProgramParser,
+        programs::{
+            bubblegum::BubblegumParser, token_account::TokenAccountParser,
+            token_metadata::TokenMetadataParser, ProgramParseResult,
+        },
+    },
+    futures::future::BoxFuture,
+    plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo},
+    sea_orm::{DatabaseConnection, SqlxPostgresConnector},
+    solana_sdk::pubkey::Pubkey,
+    sqlx::PgPool,
+    std::collections::{HashMap, HashSet, VecDeque},
+    tracing::{debug, error, info},
 };
 
 mod asset_upserts;
 mod bubblegum;
+pub mod error;
 mod token;
 mod token_metadata;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DownloadMetadataInfo {
+    asset_data_id: Vec<u8>,
+    uri: String,
+}
+
+impl DownloadMetadataInfo {
+    pub fn new(asset_data_id: Vec<u8>, uri: String) -> Self {
+        Self {
+            asset_data_id,
+            uri: uri.trim().replace('\0', ""),
+        }
+    }
+
+    pub fn into_inner(self) -> (Vec<u8>, String) {
+        (self.asset_data_id, self.uri)
+    }
+}
+
+pub type DownloadMetadataNotifier = Box<
+    dyn Fn(
+            DownloadMetadataInfo,
+        ) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
+        + Sync
+        + Send,
+>;
+
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
-    task_sender: UnboundedSender<TaskData>,
-    matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
+    download_metadata_notifier: DownloadMetadataNotifier,
+    parsers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
     cl_audits: bool,
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: PgPool, task_sender: UnboundedSender<TaskData>, cl_audits: bool) -> Self {
-        let mut matchers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(1);
+    pub fn new(
+        pool: PgPool,
+        download_metadata_notifier: DownloadMetadataNotifier,
+        cl_audits: bool,
+    ) -> Self {
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
-        matchers.insert(bgum.key(), Box::new(bgum));
-        matchers.insert(token_metadata.key(), Box::new(token_metadata));
-        matchers.insert(token.key(), Box::new(token));
-        let hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
+        parsers.insert(bgum.key(), Box::new(bgum));
+        parsers.insert(token_metadata.key(), Box::new(token_metadata));
+        parsers.insert(token.key(), Box::new(token));
+        let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
         });
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
-            task_sender,
-            matchers,
+            download_metadata_notifier,
+            parsers,
             key_set: hs,
             cl_audits,
         }
@@ -67,9 +101,9 @@ impl ProgramTransformer {
     #[allow(clippy::borrowed_box)]
     pub fn match_program(&self, key: &FBPubkey) -> Option<&Box<dyn ProgramParser>> {
         match Pubkey::try_from(key.0.as_slice()) {
-            Ok(pubkey) => self.matchers.get(&pubkey),
+            Ok(pubkey) => self.parsers.get(&pubkey),
             Err(_error) => {
-                log::warn!("failed to parse key: {key:?}");
+                error!("failed to parse key: {key:?}");
                 None
             }
         }
@@ -78,7 +112,7 @@ impl ProgramTransformer {
     pub async fn handle_transaction<'a>(
         &self,
         tx: &'a TransactionInfo<'a>,
-    ) -> Result<(), IngesterError> {
+    ) -> ProgramTransformerResult<()> {
         let sig: Option<&str> = tx.signature();
         info!("Handling Transaction: {:?}", sig);
         let instructions = self.break_transaction(tx);
@@ -102,7 +136,7 @@ impl ProgramTransformer {
             let ix_account_len = ix_accounts.len();
             let max = ix_accounts.iter().max().copied().unwrap_or(0) as usize;
             if keys.len() < max {
-                return Err(IngesterError::DeserializationError(
+                return Err(ProgramTransformerError::DeserializationError(
                     "Missing Accounts in Serialized Ixn/Txn".to_string(),
                 ));
             }
@@ -134,7 +168,7 @@ impl ProgramTransformer {
                             parsing_result,
                             &ix,
                             &self.storage,
-                            &self.task_sender,
+                            &self.download_metadata_notifier,
                             self.cl_audits,
                         )
                         .await
@@ -155,7 +189,7 @@ impl ProgramTransformer {
 
         if not_impl == ixlen {
             debug!("Not imple");
-            return Err(IngesterError::NotImplemented);
+            return Err(ProgramTransformerError::NotImplemented);
         }
         Ok(())
     }
@@ -163,7 +197,7 @@ impl ProgramTransformer {
     pub async fn handle_account_update<'b>(
         &self,
         acct: AccountInfo<'b>,
-    ) -> Result<(), IngesterError> {
+    ) -> ProgramTransformerResult<()> {
         let owner = acct.owner().unwrap();
         if let Some(program) = self.match_program(owner) {
             let result = program.handle_account(&acct)?;
@@ -174,7 +208,7 @@ impl ProgramTransformer {
                         &acct,
                         parsing_result,
                         &self.storage,
-                        &self.task_sender,
+                        &self.download_metadata_notifier,
                     )
                     .await
                 }
@@ -183,11 +217,11 @@ impl ProgramTransformer {
                         &acct,
                         parsing_result,
                         &self.storage,
-                        &self.task_sender,
+                        &self.download_metadata_notifier,
                     )
                     .await
                 }
-                _ => Err(IngesterError::NotImplemented),
+                _ => Err(ProgramTransformerError::NotImplemented),
             }?;
         }
         Ok(())

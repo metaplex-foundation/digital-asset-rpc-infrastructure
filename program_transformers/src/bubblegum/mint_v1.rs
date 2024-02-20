@@ -1,28 +1,32 @@
-use crate::{
-    error::IngesterError,
-    program_transformers::bubblegum::{
-        bgum_use_method_to_token_metadata_use_method, save_changelog_event, upsert_asset_authority,
-        upsert_asset_base_info, upsert_asset_creators, upsert_asset_data,
-        upsert_asset_with_compression_info, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq, upsert_collection_info,
+use {
+    crate::{
+        bubblegum::{
+            bgum_use_method_to_token_metadata_use_method,
+            db::{
+                save_changelog_event, upsert_asset_authority, upsert_asset_base_info,
+                upsert_asset_creators, upsert_asset_data, upsert_asset_with_compression_info,
+                upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
+                upsert_asset_with_seq, upsert_collection_info,
+            },
+        },
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        DownloadMetadataInfo,
     },
-    tasks::{DownloadMetadata, IntoTaskData, TaskData},
-};
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
-    token_metadata::types::{TokenStandard, Uses},
-};
-use chrono::Utc;
-use digital_asset_types::{
-    dao::sea_orm_active_enums::{
-        ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
-        SpecificationVersions,
+    blockbuster::{
+        instruction::InstructionBundle,
+        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        token_metadata::types::{TokenStandard, Uses},
     },
-    json::ChainDataV1,
+    digital_asset_types::{
+        dao::sea_orm_active_enums::{
+            ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
+            SpecificationVersions,
+        },
+        json::ChainDataV1,
+    },
+    sea_orm::{query::JsonValue, ConnectionTrait, TransactionTrait},
+    tracing::warn,
 };
-use log::warn;
-use sea_orm::{query::*, ConnectionTrait, JsonValue};
 
 pub async fn mint_v1<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -30,7 +34,7 @@ pub async fn mint_v1<'c, T>(
     txn: &'c T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<Option<TaskData>, IngesterError>
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -78,7 +82,7 @@ where
                 };
                 chain_data.sanitize();
                 let chain_data_json = serde_json::to_value(chain_data)
-                    .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+                    .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
                 let chain_mutability = match metadata.is_mutable {
                     true => ChainMutability::Mutable,
                     false => ChainMutability::Immutable,
@@ -205,19 +209,12 @@ where
                     return Ok(None);
                 }
 
-                let mut task = DownloadMetadata {
-                    asset_data_id: id_bytes.to_vec(),
-                    uri,
-                    created_at: Some(Utc::now().naive_utc()),
-                };
-                task.sanitize();
-                let t = task.into_task_data()?;
-                Ok(Some(t))
+                Ok(Some(DownloadMetadataInfo::new(id_bytes.to_vec(), uri)))
             }
-            _ => Err(IngesterError::NotImplemented),
+            _ => Err(ProgramTransformerError::NotImplemented),
         };
     }
-    Err(IngesterError::ParsingError(
+    Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }

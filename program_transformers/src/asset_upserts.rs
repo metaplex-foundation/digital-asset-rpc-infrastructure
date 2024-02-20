@@ -1,12 +1,14 @@
-use digital_asset_types::dao::{
-    asset,
-    sea_orm_active_enums::{
-        OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
+use {
+    digital_asset_types::dao::{
+        asset,
+        sea_orm_active_enums::{
+            OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
+        },
     },
-};
-use sea_orm::{
-    sea_query::OnConflict, ConnectionTrait, DbBackend, DbErr, EntityTrait, QueryTrait, Set,
-    TransactionTrait,
+    sea_orm::{
+        sea_query::OnConflict, ConnectionTrait, DbBackend, DbErr, EntityTrait, QueryTrait, Set,
+        TransactionTrait,
+    },
 };
 
 pub struct AssetTokenAccountColumns {

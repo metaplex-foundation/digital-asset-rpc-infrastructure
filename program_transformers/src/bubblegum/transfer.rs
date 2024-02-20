@@ -1,23 +1,25 @@
-use crate::{
-    error::IngesterError,
-    program_transformers::bubblegum::{
-        save_changelog_event, upsert_asset_with_leaf_info,
-        upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+use {
+    crate::{
+        bubblegum::db::{
+            save_changelog_event, upsert_asset_with_leaf_info,
+            upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
+        },
+        error::{ProgramTransformerError, ProgramTransformerResult},
     },
+    blockbuster::{
+        instruction::InstructionBundle,
+        programs::bubblegum::{BubblegumInstruction, LeafSchema},
+    },
+    sea_orm::{ConnectionTrait, TransactionTrait},
 };
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema},
-};
-use sea_orm::{ConnectionTrait, TransactionTrait};
 
-pub async fn cancel_redeem<'c, T>(
+pub async fn transfer<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -77,7 +79,7 @@ where
             }
         }
     }
-    Err(IngesterError::ParsingError(
+    Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }

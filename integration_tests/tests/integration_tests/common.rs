@@ -12,14 +12,13 @@ use migration::sea_orm::{
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
 
-use nft_ingester::config::{self, rand_string};
-use nft_ingester::program_transformers::ProgramTransformer;
-use nft_ingester::tasks::TaskManager;
+use nft_ingester::config;
 use once_cell::sync::Lazy;
 use plerkle_serialization::root_as_account_info;
 use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_account;
 use plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2;
+use program_transformers::ProgramTransformer;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
@@ -29,8 +28,9 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use futures_util::StreamExt as FuturesStreamExt;
-use futures_util::TryStreamExt;
+use futures::future::{ready, FutureExt};
+use futures::StreamExt as FuturesStreamExt;
+use futures::TryStreamExt;
 use tokio_stream::{self as stream};
 
 use log::{error, info};
@@ -160,11 +160,7 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
 }
 
 async fn load_ingest_program_transformer(pool: sqlx::Pool<sqlx::Postgres>) -> ProgramTransformer {
-    // HACK: We don't really use this background task handler but we need it to create the sender
-    let mut background_task_manager = TaskManager::new(rand_string(), pool.clone(), vec![]);
-    background_task_manager.start_listener(true);
-    let bg_task_sender = background_task_manager.get_sender().unwrap();
-    ProgramTransformer::new(pool, bg_task_sender, false)
+    ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), false)
 }
 
 pub async fn get_transaction(

@@ -1,16 +1,21 @@
-use crate::{
-    error::IngesterError,
-    program_transformers::bubblegum::{
-        save_changelog_event, u32_to_u8_array, upsert_asset_with_seq,
+use {
+    crate::{
+        bubblegum::{
+            db::{save_changelog_event, upsert_asset_with_seq},
+            u32_to_u8_array,
+        },
+        error::{ProgramTransformerError, ProgramTransformerResult},
     },
-};
-use anchor_lang::prelude::Pubkey;
-use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use digital_asset_types::dao::asset;
-use log::debug;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ConnectionTrait, DbBackend, EntityTrait,
-    TransactionTrait,
+    blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction},
+    digital_asset_types::dao::asset,
+    sea_orm::{
+        entity::{ActiveValue, EntityTrait},
+        query::QueryTrait,
+        sea_query::query::OnConflict,
+        ConnectionTrait, DbBackend, TransactionTrait,
+    },
+    solana_sdk::pubkey::Pubkey,
+    tracing::debug,
 };
 
 pub async fn burn<'c, T>(
@@ -19,7 +24,7 @@ pub async fn burn<'c, T>(
     txn: &'c T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -39,8 +44,8 @@ where
         let id_bytes = asset_id.to_bytes();
 
         let asset_model = asset::ActiveModel {
-            id: Set(id_bytes.to_vec()),
-            burnt: Set(true),
+            id: ActiveValue::Set(id_bytes.to_vec()),
+            burnt: ActiveValue::Set(true),
             ..Default::default()
         };
 
@@ -66,7 +71,7 @@ where
 
         return Ok(());
     }
-    Err(IngesterError::ParsingError(
+    Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }

@@ -1,12 +1,18 @@
-use blockbuster::{
-    self,
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, InstructionName, UseMethod as BubblegumUseMethod},
-    token_metadata::types::UseMethod as TokenMetadataUseMethod,
+use {
+    crate::{
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        DownloadMetadataNotifier,
+    },
+    blockbuster::{
+        instruction::InstructionBundle,
+        programs::bubblegum::{
+            BubblegumInstruction, InstructionName, UseMethod as BubblegumUseMethod,
+        },
+        token_metadata::types::UseMethod as TokenMetadataUseMethod,
+    },
+    sea_orm::{ConnectionTrait, TransactionTrait},
+    tracing::{debug, info},
 };
-use log::{debug, info};
-use sea_orm::{ConnectionTrait, TransactionTrait};
-use tokio::sync::mpsc::UnboundedSender;
 
 mod burn;
 mod cancel_redeem;
@@ -19,17 +25,13 @@ mod redeem;
 mod transfer;
 mod update_metadata;
 
-pub use db::*;
-
-use crate::{error::IngesterError, tasks::TaskData};
-
 pub async fn handle_bubblegum_instruction<'c, T>(
     parsing_result: &'c BubblegumInstruction,
     bundle: &'c InstructionBundle<'c>,
     txn: &T,
-    task_manager: &UnboundedSender<TaskData>,
+    download_metadata_notifier: &DownloadMetadataNotifier,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -70,10 +72,12 @@ where
             delegate::delegate(parsing_result, bundle, txn, ix_str, cl_audits).await?;
         }
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
-            let task = mint_v1::mint_v1(parsing_result, bundle, txn, ix_str, cl_audits).await?;
-
-            if let Some(t) = task {
-                task_manager.send(t)?;
+            if let Some(info) =
+                mint_v1::mint_v1(parsing_result, bundle, txn, ix_str, cl_audits).await?
+            {
+                download_metadata_notifier(info)
+                    .await
+                    .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
         InstructionName::Redeem => {
@@ -96,12 +100,13 @@ where
         }
         InstructionName::SetDecompressibleState => (), // Nothing to index.
         InstructionName::UpdateMetadata => {
-            let task =
+            if let Some(info) =
                 update_metadata::update_metadata(parsing_result, bundle, txn, ix_str, cl_audits)
-                    .await?;
-
-            if let Some(t) = task {
-                task_manager.send(t)?;
+                    .await?
+            {
+                download_metadata_notifier(info)
+                    .await
+                    .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
