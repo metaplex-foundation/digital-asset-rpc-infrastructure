@@ -19,6 +19,7 @@ use log::warn;
 use mime_guess::Mime;
 
 use sea_orm::DbErr;
+use serde_json::Map;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -47,6 +48,30 @@ pub fn file_from_str(str: String) -> File {
         mime: Some(mime),
         quality: None,
         contexts: None,
+    }
+}
+
+fn filter_non_null_fields(value: Option<&Value>) -> Option<Value> {
+    match value {
+        Some(Value::Null) => None,
+        Some(Value::Object(map)) => {
+            if map.values().all(|v| matches!(v, Value::Null)) {
+                None
+            } else {
+                let filtered_map: Map<String, Value> = map
+                    .into_iter()
+                    .filter(|(_k, v)| !matches!(v, Value::Null))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                if filtered_map.is_empty() {
+                    None
+                } else {
+                    Some(Value::Object(filtered_map))
+                }
+            }
+        }
+        _ => value.cloned(),
     }
 }
 
@@ -371,6 +396,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         .unwrap_or(false);
     let edition_nonce =
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+
+    let mint_ext = filter_non_null_fields(asset.mint_extensions.as_ref());
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
             num_minted: asset.mpl_core_collection_num_minted,
@@ -447,6 +474,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
+        mint_extensions: mint_ext,
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
