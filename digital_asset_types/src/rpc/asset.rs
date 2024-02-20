@@ -398,4 +398,6 @@ pub struct Asset {
     pub external_plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_extensions: Option<Value>,
 }

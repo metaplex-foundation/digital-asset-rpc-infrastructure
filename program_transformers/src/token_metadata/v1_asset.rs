@@ -109,7 +109,7 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
 ) -> ProgramTransformerResult<()> {
     let token_account: Option<token_accounts::Model> = find_model_with_retry(
         conn,
-        "owners",
+        "token_accounts",
         &token_accounts::Entity::find()
             .filter(token_accounts::Column::Mint.eq(mint_pubkey_vec.clone()))
             .filter(token_accounts::Column::Amount.gt(0))
@@ -133,11 +133,11 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     } else {
-        // warn!(
-        //     target: "Account not found",
-        //     "Token acc not found in 'owners' table for mint {}",
-        //     bs58::encode(&mint_pubkey_vec).into_string()
-        // );
+        warn!(
+            target: "Account not found",
+            "Token acc not found in 'token-accounts' table for mint {}",
+            bs58::encode(&mint_pubkey_vec).into_string()
+        );
     }
 
     Ok(())

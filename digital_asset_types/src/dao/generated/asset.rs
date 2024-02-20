@@ -57,6 +57,7 @@ pub struct Model {
     pub mpl_core_plugins_json_version: Option<i32>,
     pub mpl_core_external_plugins: Option<Json>,
     pub mpl_core_unknown_external_plugins: Option<Json>,
+    pub mint_extensions: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -100,6 +101,7 @@ pub enum Column {
     MplCorePluginsJsonVersion,
     MplCoreExternalPlugins,
     MplCoreUnknownExternalPlugins,
+    MintExtensions,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -160,6 +162,7 @@ impl ColumnTrait for Column {
             Self::MplCorePluginsJsonVersion => ColumnType::Integer.def().null(),
             Self::MplCoreExternalPlugins => ColumnType::JsonBinary.def().null(),
             Self::MplCoreUnknownExternalPlugins => ColumnType::JsonBinary.def().null(),
+            Self::MintExtensions => ColumnType::JsonBinary.def().null(),
         }
     }
 }

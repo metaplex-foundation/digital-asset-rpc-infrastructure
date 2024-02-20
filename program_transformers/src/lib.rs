@@ -34,7 +34,9 @@ pub mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_extensions;
 mod token_metadata;
+mod utils;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct AccountInfo {
