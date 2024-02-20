@@ -13,7 +13,7 @@ use {
         entity::{ActiveValue, ColumnTrait},
         query::{QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
+        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, Set, TransactionTrait,
     },
     solana_sdk::program_option::COption,
     spl_token::state::AccountState,
@@ -116,6 +116,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                 extension_data: ActiveValue::Set(None),
                 mint_authority: ActiveValue::Set(mint_auth),
                 freeze_authority: ActiveValue::Set(freeze_auth),
+                extensions: ActiveValue::Set(None),
             };
 
             let mut query = tokens::Entity::insert(model)
