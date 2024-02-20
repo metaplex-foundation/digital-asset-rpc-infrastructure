@@ -60,6 +60,9 @@ impl ProgramTransformer {
         hs.insert(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")); // Test HiveControl
         hs.insert(pubkey!("HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm")); // HiveControl
         hs.insert(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
+        hs.insert(pubkey!("CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4")); // Currency
+        hs.insert(pubkey!("Pay9ZxrVRXjt9Da8qpwqq4yBRvvrfx3STWnKK4FstPr")); // Payment
+        hs.insert(pubkey!("MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6")); // Staking
         hs.insert(pubkey!("8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit")); // Test GuildKit
         hs.insert(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
         let pool: PgPool = pool;
