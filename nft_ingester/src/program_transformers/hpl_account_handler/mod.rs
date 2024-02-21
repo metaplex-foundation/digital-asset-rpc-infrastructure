@@ -8,7 +8,7 @@ use plerkle_serialization::{CompiledInstruction, Pubkey};
 use blockbuster::instruction::InstructionBundle;
 use digital_asset_types::dao::accounts;
 use hpl_toolkit::AccountSchemaValue;
-use log::{debug, error};
+use log::{debug, error, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DatabaseConnection,
     DbBackend, EntityTrait,
@@ -19,6 +19,7 @@ use solana_sdk::{
     pubkey,
     transaction::Transaction,
 };
+use solana_transaction_status::UiTransactionEncoding;
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -74,10 +75,10 @@ async fn extract_account_schema_values<'a>(
         // let mut tx: Transaction =
         //     Transaction::new_with_payer(&[simulation_ix], Some(&metas[0].pubkey));
         let tx: Transaction = Transaction::new_with_payer(&[simulation_ix], payer.as_ref());
-        debug!("Payer: {:?}", payer.as_ref());
+        info!("Payer: {:?}", payer.as_ref());
 
         // tx.message.recent_blockhash = hash;
-        debug!("Simulating Tx {:?}", program_id,);
+        info!("Simulating Tx {:?}", program_id,);
 
         match rpc_client
             .simulate_transaction_with_config(
@@ -86,24 +87,30 @@ async fn extract_account_schema_values<'a>(
                     sig_verify: false,
                     commitment: Some(rpc_client.commitment()),
                     replace_recent_blockhash: true,
+                    encoding: Some(UiTransactionEncoding::Base58),
                     ..RpcSimulateTransactionConfig::default()
                 },
             )
             .await
         {
             Ok(res) => {
-                debug!("Tx Simualted success {:?}", res.value);
+                info!("Tx Simualted success {:?}", res.value);
                 if let Some(return_data) = res.value.return_data {
-                    debug!("Simulate Response {}", return_data.data.0);
-                    let mut bytes = base64::engine::general_purpose::STANDARD
+                    info!(
+                        "Simulate Response {:?} {}",
+                        return_data.data.1, return_data.data.0
+                    );
+                    let all_bytes = base64::engine::general_purpose::STANDARD
                         .decode(return_data.data.0)
                         .unwrap();
 
-                    let mut len_bytes = [0u8; 4];
-                    len_bytes.copy_from_slice(&bytes[0..4]);
-                    let len: usize = u32::from_le_bytes(len_bytes) as usize;
-                    bytes = [bytes, vec![0; len]].concat();
-                    debug!("Bytes {:?}", bytes);
+                    let (_, bytes) = all_bytes.split_at(4);
+
+                    // let mut len_bytes = [0u8; 4];
+                    // len_bytes.copy_from_slice(&bytes[0..4]);
+                    // let len: usize = u32::from_le_bytes(len_bytes) as usize;
+                    // bytes = [bytes, vec![0; len].as_slice()].concat();
+                    info!("Bytes {:?}", bytes);
 
                     match Vec::<Option<AccountSchemaValue>>::deserialize_reader(&mut &bytes[..]) {
                         Ok(schema_values) => {
@@ -119,7 +126,7 @@ async fn extract_account_schema_values<'a>(
                         Err(error) => error!("Error deserialize_reader {:?}", error),
                     }
                 } else {
-                    debug!("Tx Simualted no response");
+                    info!("Tx Simualted no response");
                 }
             }
             Err(err) => error!("Tx simulation failed {}", err),
@@ -135,11 +142,11 @@ pub async fn etl_account_schema_values<'a, 'c>(
     rpc_client: &'a RpcClient,
     _task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
-    debug!("Checking instructions for account update");
+    info!("Checking instructions for account update");
     let mut directory = HashMap::<pubkey::Pubkey, AccountSchemaValue>::new();
 
     if let Some(ix) = ix_bundle.instruction {
-        debug!("outer ix found fetching account schema_values");
+        info!("outer ix found fetching account schema_values");
         extract_account_schema_values(
             &ix_bundle.program,
             &ix,
@@ -152,7 +159,7 @@ pub async fn etl_account_schema_values<'a, 'c>(
     }
 
     if let Some(inner_ixs) = &ix_bundle.inner_ix {
-        debug!("inner ixs found fetching account schema_values");
+        info!("inner ixs found fetching account schema_values");
         for (program_id, ix) in inner_ixs {
             extract_account_schema_values(
                 &program_id,
@@ -168,10 +175,10 @@ pub async fn etl_account_schema_values<'a, 'c>(
 
     let accounts_schemas = directory.values();
 
-    debug!("Found {} account updates", accounts_schemas.len());
+    info!("Found {} account updates", accounts_schemas.len());
 
     if accounts_schemas.len() > 0 {
-        debug!("Updated accounts found building query");
+        info!("Updated accounts found building query");
         let models = accounts_schemas
             .into_iter()
             .map(|account| accounts::ActiveModel {
@@ -197,11 +204,11 @@ pub async fn etl_account_schema_values<'a, 'c>(
             )
             .build(DbBackend::Postgres);
 
-        debug!("Query builed successfully");
+        info!("Query builed successfully");
         db.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
-        debug!("Query executed successfully");
+        info!("Query executed successfully");
     }
 
     Ok(())
