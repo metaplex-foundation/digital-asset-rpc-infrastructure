@@ -2,6 +2,10 @@ use {
     crate::{
         metric,
         metrics::capture_result,
+        plerkle::{
+            parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
+            parse_signature,
+        },
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
@@ -9,7 +13,7 @@ use {
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
     plerkle_serialization::root_as_transaction_info,
-    program_transformers::ProgramTransformer,
+    program_transformers::{error::ProgramTransformerResult, ProgramTransformer, TransactionInfo},
     sqlx::{Pool, Postgres},
     std::sync::Arc,
     tokio::{
@@ -101,7 +105,7 @@ async fn handle_transaction(
         }
 
         let begin = Instant::now();
-        let res = manager.handle_transaction(&tx).await;
+        let res = handle_transaction_update(manager, tx).await;
         let should_ack = capture_result(
             id.clone(),
             stream_key,
@@ -117,4 +121,22 @@ async fn handle_transaction(
         }
     }
     ret_id
+}
+
+async fn handle_transaction_update<'a>(
+    manager: Arc<ProgramTransformer>,
+    tx: plerkle_serialization::TransactionInfo<'_>,
+) -> ProgramTransformerResult<()> {
+    manager
+        .handle_transaction(&TransactionInfo {
+            slot: tx.slot(),
+            signature: &parse_signature(tx.signature())?,
+            account_keys: &parse_account_keys(tx.account_keys())?,
+            message_instructions: &parse_message_instructions(tx.outer_instructions())?,
+            meta_inner_instructions: &parse_meta_inner_instructions(
+                tx.compiled_inner_instructions(),
+                tx.inner_instructions(),
+            )?,
+        })
+        .await
 }

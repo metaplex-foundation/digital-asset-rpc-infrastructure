@@ -148,7 +148,7 @@ where
                     &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
-                    tree_id.to_vec(),
+                    tree_id.to_bytes().to_vec(),
                     le.leaf_hash.to_vec(),
                     le.schema.data_hash(),
                     le.schema.creator_hash(),
@@ -183,7 +183,7 @@ where
                 upsert_asset_authority(
                     &multi_txn,
                     id_bytes.to_vec(),
-                    authority.to_vec(),
+                    authority.to_bytes().to_vec(),
                     seq as i64,
                     slot_i,
                 )

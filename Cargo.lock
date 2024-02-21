@@ -1000,20 +1000,18 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92e71e288e73543fddc5c0f099ef7cdca8d01ca278996f73f386b9ab6d65c2b4"
+source = "git+https://github.com/rpcpool/blockbuster.git?tag=blockbuster-v1.0.1-no-plerkle#4b814daa10a69dddafb1bb434f544aac864c7ffe"
 dependencies = [
  "anchor-lang",
  "async-trait",
  "borsh 0.10.3",
  "bs58 0.4.0",
- "flatbuffers",
  "lazy_static",
  "log",
  "mpl-bubblegum",
  "mpl-token-metadata",
- "plerkle_serialization",
  "solana-sdk",
+ "solana-transaction-status",
  "spl-account-compression",
  "spl-noop",
  "spl-token",
@@ -1826,9 +1824,9 @@ dependencies = [
 
 [[package]]
 name = "deunicode"
-version = "1.4.1"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a1abaf4d861455be59f64fd2b55606cb151fce304ede7165f410243ce96bde6"
+checksum = "b6e854126756c496b8c81dec88f9a706b15b875c5849d4097a3854476b9fdf94"
 
 [[package]]
 name = "dialoguer"
@@ -2113,9 +2111,9 @@ dependencies = [
 
 [[package]]
 name = "fake"
-version = "2.9.1"
+version = "2.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26221445034074d46b276e13eb97a265ebdb8ed8da705c4dddd3dd20b66b45d2"
+checksum = "1c25829bde82205da46e1823b2259db6273379f626fc211f126f65654a2669be"
 dependencies = [
  "deunicode",
  "rand 0.8.5",
@@ -2833,9 +2831,9 @@ checksum = "c8fae54786f62fb2918dcfae3d568594e50eb9b5c25bf04371af6fe7516452fb"
 
 [[package]]
 name = "insta"
-version = "1.34.0"
+version = "1.35.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d64600be34b2fcfc267740a243fa7744441bb4947a619ac4e5bb6507f35fbfc"
+checksum = "7c985c1bef99cf13c58fade470483d81a2bfe846ebde60ed28cc2dddec2df9e2"
 dependencies = [
  "console",
  "lazy_static",
@@ -3385,7 +3383,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "serde",
- "serde_with 3.6.0",
+ "serde_with 3.6.1",
  "solana-program",
  "thiserror",
 ]
@@ -4142,10 +4140,10 @@ dependencies = [
  "futures",
  "mpl-bubblegum",
  "num-traits",
- "plerkle_serialization",
  "sea-orm",
  "serde_json",
  "solana-sdk",
+ "solana-transaction-status",
  "spl-account-compression",
  "spl-token",
  "sqlx",
@@ -5206,9 +5204,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.6.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b0ed1662c5a68664f45b76d18deb0e234aff37207086803165c961eb695e981"
+checksum = "15d167997bd841ec232f5b2b8e0e26606df2e7caa4c31b95ea9ca52b200bd270"
 dependencies = [
  "base64 0.21.4",
  "chrono",
@@ -5216,8 +5214,9 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.0.2",
  "serde",
+ "serde_derive",
  "serde_json",
- "serde_with_macros 3.6.0",
+ "serde_with_macros 3.6.1",
  "time 0.3.29",
 ]
 
@@ -5235,9 +5234,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.6.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "568577ff0ef47b879f736cd66740e022f3672788cdf002a05a4e609ea5a6fb15"
+checksum = "865f9743393e638991566a8b7a479043c2c8da94a33e0a31f18214c9cae0a64d"
 dependencies = [
  "darling",
  "proc-macro2 1.0.69",

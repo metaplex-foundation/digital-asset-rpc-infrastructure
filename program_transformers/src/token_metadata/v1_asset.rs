@@ -24,7 +24,6 @@ use {
         },
         json::ChainDataV1,
     },
-    plerkle_serialization::Pubkey as FBPubkey,
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         query::{JsonValue, Order, QueryFilter, QueryOrder, QueryTrait, Select},
@@ -38,12 +37,12 @@ use {
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
 ) -> ProgramTransformerResult<()> {
-    let (id, slot_i) = (id.0, slot as i64);
+    let (id, slot_i) = (id, slot as i64);
     let model = asset::ActiveModel {
-        id: ActiveValue::Set(id.to_vec()),
+        id: ActiveValue::Set(id.to_bytes().to_vec()),
         slot_updated: ActiveValue::Set(Some(slot_i)),
         burnt: ActiveValue::Set(true),
         ..Default::default()

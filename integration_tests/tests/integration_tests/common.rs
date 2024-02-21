@@ -12,13 +12,19 @@ use migration::sea_orm::{
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
 
-use nft_ingester::config;
+use nft_ingester::{
+    config,
+    plerkle::{
+        parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
+        parse_pubkey, parse_signature, parse_slice,
+    },
+};
 use once_cell::sync::Lazy;
 use plerkle_serialization::root_as_account_info;
 use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_account;
 use plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2;
-use program_transformers::ProgramTransformer;
+use program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo};
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
@@ -356,7 +362,12 @@ pub async fn index_account_bytes(setup: &TestSetup, account_bytes: Vec<u8>) {
 
     setup
         .transformer
-        .handle_account_update(account)
+        .handle_account_update(&AccountInfo {
+            slot: account.slot(),
+            pubkey: &parse_pubkey(account.pubkey()).expect("failed to parse account"),
+            owner: &parse_pubkey(account.owner()).expect("failed to parse account"),
+            data: parse_slice(account.data()).expect("failed to parse account"),
+        })
         .await
         .unwrap();
 }
@@ -419,7 +430,23 @@ async fn cached_fetch_transaction(setup: &TestSetup, sig: Signature) -> Vec<u8> 
 pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
     let txn_bytes: Vec<u8> = cached_fetch_transaction(setup, sig).await;
     let txn = root_as_transaction_info(&txn_bytes).unwrap();
-    setup.transformer.handle_transaction(&txn).await.unwrap();
+    setup
+        .transformer
+        .handle_transaction(&TransactionInfo {
+            slot: txn.slot(),
+            signature: &parse_signature(txn.signature()).expect("failed to parse transaction"),
+            account_keys: &parse_account_keys(txn.account_keys())
+                .expect("failed to parse transaction"),
+            message_instructions: &parse_message_instructions(txn.outer_instructions())
+                .expect("failed to parse transaction"),
+            meta_inner_instructions: &parse_meta_inner_instructions(
+                txn.compiled_inner_instructions(),
+                txn.inner_instructions(),
+            )
+            .expect("failed to parse transaction"),
+        })
+        .await
+        .unwrap();
 }
 
 async fn cached_fetch_largest_token_account_id(client: &RpcClient, mint: Pubkey) -> Pubkey {

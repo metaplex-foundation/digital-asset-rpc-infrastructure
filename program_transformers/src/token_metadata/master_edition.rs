@@ -8,17 +8,17 @@ use {
         asset, asset_v1_account_attachments, extensions,
         sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
     },
-    plerkle_serialization::Pubkey as FBPubkey,
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue, EntityTrait, RelationTrait},
         query::{JoinType, QuerySelect, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DatabaseTransaction, DbBackend,
     },
+    solana_sdk::pubkey::Pubkey,
 };
 
 pub async fn save_v2_master_edition(
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &MasterEdition,
     txn: &DatabaseTransaction,
@@ -34,7 +34,7 @@ pub async fn save_v2_master_edition(
 }
 
 pub async fn save_v1_master_edition(
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &DeprecatedMasterEditionV1,
     txn: &DatabaseTransaction,
@@ -55,16 +55,17 @@ pub async fn save_v1_master_edition(
     )
     .await
 }
+
 pub async fn save_master_edition(
     version: V1AccountAttachments,
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &MasterEdition,
     txn: &DatabaseTransaction,
 ) -> ProgramTransformerResult<()> {
-    let id_bytes = id.0.to_vec();
+    let id_bytes = id.to_bytes().to_vec();
     let master_edition: Option<(asset_v1_account_attachments::Model, Option<asset::Model>)> =
-        asset_v1_account_attachments::Entity::find_by_id(id.0.to_vec())
+        asset_v1_account_attachments::Entity::find_by_id(id.to_bytes().to_vec())
             .find_also_related(asset::Entity)
             .join(
                 JoinType::InnerJoin,
