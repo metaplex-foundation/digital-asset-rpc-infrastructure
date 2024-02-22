@@ -66,6 +66,8 @@ async fn extract_account_schema_values<'a>(
             return;
         }
 
+        let compute_unit_ix =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(1_000_000);
         let simulation_ix = Instruction {
             program_id,
             accounts: metas.to_owned(),
@@ -74,7 +76,8 @@ async fn extract_account_schema_values<'a>(
         // let message = Message::new(&[simulation_ix], Some(&metas[0].pubkey));
         // let mut tx: Transaction =
         //     Transaction::new_with_payer(&[simulation_ix], Some(&metas[0].pubkey));
-        let tx: Transaction = Transaction::new_with_payer(&[simulation_ix], payer.as_ref());
+        let tx: Transaction =
+            Transaction::new_with_payer(&[compute_unit_ix, simulation_ix], payer.as_ref());
         info!("Payer: {:?}", payer.as_ref());
 
         // tx.message.recent_blockhash = hash;

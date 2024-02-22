@@ -12,9 +12,12 @@ use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{pubkey, pubkey::Pubkey};
+use solana_sdk::{pubkey, pubkey::Pubkey, signature::Signature};
 use sqlx::PgPool;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    str::FromStr,
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
@@ -219,23 +222,56 @@ impl ProgramTransformer {
                 };
             }
             if let Some(rpc_client) = &self.rpc_client {
-                // let whitelist_programs = vec![pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")];
-                etl_account_schema_values(
-                    &ix,
-                    keys.as_slice(),
-                    &payer,
-                    &self.storage,
-                    rpc_client,
-                    &self.task_sender,
-                )
-                .await
-                .map_err(|err| {
-                    error!(
-                        "Failed to handle bubblegum instruction for txn {:?}: {:?}",
-                        sig, err
+                let mut remaining_tries = 200u64;
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
+                    let current_slot = rpc_client
+                        .get_slot_with_commitment(rpc_client.commitment())
+                        .await;
+                    let current_slot = current_slot.unwrap_or(0);
+
+                    info!(
+                        "Checking confirmation for tx: {:?}, current_slot: {}, tx_slot: {}",
+                        sig,
+                        current_slot,
+                        tx.slot()
                     );
-                    err
-                })?;
+
+                    if current_slot >= tx.slot() {
+                        info!(
+                            "Fetching account values for tx: {:?}, remaining tries: {}",
+                            sig, remaining_tries
+                        );
+                        etl_account_schema_values(
+                            &ix,
+                            keys.as_slice(),
+                            &payer,
+                            &self.storage,
+                            rpc_client,
+                            &self.task_sender,
+                        )
+                        .await
+                        .map_err(|err| {
+                            error!(
+                                "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                                sig, err
+                            );
+                            err
+                        })?;
+                        break;
+                    }
+
+                    if remaining_tries == 0 {
+                        info!(
+                            "Coudn't confirm, tx: {:?}, current_slot: {}, tx_slot: {}",
+                            sig,
+                            current_slot,
+                            tx.slot()
+                        );
+                        break;
+                    }
+                    remaining_tries -= 1;
+                }
             }
         }
 
