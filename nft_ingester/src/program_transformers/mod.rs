@@ -12,12 +12,9 @@ use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{pubkey, pubkey::Pubkey, signature::Signature};
+use solana_sdk::{pubkey, pubkey::Pubkey};
 use sqlx::PgPool;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    str::FromStr,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
@@ -34,11 +31,44 @@ mod noop;
 mod token;
 mod token_metadata;
 
+pub struct IndexablePrograms(pub Vec<Pubkey>);
+impl IndexablePrograms {
+    pub fn new() -> Self {
+        let mut this = Self(vec![]);
+        this.populate_programs();
+        this
+    }
+
+    pub fn keys(&self) -> &Vec<Pubkey> {
+        &self.0
+    }
+
+    pub fn populate_programs(&mut self) {
+        self.0
+            .push(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")); // Test HiveControl
+        self.0
+            .push(pubkey!("HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm")); // HiveControl
+        self.0
+            .push(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
+        self.0
+            .push(pubkey!("CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4")); // Currency
+        self.0
+            .push(pubkey!("Pay9ZxrVRXjt9Da8qpwqq4yBRvvrfx3STWnKK4FstPr")); // Payment
+        self.0
+            .push(pubkey!("MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6")); // Staking
+        self.0
+            .push(pubkey!("8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit")); // Test GuildKit
+        self.0
+            .push(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
+    }
+}
+
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
     rpc_client: Option<RpcClient>,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
+    indexable_programs: IndexablePrograms,
     key_set: HashSet<Pubkey>,
     cl_audits: bool,
 }
@@ -56,24 +86,24 @@ impl ProgramTransformer {
         matchers.insert(token_metadata.key(), Box::new(token_metadata));
         matchers.insert(token.key(), Box::new(token));
         matchers.insert(noop.key(), Box::new(noop));
+
+        let mut indexable_programs = IndexablePrograms::new();
+
         let mut hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
         });
-        hs.insert(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")); // Test HiveControl
-        hs.insert(pubkey!("HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm")); // HiveControl
-        hs.insert(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
-        hs.insert(pubkey!("CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4")); // Currency
-        hs.insert(pubkey!("Pay9ZxrVRXjt9Da8qpwqq4yBRvvrfx3STWnKK4FstPr")); // Payment
-        hs.insert(pubkey!("MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6")); // Staking
-        hs.insert(pubkey!("8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit")); // Test GuildKit
-        hs.insert(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
+        indexable_programs.keys().iter().for_each(|key| {
+            hs.insert(key.clone());
+        });
+
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
             rpc_client: None,
             task_sender,
             matchers,
+            indexable_programs,
             key_set: hs,
             cl_audits,
         }
@@ -243,8 +273,9 @@ impl ProgramTransformer {
                             sig, remaining_tries
                         );
                         etl_account_schema_values(
-                            &ix,
+                            self.indexable_programs.keys(),
                             keys.as_slice(),
+                            tx.slot(),
                             &payer,
                             &self.storage,
                             rpc_client,
