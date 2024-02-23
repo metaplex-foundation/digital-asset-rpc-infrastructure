@@ -4,6 +4,7 @@ use clap::Args;
 use log::error;
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
+use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
 use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
 use spl_account_compression::id;
 use spl_account_compression::state::{
@@ -146,8 +147,14 @@ impl TreeGapFill {
             let sigs = client
                 .get_signatures_for_address(&self.tree, before, self.until)
                 .await?;
+            let sig_count = sigs.len();
 
-            for sig in sigs.iter() {
+            let successful_transactions = sigs
+                .into_iter()
+                .filter(|transaction| transaction.err.is_none())
+                .collect::<Vec<RpcConfirmedTransactionStatusWithSignature>>();
+
+            for sig in successful_transactions.iter() {
                 let sig = Signature::from_str(&sig.signature)?;
 
                 sender.send(sig).await?;
@@ -155,7 +162,7 @@ impl TreeGapFill {
                 before = Some(sig);
             }
 
-            if sigs.len() < GET_SIGNATURES_FOR_ADDRESS_LIMIT {
+            if sig_count < GET_SIGNATURES_FOR_ADDRESS_LIMIT {
                 break;
             }
         }

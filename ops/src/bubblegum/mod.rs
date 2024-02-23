@@ -1,3 +1,4 @@
+mod audit;
 mod backfiller;
 mod cmd;
 mod queue;
