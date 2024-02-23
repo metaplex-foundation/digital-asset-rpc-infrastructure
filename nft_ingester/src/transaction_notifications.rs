@@ -31,12 +31,15 @@ pub fn transaction_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new_with_rpc_client(
-                pool,
-                rpc_client,
-                bg_task_sender,
-                cl_audits,
-            ));
+            let manager = Arc::new(
+                ProgramTransformer::new_with_rpc_client(
+                    pool,
+                    rpc_client,
+                    bg_task_sender,
+                    cl_audits,
+                )
+                .await,
+            );
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();

@@ -3,8 +3,9 @@ use std::{collections::HashSet, str::FromStr};
 use crate::{error::IngesterError, tasks::TaskData};
 use base64::Engine;
 use borsh::BorshDeserialize;
-use plerkle_serialization::Pubkey;
+use plerkle_serialization::TransactionInfo;
 
+use async_trait::async_trait;
 use digital_asset_types::dao::accounts;
 use hpl_toolkit::AccountSchemaValue;
 use log::{debug, error, info};
@@ -18,19 +19,140 @@ use solana_client::{
 };
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
-    pubkey,
+    pubkey::Pubkey,
     transaction::Transaction,
 };
 use solana_transaction_status::UiTransactionEncoding;
 use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
+
+#[async_trait]
+pub trait IndexablePrograms {
+    fn keys(&self) -> &Vec<Pubkey>;
+
+    fn rpc_client(&self) -> &RpcClient;
+
+    async fn populate_programs(&mut self);
+
+    async fn select_and_group_accounts<'a>(
+        &self,
+        tx: &'a TransactionInfo<'a>,
+    ) -> HashMap<Pubkey, HashSet<Pubkey>> {
+        info!("Fetching account infos to check for updates");
+        let pubkeys = tx
+            .account_keys()
+            .unwrap()
+            .iter()
+            .map(|p| Pubkey::from(p.0))
+            .collect::<Vec<_>>();
+        let accounts_response = self
+            .rpc_client()
+            .get_multiple_accounts_with_config(
+                pubkeys.as_slice(),
+                RpcAccountInfoConfig {
+                    data_slice: Some(solana_account_decoder::UiDataSliceConfig {
+                        offset: 0,
+                        length: 0,
+                    }),
+                    ..RpcAccountInfoConfig::default()
+                },
+            )
+            .await;
+
+        let mut programs = HashMap::<Pubkey, HashSet<Pubkey>>::new();
+        self.keys().iter().for_each(|program| {
+            programs.insert(program.to_owned(), HashSet::<Pubkey>::new());
+        });
+
+        if let Ok(accounts_response) = accounts_response {
+            info!("Compiling accounts into program directory");
+            accounts_response
+                .value
+                .iter()
+                .enumerate()
+                .for_each(|(i, account)| {
+                    if let Some(account) = account {
+                        let set = programs.get_mut(&account.owner);
+                        if let Some(set) = set {
+                            let account_key = pubkeys[i];
+                            set.insert(account_key);
+                        }
+                    }
+                })
+        } else if let Err(e) = accounts_response {
+            error!("Couldn't find accounts {:?}", e);
+        }
+
+        programs
+    }
+
+    async fn index_tx_accounts<'a>(
+        &self,
+        tx: &'a TransactionInfo<'a>,
+        db: &'a DatabaseConnection,
+    ) -> Result<(), IngesterError> {
+        let sig = tx.signature();
+        let rpc_client = self.rpc_client();
+        let mut remaining_tries = 200u64;
+
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
+            let current_slot = rpc_client
+                .get_slot_with_commitment(rpc_client.commitment())
+                .await;
+            let current_slot = current_slot.unwrap_or(0);
+
+            info!(
+                "Checking confirmation for tx: {:?}, current_slot: {}, tx_slot: {}",
+                sig,
+                current_slot,
+                tx.slot()
+            );
+
+            if current_slot >= tx.slot() {
+                info!(
+                    "Fetching account values for tx: {:?}, remaining tries: {}",
+                    sig, remaining_tries
+                );
+                etl_account_schema_values(
+                    self.select_and_group_accounts(tx).await,
+                    Some(Pubkey::from(tx.account_keys().unwrap().get(0).0)),
+                    tx.slot(),
+                    db,
+                    rpc_client,
+                )
+                .await
+                .map_err(|err| {
+                    error!(
+                        "Failed to handle bubblegum instruction for txn {:?}: {:?}",
+                        sig, err
+                    );
+                    err
+                })?;
+                break;
+            }
+
+            if remaining_tries == 0 {
+                info!(
+                    "Coudn't confirm, tx: {:?}, current_slot: {}, tx_slot: {}",
+                    sig,
+                    current_slot,
+                    tx.slot()
+                );
+                break;
+            }
+            remaining_tries -= 1;
+        }
+
+        Ok(())
+    }
+}
 
 async fn extract_account_schema_values<'a>(
-    program_id: pubkey::Pubkey,
-    pubkeys: HashSet<pubkey::Pubkey>,
-    payer: &'a Option<pubkey::Pubkey>,
+    program_id: Pubkey,
+    pubkeys: HashSet<Pubkey>,
+    payer: &'a Option<Pubkey>,
     rpc_client: &'a RpcClient,
-    directory: &'a mut HashMap<pubkey::Pubkey, AccountSchemaValue>,
+    directory: &'a mut HashMap<Pubkey, AccountSchemaValue>,
 ) {
     if payer.is_none() {
         debug!("Payer is none, aborting");
@@ -120,69 +242,18 @@ async fn extract_account_schema_values<'a>(
     }
 }
 
-pub async fn etl_account_schema_values<'a, 'c>(
-    allowed_programs: &Vec<pubkey::Pubkey>,
-    accounts: &'a [Pubkey],
+pub async fn etl_account_schema_values<'a>(
+    program_accounts: HashMap<Pubkey, HashSet<Pubkey>>,
+    payer: Option<Pubkey>,
     slot: u64,
-    payer: &'a Option<pubkey::Pubkey>,
-    db: &'c DatabaseConnection,
+    db: &'a DatabaseConnection,
     rpc_client: &'a RpcClient,
-    _task_manager: &UnboundedSender<TaskData>,
 ) -> Result<(), IngesterError> {
-    info!("Fetching account infos to check for updates");
-    let pubkeys = accounts
-        .iter()
-        .map(|p| pubkey::Pubkey::from(p.0))
-        .collect::<Vec<_>>();
-    let accounts_response = rpc_client
-        .get_multiple_accounts_with_config(
-            pubkeys.as_slice(),
-            RpcAccountInfoConfig {
-                data_slice: Some(solana_account_decoder::UiDataSliceConfig {
-                    offset: 0,
-                    length: 0,
-                }),
-                ..RpcAccountInfoConfig::default()
-            },
-        )
-        .await;
+    info!("Fetching accounts latest schema");
+    let mut directory = HashMap::<Pubkey, AccountSchemaValue>::new();
 
-    let mut programs = HashMap::<String, HashSet<pubkey::Pubkey>>::new();
-    allowed_programs.iter().for_each(|program| {
-        programs.insert(program.to_string(), HashSet::<pubkey::Pubkey>::new());
-    });
-
-    if let Ok(accounts_response) = accounts_response {
-        info!("Compiling accounts into program directory");
-        accounts_response
-            .value
-            .iter()
-            .enumerate()
-            .for_each(|(i, account)| {
-                if let Some(account) = account {
-                    let set = programs.get_mut(&account.owner.to_string());
-                    if let Some(set) = set {
-                        let account_key = pubkeys[i];
-                        set.insert(account_key);
-                    }
-                }
-            })
-    } else if let Err(e) = accounts_response {
-        error!("Couldn't find accounts {:?}", e);
-    }
-
-    info!("Checking instructions for account update");
-    let mut directory = HashMap::<pubkey::Pubkey, AccountSchemaValue>::new();
-
-    for (program, pubkeys) in programs {
-        extract_account_schema_values(
-            pubkey::Pubkey::from_str(program.as_str()).unwrap(),
-            pubkeys,
-            payer,
-            rpc_client,
-            &mut directory,
-        )
-        .await;
+    for (program, pubkeys) in program_accounts {
+        extract_account_schema_values(program, pubkeys, &payer, rpc_client, &mut directory).await;
     }
 
     let accounts_schemas = directory.values();

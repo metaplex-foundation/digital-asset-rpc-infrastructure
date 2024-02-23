@@ -1,4 +1,5 @@
 use crate::{error::IngesterError, tasks::TaskData};
+use async_trait::async_trait;
 use blockbuster::{
     instruction::{order_instructions, InstructionBundle, IxPair},
     program_handler::ProgramParser,
@@ -11,7 +12,7 @@ use blockbuster::{
 use log::{debug, error, info};
 use plerkle_serialization::{AccountInfo, Pubkey as FBPubkey, TransactionInfo};
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
-use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcAccountInfoConfig};
 use solana_sdk::{pubkey, pubkey::Pubkey};
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -19,7 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::program_transformers::{
     account_compression::handle_account_compression_instruction,
-    bubblegum::handle_bubblegum_instruction, hpl_account_handler::etl_account_schema_values,
+    bubblegum::handle_bubblegum_instruction, hpl_account_handler::IndexablePrograms,
     noop::handle_noop_instruction, token::handle_token_program_account,
     token_metadata::handle_token_metadata_account,
 };
@@ -31,44 +32,55 @@ mod noop;
 mod token;
 mod token_metadata;
 
-pub struct IndexablePrograms(pub Vec<Pubkey>);
-impl IndexablePrograms {
-    pub fn new() -> Self {
-        let mut this = Self(vec![]);
-        this.populate_programs();
+pub struct HoneycombPrograms {
+    pub rpc_client: RpcClient,
+    pub programs: Vec<Pubkey>,
+}
+impl HoneycombPrograms {
+    pub fn new<'a>(rpc_client: RpcClient) -> Self {
+        let mut this = Self {
+            rpc_client,
+            programs: vec![],
+        };
         this
     }
+}
 
-    pub fn keys(&self) -> &Vec<Pubkey> {
-        &self.0
+#[async_trait]
+impl IndexablePrograms for HoneycombPrograms {
+    fn keys(&self) -> &Vec<Pubkey> {
+        &self.programs
     }
 
-    pub fn populate_programs(&mut self) {
-        self.0
+    fn rpc_client(&self) -> &RpcClient {
+        &self.rpc_client
+    }
+
+    async fn populate_programs(&mut self) {
+        self.programs
             .push(pubkey!("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL")); // Test HiveControl
-        self.0
+        self.programs
             .push(pubkey!("HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm")); // HiveControl
-        self.0
+        self.programs
             .push(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
-        self.0
+        self.programs
             .push(pubkey!("CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4")); // Currency
-        self.0
+        self.programs
             .push(pubkey!("Pay9ZxrVRXjt9Da8qpwqq4yBRvvrfx3STWnKK4FstPr")); // Payment
-        self.0
+        self.programs
             .push(pubkey!("MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6")); // Staking
-        self.0
-            .push(pubkey!("8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit")); // Test GuildKit
-        self.0
+        self.programs
+            .push(pubkey!("9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK")); // Test GuildKit
+        self.programs
             .push(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
     }
 }
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
-    rpc_client: Option<RpcClient>,
     task_sender: UnboundedSender<TaskData>,
     matchers: HashMap<Pubkey, Box<dyn ProgramParser>>,
-    indexable_programs: IndexablePrograms,
+    indexable_programs: Option<Box<dyn IndexablePrograms + Send + Sync>>,
     key_set: HashSet<Pubkey>,
     cl_audits: bool,
 }
@@ -87,36 +99,37 @@ impl ProgramTransformer {
         matchers.insert(token.key(), Box::new(token));
         matchers.insert(noop.key(), Box::new(noop));
 
-        let mut indexable_programs = IndexablePrograms::new();
-
         let mut hs = matchers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
-        });
-        indexable_programs.keys().iter().for_each(|key| {
-            hs.insert(key.clone());
         });
 
         let pool: PgPool = pool;
         ProgramTransformer {
             storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
-            rpc_client: None,
             task_sender,
             matchers,
-            indexable_programs,
+            indexable_programs: None,
             key_set: hs,
             cl_audits,
         }
     }
 
-    pub fn new_with_rpc_client(
+    pub async fn new_with_rpc_client(
         pool: PgPool,
         rpc_client: RpcClient,
         task_sender: UnboundedSender<TaskData>,
         cl_audits: bool,
     ) -> Self {
         let mut this = Self::new(pool, task_sender, cl_audits);
-        this.rpc_client = Some(rpc_client);
+
+        let mut honeycomb_programs = HoneycombPrograms::new(rpc_client);
+        honeycomb_programs.populate_programs().await;
+        honeycomb_programs.keys().iter().for_each(|key| {
+            this.key_set.insert(key.clone());
+        });
+
+        this.indexable_programs = Some(Box::new(honeycomb_programs));
         this
     }
     pub fn break_transaction<'i>(
@@ -152,7 +165,6 @@ impl ProgramTransformer {
         for k in accounts.into_iter() {
             keys.push(*k);
         }
-        let payer = keys.get(0).map(|fk| Pubkey::from(fk.0));
 
         let mut not_impl = 0;
         let ixlen = instructions.len();
@@ -251,58 +263,10 @@ impl ProgramTransformer {
                     }
                 };
             }
-            if let Some(rpc_client) = &self.rpc_client {
-                let mut remaining_tries = 200u64;
-                loop {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
-                    let current_slot = rpc_client
-                        .get_slot_with_commitment(rpc_client.commitment())
-                        .await;
-                    let current_slot = current_slot.unwrap_or(0);
-
-                    info!(
-                        "Checking confirmation for tx: {:?}, current_slot: {}, tx_slot: {}",
-                        sig,
-                        current_slot,
-                        tx.slot()
-                    );
-
-                    if current_slot >= tx.slot() {
-                        info!(
-                            "Fetching account values for tx: {:?}, remaining tries: {}",
-                            sig, remaining_tries
-                        );
-                        etl_account_schema_values(
-                            self.indexable_programs.keys(),
-                            keys.as_slice(),
-                            tx.slot(),
-                            &payer,
-                            &self.storage,
-                            rpc_client,
-                            &self.task_sender,
-                        )
-                        .await
-                        .map_err(|err| {
-                            error!(
-                                "Failed to handle bubblegum instruction for txn {:?}: {:?}",
-                                sig, err
-                            );
-                            err
-                        })?;
-                        break;
-                    }
-
-                    if remaining_tries == 0 {
-                        info!(
-                            "Coudn't confirm, tx: {:?}, current_slot: {}, tx_slot: {}",
-                            sig,
-                            current_slot,
-                            tx.slot()
-                        );
-                        break;
-                    }
-                    remaining_tries -= 1;
-                }
+            if let Some(indexable_programs) = &self.indexable_programs {
+                indexable_programs
+                    .index_tx_accounts(&tx, &self.storage)
+                    .await;
             }
         }
 
