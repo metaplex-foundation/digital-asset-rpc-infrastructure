@@ -87,7 +87,7 @@ where
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        query.sql = format!("{} WHERE excluded.seq > cl_items.seq", query.sql);
+        query.sql = format!("{} WHERE excluded.seq >= cl_items.seq", query.sql);
         txn.execute(query)
             .await
             .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
