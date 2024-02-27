@@ -12,18 +12,17 @@ use migration::sea_orm::{
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
 
-use nft_ingester::{
-    config,
-    plerkle::{
+use nft_ingester::config;
+use once_cell::sync::Lazy;
+use plerkle_serialization::{
+    deserializer::{
         parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
         parse_pubkey, parse_signature, parse_slice,
     },
+    root_as_account_info, root_as_transaction_info,
+    serializer::{seralize_encoded_transaction_with_status, serialize_account},
+    solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
 };
-use once_cell::sync::Lazy;
-use plerkle_serialization::root_as_account_info;
-use plerkle_serialization::root_as_transaction_info;
-use plerkle_serialization::serializer::serialize_account;
-use plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2;
 use program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo};
 
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -40,8 +39,6 @@ use futures::TryStreamExt;
 use tokio_stream::{self as stream};
 
 use log::{error, info};
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-// use rand::seq::SliceRandom;
 use serde::de::DeserializeOwned;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
@@ -441,7 +438,6 @@ pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
                 .expect("failed to parse transaction"),
             meta_inner_instructions: &parse_meta_inner_instructions(
                 txn.compiled_inner_instructions(),
-                txn.inner_instructions(),
             )
             .expect("failed to parse transaction"),
         })
