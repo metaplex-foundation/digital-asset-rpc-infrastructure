@@ -3992,9 +3992,8 @@ dependencies = [
 
 [[package]]
 name = "plerkle_serialization"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f021e409a6a1ec8b7a325db27254e7fa3942e845cfe96f5f8f494977f2646a8"
+version = "1.7.0"
+source = "git+https://github.com/rpcpool/digital-asset-validator-plugin.git?branch=espi/plerkle-solana-parsers#43c14870252b9e8264b8b1c57f9e0fc379f1621c"
 dependencies = [
  "bs58 0.4.0",
  "chrono",

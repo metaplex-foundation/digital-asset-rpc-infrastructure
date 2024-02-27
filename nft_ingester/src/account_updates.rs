@@ -2,14 +2,17 @@ use {
     crate::{
         metric,
         metrics::capture_result,
-        plerkle::{parse_pubkey, parse_slice},
+        plerkle::into_program_transformer_err,
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
     chrono::Utc,
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
-    plerkle_serialization::root_as_account_info,
+    plerkle_serialization::{
+        deserializer::{parse_pubkey, parse_slice},
+        root_as_account_info,
+    },
     program_transformers::{error::ProgramTransformerResult, AccountInfo, ProgramTransformer},
     sqlx::{Pool, Postgres},
     std::sync::Arc,
@@ -129,9 +132,9 @@ async fn handle_account_update<'a>(
     manager
         .handle_account_update(&AccountInfo {
             slot: account_update.slot(),
-            pubkey: &parse_pubkey(account_update.pubkey())?,
-            owner: &parse_pubkey(account_update.owner())?,
-            data: parse_slice(account_update.data())?,
+            pubkey: &parse_pubkey(account_update.pubkey()).map_err(into_program_transformer_err)?,
+            owner: &parse_pubkey(account_update.owner()).map_err(into_program_transformer_err)?,
+            data: parse_slice(account_update.data()).map_err(into_program_transformer_err)?,
         })
         .await
 }

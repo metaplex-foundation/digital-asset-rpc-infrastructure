@@ -2,17 +2,20 @@ use {
     crate::{
         metric,
         metrics::capture_result,
-        plerkle::{
-            parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
-            parse_signature,
-        },
+        plerkle::into_program_transformer_err,
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
     chrono::Utc,
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
-    plerkle_serialization::root_as_transaction_info,
+    plerkle_serialization::{
+        deserializer::{
+            parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
+            parse_signature,
+        },
+        root_as_transaction_info,
+    },
     program_transformers::{error::ProgramTransformerResult, ProgramTransformer, TransactionInfo},
     sqlx::{Pool, Postgres},
     std::sync::Arc,
@@ -130,13 +133,15 @@ async fn handle_transaction_update<'a>(
     manager
         .handle_transaction(&TransactionInfo {
             slot: tx.slot(),
-            signature: &parse_signature(tx.signature())?,
-            account_keys: &parse_account_keys(tx.account_keys())?,
-            message_instructions: &parse_message_instructions(tx.outer_instructions())?,
+            signature: &parse_signature(tx.signature()).map_err(into_program_transformer_err)?,
+            account_keys: &parse_account_keys(tx.account_keys())
+                .map_err(into_program_transformer_err)?,
+            message_instructions: &parse_message_instructions(tx.outer_instructions())
+                .map_err(into_program_transformer_err)?,
             meta_inner_instructions: &parse_meta_inner_instructions(
                 tx.compiled_inner_instructions(),
-                tx.inner_instructions(),
-            )?,
+            )
+            .map_err(into_program_transformer_err)?,
         })
         .await
 }

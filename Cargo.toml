@@ -73,7 +73,7 @@ once_cell = "1.19.0"
 open-rpc-derive = "0.0.4"
 open-rpc-schema = "0.0.4"
 plerkle_messenger = "1.6.0"
-plerkle_serialization = "1.6.0"
+plerkle_serialization = "1.7.0"
 program_transformers = { path = "program_transformers" }
 prometheus = "0.13.3"
 proxy-wasm = "0.2.0"
@@ -120,6 +120,7 @@ trivially_copy_pass_by_ref = "deny"
 
 [patch.crates-io]
 blockbuster = { git = "https://github.com/rpcpool/blockbuster.git", tag = "blockbuster-v1.0.1-no-plerkle" }
+plerkle_serialization = { git = "https://github.com/rpcpool/digital-asset-validator-plugin.git", branch = "espi/plerkle-solana-parsers" }
 
 [profile.release]
 codegen-units = 1
