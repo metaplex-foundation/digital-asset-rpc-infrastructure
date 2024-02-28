@@ -160,7 +160,7 @@ impl ProgramTransformer {
                 txn_id: &tx_info.signature.to_string(),
                 program,
                 instruction: Some(instruction),
-                inner_ix,
+                inner_ix: inner_ix.as_deref(),
                 keys: ix_accounts.as_slice(),
                 slot: tx_info.slot,
             };

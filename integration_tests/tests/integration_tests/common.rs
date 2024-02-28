@@ -16,8 +16,8 @@ use nft_ingester::config;
 use once_cell::sync::Lazy;
 use plerkle_serialization::{
     deserializer::{
-        parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
-        parse_pubkey, parse_signature, parse_slice,
+        parse_account_keys, parse_compiled_inner_instructions, parse_compiled_instructions,
+        parse_inner_instructions, parse_pubkey, parse_signature, parse_slice,
     },
     root_as_account_info, root_as_transaction_info,
     serializer::{seralize_encoded_transaction_with_status, serialize_account},
@@ -427,6 +427,18 @@ async fn cached_fetch_transaction(setup: &TestSetup, sig: Signature) -> Vec<u8> 
 pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
     let txn_bytes: Vec<u8> = cached_fetch_transaction(setup, sig).await;
     let txn = root_as_transaction_info(&txn_bytes).unwrap();
+    let compiled = txn.compiled_inner_instructions();
+    let inner = txn.inner_instructions();
+
+    let meta_inner_instructions = if let Some(compiled) = compiled {
+        parse_compiled_inner_instructions(compiled)
+    } else if let Some(inner) = inner {
+        parse_inner_instructions(inner)
+    } else {
+        panic!("No inner instructions found");
+    }
+    .expect("failed to parse inner instructions");
+
     setup
         .transformer
         .handle_transaction(&TransactionInfo {
@@ -434,12 +446,9 @@ pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
             signature: &parse_signature(txn.signature()).expect("failed to parse transaction"),
             account_keys: &parse_account_keys(txn.account_keys())
                 .expect("failed to parse transaction"),
-            message_instructions: &parse_message_instructions(txn.outer_instructions())
+            message_instructions: &parse_compiled_instructions(txn.outer_instructions())
                 .expect("failed to parse transaction"),
-            meta_inner_instructions: &parse_meta_inner_instructions(
-                txn.compiled_inner_instructions(),
-            )
-            .expect("failed to parse transaction"),
+            meta_inner_instructions: &meta_inner_instructions,
         })
         .await
         .unwrap();

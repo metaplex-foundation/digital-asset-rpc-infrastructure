@@ -11,12 +11,15 @@ use {
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
     plerkle_serialization::{
         deserializer::{
-            parse_account_keys, parse_message_instructions, parse_meta_inner_instructions,
-            parse_signature,
+            parse_account_keys, parse_compiled_inner_instructions, parse_compiled_instructions,
+            parse_inner_instructions, parse_signature,
         },
         root_as_transaction_info,
     },
-    program_transformers::{error::ProgramTransformerResult, ProgramTransformer, TransactionInfo},
+    program_transformers::{
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        ProgramTransformer, TransactionInfo,
+    },
     sqlx::{Pool, Postgres},
     std::sync::Arc,
     tokio::{
@@ -130,18 +133,33 @@ async fn handle_transaction_update<'a>(
     manager: Arc<ProgramTransformer>,
     tx: plerkle_serialization::TransactionInfo<'_>,
 ) -> ProgramTransformerResult<()> {
+    let signature = parse_signature(tx.signature()).map_err(into_program_transformer_err)?;
+    let account_keys =
+        &parse_account_keys(tx.account_keys()).map_err(into_program_transformer_err)?;
+    let message_instructions = parse_compiled_instructions(tx.outer_instructions())
+        .map_err(into_program_transformer_err)?;
+
+    let compiled = tx.compiled_inner_instructions();
+    let inner = tx.inner_instructions();
+
+    let meta_inner_instructions = if let Some(compiled) = compiled {
+        parse_compiled_inner_instructions(compiled)
+    } else if let Some(inner) = inner {
+        parse_inner_instructions(inner)
+    } else {
+        return Err(ProgramTransformerError::DeserializationError(
+            "No inner instructions found".to_string(),
+        ));
+    }
+    .map_err(into_program_transformer_err)?;
+
     manager
         .handle_transaction(&TransactionInfo {
             slot: tx.slot(),
-            signature: &parse_signature(tx.signature()).map_err(into_program_transformer_err)?,
-            account_keys: &parse_account_keys(tx.account_keys())
-                .map_err(into_program_transformer_err)?,
-            message_instructions: &parse_message_instructions(tx.outer_instructions())
-                .map_err(into_program_transformer_err)?,
-            meta_inner_instructions: &parse_meta_inner_instructions(
-                tx.compiled_inner_instructions(),
-            )
-            .map_err(into_program_transformer_err)?,
+            signature: &signature,
+            account_keys,
+            message_instructions: &message_instructions,
+            meta_inner_instructions: &meta_inner_instructions,
         })
         .await
 }
