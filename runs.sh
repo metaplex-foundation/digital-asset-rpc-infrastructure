@@ -69,27 +69,27 @@ export RUST_BACKTRACE=1
 dataDir=$PWD/config/"$(basename "$0" .sh)"
 ledgerDir=$PWD/config/ledger
 mkdir -p "$dataDir" "$ledgerDir"
-echo $ledgerDir
-echo $dataDir
-echo ${clones[@]}
-ls -la /so/
+# echo $ledgerDir
+# echo $dataDir
+# echo ${clones[@]}
+# ls -la /so/
 args=(
   --config config.yaml
 #   --gossip-host 145.40.103.167
+  --ledger $ledgerDir
   --limit-ledger-size 10000000000000000
   --rpc-port 8899
   --geyser-plugin-config /plugin-config/accountsdb-plugin-config.json
-  --clone EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL --clone UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM
+  --clone EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL --clone UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM # Test Hive Control
+  --clone HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm --clone 5ZJG4CchgDXQ9LVS5a7pmib1VS69t8SSsV5riexibwTk # Hive Control
+  --clone ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg --clone U7w6LJRtG4jvUQv4WjTinkHnv9UAfHjBiVdr2HERiX2 # Character Manager
+  --clone CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4 --clone DcYW5MQscHQE4PmFpbohn9JJqqN3vyYau83eXTx8yAcJ # Currency Manager
+  --clone Assetw8uxLogzVXic5P8wGYpVdesS1oZHfSnBFHAu42s --clone FRAhFGRAa93JwJQuHJ7HngtA1Nfp6JmSRqpGHjxtLsGK # Resource Manager
+  --clone MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6 --clone GerKtMVEu66ZCha6oaab8iGrBHc5Q6VYNRCNMgXn1WGm # Nectar Staking
   --clone Ha71K2v3q9wL3hDLbGx5mRnAXd6CdgzNx5GJHDbWvPRg --clone G5s6HRnHwRTGcE1cXAZeeCsFeurVGuW2Wqhr7UBiDZWQ
   --clone 4AZpzJtYZCu9yWrnK1D5W23VXHLgN1GPkL8h8CfaGBTW --clone 86h623JGQvvJAsPG7meWsUjFW6hBe5tLwqNPoa9baUfC
   --clone BNdAHQMniLicundk1jo4qKWyNr9C8bK7oUrzgSwoSGmZ --clone FQErtH1zXPuHRxEwamXpWG711CVhqQS3Epsv4jao4Kn1
-  --clone EventNxhSA3AcXD14PmXaYUiNQWwoKbLeGHtwydixRzX --clone 3EQtfTBVgEDbrQsgEpWH6rg2HGBUdxyxYfsNn2on4ZPm
-  --clone HivezrprVqHR6APKKQkkLHmUG8waZorXexEBRZWh5LRm --clone 5ZJG4CchgDXQ9LVS5a7pmib1VS69t8SSsV5riexibwTk
-  --clone ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg --clone U7w6LJRtG4jvUQv4WjTinkHnv9UAfHjBiVdr2HERiX2
-  --clone CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4 --clone DcYW5MQscHQE4PmFpbohn9JJqqN3vyYau83eXTx8yAcJ
-  --clone MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6 --clone GerKtMVEu66ZCha6oaab8iGrBHc5Q6VYNRCNMgXn1WGm
   --clone 8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit --clone FHzBQUNk6AyaSbqgS33EXcat8sXeLpvf1PJM6tQ87SPp
-  --clone 4tJgAkjtSk6vFPtcXZeNybMsjrqRyWxKfPdeGu8bmh6y --clone HubyW36J8quFifFshMjjBTZ6Raa442VU6nFiAtjXYmDQ 
   --clone 9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK --clone 4UDQZKTAh9fo5TkC7Nh2t9tcyC7dFwFMUnrrHZLxZ1c8 
   --url https://devnet.helius-rpc.com/?api-key=ccca5bb2-58dc-4b94-838b-664df478cf45
 )
@@ -97,8 +97,10 @@ args=(
 # args+=("--url devnet")
 
 # shellcheck disable=SC2086
-cat /plugin-config/accountsdb-plugin-config.json
-ls -la /so/
+# cat /plugin-config/accountsdb-plugin-config.json
+# ls -la /so/
+
+
 
 apt update && apt install ca-certificates -y && update-ca-certificates
 solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null

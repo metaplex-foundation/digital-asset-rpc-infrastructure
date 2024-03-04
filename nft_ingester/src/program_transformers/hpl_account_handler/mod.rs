@@ -149,7 +149,7 @@ pub trait IndexablePrograms {
 
 async fn extract_account_schema_values<'a>(
     program_id: Pubkey,
-    pubkeys: HashSet<Pubkey>,
+    pubkey: Pubkey,
     payer: &'a Option<Pubkey>,
     rpc_client: &'a RpcClient,
     directory: &'a mut HashMap<Pubkey, AccountSchemaValue>,
@@ -159,14 +159,11 @@ async fn extract_account_schema_values<'a>(
         return;
     }
 
-    let metas = pubkeys
-        .into_iter()
-        .map(|pubkey| AccountMeta {
-            pubkey: pubkey,
-            is_signer: false,
-            is_writable: false,
-        })
-        .collect::<Vec<AccountMeta>>();
+    let metas = vec![AccountMeta {
+        pubkey: pubkey,
+        is_signer: false,
+        is_writable: false,
+    }];
 
     if metas.len() == 0 {
         return;
@@ -235,7 +232,7 @@ async fn extract_account_schema_values<'a>(
                     Err(error) => error!("Error deserialize_reader {:?}", error),
                 }
             } else {
-                info!("Tx Simualted no response");
+                error!("Tx Simualted no response {:?}", res.value);
             }
         }
         Err(err) => error!("Tx simulation failed {}", err),
@@ -253,7 +250,10 @@ pub async fn etl_account_schema_values<'a>(
     let mut directory = HashMap::<Pubkey, AccountSchemaValue>::new();
 
     for (program, pubkeys) in program_accounts {
-        extract_account_schema_values(program, pubkeys, &payer, rpc_client, &mut directory).await;
+        for pubkey in pubkeys {
+            extract_account_schema_values(program, pubkey, &payer, rpc_client, &mut directory)
+                .await;
+        }
     }
 
     let accounts_schemas = directory.values();
