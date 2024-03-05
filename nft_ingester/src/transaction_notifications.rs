@@ -2,24 +2,15 @@ use {
     crate::{
         metric,
         metrics::capture_result,
-        plerkle::into_program_transformer_err,
+        plerkle::{into_program_transformer_err, PlerkleTransactionInfo},
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
     chrono::Utc,
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
-    plerkle_serialization::{
-        deserializer::{
-            parse_account_keys, parse_compiled_inner_instructions, parse_compiled_instructions,
-            parse_inner_instructions, parse_signature,
-        },
-        root_as_transaction_info,
-    },
-    program_transformers::{
-        error::{ProgramTransformerError, ProgramTransformerResult},
-        ProgramTransformer, TransactionInfo,
-    },
+    plerkle_serialization::root_as_transaction_info,
+    program_transformers::ProgramTransformer,
     sqlx::{Pool, Postgres},
     std::sync::Arc,
     tokio::{
@@ -111,7 +102,11 @@ async fn handle_transaction(
         }
 
         let begin = Instant::now();
-        let res = handle_transaction_update(manager, tx).await;
+        let transaction_info = PlerkleTransactionInfo(tx)
+            .try_into()
+            .map_err(into_program_transformer_err)
+            .ok()?;
+        let res = manager.handle_transaction(&transaction_info).await;
         let should_ack = capture_result(
             id.clone(),
             stream_key,
@@ -127,39 +122,4 @@ async fn handle_transaction(
         }
     }
     ret_id
-}
-
-async fn handle_transaction_update<'a>(
-    manager: Arc<ProgramTransformer>,
-    tx: plerkle_serialization::TransactionInfo<'_>,
-) -> ProgramTransformerResult<()> {
-    let signature = parse_signature(tx.signature()).map_err(into_program_transformer_err)?;
-    let account_keys =
-        &parse_account_keys(tx.account_keys()).map_err(into_program_transformer_err)?;
-    let message_instructions = parse_compiled_instructions(tx.outer_instructions())
-        .map_err(into_program_transformer_err)?;
-
-    let compiled = tx.compiled_inner_instructions();
-    let inner = tx.inner_instructions();
-
-    let meta_inner_instructions = if let Some(compiled) = compiled {
-        parse_compiled_inner_instructions(compiled)
-    } else if let Some(inner) = inner {
-        parse_inner_instructions(inner)
-    } else {
-        return Err(ProgramTransformerError::DeserializationError(
-            "No inner instructions found".to_string(),
-        ));
-    }
-    .map_err(into_program_transformer_err)?;
-
-    manager
-        .handle_transaction(&TransactionInfo {
-            slot: tx.slot(),
-            signature: &signature,
-            account_keys,
-            message_instructions: &message_instructions,
-            meta_inner_instructions: &meta_inner_instructions,
-        })
-        .await
 }

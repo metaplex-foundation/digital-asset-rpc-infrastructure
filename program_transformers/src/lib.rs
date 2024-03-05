@@ -28,21 +28,21 @@ pub mod error;
 mod token;
 mod token_metadata;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AccountInfo<'a> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountInfo {
     pub slot: u64,
-    pub pubkey: &'a Pubkey,
-    pub owner: &'a Pubkey,
-    pub data: &'a [u8],
+    pub pubkey: Pubkey,
+    pub owner: Pubkey,
+    pub data: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TransactionInfo<'a> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransactionInfo {
     pub slot: u64,
-    pub signature: &'a Signature,
-    pub account_keys: &'a [Pubkey],
-    pub message_instructions: &'a [CompiledInstruction],
-    pub meta_inner_instructions: &'a [InnerInstructions],
+    pub signature: Signature,
+    pub account_keys: Vec<Pubkey>,
+    pub message_instructions: Vec<CompiledInstruction>,
+    pub meta_inner_instructions: Vec<InnerInstructions>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,13 +109,13 @@ impl ProgramTransformer {
 
     pub fn break_transaction<'a>(
         &self,
-        tx_info: &'a TransactionInfo<'_>,
+        tx_info: &'a TransactionInfo,
     ) -> VecDeque<(IxPair<'a>, Option<Vec<IxPair<'a>>>)> {
         order_instructions(
             &self.key_set,
-            tx_info.account_keys,
-            tx_info.message_instructions,
-            tx_info.meta_inner_instructions,
+            tx_info.account_keys.as_slice(),
+            tx_info.message_instructions.as_slice(),
+            tx_info.meta_inner_instructions.as_slice(),
         )
     }
 
@@ -126,7 +126,7 @@ impl ProgramTransformer {
 
     pub async fn handle_transaction(
         &self,
-        tx_info: &TransactionInfo<'_>,
+        tx_info: &TransactionInfo,
     ) -> ProgramTransformerResult<()> {
         info!("Handling Transaction: {:?}", tx_info.signature);
         let instructions = self.break_transaction(tx_info);
@@ -204,10 +204,10 @@ impl ProgramTransformer {
 
     pub async fn handle_account_update(
         &self,
-        account_info: &AccountInfo<'_>,
+        account_info: &AccountInfo,
     ) -> ProgramTransformerResult<()> {
-        if let Some(program) = self.match_program(account_info.owner) {
-            let result = program.handle_account(account_info.data)?;
+        if let Some(program) = self.match_program(&account_info.owner) {
+            let result = program.handle_account(&account_info.data)?;
             match result.result_type() {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
                     handle_token_metadata_account(

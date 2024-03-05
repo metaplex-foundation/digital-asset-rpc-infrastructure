@@ -14,20 +14,20 @@ use {
 mod master_edition;
 mod v1_asset;
 
-pub async fn handle_token_metadata_account<'a, 'b, 'c>(
-    account_info: &'a AccountInfo<'a>,
-    parsing_result: &'b TokenMetadataAccountState,
-    db: &'c DatabaseConnection,
+pub async fn handle_token_metadata_account<'a, 'b>(
+    account_info: &AccountInfo,
+    parsing_result: &'a TokenMetadataAccountState,
+    db: &'b DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     match &parsing_result.data {
         TokenMetadataAccountData::EmptyAccount => {
-            burn_v1_asset(db, *account_info.pubkey, account_info.slot).await?;
+            burn_v1_asset(db, account_info.pubkey, account_info.slot).await?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV1(m) => {
             let txn = db.begin().await?;
-            save_v1_master_edition(*account_info.pubkey, account_info.slot, m, &txn).await?;
+            save_v1_master_edition(account_info.pubkey, account_info.slot, m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }
@@ -41,7 +41,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {
             let txn = db.begin().await?;
-            save_v2_master_edition(*account_info.pubkey, account_info.slot, m, &txn).await?;
+            save_v2_master_edition(account_info.pubkey, account_info.slot, m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }

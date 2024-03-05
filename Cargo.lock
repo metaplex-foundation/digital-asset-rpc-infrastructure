@@ -4016,7 +4016,7 @@ dependencies = [
 [[package]]
 name = "plerkle_serialization"
 version = "1.8.0"
-source = "git+https://github.com/rpcpool/digital-asset-validator-plugin.git?branch=espi/plerkle-solana-parsers#53bce9048ac0bbaa43246185edf785ab16b5c07c"
+source = "git+https://github.com/rpcpool/digital-asset-validator-plugin.git?branch=espi/plerkle-solana-parsers#a623576e6022b9d4a0ae4c6b0bd1b1a4dc8c2b93"
 dependencies = [
  "bs58 0.4.0",
  "chrono",

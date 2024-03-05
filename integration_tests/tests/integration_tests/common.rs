@@ -12,18 +12,17 @@ use migration::sea_orm::{
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
 
-use nft_ingester::config;
+use nft_ingester::{
+    config,
+    plerkle::{PlerkleAccountInfo, PlerkleTransactionInfo},
+};
 use once_cell::sync::Lazy;
 use plerkle_serialization::{
-    deserializer::{
-        parse_account_keys, parse_compiled_inner_instructions, parse_compiled_instructions,
-        parse_inner_instructions, parse_pubkey, parse_signature, parse_slice,
-    },
     root_as_account_info, root_as_transaction_info,
     serializer::{seralize_encoded_transaction_with_status, serialize_account},
     solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
 };
-use program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo};
+use program_transformers::ProgramTransformer;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
@@ -357,14 +356,13 @@ pub async fn get_token_largest_account(client: &RpcClient, mint: Pubkey) -> anyh
 pub async fn index_account_bytes(setup: &TestSetup, account_bytes: Vec<u8>) {
     let account = root_as_account_info(&account_bytes).unwrap();
 
+    let account = PlerkleAccountInfo(account)
+        .try_into()
+        .expect("failed to parse account info");
+
     setup
         .transformer
-        .handle_account_update(&AccountInfo {
-            slot: account.slot(),
-            pubkey: &parse_pubkey(account.pubkey()).expect("failed to parse account"),
-            owner: &parse_pubkey(account.owner()).expect("failed to parse account"),
-            data: parse_slice(account.data()).expect("failed to parse account"),
-        })
+        .handle_account_update(&account)
         .await
         .unwrap();
 }
@@ -427,29 +425,14 @@ async fn cached_fetch_transaction(setup: &TestSetup, sig: Signature) -> Vec<u8> 
 pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
     let txn_bytes: Vec<u8> = cached_fetch_transaction(setup, sig).await;
     let txn = root_as_transaction_info(&txn_bytes).unwrap();
-    let compiled = txn.compiled_inner_instructions();
-    let inner = txn.inner_instructions();
 
-    let meta_inner_instructions = if let Some(compiled) = compiled {
-        parse_compiled_inner_instructions(compiled)
-    } else if let Some(inner) = inner {
-        parse_inner_instructions(inner)
-    } else {
-        panic!("No inner instructions found");
-    }
-    .expect("failed to parse inner instructions");
+    let transaction_info = PlerkleTransactionInfo(txn)
+        .try_into()
+        .expect("failed to parse txn");
 
     setup
         .transformer
-        .handle_transaction(&TransactionInfo {
-            slot: txn.slot(),
-            signature: &parse_signature(txn.signature()).expect("failed to parse transaction"),
-            account_keys: &parse_account_keys(txn.account_keys())
-                .expect("failed to parse transaction"),
-            message_instructions: &parse_compiled_instructions(txn.outer_instructions())
-                .expect("failed to parse transaction"),
-            meta_inner_instructions: &meta_inner_instructions,
-        })
+        .handle_transaction(&transaction_info)
         .await
         .unwrap();
 }

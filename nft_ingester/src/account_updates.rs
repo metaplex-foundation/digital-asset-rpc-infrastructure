@@ -2,18 +2,15 @@ use {
     crate::{
         metric,
         metrics::capture_result,
-        plerkle::into_program_transformer_err,
+        plerkle::PlerkleAccountInfo,
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
     chrono::Utc,
     log::{debug, error},
     plerkle_messenger::{ConsumptionType, Messenger, MessengerConfig, RecvData},
-    plerkle_serialization::{
-        deserializer::{parse_pubkey, parse_slice},
-        root_as_account_info,
-    },
-    program_transformers::{error::ProgramTransformerResult, AccountInfo, ProgramTransformer},
+    plerkle_serialization::root_as_account_info,
+    program_transformers::ProgramTransformer,
     sqlx::{Pool, Postgres},
     std::sync::Arc,
     tokio::{
@@ -107,7 +104,10 @@ async fn handle_account(
             account = Some(bs58::encode(pubkey.0.as_slice()).into_string());
         }
         let begin_processing = Instant::now();
-        let res = handle_account_update(manager, account_update).await;
+
+        let account_info = PlerkleAccountInfo(account_update).try_into().ok()?;
+        let res = manager.handle_account_update(&account_info).await;
+
         let should_ack = capture_result(
             id.clone(),
             stream_key,
@@ -123,18 +123,4 @@ async fn handle_account(
         }
     }
     ret_id
-}
-
-async fn handle_account_update<'a>(
-    manager: Arc<ProgramTransformer>,
-    account_update: plerkle_serialization::AccountInfo<'_>,
-) -> ProgramTransformerResult<()> {
-    manager
-        .handle_account_update(&AccountInfo {
-            slot: account_update.slot(),
-            pubkey: &parse_pubkey(account_update.pubkey()).map_err(into_program_transformer_err)?,
-            owner: &parse_pubkey(account_update.owner()).map_err(into_program_transformer_err)?,
-            data: parse_slice(account_update.data()).map_err(into_program_transformer_err)?,
-        })
-        .await
 }
