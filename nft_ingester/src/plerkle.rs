@@ -57,11 +57,12 @@ impl<'a> TryFrom<PlerkleTransactionInfo<'a>> for TransactionInfo {
         .try_into()?;
         let compiled = tx_info.compiled_inner_instructions();
         let inner = tx_info.inner_instructions();
-        let meta_inner_instructions = compiled
-            .map(|c| PlerkleCompiledInnerInstructionVector(c).try_into())
-            .or_else(|| inner.map(|i| PlerkleInnerInstructionsVector(i).try_into()))
-            .transpose()?
-            .unwrap_or_default();
+        let meta_inner_instructions = if let Some(c) = compiled {
+            PlerkleCompiledInnerInstructionVector(c).try_into()
+        } else {
+            PlerkleInnerInstructionsVector(inner.ok_or(PlerkleDeserializerError::NotFound)?)
+                .try_into()
+        }?;
 
         Ok(Self {
             slot,

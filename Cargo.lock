@@ -1000,8 +1000,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "1.1.0"
-source = "git+https://github.com/rpcpool/blockbuster.git?branch=rm-plerkle-101#4c136e32de3dfce04a8bbf014d458b22f48ae06b"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "429446ab240a173ca553b6960fcd3d0b843006d89da18fe6c7445a34d9130f7d"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -4016,7 +4017,8 @@ dependencies = [
 [[package]]
 name = "plerkle_serialization"
 version = "1.8.0"
-source = "git+https://github.com/rpcpool/digital-asset-validator-plugin.git?branch=espi/plerkle-solana-parsers#a623576e6022b9d4a0ae4c6b0bd1b1a4dc8c2b93"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f832646491065468aa8e222b47d41dd5250e4be7866725bef5f0d31c64538f5f"
 dependencies = [
  "bs58 0.4.0",
  "chrono",
