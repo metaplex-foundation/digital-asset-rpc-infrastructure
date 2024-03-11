@@ -134,6 +134,7 @@ async fn main() -> Result<(), DasApiError> {
 
     let server = ServerBuilder::default()
         .set_middleware(middleware)
+        .max_connections(config.max_request_connections.unwrap_or(100))
         .set_logger(MetricMiddleware)
         .build(addr)
         .await?;
