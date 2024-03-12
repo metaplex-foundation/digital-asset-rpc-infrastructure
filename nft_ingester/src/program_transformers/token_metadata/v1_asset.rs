@@ -62,7 +62,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(())
 }
 
-const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
+const RETRY_INTERVALS: &[u64] = &[0];
 const WSOL_ADDRESS: &str = "So11111111111111111111111111111111111111112";
 
 lazy_static! {
