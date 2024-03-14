@@ -80,27 +80,8 @@ fn spawn_task(client: Client, pool: sqlx::PgPool, asset_data: Vec<u8>) -> JoinHa
 
         if let Err(e) = perform_metadata_json_task(client, pool, asset_data).await {
             error!("Asset {} {}", asset_data_id, e);
-
-            match e {
-                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response {
-                    status, ..
-                }) => {
-                    let status = &status.to_string();
-
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "status" => status);
-                }
-                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Parse { .. }) => {
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-                }
-                MetadataJsonTaskError::Fetch(FetchMetadataJsonError::GenericReqwest(_e)) => {
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-                }
-                _ => {
-                    statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-                }
-            }
         } else {
-            statsd_count!("ingester.bgtask.success", 1, "type" => "DownloadMetadata");
+            debug!("Asset {} success", asset_data_id);
         }
 
         debug!(
@@ -130,20 +111,33 @@ pub async fn perform_metadata_json_task(
 ) -> Result<asset_data::Model, MetadataJsonTaskError> {
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
-    let asset_data = asset_data::Entity::find()
+    let asset_data_model = asset_data::Entity::find()
         .filter(asset_data::Column::Id.eq(asset_data))
         .one(&conn)
         .await?
         .ok_or(MetadataJsonTaskError::AssetNotFound)?;
 
-    let metadata = fetch_metadata_json(client, &asset_data.metadata_url).await?;
+    match fetch_metadata_json(client, &asset_data_model.metadata_url).await {
+        Ok(metadata) => {
+            let mut active_model: asset_data::ActiveModel = asset_data_model.into();
+            active_model.metadata = Set(metadata);
+            active_model.reindex = Set(Some(false));
 
-    let mut asset_data: asset_data::ActiveModel = asset_data.into();
+            active_model.update(&conn).await.map_err(Into::into)
+        }
+        Err(e) => {
+            let status = match &e {
+                FetchMetadataJsonError::Response { status, .. } => status.to_string(),
+                FetchMetadataJsonError::Parse { .. } => "parse".to_string(),
+                FetchMetadataJsonError::GenericReqwest(_) => "reqwest".to_string(),
+                _ => "unhandled".to_string(),
+            };
 
-    asset_data.metadata = Set(metadata);
-    asset_data.reindex = Set(Some(false));
+            statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "status" => &status);
 
-    asset_data.update(&conn).await.map_err(Into::into)
+            Err(MetadataJsonTaskError::Fetch(e))
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

@@ -7,7 +7,6 @@ members = [
   "metaplex-rpc-proxy",
   "migration",
   "nft_ingester",
-  "tree_backfiller",
   "ops",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
@@ -41,7 +40,6 @@ cadence-macros = "0.29.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-metadata-json = { path = "metadata_json" }
-das-tree-backfiller = { path = "tree_backfiller" }
 das_api = { path = "das_api" }
 das-core = { path = "core" }
 digital_asset_types = { path = "digital_asset_types" }

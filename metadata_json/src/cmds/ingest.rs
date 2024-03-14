@@ -1,10 +1,7 @@
 use crate::stream::{Receiver, ReceiverArgs};
 use crate::worker::{Worker, WorkerArgs};
 use clap::Parser;
-use das_tree_backfiller::{
-    db,
-    metrics::{setup_metrics, MetricsArgs},
-};
+use das_core::{connect_db, setup_metrics, MetricsArgs, PoolArgs};
 use log::info;
 use reqwest::ClientBuilder;
 use tokio::time::Duration;
@@ -18,7 +15,7 @@ pub struct IngestArgs {
     metrics: MetricsArgs,
 
     #[clap(flatten)]
-    database: db::PoolArgs,
+    database: PoolArgs,
 
     #[arg(long, default_value = "1000")]
     timeout: u64,
@@ -30,7 +27,7 @@ pub struct IngestArgs {
 pub async fn run(args: IngestArgs) -> Result<(), anyhow::Error> {
     let rx = Receiver::try_from_config(args.receiver.into()).await?;
 
-    let pool = db::connect(args.database).await?;
+    let pool = connect_db(args.database).await?;
 
     setup_metrics(args.metrics)?;
 

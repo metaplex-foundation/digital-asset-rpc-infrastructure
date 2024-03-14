@@ -1,8 +1,7 @@
 use {
     crate::worker::{Worker, WorkerArgs},
     clap::Parser,
-    das_tree_backfiller::db,
-    das_tree_backfiller::metrics::{setup_metrics, MetricsArgs},
+    das_core::{connect_db, setup_metrics, MetricsArgs, PoolArgs},
     digital_asset_types::dao::asset_data,
     log::info,
     reqwest::ClientBuilder,
@@ -13,7 +12,7 @@ use {
 #[derive(Parser, Clone, Debug)]
 pub struct BackfillArgs {
     #[clap(flatten)]
-    database: db::PoolArgs,
+    database: PoolArgs,
 
     #[command(flatten)]
     metrics: MetricsArgs,
@@ -31,7 +30,7 @@ pub struct BackfillArgs {
 pub async fn run(args: BackfillArgs) -> Result<(), anyhow::Error> {
     let batch_size = args.batch_size;
 
-    let pool = db::connect(args.database).await?;
+    let pool = connect_db(args.database).await?;
 
     setup_metrics(args.metrics)?;
 

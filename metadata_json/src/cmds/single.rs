@@ -1,11 +1,7 @@
-use crate::worker::{perform_metadata_json_task, FetchMetadataJsonError, MetadataJsonTaskError};
-use cadence_macros::statsd_count;
+use crate::worker::perform_metadata_json_task;
 use clap::Parser;
-use das_tree_backfiller::{
-    db,
-    metrics::{setup_metrics, MetricsArgs},
-};
-use log::{error, info};
+use das_core::{connect_db, setup_metrics, MetricsArgs, PoolArgs};
+use log::{debug, error};
 use reqwest::ClientBuilder;
 use tokio::time::Duration;
 
@@ -15,7 +11,7 @@ pub struct SingleArgs {
     metrics: MetricsArgs,
 
     #[clap(flatten)]
-    database: db::PoolArgs,
+    database: PoolArgs,
 
     #[arg(long, default_value = "1000")]
     timeout: u64,
@@ -24,7 +20,7 @@ pub struct SingleArgs {
 }
 
 pub async fn run(args: SingleArgs) -> Result<(), anyhow::Error> {
-    let pool = db::connect(args.database).await?;
+    let pool = connect_db(args.database).await?;
 
     setup_metrics(args.metrics)?;
 
@@ -35,29 +31,10 @@ pub async fn run(args: SingleArgs) -> Result<(), anyhow::Error> {
         .build()?;
 
     if let Err(e) = perform_metadata_json_task(client, pool, asset_data).await {
-        error!("Asset {} {}", args.mint, e);
-
-        match e {
-            MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response { status, .. }) => {
-                let status = &status.to_string();
-
-                statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata", "status" => status);
-            }
-            MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Parse { .. }) => {
-                statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-            }
-            MetadataJsonTaskError::Fetch(FetchMetadataJsonError::GenericReqwest(_e)) => {
-                statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-            }
-            _ => {
-                statsd_count!("ingester.bgtask.error", 1, "type" => "DownloadMetadata");
-            }
-        }
+        error!("{}", e);
     } else {
-        statsd_count!("ingester.bgtask.success", 1, "type" => "DownloadMetadata");
+        debug!("Success");
     }
-
-    info!("Ingesting stopped");
 
     Ok(())
 }

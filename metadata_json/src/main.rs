@@ -4,7 +4,7 @@ mod cmds;
 mod stream;
 mod worker;
 
-use cmds::{backfill, ingest, single};
+use cmds::{backfill, ingest, report, single};
 
 #[derive(Parser)]
 #[command(author, about, next_line_help = true)]
@@ -17,8 +17,8 @@ struct Args {
 enum Action {
     Ingest(ingest::IngestArgs),
     Backfill(backfill::BackfillArgs),
-    Report,
     Single(single::SingleArgs),
+    Report(report::ReportArgs),
 }
 
 #[tokio::main]
@@ -31,9 +31,6 @@ async fn main() -> Result<(), anyhow::Error> {
         Action::Ingest(args) => ingest::run(args).await,
         Action::Backfill(args) => backfill::run(args).await,
         Action::Single(args) => single::run(args).await,
-        Action::Report => {
-            println!("Report");
-            Ok(())
-        }
+        Action::Report(args) => report::run(args).await,
     }
 }
