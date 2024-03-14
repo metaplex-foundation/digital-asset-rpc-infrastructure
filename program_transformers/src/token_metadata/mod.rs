@@ -5,36 +5,34 @@ use {
             master_edition::{save_v1_master_edition, save_v2_master_edition},
             v1_asset::{burn_v1_asset, save_v1_asset},
         },
-        DownloadMetadataNotifier,
+        AccountInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
-    plerkle_serialization::AccountInfo,
     sea_orm::{DatabaseConnection, TransactionTrait},
 };
 
 mod master_edition;
 mod v1_asset;
 
-pub async fn handle_token_metadata_account<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b TokenMetadataAccountState,
-    db: &'c DatabaseConnection,
+pub async fn handle_token_metadata_account<'a, 'b>(
+    account_info: &AccountInfo,
+    parsing_result: &'a TokenMetadataAccountState,
+    db: &'b DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
-    let key = *account_update.pubkey().unwrap();
     match &parsing_result.data {
         TokenMetadataAccountData::EmptyAccount => {
-            burn_v1_asset(db, key, account_update.slot()).await?;
+            burn_v1_asset(db, account_info.pubkey, account_info.slot).await?;
             Ok(())
         }
         TokenMetadataAccountData::MasterEditionV1(m) => {
             let txn = db.begin().await?;
-            save_v1_master_edition(key, account_update.slot(), m, &txn).await?;
+            save_v1_master_edition(account_info.pubkey, account_info.slot, m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }
         TokenMetadataAccountData::MetadataV1(m) => {
-            if let Some(info) = save_v1_asset(db, m, account_update.slot()).await? {
+            if let Some(info) = save_v1_asset(db, m, account_info.slot).await? {
                 download_metadata_notifier(info)
                     .await
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
@@ -43,7 +41,7 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         }
         TokenMetadataAccountData::MasterEditionV2(m) => {
             let txn = db.begin().await?;
-            save_v2_master_edition(key, account_update.slot(), m, &txn).await?;
+            save_v2_master_edition(account_info.pubkey, account_info.slot, m, &txn).await?;
             txn.commit().await?;
             Ok(())
         }
@@ -51,6 +49,5 @@ pub async fn handle_token_metadata_account<'a, 'b, 'c>(
         // TokenMetadataAccountData::UseAuthorityRecord(_) => {}
         // TokenMetadataAccountData::CollectionAuthorityRecord(_) => {}
         _ => Err(ProgramTransformerError::NotImplemented),
-    }?;
-    Ok(())
+    }
 }

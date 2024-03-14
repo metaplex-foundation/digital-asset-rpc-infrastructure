@@ -4,12 +4,11 @@ use {
             upsert_assets_mint_account_columns, upsert_assets_token_account_columns,
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
-        error::{ProgramTransformerError, ProgramTransformerResult},
-        DownloadMetadataNotifier,
+        error::ProgramTransformerResult,
+        AccountInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
     digital_asset_types::dao::{asset, sea_orm_active_enums::OwnerType, token_accounts, tokens},
-    plerkle_serialization::AccountInfo,
     sea_orm::{
         entity::{ActiveValue, ColumnTrait},
         query::{QueryFilter, QueryTrait},
@@ -20,15 +19,14 @@ use {
     spl_token::state::AccountState,
 };
 
-pub async fn handle_token_program_account<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b TokenProgramAccount,
-    db: &'c DatabaseConnection,
+pub async fn handle_token_program_account<'a, 'b>(
+    account_info: &AccountInfo,
+    parsing_result: &'a TokenProgramAccount,
+    db: &'b DatabaseConnection,
     _download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
-    let key = *account_update.pubkey().unwrap();
-    let key_bytes = key.0.to_vec();
-    let spl_token_program = account_update.owner().unwrap().0.to_vec();
+    let account_key = account_info.pubkey.to_bytes().to_vec();
+    let account_owner = account_info.owner.to_bytes().to_vec();
     match &parsing_result {
         TokenProgramAccount::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
@@ -39,14 +37,14 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
-                pubkey: ActiveValue::Set(key_bytes),
+                pubkey: ActiveValue::Set(account_key.clone()),
                 mint: ActiveValue::Set(mint.clone()),
                 delegate: ActiveValue::Set(delegate.clone()),
                 owner: ActiveValue::Set(owner.clone()),
                 frozen: ActiveValue::Set(frozen),
                 delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
-                token_program: ActiveValue::Set(spl_token_program),
-                slot_updated: ActiveValue::Set(account_update.slot() as i64),
+                token_program: ActiveValue::Set(account_owner.clone()),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
                 amount: ActiveValue::Set(ta.amount as i64),
                 close_authority: ActiveValue::Set(None),
             };
@@ -89,7 +87,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                             owner: Some(owner.clone()),
                             frozen,
                             delegate,
-                            slot_updated_token_account: Some(account_update.slot() as i64),
+                            slot_updated_token_account: Some(account_info.slot as i64),
                         },
                         &txn,
                     )
@@ -109,9 +107,9 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::None => None,
             };
             let model = tokens::ActiveModel {
-                mint: ActiveValue::Set(key_bytes.clone()),
-                token_program: ActiveValue::Set(spl_token_program),
-                slot_updated: ActiveValue::Set(account_update.slot() as i64),
+                mint: ActiveValue::Set(account_key.clone()),
+                token_program: ActiveValue::Set(account_owner),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
                 supply: ActiveValue::Set(m.supply as i64),
                 decimals: ActiveValue::Set(m.decimals as i32),
                 close_authority: ActiveValue::Set(None),
@@ -142,7 +140,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             );
             db.execute(query).await?;
 
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes.clone())
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(account_key.clone())
                 .filter(
                     asset::Column::OwnerType
                         .eq(OwnerType::Single)
@@ -155,10 +153,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             if let Some(_asset) = asset_update {
                 upsert_assets_mint_account_columns(
                     AssetMintAccountColumns {
-                        mint: key_bytes.clone(),
-                        suppply_mint: Some(key_bytes),
+                        mint: account_key.clone(),
+                        suppply_mint: Some(account_key),
                         supply: m.supply,
-                        slot_updated_mint_account: account_update.slot(),
+                        slot_updated_mint_account: account_info.slot,
                     },
                     db,
                 )
@@ -167,7 +165,5 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
 
             Ok(())
         }
-        _ => Err(ProgramTransformerError::NotImplemented),
-    }?;
-    Ok(())
+    }
 }

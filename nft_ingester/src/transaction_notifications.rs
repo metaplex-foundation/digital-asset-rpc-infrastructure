@@ -2,6 +2,7 @@ use {
     crate::{
         metric,
         metrics::capture_result,
+        plerkle::{into_program_transformer_err, PlerkleTransactionInfo},
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
@@ -101,7 +102,11 @@ async fn handle_transaction(
         }
 
         let begin = Instant::now();
-        let res = manager.handle_transaction(&tx).await;
+        let transaction_info = PlerkleTransactionInfo(tx)
+            .try_into()
+            .map_err(into_program_transformer_err)
+            .ok()?;
+        let res = manager.handle_transaction(&transaction_info).await;
         let should_ack = capture_result(
             id.clone(),
             stream_key,

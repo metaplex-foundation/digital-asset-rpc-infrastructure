@@ -5,6 +5,7 @@ pub mod config;
 mod database;
 pub mod error;
 pub mod metrics;
+mod plerkle;
 mod stream;
 pub mod tasks;
 mod transaction_notifications;

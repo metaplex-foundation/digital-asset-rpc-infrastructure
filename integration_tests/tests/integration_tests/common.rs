@@ -12,12 +12,16 @@ use migration::sea_orm::{
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
 
-use nft_ingester::config;
+use nft_ingester::{
+    config,
+    plerkle::{PlerkleAccountInfo, PlerkleTransactionInfo},
+};
 use once_cell::sync::Lazy;
-use plerkle_serialization::root_as_account_info;
-use plerkle_serialization::root_as_transaction_info;
-use plerkle_serialization::serializer::serialize_account;
-use plerkle_serialization::solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2;
+use plerkle_serialization::{
+    root_as_account_info, root_as_transaction_info,
+    serializer::{seralize_encoded_transaction_with_status, serialize_account},
+    solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
+};
 use program_transformers::ProgramTransformer;
 
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -34,8 +38,6 @@ use futures::TryStreamExt;
 use tokio_stream::{self as stream};
 
 use log::{error, info};
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-// use rand::seq::SliceRandom;
 use serde::de::DeserializeOwned;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
@@ -354,9 +356,13 @@ pub async fn get_token_largest_account(client: &RpcClient, mint: Pubkey) -> anyh
 pub async fn index_account_bytes(setup: &TestSetup, account_bytes: Vec<u8>) {
     let account = root_as_account_info(&account_bytes).unwrap();
 
+    let account = PlerkleAccountInfo(account)
+        .try_into()
+        .expect("failed to parse account info");
+
     setup
         .transformer
-        .handle_account_update(account)
+        .handle_account_update(&account)
         .await
         .unwrap();
 }
@@ -419,7 +425,16 @@ async fn cached_fetch_transaction(setup: &TestSetup, sig: Signature) -> Vec<u8> 
 pub async fn index_transaction(setup: &TestSetup, sig: Signature) {
     let txn_bytes: Vec<u8> = cached_fetch_transaction(setup, sig).await;
     let txn = root_as_transaction_info(&txn_bytes).unwrap();
-    setup.transformer.handle_transaction(&txn).await.unwrap();
+
+    let transaction_info = PlerkleTransactionInfo(txn)
+        .try_into()
+        .expect("failed to parse txn");
+
+    setup
+        .transformer
+        .handle_transaction(&transaction_info)
+        .await
+        .unwrap();
 }
 
 async fn cached_fetch_largest_token_account_id(client: &RpcClient, mint: Pubkey) -> Pubkey {

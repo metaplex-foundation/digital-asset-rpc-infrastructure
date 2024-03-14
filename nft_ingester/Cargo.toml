@@ -14,7 +14,10 @@ cadence = { workspace = true }
 cadence-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo"] }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true, features = [
+  "json_types",
+  "sql_types",
+] }
 figment = { workspace = true, features = ["env", "toml", "yaml"] }
 flatbuffers = { workspace = true }
 futures = { workspace = true }
@@ -26,7 +29,13 @@ program_transformers = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 rust-crypto = { workspace = true }
-sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
+sea-orm = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "sqlx-postgres",
+  "with-chrono",
+  "mock",
+] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 solana-account-decoder = { workspace = true }
@@ -34,11 +43,22 @@ solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
-sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sqlx = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "postgres",
+  "uuid",
+  "offline",
+  "json",
+] }
 stretto = { workspace = true, features = ["async"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["tracing"] }
-tracing-subscriber = { workspace = true, features = ["json", "env-filter", "ansi"] }
+tracing-subscriber = { workspace = true, features = [
+  "json",
+  "env-filter",
+  "ansi",
+] }
 url = { workspace = true }
 
 [lints]

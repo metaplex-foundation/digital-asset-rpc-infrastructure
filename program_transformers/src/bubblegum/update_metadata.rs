@@ -166,7 +166,7 @@ where
                     &multi_txn,
                     id_bytes.to_vec(),
                     nonce as i64,
-                    tree_id.to_vec(),
+                    tree_id.to_bytes().to_vec(),
                     le.leaf_hash.to_vec(),
                     le.schema.data_hash(),
                     le.schema.creator_hash(),

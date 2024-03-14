@@ -2,6 +2,7 @@ use {
     crate::{
         metric,
         metrics::capture_result,
+        plerkle::PlerkleAccountInfo,
         tasks::{create_download_metadata_notifier, TaskData},
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
@@ -103,7 +104,10 @@ async fn handle_account(
             account = Some(bs58::encode(pubkey.0.as_slice()).into_string());
         }
         let begin_processing = Instant::now();
-        let res = manager.handle_account_update(account_update).await;
+
+        let account_info = PlerkleAccountInfo(account_update).try_into().ok()?;
+        let res = manager.handle_account_update(&account_info).await;
+
         let should_ack = capture_result(
             id.clone(),
             stream_key,
