@@ -1,29 +1,32 @@
-use crate::{error::IngesterError, tasks::TaskData};
-use blockbuster::programs::token_account::TokenProgramAccount;
-use digital_asset_types::dao::{asset, sea_orm_active_enums::OwnerType, token_accounts, tokens};
-use plerkle_serialization::AccountInfo;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseConnection, DbBackend, EntityTrait,
+use {
+    crate::{
+        asset_upserts::{
+            upsert_assets_mint_account_columns, upsert_assets_token_account_columns,
+            AssetMintAccountColumns, AssetTokenAccountColumns,
+        },
+        error::ProgramTransformerResult,
+        AccountInfo, DownloadMetadataNotifier,
+    },
+    blockbuster::programs::token_account::TokenProgramAccount,
+    digital_asset_types::dao::{asset, sea_orm_active_enums::OwnerType, token_accounts, tokens},
+    sea_orm::{
+        entity::{ActiveValue, ColumnTrait},
+        query::{QueryFilter, QueryTrait},
+        sea_query::query::OnConflict,
+        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
+    },
+    solana_sdk::program_option::COption,
+    spl_token::state::AccountState,
 };
-use solana_sdk::program_option::COption;
-use spl_token::state::AccountState;
-use tokio::sync::mpsc::UnboundedSender;
 
-use super::asset_upserts::{
-    upsert_assets_mint_account_columns, upsert_assets_token_account_columns,
-    AssetMintAccountColumns, AssetTokenAccountColumns,
-};
-
-pub async fn handle_token_program_account<'a, 'b, 'c>(
-    account_update: &'a AccountInfo<'a>,
-    parsing_result: &'b TokenProgramAccount,
-    db: &'c DatabaseConnection,
-    _task_manager: &UnboundedSender<TaskData>,
-) -> Result<(), IngesterError> {
-    let key = *account_update.pubkey().unwrap();
-    let key_bytes = key.0.to_vec();
-    let spl_token_program = account_update.owner().unwrap().0.to_vec();
+pub async fn handle_token_program_account<'a, 'b>(
+    account_info: &AccountInfo,
+    parsing_result: &'a TokenProgramAccount,
+    db: &'b DatabaseConnection,
+    _download_metadata_notifier: &DownloadMetadataNotifier,
+) -> ProgramTransformerResult<()> {
+    let account_key = account_info.pubkey.to_bytes().to_vec();
+    let account_owner = account_info.owner.to_bytes().to_vec();
     match &parsing_result {
         TokenProgramAccount::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
@@ -34,16 +37,16 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             let frozen = matches!(ta.state, AccountState::Frozen);
             let owner = ta.owner.to_bytes().to_vec();
             let model = token_accounts::ActiveModel {
-                pubkey: Set(key_bytes),
-                mint: Set(mint.clone()),
-                delegate: Set(delegate.clone()),
-                owner: Set(owner.clone()),
-                frozen: Set(frozen),
-                delegated_amount: Set(ta.delegated_amount as i64),
-                token_program: Set(spl_token_program),
-                slot_updated: Set(account_update.slot() as i64),
-                amount: Set(ta.amount as i64),
-                close_authority: Set(None),
+                pubkey: ActiveValue::Set(account_key.clone()),
+                mint: ActiveValue::Set(mint.clone()),
+                delegate: ActiveValue::Set(delegate.clone()),
+                owner: ActiveValue::Set(owner.clone()),
+                frozen: ActiveValue::Set(frozen),
+                delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
+                token_program: ActiveValue::Set(account_owner.clone()),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
+                amount: ActiveValue::Set(ta.amount as i64),
+                close_authority: ActiveValue::Set(None),
             };
 
             let mut query = token_accounts::Entity::insert(model)
@@ -84,7 +87,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                             owner: Some(owner.clone()),
                             frozen,
                             delegate,
-                            slot_updated_token_account: Some(account_update.slot() as i64),
+                            slot_updated_token_account: Some(account_info.slot as i64),
                         },
                         &txn,
                     )
@@ -104,15 +107,15 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 COption::None => None,
             };
             let model = tokens::ActiveModel {
-                mint: Set(key_bytes.clone()),
-                token_program: Set(spl_token_program),
-                slot_updated: Set(account_update.slot() as i64),
-                supply: Set(m.supply as i64),
-                decimals: Set(m.decimals as i32),
-                close_authority: Set(None),
-                extension_data: Set(None),
-                mint_authority: Set(mint_auth),
-                freeze_authority: Set(freeze_auth),
+                mint: ActiveValue::Set(account_key.clone()),
+                token_program: ActiveValue::Set(account_owner),
+                slot_updated: ActiveValue::Set(account_info.slot as i64),
+                supply: ActiveValue::Set(m.supply as i64),
+                decimals: ActiveValue::Set(m.decimals as i32),
+                close_authority: ActiveValue::Set(None),
+                extension_data: ActiveValue::Set(None),
+                mint_authority: ActiveValue::Set(mint_auth),
+                freeze_authority: ActiveValue::Set(freeze_auth),
             };
 
             let mut query = tokens::Entity::insert(model)
@@ -137,7 +140,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             );
             db.execute(query).await?;
 
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(key_bytes.clone())
+            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(account_key.clone())
                 .filter(
                     asset::Column::OwnerType
                         .eq(OwnerType::Single)
@@ -150,10 +153,10 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             if let Some(_asset) = asset_update {
                 upsert_assets_mint_account_columns(
                     AssetMintAccountColumns {
-                        mint: key_bytes.clone(),
-                        suppply_mint: Some(key_bytes),
+                        mint: account_key.clone(),
+                        suppply_mint: Some(account_key),
                         supply: m.supply,
-                        slot_updated_mint_account: account_update.slot(),
+                        slot_updated_mint_account: account_info.slot,
                     },
                     db,
                 )
@@ -162,7 +165,5 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
 
             Ok(())
         }
-        _ => Err(IngesterError::NotImplemented),
-    }?;
-    Ok(())
+    }
 }

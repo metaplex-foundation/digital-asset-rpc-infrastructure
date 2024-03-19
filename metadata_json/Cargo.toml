@@ -33,7 +33,7 @@ indicatif = "0.17.5"
 log = { workspace = true }
 plerkle_messenger = { workspace = true, features = ['redis'] }
 rand = { workspace = true }
-redis = { workspace = true, features = [
+redis = { version = "0.25.2", features = [
   "aio",
   "tokio-comp",
   "streams",
@@ -60,7 +60,6 @@ sqlx = { workspace = true, features = [
 ] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full", "tracing"] }
-tokio-postgres = { workspace = true }
 tokio-stream = { workspace = true }
 url = { workspace = true }
 

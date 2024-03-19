@@ -1,21 +1,27 @@
-use crate::program_transformers::bubblegum::{upsert_asset_with_seq, upsert_collection_info};
-use blockbuster::{
-    instruction::InstructionBundle,
-    programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+use {
+    crate::{
+        bubblegum::db::{
+            save_changelog_event, upsert_asset_with_leaf_info, upsert_asset_with_seq,
+            upsert_collection_info,
+        },
+        error::{ProgramTransformerError, ProgramTransformerResult},
+    },
+    blockbuster::{
+        instruction::InstructionBundle,
+        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+    },
+    mpl_bubblegum::types::Collection,
+    sea_orm::{ConnectionTrait, TransactionTrait},
+    tracing::debug,
 };
-use log::debug;
-use mpl_bubblegum::types::Collection;
-use sea_orm::query::*;
 
-use super::{save_changelog_event, upsert_asset_with_leaf_info};
-use crate::error::IngesterError;
 pub async fn process<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -29,7 +35,7 @@ where
                 collection, verify, ..
             } => (collection, verify),
             _ => {
-                return Err(IngesterError::ParsingError(
+                return Err(ProgramTransformerError::ParsingError(
                     "Ix not parsed correctly".to_string(),
                 ));
             }
@@ -83,7 +89,7 @@ where
 
         return Ok(());
     };
-    Err(IngesterError::ParsingError(
+    Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }

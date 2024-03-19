@@ -1,18 +1,23 @@
-use crate::error::IngesterError;
-use digital_asset_types::dao::{
-    asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
-    cl_audits_v2, cl_items,
-    sea_orm_active_enums::{
-        ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
-        SpecificationAssetClass, SpecificationVersions,
+use {
+    crate::error::{ProgramTransformerError, ProgramTransformerResult},
+    digital_asset_types::dao::{
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
+        cl_audits_v2, cl_items,
+        sea_orm_active_enums::{
+            ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
+            SpecificationAssetClass, SpecificationVersions,
+        },
     },
+    mpl_bubblegum::types::{Collection, Creator},
+    sea_orm::{
+        entity::{ActiveValue, ColumnTrait, EntityTrait},
+        query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
+        sea_query::query::OnConflict,
+        ConnectionTrait, DbBackend, TransactionTrait,
+    },
+    spl_account_compression::events::ChangeLogEventV1,
+    tracing::{debug, error, info},
 };
-use log::{debug, error};
-use mpl_bubblegum::types::{Collection, Creator};
-use sea_orm::{
-    query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
-};
-use spl_account_compression::events::ChangeLogEventV1;
 
 pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
@@ -21,7 +26,7 @@ pub async fn save_changelog_event<'c, T>(
     txn: &T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<u64, IngesterError>
+) -> ProgramTransformerResult<u64>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -40,7 +45,7 @@ pub async fn insert_change_log<'c, T>(
     txn: &T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -65,12 +70,12 @@ where
         };
 
         let item = cl_items::ActiveModel {
-            tree: Set(tree_id.to_vec()),
-            level: Set(i),
-            node_idx: Set(node_idx),
-            hash: Set(p.node.as_ref().to_vec()),
-            seq: Set(change_log_event.seq as i64),
-            leaf_idx: Set(leaf_idx),
+            tree: ActiveValue::Set(tree_id.to_vec()),
+            level: ActiveValue::Set(i),
+            node_idx: ActiveValue::Set(node_idx),
+            hash: ActiveValue::Set(p.node.as_ref().to_vec()),
+            seq: ActiveValue::Set(change_log_event.seq as i64),
+            leaf_idx: ActiveValue::Set(leaf_idx),
             ..Default::default()
         };
 
@@ -90,24 +95,24 @@ where
         query.sql = format!("{} WHERE excluded.seq >= cl_items.seq", query.sql);
         txn.execute(query)
             .await
-            .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+            .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
     }
 
     // Insert the audit item after the insert into cl_items have been completed
     if cl_audits {
         let tx_id_bytes = bs58::decode(txn_id)
             .into_vec()
-            .map_err(|_e| IngesterError::ChangeLogEventMalformed)?;
+            .map_err(|_e| ProgramTransformerError::ChangeLogEventMalformed)?;
         let ix = Instruction::from(instruction);
         if ix == Instruction::Unknown {
             error!("Unknown instruction: {}", instruction);
         }
         let audit_item_v2 = cl_audits_v2::ActiveModel {
-            tree: Set(tree_id.to_vec()),
-            leaf_idx: Set(change_log_event.index as i64),
-            seq: Set(change_log_event.seq as i64),
-            tx: Set(tx_id_bytes),
-            instruction: Set(ix),
+            tree: ActiveValue::Set(tree_id.to_vec()),
+            leaf_idx: ActiveValue::Set(change_log_event.index as i64),
+            seq: ActiveValue::Set(change_log_event.seq as i64),
+            tx: ActiveValue::Set(tx_id_bytes),
+            instruction: ActiveValue::Set(ix),
             ..Default::default()
         };
         let query = cl_audits_v2::Entity::insert(audit_item_v2)
@@ -142,20 +147,20 @@ pub async fn upsert_asset_with_leaf_info<T>(
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
     let model = asset::ActiveModel {
-        id: Set(id),
-        nonce: Set(Some(nonce)),
-        tree_id: Set(Some(tree_id)),
-        leaf: Set(Some(leaf)),
-        data_hash: Set(Some(data_hash)),
-        creator_hash: Set(Some(creator_hash)),
-        leaf_seq: Set(Some(seq)),
+        id: ActiveValue::Set(id),
+        nonce: ActiveValue::Set(Some(nonce)),
+        tree_id: ActiveValue::Set(Some(tree_id)),
+        leaf: ActiveValue::Set(Some(leaf)),
+        data_hash: ActiveValue::Set(Some(data_hash)),
+        creator_hash: ActiveValue::Set(Some(creator_hash)),
+        leaf_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
@@ -183,7 +188,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -194,15 +199,15 @@ pub async fn upsert_asset_with_owner_and_delegate_info<T>(
     owner: Vec<u8>,
     delegate: Option<Vec<u8>>,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset::ActiveModel {
-        id: Set(id),
-        owner: Set(Some(owner)),
-        delegate: Set(delegate),
-        owner_delegate_seq: Set(Some(seq)),
+        id: ActiveValue::Set(id),
+        owner: ActiveValue::Set(Some(owner)),
+        delegate: ActiveValue::Set(delegate),
+        owner_delegate_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
@@ -227,7 +232,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -239,16 +244,16 @@ pub async fn upsert_asset_with_compression_info<T>(
     compressible: bool,
     supply: i64,
     supply_mint: Option<Vec<u8>>,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset::ActiveModel {
-        id: Set(id),
-        compressed: Set(compressed),
-        compressible: Set(compressible),
-        supply: Set(supply),
-        supply_mint: Set(supply_mint),
+        id: ActiveValue::Set(id),
+        compressed: ActiveValue::Set(compressed),
+        compressible: ActiveValue::Set(compressible),
+        supply: ActiveValue::Set(supply),
+        supply_mint: ActiveValue::Set(supply_mint),
         ..Default::default()
     };
 
@@ -272,13 +277,17 @@ where
     Ok(())
 }
 
-pub async fn upsert_asset_with_seq<T>(txn: &T, id: Vec<u8>, seq: i64) -> Result<(), IngesterError>
+pub async fn upsert_asset_with_seq<T>(
+    txn: &T,
+    id: Vec<u8>,
+    seq: i64,
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset::ActiveModel {
-        id: Set(id),
-        seq: Set(Some(seq)),
+        id: ActiveValue::Set(id),
+        seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
@@ -299,7 +308,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -310,7 +319,7 @@ pub async fn upsert_collection_info<T>(
     collection: Option<Collection>,
     slot_updated: i64,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -320,12 +329,12 @@ where
     };
 
     let model = asset_grouping::ActiveModel {
-        asset_id: Set(asset_id),
-        group_key: Set("collection".to_string()),
-        group_value: Set(group_value),
-        verified: Set(verified),
-        slot_updated: Set(Some(slot_updated)),
-        group_info_seq: Set(Some(seq)),
+        asset_id: ActiveValue::Set(asset_id),
+        group_key: ActiveValue::Set("collection".to_string()),
+        group_value: ActiveValue::Set(group_value),
+        verified: ActiveValue::Set(verified),
+        slot_updated: ActiveValue::Set(Some(slot_updated)),
+        group_info_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
@@ -353,7 +362,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -372,22 +381,22 @@ pub async fn upsert_asset_data<T>(
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset_data::ActiveModel {
-        id: Set(id.clone()),
-        chain_data_mutability: Set(chain_data_mutability),
-        chain_data: Set(chain_data),
-        metadata_url: Set(metadata_url),
-        metadata_mutability: Set(metadata_mutability),
-        metadata: Set(metadata),
-        slot_updated: Set(slot_updated),
-        reindex: Set(reindex),
-        raw_name: Set(Some(raw_name)),
-        raw_symbol: Set(Some(raw_symbol)),
-        base_info_seq: Set(Some(seq)),
+        id: ActiveValue::Set(id.clone()),
+        chain_data_mutability: ActiveValue::Set(chain_data_mutability),
+        chain_data: ActiveValue::Set(chain_data),
+        metadata_url: ActiveValue::Set(metadata_url),
+        metadata_mutability: ActiveValue::Set(metadata_mutability),
+        metadata: ActiveValue::Set(metadata),
+        slot_updated: ActiveValue::Set(slot_updated),
+        reindex: ActiveValue::Set(reindex),
+        raw_name: ActiveValue::Set(Some(raw_name)),
+        raw_symbol: ActiveValue::Set(Some(raw_symbol)),
+        base_info_seq: ActiveValue::Set(Some(seq)),
     };
 
     let mut query = asset_data::Entity::insert(model)
@@ -419,7 +428,7 @@ where
     );
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -437,23 +446,23 @@ pub async fn upsert_asset_base_info<T>(
     royalty_amount: i32,
     slot_updated: i64,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     // Set base info for asset.
     let asset_model = asset::ActiveModel {
-        id: Set(id.clone()),
-        owner_type: Set(owner_type),
-        frozen: Set(frozen),
-        specification_version: Set(Some(specification_version)),
-        specification_asset_class: Set(Some(specification_asset_class)),
-        royalty_target_type: Set(royalty_target_type),
-        royalty_target: Set(royalty_target),
-        royalty_amount: Set(royalty_amount),
-        asset_data: Set(Some(id.clone())),
-        slot_updated_cnft_transaction: Set(Some(slot_updated)),
-        base_info_seq: Set(Some(seq)),
+        id: ActiveValue::Set(id.clone()),
+        owner_type: ActiveValue::Set(owner_type),
+        frozen: ActiveValue::Set(frozen),
+        specification_version: ActiveValue::Set(Some(specification_version)),
+        specification_asset_class: ActiveValue::Set(Some(specification_asset_class)),
+        royalty_target_type: ActiveValue::Set(royalty_target_type),
+        royalty_target: ActiveValue::Set(royalty_target),
+        royalty_amount: ActiveValue::Set(royalty_amount),
+        asset_data: ActiveValue::Set(Some(id.clone())),
+        slot_updated_cnft_transaction: ActiveValue::Set(Some(slot_updated)),
+        base_info_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
@@ -483,7 +492,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }
@@ -495,7 +504,7 @@ pub async fn upsert_asset_creators<T>(
     creators: &Vec<Creator>,
     slot_updated: i64,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -503,13 +512,13 @@ where
         // If creators are empty, insert an empty creator with the current sequence.
         // This prevents accidental errors during out-of-order updates.
         vec![asset_creators::ActiveModel {
-            asset_id: Set(id.clone()),
-            position: Set(0),
-            creator: Set(vec![]),
-            share: Set(100),
-            verified: Set(false),
-            slot_updated: Set(Some(slot_updated)),
-            seq: Set(Some(seq)),
+            asset_id: ActiveValue::Set(id.clone()),
+            position: ActiveValue::Set(0),
+            creator: ActiveValue::Set(vec![]),
+            share: ActiveValue::Set(100),
+            verified: ActiveValue::Set(false),
+            slot_updated: ActiveValue::Set(Some(slot_updated)),
+            seq: ActiveValue::Set(Some(seq)),
             ..Default::default()
         }]
     } else {
@@ -517,13 +526,13 @@ where
             .iter()
             .enumerate()
             .map(|(i, c)| asset_creators::ActiveModel {
-                asset_id: Set(id.clone()),
-                position: Set(i as i16),
-                creator: Set(c.address.to_bytes().to_vec()),
-                share: Set(c.share as i32),
-                verified: Set(c.verified),
-                slot_updated: Set(Some(slot_updated)),
-                seq: Set(Some(seq)),
+                asset_id: ActiveValue::Set(id.clone()),
+                position: ActiveValue::Set(i as i16),
+                creator: ActiveValue::Set(c.address.to_bytes().to_vec()),
+                share: ActiveValue::Set(c.share as i32),
+                verified: ActiveValue::Set(c.verified),
+                slot_updated: ActiveValue::Set(Some(slot_updated)),
+                seq: ActiveValue::Set(Some(seq)),
                 ..Default::default()
             })
             .collect()
@@ -563,15 +572,15 @@ pub async fn upsert_asset_authority<T>(
     authority: Vec<u8>,
     slot_updated: i64,
     seq: i64,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     let model = asset_authority::ActiveModel {
-        asset_id: Set(asset_id),
-        authority: Set(authority),
-        seq: Set(seq),
-        slot_updated: Set(slot_updated),
+        asset_id: ActiveValue::Set(asset_id),
+        authority: ActiveValue::Set(authority),
+        seq: ActiveValue::Set(seq),
+        slot_updated: ActiveValue::Set(slot_updated),
         ..Default::default()
     };
 
@@ -588,7 +597,7 @@ where
 
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     Ok(())
 }

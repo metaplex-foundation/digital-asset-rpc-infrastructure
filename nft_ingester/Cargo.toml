@@ -6,9 +6,7 @@ repository = { workspace = true }
 publish = { workspace = true }
 
 [dependencies]
-anchor-lang = { workspace = true }
 async-trait = { workspace = true }
-base64 = { workspace = true }
 blockbuster = { workspace = true }
 borsh = { workspace = true }
 bs58 = { workspace = true }
@@ -21,26 +19,15 @@ digital_asset_types = { workspace = true, features = [
   "json_types",
   "sql_types",
 ] }
-env_logger = { workspace = true }
 figment = { workspace = true, features = ["env", "toml", "yaml"] }
 flatbuffers = { workspace = true }
 futures = { workspace = true }
-futures-util = { workspace = true }
-hex = { workspace = true }
-lazy_static = { workspace = true }
 log = { workspace = true }
 mpl-bubblegum = { workspace = true }
-num-integer = { workspace = true }
-num-traits = { workspace = true }
 plerkle_messenger = { workspace = true, features = ["redis"] }
 plerkle_serialization = { workspace = true }
+program_transformers = { workspace = true }
 rand = { workspace = true }
-redis = { workspace = true, features = [
-  "aio",
-  "tokio-comp",
-  "streams",
-  "tokio-native-tls-comp",
-] }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rust-crypto = { workspace = true }
@@ -51,18 +38,13 @@ sea-orm = { workspace = true, features = [
   "with-chrono",
   "mock",
 ] }
-sea-query = { workspace = true, features = ["postgres-array"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
-solana-geyser-plugin-interface = { workspace = true }
 solana-sdk = { workspace = true }
-solana-sdk-macro = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
-spl-concurrent-merkle-tree = { workspace = true }
-spl-token = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true, features = [
   "macros",
   "runtime-tokio-rustls",
@@ -74,15 +56,12 @@ sqlx = { workspace = true, features = [
 stretto = { workspace = true, features = ["async"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["tracing"] }
-tokio-postgres = { workspace = true }
-tokio-stream = { workspace = true }
 tracing-subscriber = { workspace = true, features = [
   "json",
   "env-filter",
   "ansi",
 ] }
 url = { workspace = true }
-uuid = { workspace = true }
 
 [lints]
 workspace = true

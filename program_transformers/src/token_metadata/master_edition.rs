@@ -1,24 +1,28 @@
-use crate::error::IngesterError;
-use blockbuster::token_metadata::{
-    accounts::{DeprecatedMasterEditionV1, MasterEdition},
-    types::Key,
-};
-use digital_asset_types::dao::{
-    asset, asset_v1_account_attachments, extensions,
-    sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
-};
-use plerkle_serialization::Pubkey as FBPubkey;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait,
-    DatabaseTransaction, DbBackend, EntityTrait,
+use {
+    crate::error::{ProgramTransformerError, ProgramTransformerResult},
+    blockbuster::token_metadata::{
+        accounts::{DeprecatedMasterEditionV1, MasterEdition},
+        types::Key,
+    },
+    digital_asset_types::dao::{
+        asset, asset_v1_account_attachments, extensions,
+        sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
+    },
+    sea_orm::{
+        entity::{ActiveModelTrait, ActiveValue, EntityTrait, RelationTrait},
+        query::{JoinType, QuerySelect, QueryTrait},
+        sea_query::query::OnConflict,
+        ConnectionTrait, DatabaseTransaction, DbBackend,
+    },
+    solana_sdk::pubkey::Pubkey,
 };
 
 pub async fn save_v2_master_edition(
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &MasterEdition,
     txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
+) -> ProgramTransformerResult<()> {
     save_master_edition(
         V1AccountAttachments::MasterEditionV2,
         id,
@@ -30,11 +34,11 @@ pub async fn save_v2_master_edition(
 }
 
 pub async fn save_v1_master_edition(
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &DeprecatedMasterEditionV1,
     txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
+) -> ProgramTransformerResult<()> {
     // This discards the deprecated `MasterEditionV1` fields
     // but sets the `Key`` as `MasterEditionV1`.
     let bridge = MasterEdition {
@@ -51,16 +55,17 @@ pub async fn save_v1_master_edition(
     )
     .await
 }
+
 pub async fn save_master_edition(
     version: V1AccountAttachments,
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
     me_data: &MasterEdition,
     txn: &DatabaseTransaction,
-) -> Result<(), IngesterError> {
-    let id_bytes = id.0.to_vec();
+) -> ProgramTransformerResult<()> {
+    let id_bytes = id.to_bytes().to_vec();
     let master_edition: Option<(asset_v1_account_attachments::Model, Option<asset::Model>)> =
-        asset_v1_account_attachments::Entity::find_by_id(id.0.to_vec())
+        asset_v1_account_attachments::Entity::find_by_id(id.to_bytes().to_vec())
             .find_also_related(asset::Entity)
             .join(
                 JoinType::InnerJoin,
@@ -69,20 +74,20 @@ pub async fn save_master_edition(
             .one(txn)
             .await?;
     let ser = serde_json::to_value(me_data)
-        .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
+        .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
 
     let model = asset_v1_account_attachments::ActiveModel {
-        id: Set(id_bytes),
-        attachment_type: Set(version),
-        data: Set(Some(ser)),
-        slot_updated: Set(slot as i64),
+        id: ActiveValue::Set(id_bytes),
+        attachment_type: ActiveValue::Set(version),
+        data: ActiveValue::Set(Some(ser)),
+        slot_updated: ActiveValue::Set(slot as i64),
         ..Default::default()
     };
 
     if let Some((_me, Some(asset))) = master_edition {
         let mut updatable: asset::ActiveModel = asset.into();
-        updatable.supply = Set(1);
-        updatable.specification_asset_class = Set(Some(SpecificationAssetClass::Nft));
+        updatable.supply = ActiveValue::Set(1);
+        updatable.specification_asset_class = ActiveValue::Set(Some(SpecificationAssetClass::Nft));
         updatable.update(txn).await?;
     }
 

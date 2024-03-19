@@ -1,50 +1,50 @@
-use crate::program_transformers::asset_upserts::{
-    upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
-    upsert_assets_token_account_columns, AssetMetadataAccountColumns, AssetMintAccountColumns,
-    AssetTokenAccountColumns,
-};
-use crate::tasks::{DownloadMetadata, IntoTaskData};
-use crate::{error::IngesterError, metric, tasks::TaskData};
-use blockbuster::token_metadata::{
-    accounts::{MasterEdition, Metadata},
-    types::TokenStandard,
-};
-use cadence_macros::{is_global_default_set, statsd_count};
-use chrono::Utc;
-use digital_asset_types::dao::{asset_authority, asset_data, asset_grouping, token_accounts};
-use digital_asset_types::{
-    dao::{
-        asset, asset_creators, asset_v1_account_attachments,
-        sea_orm_active_enums::{
-            ChainMutability, Mutability, OwnerType, SpecificationAssetClass, SpecificationVersions,
-            V1AccountAttachments,
+use {
+    crate::{
+        asset_upserts::{
+            upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
+            upsert_assets_token_account_columns, AssetMetadataAccountColumns,
+            AssetMintAccountColumns, AssetTokenAccountColumns,
         },
-        tokens,
+        error::{ProgramTransformerError, ProgramTransformerResult},
+        DownloadMetadataInfo,
     },
-    json::ChainDataV1,
+    blockbuster::token_metadata::{
+        accounts::{MasterEdition, Metadata},
+        types::TokenStandard,
+    },
+    digital_asset_types::{
+        dao::{
+            asset, asset_authority, asset_creators, asset_data, asset_grouping,
+            asset_v1_account_attachments,
+            sea_orm_active_enums::{
+                ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
+                SpecificationVersions, V1AccountAttachments,
+            },
+            token_accounts, tokens,
+        },
+        json::ChainDataV1,
+    },
+    sea_orm::{
+        entity::{ActiveValue, ColumnTrait, EntityTrait},
+        query::{JsonValue, Order, QueryFilter, QueryOrder, QueryTrait, Select},
+        sea_query::query::OnConflict,
+        ConnectionTrait, DbBackend, DbErr, TransactionTrait,
+    },
+    solana_sdk::{pubkey, pubkey::Pubkey},
+    tokio::time::{sleep, Duration},
+    tracing::warn,
 };
-use lazy_static::lazy_static;
-use log::warn;
-use plerkle_serialization::Pubkey as FBPubkey;
-use sea_orm::{
-    entity::*, query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DbBackend,
-    DbErr, EntityTrait, JsonValue,
-};
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
-use std::time::Duration;
-use tokio::time::sleep;
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: FBPubkey,
+    id: Pubkey,
     slot: u64,
-) -> Result<(), IngesterError> {
-    let (id, slot_i) = (id.0, slot as i64);
+) -> ProgramTransformerResult<()> {
+    let (id, slot_i) = (id, slot as i64);
     let model = asset::ActiveModel {
-        id: Set(id.to_vec()),
-        slot_updated: Set(Some(slot_i)),
-        burnt: Set(true),
+        id: ActiveValue::Set(id.to_bytes().to_vec()),
+        slot_updated: ActiveValue::Set(Some(slot_i)),
+        burnt: ActiveValue::Set(true),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(model)
@@ -63,17 +63,12 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 }
 
 const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
-const WSOL_ADDRESS: &str = "So11111111111111111111111111111111111111112";
-
-lazy_static! {
-    static ref WSOL_PUBKEY: Pubkey =
-        Pubkey::from_str(WSOL_ADDRESS).expect("Invalid public key format");
-}
+static WSOL_PUBKEY: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
 pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     mint_pubkey_vec: Vec<u8>,
-) -> Result<Option<tokens::Model>, IngesterError> {
+) -> ProgramTransformerResult<Option<tokens::Model>> {
     // Gets the token and token account for the mint to populate the asset.
     // This is required when the token and token account are indexed, but not the metadata account.
     // If the metadata account is indexed, then the token and ta ingester will update the asset with the correct data.
@@ -96,7 +91,7 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
             conn,
         )
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
         Ok(Some(token))
     } else {
         warn!(
@@ -111,7 +106,7 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
 async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     mint_pubkey_vec: Vec<u8>,
-) -> Result<(), IngesterError> {
+) -> ProgramTransformerResult<()> {
     let token_account: Option<token_accounts::Model> = find_model_with_retry(
         conn,
         "owners",
@@ -122,7 +117,7 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
         RETRY_INTERVALS,
     )
     .await
-    .map_err(|e: DbErr| IngesterError::DatabaseError(e.to_string()))?;
+    .map_err(|e: DbErr| ProgramTransformerError::DatabaseError(e.to_string()))?;
 
     if let Some(token_account) = token_account {
         upsert_assets_token_account_columns(
@@ -136,7 +131,7 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
             conn,
         )
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     } else {
         warn!(
             target: "Account not found",
@@ -152,7 +147,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     metadata: &Metadata,
     slot: u64,
-) -> Result<Option<TaskData>, IngesterError> {
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>> {
     let metadata = metadata.clone();
     let mint_pubkey = metadata.mint;
     let mint_pubkey_array = mint_pubkey.to_bytes();
@@ -186,7 +181,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     // Wrapped Solana is a special token that has supply 0 (infinite).
     // It's a fungible token with a metadata account, but without any token standard, meaning the code above will misabel it as an NFT.
-    if mint_pubkey == *WSOL_PUBKEY {
+    if mint_pubkey == WSOL_PUBKEY {
         ownership_type = OwnerType::Token;
         class = SpecificationAssetClass::FungibleToken;
     }
@@ -222,23 +217,23 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     };
     chain_data.sanitize();
     let chain_data_json = serde_json::to_value(chain_data)
-        .map_err(|e| IngesterError::DeserializationError(e.to_string()))?;
+        .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
     let chain_mutability = match metadata.is_mutable {
         true => ChainMutability::Mutable,
         false => ChainMutability::Immutable,
     };
     let asset_data_model = asset_data::ActiveModel {
-        chain_data_mutability: Set(chain_mutability),
-        chain_data: Set(chain_data_json),
-        metadata_url: Set(uri.clone()),
-        metadata: Set(JsonValue::String("processing".to_string())),
-        metadata_mutability: Set(Mutability::Mutable),
-        slot_updated: Set(slot_i),
-        reindex: Set(Some(true)),
-        id: Set(mint_pubkey_vec.clone()),
-        raw_name: Set(Some(name.to_vec())),
-        raw_symbol: Set(Some(symbol.to_vec())),
-        base_info_seq: Set(Some(0)),
+        chain_data_mutability: ActiveValue::Set(chain_mutability),
+        chain_data: ActiveValue::Set(chain_data_json),
+        metadata_url: ActiveValue::Set(uri.clone()),
+        metadata: ActiveValue::Set(JsonValue::String("processing".to_string())),
+        metadata_mutability: ActiveValue::Set(Mutability::Mutable),
+        slot_updated: ActiveValue::Set(slot_i),
+        reindex: ActiveValue::Set(Some(true)),
+        id: ActiveValue::Set(mint_pubkey_vec.clone()),
+        raw_name: ActiveValue::Set(Some(name.to_vec())),
+        raw_symbol: ActiveValue::Set(Some(symbol.to_vec())),
+        base_info_seq: ActiveValue::Set(Some(0)),
     };
     let txn = conn.begin().await?;
     let mut query = asset_data::Entity::insert(asset_data_model)
@@ -264,7 +259,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     );
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     upsert_assets_metadata_account_columns(
         AssetMetadataAccountColumns {
@@ -280,9 +275,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     .await?;
 
     let attachment = asset_v1_account_attachments::ActiveModel {
-        id: Set(edition_attachment_address.to_bytes().to_vec()),
-        slot_updated: Set(slot_i),
-        attachment_type: Set(V1AccountAttachments::MasterEditionV2),
+        id: ActiveValue::Set(edition_attachment_address.to_bytes().to_vec()),
+        slot_updated: ActiveValue::Set(slot_i),
+        attachment_type: ActiveValue::Set(V1AccountAttachments::MasterEditionV2),
         ..Default::default()
     };
     let query = asset_v1_account_attachments::Entity::insert(attachment)
@@ -294,13 +289,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .build(DbBackend::Postgres);
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     let model = asset_authority::ActiveModel {
-        asset_id: Set(mint_pubkey_vec.clone()),
-        authority: Set(authority),
-        seq: Set(0),
-        slot_updated: Set(slot_i),
+        asset_id: ActiveValue::Set(mint_pubkey_vec.clone()),
+        authority: ActiveValue::Set(authority),
+        seq: ActiveValue::Set(0),
+        slot_updated: ActiveValue::Set(slot_i),
         ..Default::default()
     };
     let mut query = asset_authority::Entity::insert(model)
@@ -320,16 +315,16 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     );
     txn.execute(query)
         .await
-        .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     if let Some(c) = &metadata.collection {
         let model = asset_grouping::ActiveModel {
-            asset_id: Set(mint_pubkey_vec.clone()),
-            group_key: Set("collection".to_string()),
-            group_value: Set(Some(c.key.to_string())),
-            verified: Set(c.verified),
-            group_info_seq: Set(Some(0)),
-            slot_updated: Set(Some(slot_i)),
+            asset_id: ActiveValue::Set(mint_pubkey_vec.clone()),
+            group_key: ActiveValue::Set("collection".to_string()),
+            group_value: ActiveValue::Set(Some(c.key.to_string())),
+            verified: ActiveValue::Set(c.verified),
+            group_info_seq: ActiveValue::Set(Some(0)),
+            slot_updated: ActiveValue::Set(Some(slot_i)),
             ..Default::default()
         };
         let mut query = asset_grouping::Entity::insert(model)
@@ -353,7 +348,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         );
         txn.execute(query)
             .await
-            .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
 
     let creators = metadata
@@ -362,13 +357,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .iter()
         .enumerate()
         .map(|(i, creator)| asset_creators::ActiveModel {
-            asset_id: Set(mint_pubkey_vec.clone()),
-            position: Set(i as i16),
-            creator: Set(creator.address.to_bytes().to_vec()),
-            share: Set(creator.share as i32),
-            verified: Set(creator.verified),
-            slot_updated: Set(Some(slot_i)),
-            seq: Set(Some(0)),
+            asset_id: ActiveValue::Set(mint_pubkey_vec.clone()),
+            position: ActiveValue::Set(i as i16),
+            creator: ActiveValue::Set(creator.address.to_bytes().to_vec()),
+            share: ActiveValue::Set(creator.share as i32),
+            verified: ActiveValue::Set(creator.verified),
+            slot_updated: ActiveValue::Set(Some(slot_i)),
+            seq: ActiveValue::Set(Some(0)),
             ..Default::default()
         })
         .collect::<Vec<_>>();
@@ -396,7 +391,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             );
         txn.execute(query)
             .await
-            .map_err(|db_err| IngesterError::AssetIndexError(db_err.to_string()))?;
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
     txn.commit().await?;
 
@@ -408,14 +403,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         return Ok(None);
     }
 
-    let mut task = DownloadMetadata {
-        asset_data_id: mint_pubkey_vec.clone(),
-        uri,
-        created_at: Some(Utc::now().naive_utc()),
-    };
-    task.sanitize();
-    let t = task.into_task_data()?;
-    Ok(Some(t))
+    Ok(Some(DownloadMetadataInfo::new(mint_pubkey_vec, uri)))
 }
 
 async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityTrait>(
@@ -428,7 +416,7 @@ async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityT
     let metric_name = format!("{}_found", model_name);
 
     for interval in retry_intervals {
-        let interval_duration = Duration::from_millis(interval.to_owned());
+        let interval_duration = Duration::from_millis(*interval);
         sleep(interval_duration).await;
 
         let model = select.clone().one(conn).await?;
@@ -446,7 +434,7 @@ async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityT
 fn record_metric(metric_name: &str, success: bool, retries: u32) {
     let retry_count = &retries.to_string();
     let success = if success { "true" } else { "false" };
-    metric! {
-        statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    if cadence_macros::is_global_default_set() {
+        cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
     }
 }

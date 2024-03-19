@@ -46,4 +46,4 @@ jobs:
 
       # clippy
       - name: Check clippy
-        run: cargo clippy --all-targets --tests
+        run: cargo clippy --all-targets --tests -- -Dwarnings

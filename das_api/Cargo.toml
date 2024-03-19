@@ -33,7 +33,6 @@ solana-sdk = { workspace = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
-tokio-postgres = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["cors"] }
 tracing = { workspace = true }

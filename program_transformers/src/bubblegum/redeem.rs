@@ -1,14 +1,16 @@
-use anchor_lang::prelude::Pubkey;
-use log::debug;
-
-use crate::{
-    error::IngesterError,
-    program_transformers::bubblegum::{
-        save_changelog_event, u32_to_u8_array, upsert_asset_with_leaf_info, upsert_asset_with_seq,
+use {
+    crate::{
+        bubblegum::{
+            db::{save_changelog_event, upsert_asset_with_leaf_info, upsert_asset_with_seq},
+            u32_to_u8_array,
+        },
+        error::{ProgramTransformerError, ProgramTransformerResult},
     },
+    blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction},
+    sea_orm::{ConnectionTrait, TransactionTrait},
+    solana_sdk::pubkey::Pubkey,
+    tracing::debug,
 };
-use blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction};
-use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub async fn redeem<'c, T>(
     parsing_result: &BubblegumInstruction,
@@ -16,7 +18,7 @@ pub async fn redeem<'c, T>(
     txn: &'c T,
     instruction: &str,
     cl_audits: bool,
-) -> Result<(), IngesterError>
+) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -61,7 +63,7 @@ where
 
         return Ok(());
     }
-    Err(IngesterError::ParsingError(
+    Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }
