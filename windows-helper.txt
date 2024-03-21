@@ -1,0 +1,8 @@
+
+If you have errors of solana not found which running (prepare-local-docker-env.sh) file then run the following command to update the PATH variable.
+
+export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+
+If you have permission issues while running (prepare-local-docker-env.sh) file then run the following command to change the permission of the programs folder.
+
+sudo chown -R $(whoami) programs/

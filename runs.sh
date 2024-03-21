@@ -89,7 +89,6 @@ args=(
   --clone CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4 --clone DcYW5MQscHQE4PmFpbohn9JJqqN3vyYau83eXTx8yAcJ
   --clone MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6 --clone GerKtMVEu66ZCha6oaab8iGrBHc5Q6VYNRCNMgXn1WGm
   --clone 8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit --clone FHzBQUNk6AyaSbqgS33EXcat8sXeLpvf1PJM6tQ87SPp
-  --clone 4tJgAkjtSk6vFPtcXZeNybMsjrqRyWxKfPdeGu8bmh6y --clone HubyW36J8quFifFshMjjBTZ6Raa442VU6nFiAtjXYmDQ 
   --clone 9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK --clone 4UDQZKTAh9fo5TkC7Nh2t9tcyC7dFwFMUnrrHZLxZ1c8 
   --url https://devnet.helius-rpc.com/?api-key=ccca5bb2-58dc-4b94-838b-664df478cf45
 )

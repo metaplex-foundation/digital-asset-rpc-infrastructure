@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # output colours
 RED() { echo $'\e[1;31m'$1$'\e[0m'; }
@@ -47,6 +47,7 @@ fi
 # dump external programs binaries if needed
 for i in ${!EXTERNAL_ID[@]}; do
     if [ ! -f "${OUTPUT}/${EXTERNAL_SO[$i]}" ]; then
+        echo "$(GRN "[ DUMPING ]") ${EXTERNAL_SO[$i]}"
         solana program dump -u $RPC ${EXTERNAL_ID[$i]} ${OUTPUT}/${EXTERNAL_SO[$i]}
     else
         solana program dump -u $RPC ${EXTERNAL_ID[$i]} ${OUTPUT}/onchain-${EXTERNAL_SO[$i]} > /dev/null
