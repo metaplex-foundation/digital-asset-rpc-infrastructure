@@ -880,6 +880,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
 
 [[package]]
+name = "base64"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
+
+[[package]]
 name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1001,8 +1007,7 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "429446ab240a173ca553b6960fcd3d0b843006d89da18fe6c7445a34d9130f7d"
+source = "git+https://github.com/metaplex-foundation/blockbuster.git?rev=66ca5f54106bbd3cb82aaf18cf8089b5ef7f78fc#66ca5f54106bbd3cb82aaf18cf8089b5ef7f78fc"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -1011,6 +1016,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mpl-bubblegum",
+ "mpl-core",
  "mpl-token-metadata",
  "solana-sdk",
  "solana-transaction-status",
@@ -2583,6 +2589,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3398,6 +3410,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mpl-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2aa89feb937353e5744ca7d30132a07e7380127ad42278e92b90796c60c4b11"
+dependencies = [
+ "base64 0.22.0",
+ "borsh 0.10.3",
+ "num-derive 0.3.3",
+ "num-traits",
+ "serde",
+ "serde_with 3.6.1",
+ "solana-program",
+ "thiserror",
+]
+
+[[package]]
 name = "mpl-token-metadata"
 version = "4.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4153,6 +4181,7 @@ dependencies = [
  "cadence-macros",
  "digital_asset_types",
  "futures",
+ "heck 0.5.0",
  "mpl-bubblegum",
  "num-traits",
  "sea-orm",

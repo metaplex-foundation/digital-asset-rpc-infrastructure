@@ -9,6 +9,7 @@ use {
         sea_query::OnConflict, ConnectionTrait, DbBackend, DbErr, EntityTrait, QueryTrait, Set,
         TransactionTrait,
     },
+    serde_json::value::Value,
 };
 
 pub struct AssetTokenAccountColumns {
@@ -54,7 +55,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
     pub supply: u64,
-    pub suppply_mint: Option<Vec<u8>>,
+    pub supply_mint: Option<Vec<u8>>,
     pub slot_updated_mint_account: u64,
 }
 
@@ -65,7 +66,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
         supply: Set(columns.supply as i64),
-        supply_mint: Set(columns.suppply_mint),
+        supply_mint: Set(columns.supply_mint),
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
         ..Default::default()
     };
@@ -95,6 +96,11 @@ pub struct AssetMetadataAccountColumns {
     pub royalty_amount: i32,
     pub asset_data: Option<Vec<u8>>,
     pub slot_updated_metadata_account: u64,
+    pub plugins: Option<Value>,
+    pub unknown_plugins: Option<Value>,
+    pub mpl_core_collection_num_minted: Option<i32>,
+    pub mpl_core_collection_current_size: Option<i32>,
+    pub mpl_core_plugins_json_version: Option<i32>,
 }
 
 pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + TransactionTrait>(
@@ -120,6 +126,11 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
         asset_data: Set(columns.asset_data),
         slot_updated_metadata_account: Set(Some(columns.slot_updated_metadata_account as i64)),
         burnt: Set(false),
+        mpl_core_plugins: Set(columns.plugins),
+        mpl_core_unknown_plugins: Set(columns.unknown_plugins),
+        mpl_core_collection_num_minted: Set(columns.mpl_core_collection_num_minted),
+        mpl_core_collection_current_size: Set(columns.mpl_core_collection_current_size),
+        mpl_core_plugins_json_version: Set(columns.mpl_core_plugins_json_version),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
@@ -143,6 +154,11 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
                     asset::Column::AssetData,
                     asset::Column::SlotUpdatedMetadataAccount,
                     asset::Column::Burnt,
+                    asset::Column::MplCorePlugins,
+                    asset::Column::MplCoreUnknownPlugins,
+                    asset::Column::MplCoreCollectionNumMinted,
+                    asset::Column::MplCoreCollectionCurrentSize,
+                    asset::Column::MplCorePluginsJsonVersion,
                 ])
                 .to_owned(),
         )
