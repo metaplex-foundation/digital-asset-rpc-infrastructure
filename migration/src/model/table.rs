@@ -84,6 +84,11 @@ pub enum Asset {
     WasDecompressed,
     LeafSeq,
     BaseInfoSeq,
+    MplCorePlugins,
+    MplCoreUnknownPlugins,
+    MplCoreCollectionNumMinted,
+    MplCoreCollectionCurrentSize,
+    MplCorePluginsJsonVersion,
 }
 
 #[derive(Copy, Clone, Iden)]
