@@ -9,7 +9,7 @@ use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetError, AssetList};
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
-    MetadataMap, Ownership, Royalty, Scope, Supply, Uses,
+    MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
 };
 use jsonpath_lib::JsonPathError;
 use log::warn;
@@ -368,6 +368,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         .unwrap_or(false);
     let edition_nonce =
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+    let mpl_core_info = match interface {
+        Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
+            num_minted: asset.mpl_core_collection_num_minted,
+            current_supply: asset.mpl_core_collection_current_size,
+            plugins_json_version: asset.mpl_core_plugins_json_version,
+        }),
+        _ => None,
+    };
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
@@ -435,6 +444,9 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
+        plugins: asset.mpl_core_plugins,
+        unknown_plugins: asset.mpl_core_unknown_plugins,
+        mpl_core_info,
     })
 }
 
