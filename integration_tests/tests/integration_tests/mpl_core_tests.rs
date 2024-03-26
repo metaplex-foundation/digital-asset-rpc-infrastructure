@@ -106,3 +106,45 @@ async fn test_mpl_core_get_assets_by_group() {
     let response = setup.das_api.get_assets_by_group(request).await.unwrap();
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_assets_by_authority() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "6pELUa5FjLvw4TRM32opiT6vL74B8W3fwCwRkPUt857",
+        "HsDL2AYtoAHZyfFKyQp6pHGKaBRBZQZDVBAT1XwbP4d5",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "authorityAddress": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+        "sortBy": {
+            "sortBy": "updated",
+            "sortDirection": "asc"
+        },
+        "page": 1,
+        "limit": 50
+    }
+    "#;
+
+    let request: api::GetAssetsByAuthority = serde_json::from_str(request).unwrap();
+    let response = setup
+        .das_api
+        .get_assets_by_authority(request)
+        .await
+        .unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
