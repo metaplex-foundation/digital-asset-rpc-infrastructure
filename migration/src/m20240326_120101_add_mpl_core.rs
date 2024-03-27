@@ -32,6 +32,17 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name("mpl_core_asset_id")
+                    .col(MplCore::AssetId)
+                    .table(MplCore::Table)
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 

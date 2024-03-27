@@ -355,6 +355,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         authorities,
         creators,
         groups,
+        mpl_core,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -370,9 +371,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
-            num_minted: asset.mpl_core_collection_num_minted,
-            current_supply: asset.mpl_core_collection_current_size,
-            plugins_json_version: asset.mpl_core_plugins_json_version,
+            num_minted: mpl_core
+                .as_ref()
+                .and_then(|model| model.collection_num_minted),
+            current_supply: mpl_core
+                .as_ref()
+                .and_then(|model| model.collection_current_size),
+            plugins_json_version: mpl_core
+                .as_ref()
+                .and_then(|model| model.plugins_json_version),
         }),
         _ => None,
     };
@@ -444,8 +451,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
-        plugins: asset.mpl_core_plugins,
-        unknown_plugins: asset.mpl_core_unknown_plugins,
+        plugins: mpl_core.as_ref().and_then(|model| model.plugins.clone()),
+        unknown_plugins: mpl_core.and_then(|model| model.unknown_plugins),
         mpl_core_info,
     })
 }

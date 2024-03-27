@@ -269,11 +269,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             royalty_amount: metadata.seller_fee_basis_points as i32,
             asset_data: Some(mint_pubkey_vec.clone()),
             slot_updated_metadata_account: slot_i as u64,
-            plugins: None,
-            unknown_plugins: None,
-            mpl_core_collection_num_minted: None,
-            mpl_core_collection_current_size: None,
-            mpl_core_plugins_json_version: None,
         },
         &txn,
     )

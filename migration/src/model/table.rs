@@ -177,6 +177,7 @@ pub enum MplCore {
     Id,
     AssetId,
     Seq,
+    SlotUpdated,
     Plugins,
     UnknownPlugins,
     PluginsJsonVersion,

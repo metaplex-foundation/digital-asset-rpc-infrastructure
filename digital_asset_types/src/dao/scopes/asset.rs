@@ -3,6 +3,7 @@ use crate::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
+        mpl_core,
         sea_orm_active_enums::Instruction,
         Cursor, FullAsset, GroupingSize, Pagination,
     },
@@ -278,6 +279,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                mpl_core: None,
             };
             acc.insert(id, fa);
         };
@@ -345,6 +347,17 @@ pub async fn get_related_for_assets(
     for g in grouping.into_iter() {
         if let Some(asset) = assets_map.get_mut(&g.asset_id) {
             asset.groups.push(g);
+        }
+    }
+
+    let mpl_core = mpl_core::Entity::find()
+        .filter(mpl_core::Column::AssetId.is_in(ids.clone()))
+        .order_by_asc(mpl_core::Column::AssetId)
+        .all(conn)
+        .await?;
+    for m in mpl_core.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&m.asset_id) {
+            asset.mpl_core = Some(m);
         }
     }
 
@@ -424,12 +437,19 @@ pub async fn get_by_id(
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
         .await?;
+
+    let mpl_core: Option<mpl_core::Model> = mpl_core::Entity::find()
+        .filter(mpl_core::Column::AssetId.eq(asset.id.clone()))
+        .one(conn)
+        .await?;
+
     Ok(FullAsset {
         asset,
         data,
         authorities,
         creators,
         groups: grouping,
+        mpl_core,
     })
 }
 

@@ -2,7 +2,7 @@ use sea_orm::{EntityTrait, EnumIter, Related, RelationDef, RelationTrait};
 
 use crate::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping,
-    asset_v1_account_attachments,
+    asset_v1_account_attachments, mpl_core,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
 };
 
@@ -13,6 +13,7 @@ pub enum Relation {
     AssetAuthority,
     AssetCreators,
     AssetGrouping,
+    MplCore,
 }
 
 impl RelationTrait for Relation {
@@ -28,6 +29,7 @@ impl RelationTrait for Relation {
             Self::AssetAuthority => asset::Entity::has_many(asset_authority::Entity).into(),
             Self::AssetCreators => asset::Entity::has_many(asset_creators::Entity).into(),
             Self::AssetGrouping => asset::Entity::has_many(asset_grouping::Entity).into(),
+            Self::MplCore => asset::Entity::has_one(mpl_core::Entity).into(),
         }
     }
 }
@@ -59,6 +61,12 @@ impl Related<asset_creators::Entity> for asset::Entity {
 impl Related<asset_grouping::Entity> for asset::Entity {
     fn to() -> RelationDef {
         Relation::AssetGrouping.def()
+    }
+}
+
+impl Related<mpl_core::Entity> for asset::Entity {
+    fn to() -> RelationDef {
+        Relation::MplCore.def()
     }
 }
 
@@ -103,11 +111,6 @@ impl Default for asset::Model {
             owner_delegate_seq: None,
             leaf_seq: None,
             base_info_seq: None,
-            mpl_core_plugins: None,
-            mpl_core_unknown_plugins: None,
-            mpl_core_collection_current_size: None,
-            mpl_core_collection_num_minted: None,
-            mpl_core_plugins_json_version: None,
         }
     }
 }

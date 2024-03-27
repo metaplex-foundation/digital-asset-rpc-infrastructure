@@ -14,7 +14,7 @@ use {
     },
     digital_asset_types::{
         dao::{
-            asset, asset_authority, asset_creators, asset_data, asset_grouping,
+            asset, asset_authority, asset_creators, asset_data, asset_grouping, mpl_core,
             sea_orm_active_enums::{
                 ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
             },
@@ -232,29 +232,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         })
         .unwrap_or((0, &default_creators));
 
-    // Serialize known plugins into JSON.
-    let mut plugins_json = serde_json::to_value(&asset.plugins)
-        .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
-
-    // Improve JSON output.
-    remove_plugins_nesting(&mut plugins_json);
-    transform_plugins_authority(&mut plugins_json);
-    convert_keys_to_snake_case(&mut plugins_json);
-
-    // Serialize any unknown plugins into JSON.
-    let unknown_plugins_json = if !asset.unknown_plugins.is_empty() {
-        let mut unknown_plugins_json = serde_json::to_value(&asset.unknown_plugins)
-            .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
-
-        // Improve JSON output.
-        transform_plugins_authority(&mut unknown_plugins_json);
-        convert_keys_to_snake_case(&mut unknown_plugins_json);
-
-        Some(unknown_plugins_json)
-    } else {
-        None
-    };
-
+    // Note: asset table upserts need to be separate for Token Metadata but here could be one
+    // upsert.
     upsert_assets_metadata_account_columns(
         AssetMetadataAccountColumns {
             mint: id_vec.clone(),
@@ -263,11 +242,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             royalty_amount: royalty_amount as i32,
             asset_data: Some(id_vec.clone()),
             slot_updated_metadata_account: slot,
-            plugins: Some(plugins_json),
-            unknown_plugins: unknown_plugins_json,
-            mpl_core_collection_num_minted: asset.num_minted.map(|val| val as i32),
-            mpl_core_collection_current_size: asset.current_size.map(|val| val as i32),
-            mpl_core_plugins_json_version: Some(1),
         },
         &txn,
     )
@@ -275,7 +249,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     let supply = 1;
 
-    // Note: these need to be separate for Token Metadata but here could be one upsert.
     upsert_assets_mint_account_columns(
         AssetMintAccountColumns {
             mint: id_vec.clone(),
@@ -312,7 +285,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         })
         .unwrap_or(false);
 
-    // TODO: these upserts needed to be separate for Token Metadata but here could be one upsert.
     upsert_assets_token_account_columns(
         AssetTokenAccountColumns {
             mint: id_vec.clone(),
@@ -410,6 +382,72 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
+
+    //-----------------------
+    // mpl_core table
+    //-----------------------
+
+    // Serialize known plugins into JSON.  If there are no plugins, we still will write the
+    // serialized JSON to the database and output will show `"plugins":{}`.
+    let mut plugins_json = serde_json::to_value(&asset.plugins)
+        .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+    // Improve JSON output.
+    remove_plugins_nesting(&mut plugins_json);
+    transform_plugins_authority(&mut plugins_json);
+    convert_keys_to_snake_case(&mut plugins_json);
+
+    // Serialize any unknown plugins into JSON.  If there are no unknown plugins, we will put NULL
+    // into the database and the output will not show the `"unknown_plugins"` section.  This is
+    // because it is a semi-error condition to have unknown plugins, and also it will help with
+    // future backfilling of unknown plugins becuase they can be found by the NULL value.
+    let unknown_plugins_json = if !asset.unknown_plugins.is_empty() {
+        let mut unknown_plugins_json = serde_json::to_value(&asset.unknown_plugins)
+            .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+        // Improve JSON output.
+        transform_plugins_authority(&mut unknown_plugins_json);
+        convert_keys_to_snake_case(&mut unknown_plugins_json);
+
+        Some(unknown_plugins_json)
+    } else {
+        None
+    };
+
+    let active_model = mpl_core::ActiveModel {
+        asset_id: ActiveValue::Set(id_vec.clone()),
+        seq: ActiveValue::Set(Some(0)),
+        slot_updated: ActiveValue::Set(Some(slot_i)),
+        plugins: ActiveValue::Set(Some(plugins_json)),
+        unknown_plugins: ActiveValue::Set(unknown_plugins_json),
+        collection_num_minted: ActiveValue::Set(asset.num_minted.map(|val| val as i32)),
+        collection_current_size: ActiveValue::Set(asset.current_size.map(|val| val as i32)),
+        plugins_json_version: ActiveValue::Set(Some(1)),
+        ..Default::default()
+    };
+    let mut query = mpl_core::Entity::insert(active_model)
+        .on_conflict(
+            OnConflict::columns([mpl_core::Column::AssetId])
+                .update_columns([
+                    mpl_core::Column::Seq,
+                    mpl_core::Column::SlotUpdated,
+                    mpl_core::Column::Plugins,
+                    mpl_core::Column::UnknownPlugins,
+                    mpl_core::Column::CollectionNumMinted,
+                    mpl_core::Column::CollectionCurrentSize,
+                    mpl_core::Column::PluginsJsonVersion,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated >= mpl_core.slot_updated OR mpl_core.slot_updated IS NULL",
+        query.sql
+    );
+    txn.execute(query)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     // Commit the database transaction.
     txn.commit().await?;
