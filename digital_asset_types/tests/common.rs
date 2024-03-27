@@ -157,6 +157,7 @@ pub fn create_asset(
             slot_updated_token_account: None,
             slot_updated_cnft_transaction: None,
             data_hash: None,
+            mint_extensions: None,
             alt_id: None,
             creator_hash: None,
             owner_delegate_seq: Some(0),

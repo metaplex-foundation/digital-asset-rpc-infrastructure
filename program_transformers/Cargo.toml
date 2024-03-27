@@ -10,8 +10,12 @@ blockbuster = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
+digital_asset_types = { workspace = true, features = [
+  "json_types",
+  "sql_types",
+] }
 futures = { workspace = true }
+log = { workspace = true }
 mpl-bubblegum = { workspace = true }
 num-traits = { workspace = true }
 sea-orm = { workspace = true }
@@ -19,7 +23,8 @@ serde_json = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
-spl-token = { workspace = true, features = ["no-entrypoint"] }
+spl-token = { wjjorkspace = true, features = ["no-entrypoint"] }
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
