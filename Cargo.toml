@@ -31,7 +31,7 @@ anyhow = "1.0.75"
 async-std = "1.0.0"
 async-trait = "0.1.60"
 backon = "0.4.1"
-blockbuster = { version = "2.0.0", git = "https://github.com/metaplex-foundation/blockbuster.git", rev = "66ca5f54106bbd3cb82aaf18cf8089b5ef7f78fc" }
+blockbuster = "2.1.0"
 borsh = "~0.10.3"
 borsh-derive = "~0.10.3"
 bs58 = "0.4.0"
