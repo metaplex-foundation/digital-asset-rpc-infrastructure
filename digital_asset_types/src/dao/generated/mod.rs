@@ -11,6 +11,7 @@ pub mod asset_v1_account_attachments;
 pub mod backfill_items;
 pub mod cl_audits_v2;
 pub mod cl_items;
+pub mod mpl_core;
 pub mod raw_txn;
 pub mod sea_orm_active_enums;
 pub mod tasks;

@@ -50,11 +50,6 @@ pub struct Model {
     pub owner_delegate_seq: Option<i64>,
     pub leaf_seq: Option<i64>,
     pub base_info_seq: Option<i64>,
-    pub mpl_core_plugins: Option<Json>,
-    pub mpl_core_unknown_plugins: Option<Json>,
-    pub mpl_core_collection_num_minted: Option<i32>,
-    pub mpl_core_collection_current_size: Option<i32>,
-    pub mpl_core_plugins_json_version: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -91,11 +86,6 @@ pub enum Column {
     OwnerDelegateSeq,
     LeafSeq,
     BaseInfoSeq,
-    MplCorePlugins,
-    MplCoreUnknownPlugins,
-    MplCoreCollectionNumMinted,
-    MplCoreCollectionCurrentSize,
-    MplCorePluginsJsonVersion,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -149,11 +139,6 @@ impl ColumnTrait for Column {
             Self::OwnerDelegateSeq => ColumnType::BigInteger.def().null(),
             Self::LeafSeq => ColumnType::BigInteger.def().null(),
             Self::BaseInfoSeq => ColumnType::BigInteger.def().null(),
-            Self::MplCorePlugins => ColumnType::JsonBinary.def().null(),
-            Self::MplCoreUnknownPlugins => ColumnType::JsonBinary.def().null(),
-            Self::MplCoreCollectionNumMinted => ColumnType::Integer.def().null(),
-            Self::MplCoreCollectionCurrentSize => ColumnType::Integer.def().null(),
-            Self::MplCorePluginsJsonVersion => ColumnType::Integer.def().null(),
         }
     }
 }

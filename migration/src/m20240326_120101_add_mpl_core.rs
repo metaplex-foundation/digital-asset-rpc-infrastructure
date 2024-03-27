@@ -21,24 +21,13 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(MplCore::AssetId).binary().not_null())
-                    .col(ColumnDef::new(MplCore::Seq).big_integer().null())
-                    .col(ColumnDef::new(MplCore::Plugins).json_binary().null())
-                    .col(ColumnDef::new(MplCore::UnknownPlugins).json_binary().null())
-                    .col(
-                        ColumnDef::new(MplCore::PluginsJsonVersion)
-                            .unsigned()
-                            .null(),
-                    )
-                    .col(
-                        ColumnDef::new(MplCore::CollectionNumMinted)
-                            .unsigned()
-                            .null(),
-                    )
-                    .col(
-                        ColumnDef::new(MplCore::CollectionCurrentSize)
-                            .unsigned()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(MplCore::Seq).big_integer())
+                    .col(ColumnDef::new(MplCore::SlotUpdated).big_integer())
+                    .col(ColumnDef::new(MplCore::Plugins).json_binary())
+                    .col(ColumnDef::new(MplCore::UnknownPlugins).json_binary())
+                    .col(ColumnDef::new(MplCore::PluginsJsonVersion).unsigned())
+                    .col(ColumnDef::new(MplCore::CollectionNumMinted).unsigned())
+                    .col(ColumnDef::new(MplCore::CollectionCurrentSize).unsigned())
                     .to_owned(),
             )
             .await?;
