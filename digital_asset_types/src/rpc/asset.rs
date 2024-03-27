@@ -362,7 +362,7 @@ pub struct MplCoreInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub num_minted: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_supply: Option<i32>,
+    pub current_size: Option<i32>,
     pub plugins_json_version: Option<i32>,
 }
 

@@ -371,7 +371,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
             num_minted: asset.mpl_core_collection_num_minted,
-            current_supply: asset.mpl_core_collection_current_size,
+            current_size: asset.mpl_core_collection_current_size,
             plugins_json_version: asset.mpl_core_plugins_json_version,
         }),
         _ => None,
