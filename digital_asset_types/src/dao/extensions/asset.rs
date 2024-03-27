@@ -103,6 +103,7 @@ impl Default for asset::Model {
             owner_delegate_seq: None,
             leaf_seq: None,
             base_info_seq: None,
+            mint_extensions: None,
         }
     }
 }

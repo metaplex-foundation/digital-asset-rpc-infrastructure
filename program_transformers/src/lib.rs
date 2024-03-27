@@ -3,6 +3,7 @@ use {
         bubblegum::handle_bubblegum_instruction,
         error::{ProgramTransformerError, ProgramTransformerResult},
         token::handle_token_program_account,
+        token_extensions::handle_token_extensions_program_account,
         token_metadata::handle_token_metadata_account,
     },
     blockbuster::{
@@ -26,7 +27,9 @@ mod asset_upserts;
 mod bubblegum;
 pub mod error;
 mod token;
+mod token_extensions;
 mod token_metadata;
+mod utils;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -227,7 +230,18 @@ impl ProgramTransformer {
                     )
                     .await
                 }
-                _ => Err(ProgramTransformerError::NotImplemented),
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    handle_token_extensions_program_account(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
+                        &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::Bubblegum(_)
+                | ProgramParseResult::MplCore(_)
+                | ProgramParseResult::Unknown => Err(ProgramTransformerError::NotImplemented),
             }?;
         }
         Ok(())
