@@ -1,0 +1,111 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 66
+expression: response
+---
+{
+  "interface": "MplCoreAsset",
+  "id": "JCPjxuL4abG7M7NDtKUt1ekh3jg1FJLW6n1G92TUpoA4",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://example.com/asset",
+    "files": [],
+    "metadata": {
+      "name": "Test Asset",
+      "symbol": ""
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "AVyNtmNdLAbxyzPDbaeJjpVJSPb5vtyido8NzyKKuVjQ"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0005,
+    "basis_points": 5,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+      "share": 100,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": true,
+    "delegate": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+    "ownership_model": "single",
+    "owner": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false,
+  "plugins": {
+    "royalties": {
+      "data": {
+        "creators": [
+          {
+            "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+            "percentage": 100
+          }
+        ],
+        "rule_set": "None",
+        "basis_points": 5
+      },
+      "index": 0,
+      "offset": 119,
+      "authority": {
+        "type": "UpdateAuthority",
+        "address": null
+      }
+    },
+    "freeze_delegate": {
+      "data": {
+        "frozen": false
+      },
+      "index": 1,
+      "offset": 160,
+      "authority": {
+        "type": "Address",
+        "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+      }
+    },
+    "transfer_delegate": {
+      "data": {},
+      "index": 2,
+      "offset": 162,
+      "authority": {
+        "type": "Owner",
+        "address": null
+      }
+    }
+  },
+  "mpl_core_info": {
+    "plugins_json_version": 1
+  }
+}

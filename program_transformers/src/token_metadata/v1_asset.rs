@@ -40,7 +40,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     id: Pubkey,
     slot: u64,
 ) -> ProgramTransformerResult<()> {
-    let (id, slot_i) = (id, slot as i64);
+    let slot_i = slot as i64;
     let model = asset::ActiveModel {
         id: ActiveValue::Set(id.to_bytes().to_vec()),
         slot_updated: ActiveValue::Set(Some(slot_i)),
@@ -84,7 +84,7 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         upsert_assets_mint_account_columns(
             AssetMintAccountColumns {
                 mint: mint_pubkey_vec.clone(),
-                suppply_mint: Some(token.mint.clone()),
+                supply_mint: Some(token.mint.clone()),
                 supply: token.supply as u64,
                 slot_updated_mint_account: token.slot_updated as u64,
             },
@@ -269,6 +269,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             royalty_amount: metadata.seller_fee_basis_points as i32,
             asset_data: Some(mint_pubkey_vec.clone()),
             slot_updated_metadata_account: slot_i as u64,
+            plugins: None,
+            unknown_plugins: None,
+            mpl_core_collection_num_minted: None,
+            mpl_core_collection_current_size: None,
+            mpl_core_plugins_json_version: None,
         },
         &txn,
     )
