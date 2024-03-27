@@ -84,11 +84,6 @@ pub enum Asset {
     WasDecompressed,
     LeafSeq,
     BaseInfoSeq,
-    MplCorePlugins,
-    MplCoreUnknownPlugins,
-    MplCoreCollectionNumMinted,
-    MplCoreCollectionCurrentSize,
-    MplCorePluginsJsonVersion,
 }
 
 #[derive(Copy, Clone, Iden)]
@@ -174,4 +169,17 @@ pub enum ClAuditsV2 {
     CreatedAt,
     Tx,
     Instruction,
+}
+
+#[derive(Copy, Clone, Iden)]
+pub enum MplCore {
+    Table,
+    Id,
+    AssetId,
+    Seq,
+    Plugins,
+    UnknownPlugins,
+    PluginsJsonVersion,
+    CollectionNumMinted,
+    CollectionCurrentSize,
 }
