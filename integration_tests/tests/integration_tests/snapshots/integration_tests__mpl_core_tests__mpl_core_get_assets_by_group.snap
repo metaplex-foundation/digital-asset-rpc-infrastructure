@@ -1,6 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 107
+assertion_line: 149
 expression: response
 ---
 {
@@ -10,7 +10,7 @@ expression: response
   "items": [
     {
       "interface": "MplCoreAsset",
-      "id": "3YhJuW9X9Hvf4MVv5qP5xWxEMPrQu8uTwjkKR1q7D1gh",
+      "id": "kTMCCKLTaZsnSReer12HsciwScUwhHyZyd9D9BwQF8k",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
         "json_uri": "https://example.com/asset",
@@ -42,7 +42,7 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "6Wp9xk6GrD4EmDKuD7fr2URJubjtGq5MXENR9UU15C9i"
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
         }
       ],
       "royalty": {
@@ -71,7 +71,7 @@ expression: response
     },
     {
       "interface": "MplCoreAsset",
-      "id": "79Npv5WTGGkfVc4QYhmnz9xRUbCPV4g5aNKvotvGo4Ko",
+      "id": "EgzsppfYJmUet4ve8MnuHMyvSnj6R7LRmwsGEH5TuGhB",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
         "json_uri": "https://example.com/asset",
@@ -103,7 +103,7 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "6Wp9xk6GrD4EmDKuD7fr2URJubjtGq5MXENR9UU15C9i"
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
         }
       ],
       "royalty": {
@@ -132,7 +132,7 @@ expression: response
     },
     {
       "interface": "MplCoreAsset",
-      "id": "9qS8Xo1M3RUqvrLwd5RaA6iMbzh9An7nwDSDe1aB5mtr",
+      "id": "J2kazVRuZ33Po4PVyZGxiDYUMQ1eZiT5Xa13usRYo264",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
         "json_uri": "https://example.com/asset",
@@ -164,7 +164,7 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "6Wp9xk6GrD4EmDKuD7fr2URJubjtGq5MXENR9UU15C9i"
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
         }
       ],
       "royalty": {
