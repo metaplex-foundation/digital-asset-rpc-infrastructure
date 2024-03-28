@@ -1,11 +1,11 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 37
+assertion_line: 66
 expression: response
 ---
 {
   "interface": "MplCoreCollection",
-  "id": "AVyNtmNdLAbxyzPDbaeJjpVJSPb5vtyido8NzyKKuVjQ",
+  "id": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/collection",
@@ -56,12 +56,14 @@ expression: response
   "burnt": false,
   "plugins": {
     "update_delegate": {
-      "data": {},
+      "data": {
+        "additional_delegates": []
+      },
       "index": 0,
       "offset": 103,
       "authority": {
         "type": "Address",
-        "address": "GKF1wG5rUTYgnrbvyrxA6Zpt35UNY836KrwjApxdgmw9"
+        "address": "BpEw34ZXHm9TeqnPbcsHZJnx7StGa3GxBkZ3uTD9scfZ"
       }
     }
   },

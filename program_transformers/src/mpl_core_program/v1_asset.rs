@@ -6,7 +6,7 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        DownloadMetadataInfo,
+        find_model_with_retry, DownloadMetadataInfo,
     },
     blockbuster::{
         mpl_core::types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
@@ -26,11 +26,10 @@ use {
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         query::{JsonValue, QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, DbErr, TransactionTrait,
+        ConnectionTrait, DbBackend, TransactionTrait,
     },
-    serde_json::value::Value,
+    serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
-    tokio::time::{sleep, Duration},
     tracing::warn,
 };
 
@@ -90,11 +89,16 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // use the collection's authority.
     let update_authority = match asset.update_authority {
         UpdateAuthority::Address(address) => address.to_bytes().to_vec(),
-        UpdateAuthority::Collection(address) => {
-            find_collection_authority(conn, address.to_bytes().to_vec(), RETRY_INTERVALS)
-                .await?
-                .unwrap_or(vec![])
-        }
+        UpdateAuthority::Collection(address) => find_model_with_retry(
+            conn,
+            "mpl_core",
+            &asset_authority::Entity::find()
+                .filter(asset_authority::Column::AssetId.eq(address.to_bytes().to_vec())),
+            RETRY_INTERVALS,
+        )
+        .await?
+        .map(|model| model.authority)
+        .unwrap_or_default(),
         UpdateAuthority::None => Pubkey::default().to_bytes().to_vec(),
     };
 
@@ -426,30 +430,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // Otherwise return with info for background downloading.
     Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
 }
-
-async fn find_collection_authority<T: ConnectionTrait + TransactionTrait>(
-    conn: &T,
-    address: Vec<u8>,
-    retry_intervals: &[u64],
-) -> Result<Option<Vec<u8>>, DbErr> {
-    let model: Option<asset_authority::Model> = asset_authority::Entity::find()
-        .filter(asset_authority::Column::AssetId.eq(address.clone()))
-        .one(conn)
-        .await?;
-
-    for interval in retry_intervals {
-        let interval_duration = Duration::from_millis(*interval);
-        sleep(interval_duration).await;
-
-        if let Some(m) = model {
-            return Ok(Some(m.authority));
-        }
-    }
-
-    Ok(None)
-}
-
-use serde_json::Map;
 
 // Modify the JSON structure to remove the `Plugin`` name and just display its data.
 // For example, this will transform `FreezeDelegate` JSON from:
