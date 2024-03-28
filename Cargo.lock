@@ -1007,9 +1007,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blockbuster"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2825aaffa306ad7b13adb06a0cb14409639ce3ff73db1d9928c125a1ca709650"
+checksum = "f5f1609d0c1d6d7f6b48bc470fd067f0d55dfdf6d84f7651b4a42a9666421755"
 dependencies = [
  "anchor-lang",
  "async-trait",
@@ -3420,9 +3420,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-core"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d7e1f1a471cd145c7649ff062c553a7370488a8564ac0629eed85c37bb86dea"
+checksum = "a12ab13d9c75156048c3e6d57717ec3ece59fdcae195124bf1cec82aef5295fa"
 dependencies = [
  "base64 0.22.0",
  "borsh 0.10.3",
