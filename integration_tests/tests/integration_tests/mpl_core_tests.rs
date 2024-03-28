@@ -21,14 +21,14 @@ async fn test_mpl_core_get_asset() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["JCPjxuL4abG7M7NDtKUt1ekh3jg1FJLW6n1G92TUpoA4"]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     let request = r#"        
     {
-        "id": "JCPjxuL4abG7M7NDtKUt1ekh3jg1FJLW6n1G92TUpoA4"
+        "id": "x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr"
     }
     "#;
 
@@ -50,14 +50,14 @@ async fn test_mpl_core_get_collection() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["AVyNtmNdLAbxyzPDbaeJjpVJSPb5vtyido8NzyKKuVjQ"]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     let request = r#"        
     {
-        "id": "AVyNtmNdLAbxyzPDbaeJjpVJSPb5vtyido8NzyKKuVjQ"
+        "id": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ"
     }
     "#;
 
@@ -80,8 +80,8 @@ async fn test_mpl_core_get_assets_by_authority() {
     .await;
 
     let seeds: Vec<SeedEvent> = seed_accounts([
-        "6pELUa5FjLvw4TRM32opiT6vL74B8W3fwCwRkPUt857",
-        "HsDL2AYtoAHZyfFKyQp6pHGKaBRBZQZDVBAT1XwbP4d5",
+        "9CSyGBw1DCVZfx621nb7UBM9SpVDsX1m9MaN6APCf1Ci",
+        "4FcFVJVPRsYoMjt8ewDGV5nipoK63SNrJzjrBHyXvhcz",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -122,10 +122,10 @@ async fn test_mpl_core_get_assets_by_group() {
     .await;
 
     let seeds: Vec<SeedEvent> = seed_accounts([
-        "6Wp9xk6GrD4EmDKuD7fr2URJubjtGq5MXENR9UU15C9i",
-        "3YhJuW9X9Hvf4MVv5qP5xWxEMPrQu8uTwjkKR1q7D1gh",
-        "79Npv5WTGGkfVc4QYhmnz9xRUbCPV4g5aNKvotvGo4Ko",
-        "9qS8Xo1M3RUqvrLwd5RaA6iMbzh9An7nwDSDe1aB5mtr",
+        "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7",
+        "kTMCCKLTaZsnSReer12HsciwScUwhHyZyd9D9BwQF8k",
+        "EgzsppfYJmUet4ve8MnuHMyvSnj6R7LRmwsGEH5TuGhB",
+        "J2kazVRuZ33Po4PVyZGxiDYUMQ1eZiT5Xa13usRYo264",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -134,7 +134,7 @@ async fn test_mpl_core_get_assets_by_group() {
     let request = r#"
     {
         "groupKey": "collection",
-        "groupValue": "6Wp9xk6GrD4EmDKuD7fr2URJubjtGq5MXENR9UU15C9i",
+        "groupValue": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7",
         "sortBy": {
             "sortBy": "updated",
             "sortDirection": "asc"
@@ -163,8 +163,8 @@ async fn test_mpl_core_get_assets_by_owner() {
     .await;
 
     let seeds: Vec<SeedEvent> = seed_accounts([
-        "EhtDFvn8oW5Vod5R37FF4uKStZCkJoMbTndsqXadMr5m",
-        "5Bwtqmss9BY4L5ENpf2mPHUNjzmWht7Pni1tepAhvHrc",
+        "4FFhh184GNqh3LEK8UhMY7KBuCdNvvhU7C23ZKrKnofb",
+        "9tsHoBrkSqBW5uMxKZyvxL6m9CCaz1a7sGEg8SuckUj",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -172,7 +172,7 @@ async fn test_mpl_core_get_assets_by_owner() {
 
     let request = r#"
     {
-        "ownerAddress": "9NfyMp6tTdgPShA34N1KNEiX4A1iCzGpXKeG6jBfatiZ",
+        "ownerAddress": "7uScVQiT4vArB88dHrZoeVKWbtsRJmNp9r5Gce5VQpXS",
         "sortBy": {
             "sortBy": "updated",
             "sortDirection": "asc"

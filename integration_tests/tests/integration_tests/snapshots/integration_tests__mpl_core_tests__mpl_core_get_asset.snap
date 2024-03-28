@@ -1,11 +1,11 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 66
+assertion_line: 37
 expression: response
 ---
 {
   "interface": "MplCoreAsset",
-  "id": "JCPjxuL4abG7M7NDtKUt1ekh3jg1FJLW6n1G92TUpoA4",
+  "id": "x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/asset",
@@ -37,7 +37,7 @@ expression: response
   "grouping": [
     {
       "group_key": "collection",
-      "group_value": "AVyNtmNdLAbxyzPDbaeJjpVJSPb5vtyido8NzyKKuVjQ"
+      "group_value": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ"
     }
   ],
   "royalty": {
