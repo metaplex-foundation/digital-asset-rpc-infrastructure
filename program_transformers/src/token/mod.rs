@@ -169,6 +169,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                             tokens::Column::SlotUpdated,
                             tokens::Column::Decimals,
                             tokens::Column::FreezeAuthority,
+                            tokens::Column::Extensions,
                         ])
                         .to_owned(),
                 )
@@ -193,7 +194,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                 upsert_assets_mint_account_columns(
                     AssetMintAccountColumns {
                         mint: account_key.clone(),
-                        suppply_mint: Some(account_key),
+                        supply_mint: Some(account_key),
                         supply: m.supply,
                         slot_updated_mint_account: account_info.slot,
                     },

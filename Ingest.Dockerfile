@@ -12,6 +12,7 @@ COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY migration /rust/migration
 COPY nft_ingester /rust/nft_ingester
 COPY ops /rust/ops
+COPY program_transformers /rust/program_transformers
 COPY tools /rust/tools
 
 WORKDIR /rust/nft_ingester
@@ -31,6 +32,7 @@ COPY metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY migration /rust/migration
 COPY nft_ingester /rust/nft_ingester
 COPY ops /rust/ops
+COPY program_transformers /rust/program_transformers
 COPY tools /rust/tools
 
 WORKDIR /rust/nft_ingester

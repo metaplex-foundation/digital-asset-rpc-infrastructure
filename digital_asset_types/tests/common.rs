@@ -163,6 +163,11 @@ pub fn create_asset(
             owner_delegate_seq: Some(0),
             leaf_seq: Some(0),
             base_info_seq: Some(0),
+            mpl_core_plugins: None,
+            mpl_core_unknown_plugins: None,
+            mpl_core_collection_current_size: None,
+            mpl_core_collection_num_minted: None,
+            mpl_core_plugins_json_version: None,
         },
     )
 }

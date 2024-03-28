@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::model::table::{Asset, TokenAccounts, Tokens};
+use crate::model::table::Asset;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -12,26 +12,39 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Asset::Table)
-                    .add_column(ColumnDef::new(Asset::MintExtensions).json_binary())
+                    .add_column(
+                        ColumnDef::new(Asset::MplCoreCollectionNumMinted)
+                            .integer()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await?;
         manager
             .alter_table(
                 Table::alter()
-                    .table(Tokens::Table)
-                    .add_column(ColumnDef::new(Tokens::Extensions).json_binary())
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::MplCoreCollectionCurrentSize)
+                            .integer()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await?;
         manager
             .alter_table(
                 Table::alter()
-                    .table(TokenAccounts::Table)
-                    .add_column(ColumnDef::new(TokenAccounts::Extensions).json_binary())
+                    .table(Asset::Table)
+                    .add_column(
+                        ColumnDef::new(Asset::MplCorePluginsJsonVersion)
+                            .integer()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await?;
+
         Ok(())
     }
 
@@ -40,23 +53,23 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Asset::Table)
-                    .drop_column(Asset::MintExtensions)
+                    .drop_column(Asset::MplCoreCollectionNumMinted)
                     .to_owned(),
             )
             .await?;
         manager
             .alter_table(
                 Table::alter()
-                    .table(Tokens::Table)
-                    .drop_column(Tokens::Extensions)
+                    .table(Asset::Table)
+                    .drop_column(Asset::MplCoreCollectionCurrentSize)
                     .to_owned(),
             )
             .await?;
         manager
             .alter_table(
                 Table::alter()
-                    .table(TokenAccounts::Table)
-                    .drop_column(TokenAccounts::Extensions)
+                    .table(Asset::Table)
+                    .drop_column(Asset::MplCorePluginsJsonVersion)
                     .to_owned(),
             )
             .await?;

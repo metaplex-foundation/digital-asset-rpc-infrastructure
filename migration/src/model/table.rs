@@ -84,6 +84,12 @@ pub enum Asset {
     WasDecompressed,
     LeafSeq,
     BaseInfoSeq,
+    MplCorePlugins,
+    MplCoreUnknownPlugins,
+    MplCoreCollectionNumMinted,
+    MplCoreCollectionCurrentSize,
+    MplCorePluginsJsonVersion,
+    MintExtensions,
 }
 
 #[derive(Copy, Clone, Iden)]
@@ -128,6 +134,7 @@ pub enum TokenAccounts {
     CloseAuthority,
     Delegate,
     DelegatedAmount,
+    Extensions,
     SlotUpdated,
     TokenProgram,
 }
@@ -138,6 +145,7 @@ pub enum Tokens {
     Mint,
     Supply,
     Decimals,
+    Extensions,
     TokenProgram,
     MintAuthority,
     FreezeAuthority,

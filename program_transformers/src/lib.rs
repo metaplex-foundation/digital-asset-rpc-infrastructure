@@ -2,6 +2,7 @@ use {
     crate::{
         bubblegum::handle_bubblegum_instruction,
         error::{ProgramTransformerError, ProgramTransformerResult},
+        mpl_core_program::handle_mpl_core_account,
         token::handle_token_program_account,
         token_extensions::handle_token_extensions_program_account,
         token_metadata::handle_token_metadata_account,
@@ -10,8 +11,9 @@ use {
         instruction::{order_instructions, InstructionBundle, IxPair},
         program_handler::ProgramParser,
         programs::{
-            bubblegum::BubblegumParser, token_account::TokenAccountParser,
-            token_metadata::TokenMetadataParser, ProgramParseResult,
+            bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
+            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
+            ProgramParseResult,
         },
     },
     futures::future::BoxFuture,
@@ -26,6 +28,7 @@ use {
 mod asset_upserts;
 mod bubblegum;
 pub mod error;
+mod mpl_core_program;
 mod token;
 mod token_extensions;
 mod token_metadata;
@@ -93,9 +96,11 @@ impl ProgramTransformer {
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
+        let mpl_core = MplCoreParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
+        parsers.insert(mpl_core.key(), Box::new(mpl_core));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -239,9 +244,18 @@ impl ProgramTransformer {
                     )
                     .await
                 }
-                ProgramParseResult::Bubblegum(_)
-                | ProgramParseResult::MplCore(_)
-                | ProgramParseResult::Unknown => Err(ProgramTransformerError::NotImplemented),
+                ProgramParseResult::MplCore(parsing_result) => {
+                    handle_mpl_core_account(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
+                        &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::Bubblegum(_) | ProgramParseResult::Unknown => {
+                    Err(ProgramTransformerError::NotImplemented)
+                }
             }?;
         }
         Ok(())

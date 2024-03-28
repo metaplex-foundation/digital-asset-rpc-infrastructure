@@ -43,6 +43,10 @@ pub enum Interface {
     Executable,
     #[serde(rename = "ProgrammableNFT")]
     ProgrammableNFT,
+    #[serde(rename = "MplCoreAsset")]
+    MplCoreAsset,
+    #[serde(rename = "MplCoreCollection")]
+    MplCoreCollection,
 }
 
 impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
@@ -54,6 +58,8 @@ impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
             (SpecificationVersions::V1, SpecificationAssetClass::ProgrammableNft) => {
                 Interface::ProgrammableNFT
             }
+            (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
+            (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
             _ => Interface::Custom,
         }
     }
@@ -72,6 +78,14 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
             Interface::FungibleAsset => (
                 SpecificationVersions::V1,
                 SpecificationAssetClass::FungibleAsset,
+            ),
+            Interface::MplCoreAsset => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::MplCoreAsset,
+            ),
+            Interface::MplCoreCollection => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::MplCoreCollection,
             ),
             _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
         }
@@ -344,6 +358,15 @@ pub struct Supply {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MplCoreInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub num_minted: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_size: Option<i32>,
+    pub plugins_json_version: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,
@@ -367,4 +390,10 @@ pub struct Asset {
     pub burnt: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_extensions: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugins: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_plugins: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mpl_core_info: Option<MplCoreInfo>,
 }

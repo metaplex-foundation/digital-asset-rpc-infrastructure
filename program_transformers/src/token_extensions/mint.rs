@@ -102,10 +102,11 @@ async fn insert_into_tokens_table(
                     tokens::Column::TokenProgram,
                     tokens::Column::MintAuthority,
                     tokens::Column::CloseAuthority,
-                    tokens::Column::Extensions,
+                    tokens::Column::ExtensionData,
                     tokens::Column::SlotUpdated,
                     tokens::Column::Decimals,
                     tokens::Column::FreezeAuthority,
+                    tokens::Column::Extensions,
                 ])
                 .to_owned(),
         )
@@ -150,6 +151,8 @@ async fn upsert_asset_data(
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::BaseInfoSeq,
+                    asset_data::Column::RawName,
+                    asset_data::Column::RawSymbol,
                 ])
                 .to_owned(),
         )
@@ -214,32 +217,6 @@ async fn upsert_asset(
             }
         }
 
-        let extensions = serde_json::to_value(m.extensions.clone())
-            .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
-
-        let class = match is_nft {
-            true => SpecificationAssetClass::Nft,
-            false => SpecificationAssetClass::FungibleToken,
-        };
-
-        let asset_model = asset::ActiveModel {
-            id: Set(key_bytes.clone()),
-            owner_type: Set(owner_type),
-            supply: Set(m.account.supply as i64),
-            supply_mint: Set(Some(key_bytes.clone())),
-            specification_version: Set(Some(SpecificationVersions::V1)),
-            specification_asset_class: Set(Some(class)),
-            nonce: Set(Some(0)),
-            seq: Set(Some(0)),
-            compressed: Set(false),
-            compressible: Set(false),
-            asset_data: Set(Some(key_bytes.clone())),
-            slot_updated: Set(Some(slot)),
-            burnt: Set(false),
-            mint_extensions: Set(Some(extensions)),
-            ..Default::default()
-        };
-
         let auth_address: Option<Vec<u8>> = m.extensions.metadata.clone().and_then(|m| {
             let auth_pubkey: Option<Pubkey> = m.update_authority.into();
             auth_pubkey.map(|value| value.to_bytes().to_vec())
@@ -274,6 +251,33 @@ async fn upsert_asset(
                 .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
         }
 
+        let extensions = serde_json::to_value(m.extensions.clone())
+            .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
+
+        let class = if is_nft {
+            SpecificationAssetClass::Nft
+        } else {
+            SpecificationAssetClass::FungibleToken
+        };
+
+        let asset_model = asset::ActiveModel {
+            id: Set(key_bytes.clone()),
+            owner_type: Set(owner_type),
+            supply: Set(m.account.supply as i64),
+            supply_mint: Set(Some(key_bytes.clone())),
+            specification_version: Set(Some(SpecificationVersions::V1)),
+            specification_asset_class: Set(Some(class)),
+            nonce: Set(Some(0)),
+            seq: Set(Some(0)),
+            compressed: Set(false),
+            compressible: Set(false),
+            asset_data: Set(Some(key_bytes.clone())),
+            slot_updated: Set(Some(slot)),
+            burnt: Set(false),
+            mint_extensions: Set(Some(extensions)),
+            ..Default::default()
+        };
+
         let mut asset_query = asset::Entity::insert(asset_model)
             .on_conflict(
                 OnConflict::columns([asset::Column::Id])
@@ -290,6 +294,7 @@ async fn upsert_asset(
                         asset::Column::AssetData,
                         asset::Column::SlotUpdated,
                         asset::Column::Burnt,
+                        asset::Column::MintExtensions,
                     ])
                     .to_owned(),
             )

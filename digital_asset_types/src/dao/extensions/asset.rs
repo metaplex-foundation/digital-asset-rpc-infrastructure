@@ -104,6 +104,11 @@ impl Default for asset::Model {
             leaf_seq: None,
             base_info_seq: None,
             mint_extensions: None,
+            mpl_core_plugins: None,
+            mpl_core_unknown_plugins: None,
+            mpl_core_collection_current_size: None,
+            mpl_core_collection_num_minted: None,
+            mpl_core_plugins_json_version: None,
         }
     }
 }

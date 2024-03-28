@@ -11,6 +11,7 @@ COPY ./metaplex-rpc-proxy /metaplex-rpc-proxy
 COPY ./migration /migration
 COPY ./nft_ingester /nft_ingester
 COPY ./ops /ops
+COPY ./program_transformers /program_transformers
 COPY ./tools /tools
 
 WORKDIR /migration

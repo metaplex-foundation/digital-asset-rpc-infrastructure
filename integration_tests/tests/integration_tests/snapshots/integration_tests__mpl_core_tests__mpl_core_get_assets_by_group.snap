@@ -1,0 +1,195 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 149
+expression: response
+---
+{
+  "total": 3,
+  "limit": 50,
+  "page": 1,
+  "items": [
+    {
+      "interface": "MplCoreAsset",
+      "id": "kTMCCKLTaZsnSReer12HsciwScUwhHyZyd9D9BwQF8k",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/asset",
+        "files": [],
+        "metadata": {
+          "name": "Test Asset",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "plugins": {},
+      "mpl_core_info": {
+        "plugins_json_version": 1
+      }
+    },
+    {
+      "interface": "MplCoreAsset",
+      "id": "EgzsppfYJmUet4ve8MnuHMyvSnj6R7LRmwsGEH5TuGhB",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/asset",
+        "files": [],
+        "metadata": {
+          "name": "Test Asset",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "plugins": {},
+      "mpl_core_info": {
+        "plugins_json_version": 1
+      }
+    },
+    {
+      "interface": "MplCoreAsset",
+      "id": "J2kazVRuZ33Po4PVyZGxiDYUMQ1eZiT5Xa13usRYo264",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/asset",
+        "files": [],
+        "metadata": {
+          "name": "Test Asset",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "JChzyyp1CnNz56tJLteQ5BsbngmWQ3JwcxLZrmuQA5b7"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "plugins": {},
+      "mpl_core_info": {
+        "plugins_json_version": 1
+      }
+    }
+  ]
+}
