@@ -389,6 +389,8 @@ pub struct Asset {
     pub mutable: bool,
     pub burnt: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_extensions: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_plugins: Option<Value>,

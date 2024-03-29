@@ -6,7 +6,8 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        find_model_with_retry, DownloadMetadataInfo,
+        utils::find_model_with_retry,
+        DownloadMetadataInfo,
     },
     blockbuster::{
         mpl_core::types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},

@@ -4,6 +4,7 @@ use {
         error::{ProgramTransformerError, ProgramTransformerResult},
         mpl_core_program::handle_mpl_core_account,
         token::handle_token_program_account,
+        token_extensions::handle_token_extensions_program_account,
         token_metadata::handle_token_metadata_account,
     },
     blockbuster::{
@@ -11,20 +12,16 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
-            ProgramParseResult,
+            token_account::TokenAccountParser, token_extensions::Token2022AccountParser,
+            token_metadata::TokenMetadataParser, ProgramParseResult,
         },
     },
     futures::future::BoxFuture,
-    sea_orm::{
-        entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
-        SqlxPostgresConnector, TransactionTrait,
-    },
+    sea_orm::{DatabaseConnection, SqlxPostgresConnector},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
-    tokio::time::{sleep, Duration},
     tracing::{debug, error, info},
 };
 
@@ -33,7 +30,9 @@ mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_extensions;
 mod token_metadata;
+mod utils;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -93,15 +92,18 @@ impl ProgramTransformer {
         download_metadata_notifier: DownloadMetadataNotifier,
         cl_audits: bool,
     ) -> Self {
-        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
+        info!("Initializing Program Transformer");
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(5);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
+        let token_extensions = Token2022AccountParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
+        parsers.insert(token_extensions.key(), Box::new(token_extensions));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -215,6 +217,7 @@ impl ProgramTransformer {
         &self,
         account_info: &AccountInfo,
     ) -> ProgramTransformerResult<()> {
+        info!("Handling Account Update: {:?}", account_info.pubkey);
         if let Some(program) = self.match_program(&account_info.owner) {
             let result = program.handle_account(&account_info.data)?;
             match result.result_type() {
@@ -236,6 +239,16 @@ impl ProgramTransformer {
                     )
                     .await
                 }
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    info!("Handling Token Extensions Program Account");
+                    handle_token_extensions_program_account(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
+                        &self.download_metadata_notifier,
+                    )
+                    .await
+                }
                 ProgramParseResult::MplCore(parsing_result) => {
                     handle_mpl_core_account(
                         account_info,
@@ -245,42 +258,11 @@ impl ProgramTransformer {
                     )
                     .await
                 }
-                _ => Err(ProgramTransformerError::NotImplemented),
+                ProgramParseResult::Bubblegum(_) | ProgramParseResult::Unknown => {
+                    Err(ProgramTransformerError::NotImplemented)
+                }
             }?;
         }
         Ok(())
-    }
-}
-
-pub async fn find_model_with_retry<T: ConnectionTrait + TransactionTrait, K: EntityTrait>(
-    conn: &T,
-    model_name: &str,
-    select: &Select<K>,
-    retry_intervals: &[u64],
-) -> Result<Option<K::Model>, DbErr> {
-    let mut retries = 0;
-    let metric_name = format!("{}_found", model_name);
-
-    for interval in retry_intervals {
-        let interval_duration = Duration::from_millis(*interval);
-        sleep(interval_duration).await;
-
-        let model = select.clone().one(conn).await?;
-        if let Some(m) = model {
-            record_metric(&metric_name, true, retries);
-            return Ok(Some(m));
-        }
-        retries += 1;
-    }
-
-    record_metric(&metric_name, false, retries - 1);
-    Ok(None)
-}
-
-fn record_metric(metric_name: &str, success: bool, retries: u32) {
-    let retry_count = &retries.to_string();
-    let success = if success { "true" } else { "false" };
-    if cadence_macros::is_global_default_set() {
-        cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
     }
 }
