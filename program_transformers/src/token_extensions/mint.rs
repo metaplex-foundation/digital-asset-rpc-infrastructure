@@ -144,6 +144,7 @@ async fn upsert_asset_data(
         .map_err(|e| IngesterError::SerializatonError(e.to_string()))?;
     let asset_data_model = asset_data::ActiveModel {
         metadata_url: Set(metadata.uri.clone()),
+        metadata: Set(JsonValue::String("processing".to_string())),
         id: Set(key_bytes.clone()),
         chain_data_mutability: Set(ChainMutability::Mutable),
         chain_data: Set(metadata_json),

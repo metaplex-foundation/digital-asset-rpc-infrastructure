@@ -11,8 +11,8 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
-            ProgramParseResult,
+            token_account::TokenAccountParser, token_extensions::Token2022AccountParser,
+            token_metadata::TokenMetadataParser, ProgramParseResult,
         },
     },
     futures::future::BoxFuture,
@@ -89,16 +89,23 @@ pub struct ProgramTransformer {
 }
 
 impl ProgramTransformer {
-    pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
-        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
+    pub fn new(
+        pool: PgPool,
+        download_metadata_notifier: DownloadMetadataNotifier,
+        cl_audits: bool,
+    ) -> Self {
+        info!("Initializing Program Transformer");
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(5);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
+        let token_extensions = Token2022AccountParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
+        parsers.insert(token_extensions.key(), Box::new(token_extensions));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -213,6 +220,7 @@ impl ProgramTransformer {
         &self,
         account_info: &AccountInfo,
     ) -> ProgramTransformerResult<()> {
+        info!("Handling Account Update: {:?}", account_info.pubkey);
         if let Some(program) = self.match_program(&account_info.owner) {
             let result = program.handle_account(&account_info.data)?;
             match result.result_type() {
@@ -227,6 +235,16 @@ impl ProgramTransformer {
                 }
                 ProgramParseResult::TokenProgramAccount(parsing_result) => {
                     handle_token_program_account(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
+                        &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    info!("Handling Token Extensions Program Account");
+                    handle_token_extensions_program_account(
                         account_info,
                         parsing_result,
                         &self.storage,
