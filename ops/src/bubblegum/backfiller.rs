@@ -1,12 +1,10 @@
-use super::{
-    queue::{QueueArgs, QueuePool},
-    rpc::{Rpc, SolanaRpcArgs},
-    tree::{TreeErrorKind, TreeGapFill, TreeGapModel, TreeResponse},
-};
+use super::tree::{TreeErrorKind, TreeGapFill, TreeGapModel, TreeResponse};
 use anyhow::Result;
 use cadence_macros::{statsd_count, statsd_time};
 use clap::Parser;
-use das_core::{connect_db, setup_metrics, MetricsArgs, PoolArgs};
+use das_core::{
+    connect_db, setup_metrics, MetricsArgs, PoolArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs,
+};
 use digital_asset_types::dao::cl_audits_v2;
 use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -303,7 +301,9 @@ async fn queue_transaction<'a>(
 
     let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
 
-    queue.push(message.finished_data()).await?;
+    queue
+        .push_transaction_backfill(message.finished_data())
+        .await?;
 
     Ok(())
 }

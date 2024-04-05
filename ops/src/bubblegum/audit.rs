@@ -1,9 +1,8 @@
-use super::rpc::{Rpc, SolanaRpcArgs};
 use anyhow::Result;
 
 use borsh::BorshSerialize;
 use clap::Parser;
-use das_core::{connect_db, MetricsArgs, PoolArgs};
+use das_core::{connect_db, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
 use futures::future;
 use log::debug;
 use std::{path::PathBuf, str::FromStr};
@@ -56,8 +55,7 @@ pub async fn run(config: Args) -> Result<()> {
             Ok(content) => content
                 .lines()
                 .last()
-                .map(|last_entry| last_entry.parse().ok())
-                .flatten(),
+                .and_then(|last_entry| last_entry.parse().ok()),
             Err(_) => None,
         };
     }
@@ -67,9 +65,9 @@ pub async fn run(config: Args) -> Result<()> {
 
         if let Some(only_trees) = &config.only_trees {
             let pubkeys = only_trees
-                .into_iter()
+                .iter()
                 .map(|address| {
-                    Pubkey::from_str(&address)
+                    Pubkey::from_str(address)
                         .map_err(|e| anyhow::anyhow!(e.to_string()))?
                         .try_to_vec()
                         .map_err(|e| anyhow::anyhow!(e.to_string()))

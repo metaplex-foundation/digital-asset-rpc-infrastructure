@@ -1,0 +1,81 @@
+use anyhow::Result;
+
+use super::account_details::AccountDetails;
+use clap::Parser;
+use das_core::{MetricsArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs};
+use flatbuffers::FlatBufferBuilder;
+use plerkle_serialization::{
+    serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
+};
+use solana_sdk::pubkey::Pubkey;
+
+#[derive(Debug, Parser, Clone)]
+pub struct Args {
+    /// Redis configuration
+    #[clap(flatten)]
+    pub queue: QueueArgs,
+
+    /// Metrics configuration
+    #[clap(flatten)]
+    pub metrics: MetricsArgs,
+
+    /// Solana configuration
+    #[clap(flatten)]
+    pub solana: SolanaRpcArgs,
+
+    /// The batch size to use when fetching accounts
+    #[arg(long, env, default_value = "1000")]
+    pub batch_size: usize,
+
+    /// The public key of the program to backfill
+    #[clap(value_parser = parse_pubkey)]
+    pub program: Pubkey,
+}
+
+fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
+    Pubkey::try_from(s).map_err(|_| "Failed to parse public key")
+}
+
+pub async fn run(config: Args) -> Result<()> {
+    let rpc = Rpc::from_config(config.solana);
+    let queue = QueuePool::try_from_config(config.queue).await?;
+
+    let accounts = rpc.get_program_accounts(&config.program, None).await?;
+
+    let accounts_chunks = accounts.chunks(config.batch_size);
+
+    for batch in accounts_chunks {
+        let results = futures::future::try_join_all(
+            batch
+                .iter()
+                .map(|(pubkey, _account)| AccountDetails::fetch(&rpc, pubkey)),
+        )
+        .await?;
+
+        for account_detail in results {
+            let AccountDetails {
+                account,
+                slot,
+                pubkey,
+            } = account_detail;
+            let builder = FlatBufferBuilder::new();
+            let account_info = ReplicaAccountInfoV2 {
+                pubkey: &pubkey.to_bytes(),
+                lamports: account.lamports,
+                owner: &account.owner.to_bytes(),
+                executable: account.executable,
+                rent_epoch: account.rent_epoch,
+                data: &account.data,
+                write_version: 0,
+                txn_signature: None,
+            };
+
+            let fbb = serialize_account(builder, &account_info, slot, false);
+            let bytes = fbb.finished_data();
+
+            queue.push_account_backfill(bytes).await?;
+        }
+    }
+
+    Ok(())
+}

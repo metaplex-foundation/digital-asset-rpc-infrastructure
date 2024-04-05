@@ -1,8 +1,7 @@
 use {
     crate::error::{ProgramTransformerError, ProgramTransformerResult},
     digital_asset_types::dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
-        cl_audits_v2, cl_items,
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2, cl_items,
         sea_orm_active_enums::{
             ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
             SpecificationAssetClass, SpecificationVersions,
@@ -10,13 +9,13 @@ use {
     },
     mpl_bubblegum::types::{Collection, Creator},
     sea_orm::{
-        entity::{ActiveValue, ColumnTrait, EntityTrait},
-        query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
+        entity::{ActiveValue, EntityTrait},
+        query::{JsonValue, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
     spl_account_compression::events::ChangeLogEventV1,
-    tracing::{debug, error, info},
+    tracing::{debug, error},
 };
 
 pub async fn save_changelog_event<'c, T>(
@@ -40,7 +39,7 @@ const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
 
 pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
-    slot: u64,
+    _slot: u64,
     txn_id: &str,
     txn: &T,
     instruction: &str,
@@ -49,10 +48,9 @@ pub async fn insert_change_log<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let mut i: i64 = 0;
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();
-    for p in change_log_event.path.iter() {
+    for (i, p) in (0_i64..).zip(change_log_event.path.iter()) {
         let node_idx = p.index as i64;
         debug!(
             "seq {}, index {} level {}, node {:?}, txn: {:?}, instruction {}",
@@ -79,7 +77,6 @@ where
             ..Default::default()
         };
 
-        i += 1;
         let mut query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])

@@ -1703,10 +1703,19 @@ name = "das-core"
 version = "0.7.2"
 dependencies = [
  "anyhow",
+ "backon",
  "cadence",
  "cadence-macros",
  "clap 4.4.8",
+ "figment",
+ "plerkle_messenger",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "solana-transaction-status",
  "sqlx",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
