@@ -1,11 +1,8 @@
-use super::rpc::{Rpc, SolanaRpcArgs};
 use anyhow::Result;
-
 use clap::Parser;
-use das_core::{connect_db, MetricsArgs, PoolArgs};
+use das_core::{connect_db, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
 use digital_asset_types::dao::cl_audits_v2;
 use futures::future;
-
 use sea_orm::{CursorTrait, EntityTrait, SqlxPostgresConnector};
 use solana_sdk::signature::Signature;
 use solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta;

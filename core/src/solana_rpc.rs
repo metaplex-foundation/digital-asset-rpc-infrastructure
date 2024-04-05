@@ -82,6 +82,31 @@ impl Rpc {
         .await
     }
 
+    pub async fn get_account(
+        &self,
+        pubkey: &Pubkey,
+    ) -> Result<
+        solana_client::rpc_response::Response<std::option::Option<solana_sdk::account::Account>>,
+        ClientError,
+    > {
+        (|| async {
+            self.0
+                .get_account_with_config(
+                    pubkey,
+                    RpcAccountInfoConfig {
+                        encoding: Some(UiAccountEncoding::Base64),
+                        commitment: Some(CommitmentConfig {
+                            commitment: CommitmentLevel::Finalized,
+                        }),
+                        ..RpcAccountInfoConfig::default()
+                    },
+                )
+                .await
+        })
+        .retry(&ExponentialBuilder::default())
+        .await
+    }
+
     pub async fn get_program_accounts(
         &self,
         program: &Pubkey,
