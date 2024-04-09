@@ -1,6 +1,7 @@
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Args;
+use das_core::{QueuePoolError, Rpc};
 use log::error;
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
@@ -13,8 +14,6 @@ use spl_account_compression::state::{
 use std::str::FromStr;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
-
-use super::{queue::QueuePoolError, rpc::Rpc};
 
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
 

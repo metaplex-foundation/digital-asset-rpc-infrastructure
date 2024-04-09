@@ -7,8 +7,17 @@ publish.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+backon = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
+thiserror = { workspace = true }
+figment = { workspace = true }
+plerkle_messenger = { workspace = true }
+tokio = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
 
