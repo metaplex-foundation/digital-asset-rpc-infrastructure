@@ -1,5 +1,5 @@
 [package]
-name = "nft_ingester2"
+name = "das-grpc-ingest"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }

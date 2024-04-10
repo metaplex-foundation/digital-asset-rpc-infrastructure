@@ -8,7 +8,7 @@ members = [
   "migration",
   "nft_ingester",
   "ops",
-  "nft_ingester2",
+  "grpc-ingest",
   "program_transformers",
   "tools/acc_forwarder",
   "tools/bgtask_creator",
