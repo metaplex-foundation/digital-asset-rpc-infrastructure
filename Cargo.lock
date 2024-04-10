@@ -1818,6 +1818,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-grpc-ingest"
+version = "0.7.2"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "atty",
+ "cargo-lock",
+ "chrono",
+ "clap 4.5.4",
+ "digital_asset_types",
+ "futures",
+ "git-version",
+ "hyper",
+ "json5",
+ "lazy_static",
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "opentelemetry_sdk",
+ "program_transformers",
+ "prometheus",
+ "redis 0.25.3",
+ "reqwest",
+ "rust-crypto",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "solana-sdk",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "vergen",
+ "yellowstone-grpc-client",
+ "yellowstone-grpc-proto",
+ "yellowstone-grpc-tools",
+]
+
+[[package]]
 name = "das-ops"
 version = "0.7.2"
 dependencies = [
@@ -3722,46 +3762,6 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "url",
-]
-
-[[package]]
-name = "nft_ingester2"
-version = "0.7.2"
-dependencies = [
- "anyhow",
- "async-stream",
- "atty",
- "cargo-lock",
- "chrono",
- "clap 4.5.4",
- "digital_asset_types",
- "futures",
- "git-version",
- "hyper",
- "json5",
- "lazy_static",
- "opentelemetry",
- "opentelemetry-jaeger",
- "opentelemetry_sdk",
- "program_transformers",
- "prometheus",
- "redis 0.25.3",
- "reqwest",
- "rust-crypto",
- "sea-orm",
- "serde",
- "serde_json",
- "serde_yaml",
- "solana-sdk",
- "sqlx",
- "tokio",
- "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "vergen",
- "yellowstone-grpc-client",
- "yellowstone-grpc-proto",
- "yellowstone-grpc-tools",
 ]
 
 [[package]]
