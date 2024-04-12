@@ -21,7 +21,10 @@ async fn test_mpl_core_get_asset() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr"]);
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ",
+        "x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr",
+    ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;

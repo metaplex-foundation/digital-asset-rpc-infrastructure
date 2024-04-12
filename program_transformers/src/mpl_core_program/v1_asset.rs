@@ -6,7 +6,7 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        find_model_with_retry, DownloadMetadataInfo,
+        DownloadMetadataInfo,
     },
     blockbuster::{
         mpl_core::types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
@@ -23,8 +23,8 @@ use {
     },
     heck::ToSnakeCase,
     sea_orm::{
-        entity::{ActiveValue, ColumnTrait, EntityTrait},
-        query::{JsonValue, QueryFilter, QueryTrait},
+        entity::{ActiveValue, EntityTrait},
+        query::{JsonValue, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
@@ -60,8 +60,6 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(())
 }
 
-const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
-
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     id: Pubkey,
@@ -85,20 +83,10 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // Asset authority table
     //-----------------------
 
-    // If it is an `Address` type, use the value directly.  If it is a `Collection`, search for and
-    // use the collection's authority.
+    // If it is `Collection`, the collection's authority will be found during the asset query.
     let update_authority = match asset.update_authority {
         UpdateAuthority::Address(address) => address.to_bytes().to_vec(),
-        UpdateAuthority::Collection(address) => find_model_with_retry(
-            conn,
-            "mpl_core",
-            &asset_authority::Entity::find()
-                .filter(asset_authority::Column::AssetId.eq(address.to_bytes().to_vec())),
-            RETRY_INTERVALS,
-        )
-        .await?
-        .map(|model| model.authority)
-        .unwrap_or_default(),
+        UpdateAuthority::Collection(address) => address.to_bytes().to_vec(),
         UpdateAuthority::None => Pubkey::default().to_bytes().to_vec(),
     };
 

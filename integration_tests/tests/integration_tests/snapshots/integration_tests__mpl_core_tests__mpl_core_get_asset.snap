@@ -1,6 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 37
+assertion_line: 40
 expression: response
 ---
 {
@@ -18,7 +18,7 @@ expression: response
   },
   "authorities": [
     {
-      "address": "",
+      "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
       "scopes": [
         "full"
       ]

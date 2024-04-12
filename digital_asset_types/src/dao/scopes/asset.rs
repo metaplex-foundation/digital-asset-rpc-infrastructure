@@ -4,7 +4,7 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        Cursor, FullAsset, GroupingSize, Pagination, SpecificationAssetClass,
     },
     rpc::filter::AssetSortDirection,
 };
@@ -348,6 +348,12 @@ pub async fn get_related_for_assets(
         }
     }
 
+    for (_id, asset) in assets_map.iter_mut() {
+        if asset.asset.specification_asset_class == Some(SpecificationAssetClass::MplCoreAsset) {
+            update_mpl_core_authority(conn, &asset.groups, &mut asset.authorities).await?;
+        }
+    }
+
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
 
@@ -398,7 +404,7 @@ pub async fn get_by_id(
         })?;
 
     let (asset, data) = asset_data;
-    let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
+    let mut authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
@@ -424,6 +430,11 @@ pub async fn get_by_id(
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
         .await?;
+
+    if asset.specification_asset_class == Some(SpecificationAssetClass::MplCoreAsset) {
+        update_mpl_core_authority(conn, &grouping, &mut authorities).await?;
+    }
+
     Ok(FullAsset {
         asset,
         data,
@@ -552,4 +563,33 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+async fn update_mpl_core_authority(
+    conn: &impl ConnectionTrait,
+    grouping: &[asset_grouping::Model],
+    authorities: &mut [asset_authority::Model],
+) -> Result<(), DbErr> {
+    if let Some(model) = grouping
+        .iter()
+        .find(|model| model.group_key == "collection")
+    {
+        if let Some(collection) = &model.group_value {
+            let collection_bytes = bs58::decode(collection)
+                .into_vec()
+                .map_err(|_e| DbErr::Custom("Collection key not valid".to_string()))?;
+
+            // For mpl-core there will only be one authority.
+            if let Some(authority) = authorities.first_mut() {
+                if let Some(collection_model) = asset_authority::Entity::find()
+                    .filter(asset_authority::Column::AssetId.eq(collection_bytes.clone()))
+                    .one(conn)
+                    .await?
+                {
+                    authority.authority = collection_model.authority;
+                }
+            }
+        }
+    }
+    Ok(())
 }
