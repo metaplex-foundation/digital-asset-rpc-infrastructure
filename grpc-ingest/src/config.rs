@@ -61,7 +61,7 @@ pub struct ConfigGrpcAccounts {
     #[serde(default = "ConfigGrpcAccounts::default_stream_data_key")]
     pub stream_data_key: String,
 
-    pub filters: Vec<ConfigGrpcRequestAccounts>,
+    pub filter: ConfigGrpcRequestAccounts,
 }
 
 impl ConfigGrpcAccounts {
@@ -90,7 +90,7 @@ pub struct ConfigGrpcTransactions {
     #[serde(default = "ConfigGrpcTransactions::default_stream_data_key")]
     pub stream_data_key: String,
 
-    pub filters: Vec<ConfigGrpcRequestTransactions>,
+    pub filter: ConfigGrpcRequestTransactions,
 }
 
 impl ConfigGrpcTransactions {
