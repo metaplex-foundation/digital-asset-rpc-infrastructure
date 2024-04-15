@@ -53,7 +53,7 @@ pub struct TransactionInfo {
     pub meta_inner_instructions: Vec<InnerInstructions>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DownloadMetadataInfo {
     asset_data_id: Vec<u8>,
     uri: String,

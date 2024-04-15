@@ -5,6 +5,7 @@ use {
     anyhow::Context,
     futures::stream::StreamExt,
     redis::{streams::StreamMaxlen, RedisResult, Value as RedisValue},
+    std::collections::HashMap,
     std::{sync::Arc, time::Duration},
     tokio::{
         task::JoinSet,
@@ -12,7 +13,10 @@ use {
     },
     tracing::warn,
     yellowstone_grpc_client::GeyserGrpcClient,
-    yellowstone_grpc_proto::{prelude::subscribe_update::UpdateOneof, prost::Message},
+    yellowstone_grpc_proto::{
+        geyser::SubscribeRequest, prelude::subscribe_update::UpdateOneof, prost::Message,
+    },
+    yellowstone_grpc_tools::config::GrpcRequestToProto,
 };
 
 pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
@@ -41,7 +45,22 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
         .connect()
         .await
         .context("failed to connect go gRPC")?;
-    let (mut _subscribe_tx, mut stream) = client.subscribe().await?;
+
+    let mut accounts = HashMap::with_capacity(1);
+    let mut transactions = HashMap::with_capacity(1);
+
+    accounts.insert("das".to_string(), config.accounts.filter.clone().to_proto());
+    transactions.insert(
+        "das".to_string(),
+        config.transactions.filter.clone().to_proto(),
+    );
+
+    let request = SubscribeRequest {
+        accounts,
+        transactions,
+        ..Default::default()
+    };
+    let (mut _subscribe_tx, mut stream) = client.subscribe_with_request(Some(request)).await?;
 
     // recv-send loop
     let mut shutdown = create_shutdown()?;
@@ -117,7 +136,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                 let result: RedisResult<RedisValue> =
                     pipe.atomic().query_async(&mut connection).await;
 
-                let status = if result.is_ok() { Ok(()) } else { Err(()) };
+                let status = result.map(|_| ()).map_err(|_| ());
                 redis_xadd_status_inc(&config.accounts.stream, status, pipe_accounts);
                 redis_xadd_status_inc(&config.transactions.stream, status, pipe_transactions);
 
