@@ -318,6 +318,17 @@ impl TaskManager {
             .map_err(|e| e.into())
     }
 
+    async fn save_task<A>(
+        txn: &A,
+        task: tasks::ActiveModel,
+    ) -> Result<tasks::ActiveModel, IngesterError>
+    where
+        A: ConnectionTrait,
+    {
+        let act: tasks::ActiveModel = task;
+        act.save(txn).await.map_err(|e| e.into())
+    }
+
     pub fn start_listener(&mut self, process_on_receive: bool) -> JoinHandle<()> {
         let (producer, mut receiver) = mpsc::unbounded_channel::<TaskData>();
         self.producer = Some(producer);
@@ -328,20 +339,17 @@ impl TaskManager {
 
         tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
-                let instance_name = instance_name.clone();
                 let task_name = task.name;
-                let sender_pool = sender_pool.clone();
 
                 if let Some(task_created_time) = task.created_at {
-                    let bus_time =
-                        Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
+                    let bus_time = Utc::now().timestamp_millis()
+                        - task_created_time.and_utc().timestamp_millis();
                     metric! {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     }
                 }
-
                 if task_name == "DownloadMetadata" {
-                    if let Some(sender_pool) = sender_pool {
+                    if let Some(sender_pool) = sender_pool.clone() {
                         let download_metadata_task = DownloadMetadata::from_task_data(task);
 
                         if let Ok(download_metadata_task) = download_metadata_task {
@@ -374,39 +382,25 @@ impl TaskManager {
                         .filter(tasks::Column::Status.ne(TaskStatus::Pending))
                         .one(&conn)
                         .await;
-
                     if let Ok(Some(e)) = task_entry {
                         metric! {
                             statsd_count!("ingester.bgtask.identical", 1, "type" => &e.task_type);
                         }
                         continue;
                     }
-
+                    metric! {
+                        statsd_count!("ingester.bgtask.new", 1, "type" => task.name);
+                    }
                     TaskManager::new_task_handler(
                         pool.clone(),
-                        instance_name,
+                        instance_name.clone(),
                         task,
                         Arc::clone(&task_map),
                         process_on_receive,
                     );
-
-                    metric! {
-                        statsd_count!("ingester.bgtask.new", 1, "type" => task_name);
-                    }
                 }
             }
         })
-    }
-
-    async fn save_task<A>(
-        txn: &A,
-        task: tasks::ActiveModel,
-    ) -> Result<tasks::ActiveModel, IngesterError>
-    where
-        A: ConnectionTrait,
-    {
-        let act: tasks::ActiveModel = task;
-        act.save(txn).await.map_err(|e| e.into())
     }
 
     pub fn start_runner(&self, config: Option<BackgroundTaskRunnerConfig>) -> JoinHandle<()> {

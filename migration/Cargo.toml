@@ -9,7 +9,10 @@ publish = { workspace = true }
 async-std = { workspace = true, features = ["attributes", "tokio1"] }
 enum-iterator = { workspace = true }
 enum-iterator-derive = { workspace = true }
-sea-orm-migration = { workspace = true, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
+sea-orm-migration = { workspace = true, features = [
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+] }
 
 [lints]
 workspace = true
