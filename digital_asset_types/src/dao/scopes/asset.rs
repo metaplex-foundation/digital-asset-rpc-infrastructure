@@ -249,7 +249,10 @@ where
 
         let mpl_collection_ids = asset::Entity::find()
             .select_only()
-            .column_as(SimpleExpr::from("encode_base58(asset.id)"), "id_base64")
+            .column_as(
+                SimpleExpr::Custom("base58_encode(asset.id)".to_string()),
+                "id_base58",
+            )
             .filter(mpl_collection_ids_condition)
             .join(JoinType::LeftJoin, relation.def())
             .into_query();
