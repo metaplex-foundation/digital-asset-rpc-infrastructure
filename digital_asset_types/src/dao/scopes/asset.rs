@@ -9,7 +9,7 @@ use crate::{
     rpc::filter::AssetSortDirection,
 };
 use indexmap::IndexMap;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
+use sea_orm::{entity::*, query::*, sea_query::SimpleExpr, ConnectionTrait, DbErr, Order};
 use std::collections::HashMap;
 
 pub fn paginate<T, C>(
@@ -78,6 +78,7 @@ pub async fn get_by_creator(
         limit,
         show_unverified_collections,
         Some(creator),
+        false,
     )
     .await
 }
@@ -138,6 +139,7 @@ pub async fn get_by_grouping(
         limit,
         show_unverified_collections,
         None,
+        true,
     )
     .await
 }
@@ -212,6 +214,7 @@ pub async fn get_by_authority(
         limit,
         show_unverified_collections,
         None,
+        false,
     )
     .await
 }
@@ -227,13 +230,47 @@ async fn get_by_related_condition<E>(
     limit: u64,
     show_unverified_collections: bool,
     required_creator: Option<Vec<u8>>,
+    grouping: bool,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
     E: RelationTrait,
 {
-    let mut stmt = asset::Entity::find()
-        .filter(condition)
-        .join(JoinType::LeftJoin, relation.def());
+    let mut stmt = if grouping {
+        asset::Entity::find()
+            .filter(condition)
+            .join(JoinType::LeftJoin, relation.def())
+    } else {
+        let mpl_collection_ids_condition = Condition::all()
+            .add(
+                asset::Column::SpecificationAssetClass
+                    .eq(SpecificationAssetClass::MplCoreCollection),
+            )
+            .add(condition.clone());
+
+        // Get MPL collection IDs. TODO implement base58 function this is just to get basic idea working.
+        let mpl_collection_ids = asset::Entity::find()
+            .select_only()
+            .column_as(SimpleExpr::from("encode(asset.id, 'base64')"), "id_base64")
+            .filter(mpl_collection_ids_condition)
+            .join(JoinType::LeftJoin, relation.def())
+            .into_query();
+
+        let collection_condition = Condition::all()
+            .add(
+                asset_grouping::Column::GroupKey
+                    .eq("collection".to_string())
+                    .and(asset_grouping::Column::GroupValue.in_subquery(mpl_collection_ids)),
+            )
+            .add(asset::Column::Supply.gt(0));
+
+        asset::Entity::find()
+            .filter(Condition::any().add(condition).add(collection_condition))
+            .join(JoinType::LeftJoin, relation.def())
+            .join(
+                JoinType::LeftJoin,
+                extensions::asset::Relation::AssetGrouping.def(),
+            )
+    };
 
     if let Some(col) = sort_by {
         stmt = stmt
@@ -244,6 +281,7 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
+
     get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
 }
 
