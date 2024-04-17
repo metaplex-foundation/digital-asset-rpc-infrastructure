@@ -41,6 +41,7 @@ mod m20240124_181900_add_slot_updated_column_per_update_type;
 mod m20240313_120101_add_mpl_core_plugins_columns;
 mod m20240319_120101_add_mpl_core_enum_vals;
 mod m20240320_120101_add_mpl_core_info_items;
+mod m20240417_120101_add_bs58_encode_function;
 
 pub mod model;
 
@@ -91,6 +92,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240313_120101_add_mpl_core_plugins_columns::Migration),
             Box::new(m20240319_120101_add_mpl_core_enum_vals::Migration),
             Box::new(m20240320_120101_add_mpl_core_info_items::Migration),
+            Box::new(m20240417_120101_add_bs58_encode_function::Migration),
         ]
     }
 }

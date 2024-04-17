@@ -247,10 +247,9 @@ where
             )
             .add(condition.clone());
 
-        // Get MPL collection IDs. TODO implement base58 function this is just to get basic idea working.
         let mpl_collection_ids = asset::Entity::find()
             .select_only()
-            .column_as(SimpleExpr::from("encode(asset.id, 'base64')"), "id_base64")
+            .column_as(SimpleExpr::from("encode_base58(asset.id)"), "id_base64")
             .filter(mpl_collection_ids_condition)
             .join(JoinType::LeftJoin, relation.def())
             .into_query();
