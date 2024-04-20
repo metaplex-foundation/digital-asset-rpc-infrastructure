@@ -26,7 +26,7 @@ async fn test_mpl_core_get_asset() {
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
-    let request = r#"        
+    let request = r#"
     {
         "id": "x3hJtpU4AUsGejNvxzX9TKjcyNB1eYtDdDPWdeF6opr"
     }
@@ -55,7 +55,7 @@ async fn test_mpl_core_get_collection() {
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
-    let request = r#"        
+    let request = r#"
     {
         "id": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ"
     }
@@ -205,9 +205,38 @@ async fn test_mpl_core_get_asset_with_edition() {
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
-    let request = r#"        
+    let request = r#"
     {
         "id": "AejY8LGKAbQsrGZS1qgN4uFu99dJD3f8Js9Yrt7K3tCc"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_pubkey_in_rule_set() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Mainnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["8H71x9Bhh9E9o3MZK4QnVC5MRFn1WZRf2Mc9w2wEbG5V"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "8H71x9Bhh9E9o3MZK4QnVC5MRFn1WZRf2Mc9w2wEbG5V"
     }
     "#;
 
