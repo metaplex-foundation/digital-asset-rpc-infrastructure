@@ -128,21 +128,18 @@ impl ProgramParser for Token2022AccountParser {
         if let Ok(account) = StateWithExtensions::<Account>::unpack(account_data) {
             let confidential_transfer = account
                 .get_extension::<ConfidentialTransferAccount>()
-                .ok()
-                .map(|x| x.clone());
-            let cpi_guard = account.get_extension::<CpiGuard>().ok().map(|x| x.clone());
+                .ok().copied();
+            let cpi_guard = account.get_extension::<CpiGuard>().ok().copied();
             let memo_transfer = account
                 .get_extension::<MemoTransfer>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let transfer_fee_amount = account
                 .get_extension::<TransferFeeAmount>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
 
             // Create a structured account with extensions
             let structured_account = TokenAccount {
-                account: account.base.clone(),
+                account: account.base,
                 extensions: TokenAccountExtensions {
                     confidential_transfer: confidential_transfer
                         .map(ShadowConfidentialTransferAccount::from),
@@ -153,61 +150,49 @@ impl ProgramParser for Token2022AccountParser {
             };
 
             result = TokenExtensionsProgramAccount::TokenAccount(structured_account);
-        } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(&account_data) {
+        } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(account_data) {
             let confidential_transfer_mint = mint
                 .get_extension::<ConfidentialTransferMint>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let confidential_transfer_account = mint
                 .get_extension::<ConfidentialTransferAccount>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let confidential_transfer_fee_config = mint
                 .get_extension::<ConfidentialTransferFeeConfig>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let default_account_state = mint
                 .get_extension::<DefaultAccountState>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let interest_bearing_config = mint
                 .get_extension::<InterestBearingConfig>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let transfer_fee_config = mint
                 .get_extension::<TransferFeeConfig>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let mint_close_authority = mint
                 .get_extension::<MintCloseAuthority>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let permanent_delegate = mint
                 .get_extension::<PermanentDelegate>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let metadata_pointer = mint
                 .get_extension::<MetadataPointer>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let metadata = mint
                 .get_variable_len_extension::<TokenMetadata>()
-                .ok()
-                .map(|x| x.clone());
-            let group_pointer = mint.get_extension::<GroupPointer>().ok().map(|x| x.clone());
-            let token_group = mint.get_extension::<TokenGroup>().ok().map(|x| x.clone());
+                .ok();
+            let group_pointer = mint.get_extension::<GroupPointer>().ok().copied();
+            let token_group = mint.get_extension::<TokenGroup>().ok().copied();
             let group_member_pointer = mint
                 .get_extension::<GroupMemberPointer>()
-                .ok()
-                .map(|x| x.clone());
+                .ok().copied();
             let token_group_member = mint
                 .get_extension::<TokenGroupMember>()
-                .ok()
-                .map(|x| x.clone());
-            let transfer_hook = mint.get_extension::<TransferHook>().ok().map(|x| x.clone());
+                .ok().copied();
+            let transfer_hook = mint.get_extension::<TransferHook>().ok().copied();
 
             let structured_mint = MintAccount {
-                account: mint.base.clone(),
+                account: mint.base,
                 extensions: MintAccountExtensions {
                     confidential_transfer_mint: confidential_transfer_mint
                         .map(ShadowConfidentialTransferMint::from),
