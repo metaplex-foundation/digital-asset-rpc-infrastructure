@@ -39,7 +39,9 @@ pub fn order_instructions<'a>(
     for (outer_instruction_index, message_instruction) in message_instructions.iter().enumerate() {
         let non_hoisted_inner_instruction = meta_inner_instructions
             .iter()
-            .filter_map(|ix| (ix.index == outer_instruction_index as u8).then_some(&ix.instructions))
+            .filter_map(|ix| {
+                (ix.index == outer_instruction_index as u8).then_some(&ix.instructions)
+            })
             .flatten()
             .map(|inner_ix| {
                 let cix = &inner_ix.instruction;
@@ -73,14 +75,15 @@ fn hoist_known_programs<'a>(
     ix_pairs
         .iter()
         .enumerate()
-        .filter(|&(_index, &(pid, _ci))| programs.contains(&pid)).map(|(index, &(pid, ci))| {
-                let inner_copy = ix_pairs
-                    .iter()
-                    .skip(index + 1)
-                    .take_while(|&&(inner_pid, _)| inner_pid != pid)
-                    .cloned()
-                    .collect::<Vec<IxPair<'a>>>();
-                ((pid, ci), Some(inner_copy))
-            })
+        .filter(|&(_index, &(pid, _ci))| programs.contains(&pid))
+        .map(|(index, &(pid, ci))| {
+            let inner_copy = ix_pairs
+                .iter()
+                .skip(index + 1)
+                .take_while(|&&(inner_pid, _)| inner_pid != pid)
+                .cloned()
+                .collect::<Vec<IxPair<'a>>>();
+            ((pid, ci), Some(inner_copy))
+        })
         .collect()
 }
