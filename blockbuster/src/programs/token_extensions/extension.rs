@@ -287,8 +287,8 @@ impl<'de> Visitor<'de> for ShadowAeCiphertextVisitor {
         A: SeqAccess<'de>,
     {
         let mut arr = [0u8; AE_CIPHERTEXT_LEN];
-        for i in 0..AE_CIPHERTEXT_LEN {
-            arr[i] = seq
+        for (i, item) in arr.iter_mut().enumerate().take(AE_CIPHERTEXT_LEN) {
+            *item = seq
                 .next_element()?
                 .ok_or(de::Error::invalid_length(i, &self))?;
         }
@@ -507,12 +507,10 @@ impl From<ConfidentialTransferAccount> for ShadowConfidentialTransferAccount {
             allow_confidential_credits: original.allow_confidential_credits,
             allow_non_confidential_credits: original.allow_non_confidential_credits,
             pending_balance_credit_counter: original.pending_balance_credit_counter,
-            maximum_pending_balance_credit_counter: original
-                .maximum_pending_balance_credit_counter,
+            maximum_pending_balance_credit_counter: original.maximum_pending_balance_credit_counter,
             expected_pending_balance_credit_counter: original
                 .expected_pending_balance_credit_counter,
-            actual_pending_balance_credit_counter: original
-                .actual_pending_balance_credit_counter,
+            actual_pending_balance_credit_counter: original.actual_pending_balance_credit_counter,
         }
     }
 }

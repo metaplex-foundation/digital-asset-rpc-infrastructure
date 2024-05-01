@@ -82,6 +82,7 @@ pubkeys!(
 
 pub struct Token2022AccountParser;
 
+#[allow(clippy::large_enum_variant)]
 pub enum TokenExtensionsProgramAccount {
     TokenAccount(TokenAccount),
     MintAccount(MintAccount),
@@ -128,14 +129,11 @@ impl ProgramParser for Token2022AccountParser {
         if let Ok(account) = StateWithExtensions::<Account>::unpack(account_data) {
             let confidential_transfer = account
                 .get_extension::<ConfidentialTransferAccount>()
-                .ok().copied();
+                .ok()
+                .copied();
             let cpi_guard = account.get_extension::<CpiGuard>().ok().copied();
-            let memo_transfer = account
-                .get_extension::<MemoTransfer>()
-                .ok().copied();
-            let transfer_fee_amount = account
-                .get_extension::<TransferFeeAmount>()
-                .ok().copied();
+            let memo_transfer = account.get_extension::<MemoTransfer>().ok().copied();
+            let transfer_fee_amount = account.get_extension::<TransferFeeAmount>().ok().copied();
 
             // Create a structured account with extensions
             let structured_account = TokenAccount {
@@ -153,42 +151,28 @@ impl ProgramParser for Token2022AccountParser {
         } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(account_data) {
             let confidential_transfer_mint = mint
                 .get_extension::<ConfidentialTransferMint>()
-                .ok().copied();
+                .ok()
+                .copied();
             let confidential_transfer_account = mint
                 .get_extension::<ConfidentialTransferAccount>()
-                .ok().copied();
+                .ok()
+                .copied();
             let confidential_transfer_fee_config = mint
                 .get_extension::<ConfidentialTransferFeeConfig>()
-                .ok().copied();
-            let default_account_state = mint
-                .get_extension::<DefaultAccountState>()
-                .ok().copied();
-            let interest_bearing_config = mint
-                .get_extension::<InterestBearingConfig>()
-                .ok().copied();
-            let transfer_fee_config = mint
-                .get_extension::<TransferFeeConfig>()
-                .ok().copied();
-            let mint_close_authority = mint
-                .get_extension::<MintCloseAuthority>()
-                .ok().copied();
-            let permanent_delegate = mint
-                .get_extension::<PermanentDelegate>()
-                .ok().copied();
-            let metadata_pointer = mint
-                .get_extension::<MetadataPointer>()
-                .ok().copied();
-            let metadata = mint
-                .get_variable_len_extension::<TokenMetadata>()
-                .ok();
+                .ok()
+                .copied();
+            let default_account_state = mint.get_extension::<DefaultAccountState>().ok().copied();
+            let interest_bearing_config =
+                mint.get_extension::<InterestBearingConfig>().ok().copied();
+            let transfer_fee_config = mint.get_extension::<TransferFeeConfig>().ok().copied();
+            let mint_close_authority = mint.get_extension::<MintCloseAuthority>().ok().copied();
+            let permanent_delegate = mint.get_extension::<PermanentDelegate>().ok().copied();
+            let metadata_pointer = mint.get_extension::<MetadataPointer>().ok().copied();
+            let metadata = mint.get_variable_len_extension::<TokenMetadata>().ok();
             let group_pointer = mint.get_extension::<GroupPointer>().ok().copied();
             let token_group = mint.get_extension::<TokenGroup>().ok().copied();
-            let group_member_pointer = mint
-                .get_extension::<GroupMemberPointer>()
-                .ok().copied();
-            let token_group_member = mint
-                .get_extension::<TokenGroupMember>()
-                .ok().copied();
+            let group_member_pointer = mint.get_extension::<GroupMemberPointer>().ok().copied();
+            let token_group_member = mint.get_extension::<TokenGroupMember>().ok().copied();
             let transfer_hook = mint.get_extension::<TransferHook>().ok().copied();
 
             let structured_mint = MintAccount {
