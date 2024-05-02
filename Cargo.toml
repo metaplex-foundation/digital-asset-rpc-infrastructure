@@ -69,6 +69,7 @@ jsonrpsee = "0.16.2"
 jsonrpsee-core = "0.16.2"
 lazy_static = "1.4.0"
 log = "0.4.17"
+lru = "0.12.3"
 metrics = "0.20.1"
 migration = { path = "migration" }
 mime_guess = "2.0.4"

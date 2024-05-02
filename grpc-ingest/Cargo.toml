@@ -21,9 +21,11 @@ chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo", "derive"] }
 digital_asset_types = { workspace = true }
 futures = { workspace = true }
+hex = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
 json5 = { workspace = true }
 lazy_static = { workspace = true }
+lru = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
 opentelemetry_sdk = { workspace = true, features = ["trace"] }
