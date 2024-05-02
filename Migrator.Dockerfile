@@ -13,6 +13,7 @@ COPY ./nft_ingester /nft_ingester
 COPY ./ops /ops
 COPY ./program_transformers /program_transformers
 COPY ./tools /tools
+COPY ./blockbuster /blockbuster
 
 WORKDIR /migration
 RUN cargo build --release

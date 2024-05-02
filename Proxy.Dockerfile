@@ -12,6 +12,7 @@ COPY ./nft_ingester /rust/nft_ingester
 COPY ./ops /rust/ops
 COPY ./program_transformers /rust/program_transformers
 COPY ./tools /rust/tools
+COPY ./blockbuster /rust/blockbuster
 
 WORKDIR /rust/metaplex-rpc-proxy
 RUN cargo install wasm-pack

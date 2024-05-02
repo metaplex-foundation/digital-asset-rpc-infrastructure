@@ -14,6 +14,7 @@ COPY nft_ingester /rust/nft_ingester
 COPY ops /rust/ops
 COPY program_transformers /rust/program_transformers
 COPY tools /rust/tools
+COPY blockbuster /rust/blockbuster
 
 WORKDIR /rust/nft_ingester
 RUN cargo chef prepare --recipe-path /rust/nft_ingester/recipe.json
@@ -34,6 +35,7 @@ COPY nft_ingester /rust/nft_ingester
 COPY ops /rust/ops
 COPY program_transformers /rust/program_transformers
 COPY tools /rust/tools
+COPY blockbuster /rust/blockbuster
 
 WORKDIR /rust/nft_ingester
 COPY --from=planner /rust/nft_ingester/recipe.json recipe.json
