@@ -22,4 +22,4 @@ RUN --mount=type=cache,target=/rust/target,id=das-rust \
     
 FROM rust:1.75-slim-bullseye as final
 COPY --from=builder /rust/bins /das/
-CMD echo "Built the Bootstrap Script image!"
+CMD echo "Built the DAS API bins!"
