@@ -46,7 +46,39 @@ pub struct ConfigGrpc {
     pub accounts: ConfigGrpcAccounts,
     pub transactions: ConfigGrpcTransactions,
 
+    #[serde(
+        default = "ConfigGrpc::default_geyser_client_connections",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub geyser_client_connections: usize,
+
+    #[serde(
+        default = "ConfigGrpc::default_geyser_update_message_buffer_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub geyser_update_message_buffer_size: usize,
+
+    #[serde(
+        default = "ConfigGrpc::solana_seen_event_cache_max_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub solana_seen_event_cache_max_size: usize,
+
     pub redis: ConfigGrpcRedis,
+}
+
+impl ConfigGrpc {
+    pub fn default_geyser_client_connections() -> usize {
+        5
+    }
+
+    pub fn default_geyser_update_message_buffer_size() -> usize {
+        100_000
+    }
+
+    pub fn solana_seen_event_cache_max_size() -> usize {
+        10_000
+    }
 }
 
 #[derive(Debug, Deserialize)]
