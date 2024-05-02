@@ -1008,24 +1008,29 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "blockbuster"
 version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58fa134b9b69102afd22e6895035eb891ecffe372b006c43cde006e7211b824c"
 dependencies = [
  "anchor-lang",
  "async-trait",
  "borsh 0.10.3",
  "bs58 0.4.0",
  "bytemuck",
+ "flatbuffers",
  "lazy_static",
  "log",
  "mpl-bubblegum",
  "mpl-core",
  "mpl-token-metadata",
+ "plerkle_serialization",
+ "rand 0.8.5",
  "serde",
+ "serde_json",
+ "solana-client",
+ "solana-geyser-plugin-interface",
  "solana-sdk",
  "solana-transaction-status",
  "solana-zk-token-sdk",
  "spl-account-compression",
+ "spl-concurrent-merkle-tree",
  "spl-noop",
  "spl-pod",
  "spl-token",
@@ -5674,6 +5679,18 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 2.0.38",
+]
+
+[[package]]
+name = "solana-geyser-plugin-interface"
+version = "1.17.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f633425dc9409c6d3f019658b90bb1ad53747ed55acd45e0a18f58b95a0b89e5"
+dependencies = [
+ "log",
+ "solana-sdk",
+ "solana-transaction-status",
+ "thiserror",
 ]
 
 [[package]]

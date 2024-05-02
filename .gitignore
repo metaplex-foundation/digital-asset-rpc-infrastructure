@@ -19,7 +19,6 @@ dist
 test-ledger
 *.swp
 *error.log
-programs
 *.iml
 skaffold-state.json
 test-programs
