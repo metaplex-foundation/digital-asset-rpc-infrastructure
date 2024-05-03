@@ -39,18 +39,13 @@ pub struct ConfigPrometheus {
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigGrpc {
-    pub endpoint: String,
     pub x_token: Option<String>,
 
     pub commitment: ConfigGrpcRequestCommitment,
     pub accounts: ConfigGrpcAccounts,
     pub transactions: ConfigGrpcTransactions,
 
-    #[serde(
-        default = "ConfigGrpc::default_geyser_client_connections",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub geyser_client_connections: usize,
+    pub geyser_endpoints: Vec<String>,
 
     #[serde(
         default = "ConfigGrpc::default_geyser_update_message_buffer_size",
@@ -68,10 +63,6 @@ pub struct ConfigGrpc {
 }
 
 impl ConfigGrpc {
-    pub fn default_geyser_client_connections() -> usize {
-        5
-    }
-
     pub fn default_geyser_update_message_buffer_size() -> usize {
         100_000
     }
