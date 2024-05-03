@@ -42,11 +42,11 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
     tokio::pin!(jh_metrics_xlen);
 
     // Spawn gRPC client connections
-    for _ in 0..config.geyser_client_connections {
+    for endpoint in config.geyser_endpoints.clone() {
         let config = Arc::clone(&config);
         let mut tx = tx.clone();
 
-        let mut client = GeyserGrpcClient::build_from_shared(config.endpoint.clone())?
+        let mut client = GeyserGrpcClient::build_from_shared(endpoint)?
             .x_token(config.x_token.clone())?
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(10))
@@ -69,6 +69,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                 transactions,
                 ..Default::default()
             };
+
             let (_subscribe_tx, mut stream) = client.subscribe_with_request(Some(request)).await?;
 
             while let Some(Ok(msg)) = stream.next().await {
@@ -127,7 +128,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                         pipe_accounts += 1;
                     }
                     UpdateOneof::Transaction(transaction) => {
-                        let slot_signature = format!("{}:{}", transaction.slot, hex::encode(transaction.transaction.as_ref().map(|t| t.signature.clone()).unwrap_or_default()));
+                        let slot_signature = hex::encode(transaction.transaction.as_ref().map(|t| t.signature.clone()).unwrap_or_default()).to_string();
 
                         if seen_update_events.get(&slot_signature).is_some() {
                             continue;
