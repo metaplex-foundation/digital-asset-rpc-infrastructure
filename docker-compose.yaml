@@ -1,5 +1,10 @@
 version: "3.9"
 services:
+  builder:
+    image: das-api/builder
+    build:
+      context: .
+      dockerfile: Builder.Dockerfile
   graphite:
     image: graphiteapp/graphite-statsd
     container_name: graphite
@@ -13,6 +18,7 @@ services:
   migrator:
     depends_on:
       - db
+      - builder
     environment:
       DATABASE_URL: postgres://solana:solana@db/solana
     build:
@@ -21,6 +27,7 @@ services:
   ingester:
     depends_on:
       - migrator
+      - builder
       - redis
       - db
       - graphite
@@ -41,6 +48,7 @@ services:
     depends_on:
       - migrator
       - ingester
+      - builder
       - solana
     restart: always
     environment:
@@ -62,6 +70,7 @@ services:
   api:
     depends_on:
       - migrator
+      - builder
     restart: always
     environment:
       APP_DATABASE_URL: postgres://solana:solana@db/solana
@@ -79,7 +88,7 @@ services:
       - "6379:6379"
   db:
     image: 'postgres:14'
-    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200"]
+    command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200" ]
     ports:
       - 5432:5432
     environment:
@@ -91,9 +100,9 @@ services:
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.6.0-1.69.0-v1.16.6
     volumes:
-    - ./programs:/so/:ro
-    - ./ledger:/config:rw
-    - ./solana-test-validator-geyser-config:/plugin-config:rw
+      - ./programs:/so/:ro
+      - ./ledger:/config:rw
+      - ./solana-test-validator-geyser-config:/plugin-config:rw
     environment:
       RUST_LOG: error
       PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
@@ -104,5 +113,5 @@ services:
       - "8899:8899"
       - "9900:9900"
 volumes:
-  grafana_data: {}
-  graphite_data: {}
+  grafana_data: { }
+  graphite_data: { }
