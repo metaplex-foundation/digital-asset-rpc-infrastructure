@@ -4,7 +4,6 @@ use {
     },
     anyhow::Context,
     futures::{channel::mpsc, stream::StreamExt, SinkExt},
-    hex,
     lru::LruCache,
     redis::{streams::StreamMaxlen, RedisResult, Value as RedisValue},
     std::num::NonZeroUsize,
@@ -14,7 +13,7 @@ use {
         task::JoinSet,
         time::{sleep, Instant},
     },
-    tracing::{error, warn},
+    tracing::warn,
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
         geyser::SubscribeRequest, prelude::subscribe_update::UpdateOneof, prost::Message,

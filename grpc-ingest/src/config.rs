@@ -63,11 +63,11 @@ pub struct ConfigGrpc {
 }
 
 impl ConfigGrpc {
-    pub fn default_geyser_update_message_buffer_size() -> usize {
+    pub const fn default_geyser_update_message_buffer_size() -> usize {
         100_000
     }
 
-    pub fn solana_seen_event_cache_max_size() -> usize {
+    pub const fn solana_seen_event_cache_max_size() -> usize {
         10_000
     }
 }
