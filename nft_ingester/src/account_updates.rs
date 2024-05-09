@@ -34,7 +34,6 @@ pub fn account_worker<T: Messenger>(
             let manager = Arc::new(ProgramTransformer::new(
                 pool,
                 create_download_metadata_notifier(bg_task_sender),
-                false,
             ));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
