@@ -38,7 +38,7 @@ where
             schema,
         } => {
             info!("Found new tree {}", bs58::encode(tree_id).into_string());
-
+            // @TODO: Fetch and store, maxDepth, maxBufferSize, canopyDepth, etc...
             let data_schema = schema
                 .try_to_vec()
                 .map_err(|db_err| IngesterError::CompressedDataParseError(db_err.to_string()))?;
