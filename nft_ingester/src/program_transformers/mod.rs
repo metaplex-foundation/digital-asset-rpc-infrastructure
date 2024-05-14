@@ -75,6 +75,8 @@ impl IndexablePrograms for HoneycombPrograms {
             .push(pubkey!("MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6")); // Staking
         self.programs
             .push(pubkey!("9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK")); // Test GuildKit
+        self.programs
+            .push(pubkey!("HuntaX1CmUt5EByyFPE8pMf13SpvezybmMTtjmpmGmfj")); // Mission
     }
 }
 

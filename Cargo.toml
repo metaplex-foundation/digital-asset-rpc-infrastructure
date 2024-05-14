@@ -28,14 +28,14 @@ async-std = "1.0.0"
 async-trait = "0.1.60"
 base64 = "0.21.0"
 blockbuster = { version = "0.9.0-beta.5", git = "https://github.com/Honeycomb-Protocol/blockbuster.git", branch = "beta" }
-hpl-toolkit = "0.0.3-beta.9"
+hpl-toolkit = "0.0.3-beta.15"
 borsh = "~0.10.3"
 bs58 = "0.4.0"
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 chrono = "0.4.19"
 clap = "4.2.2"
-digital_asset_types = { path = "digital_asset_types" }
+digital_asset_types = { path = "digital_asset_types", feature = ["sql_types"] }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
 env_logger = "0.10.0"

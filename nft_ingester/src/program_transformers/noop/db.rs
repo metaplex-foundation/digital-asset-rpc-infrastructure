@@ -106,6 +106,12 @@ where
                     schema_validated = true;
                 }
 
+                // if let SchemaValue::Object(object) = data {
+                //     if let Some(used_by) = object.get("used_by") {
+                //         update_character_history(used_by)?;
+                //     }
+                // }
+
                 debug!("Serializing raw data");
                 let raw_data = data.try_to_vec().map_err(|db_err| {
                     IngesterError::CompressedDataParseError(db_err.to_string())
@@ -243,3 +249,11 @@ where
     }
     Ok(())
 }
+
+// pub async fn update_character_history(
+//     tree_id: [u8; 32],
+//     leaf_idx: u32,
+//     used_by: SchemaValue,
+// ) -> Result<(), IngesterError> {
+//     Ok(())
+// }

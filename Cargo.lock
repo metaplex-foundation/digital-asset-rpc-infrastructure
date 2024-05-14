@@ -2757,9 +2757,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit"
-version = "0.0.3-beta.9"
+version = "0.0.3-beta.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ff4a55be94703f3f534377aa44daa8713293fd36132463c1836aa8a41818241"
+checksum = "c316765c0b1f60489acc204b74ec301779c9c5df531645f6a4c4f6903cdf5419"
 dependencies = [
  "anchor-lang 0.29.0",
  "hpl-toolkit-attribute-account-schemas-ix-injector",
@@ -2776,9 +2776,9 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-attribute-account-schemas-ix-injector"
-version = "0.0.1-beta.4"
+version = "0.0.1-beta.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521d9425870edfcc6b91cb96b3a739b56d939f85327a88ae8f66712927e8e300"
+checksum = "96ed6803956c909e47c647bc8934e8f854343ed4c8e065b74cf29a030817cf2d"
 dependencies = [
  "convert_case",
  "proc-macro2 1.0.69",

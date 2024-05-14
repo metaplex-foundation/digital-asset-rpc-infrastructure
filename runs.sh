@@ -57,14 +57,6 @@ if [ "$(ls -A /so)" ]; then
   done
 fi
 
-clone=("EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL" "UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM")
-clones=()
-if [[ -n "${clone[@]}" ]]; then
-    for address in "${clone[@]}"; do
-        clones+=("--clone" "$address")
-    done
-fi
-
 export RUST_BACKTRACE=1
 dataDir=$PWD/config/"$(basename "$0" .sh)"
 ledgerDir=$PWD/config/ledger
@@ -77,7 +69,7 @@ args=(
   --config config.yaml
 #   --gossip-host 145.40.103.167
   --ledger $ledgerDir
-  --limit-ledger-size 10000000000000000
+  --limit-ledger-size 1200000
   --rpc-port 8899
   --geyser-plugin-config /plugin-config/accountsdb-plugin-config.json
   --clone EtXbhgWbWEWamyoNbSRyN5qFXjFbw8utJDHvBkQKXLSL --clone UgfWEZpFdY1hPhEnuYHe24u9xR74xTSvT1uZxxiwymM # Test Hive Control
@@ -91,6 +83,7 @@ args=(
   --clone BNdAHQMniLicundk1jo4qKWyNr9C8bK7oUrzgSwoSGmZ --clone FQErtH1zXPuHRxEwamXpWG711CVhqQS3Epsv4jao4Kn1
   --clone 8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit --clone FHzBQUNk6AyaSbqgS33EXcat8sXeLpvf1PJM6tQ87SPp
   --clone 9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK --clone 4UDQZKTAh9fo5TkC7Nh2t9tcyC7dFwFMUnrrHZLxZ1c8 
+  --clone 8bvPnYE5Pvz2Z9dE6RAqWr1rzLknTndZ9hwvRE6kPDXP --clone 9xbqDdpmu47Dv2h1L3CyAtzXpMJio9bHDa5K1RWPB6LV # Libreplex fair launch
   --url https://devnet.helius-rpc.com/?api-key=ccca5bb2-58dc-4b94-838b-664df478cf45
 )
 
@@ -103,4 +96,4 @@ args=(
 
 
 apt update && apt install ca-certificates -y && update-ca-certificates
-solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null
+solana-test-validator  "${programs[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null

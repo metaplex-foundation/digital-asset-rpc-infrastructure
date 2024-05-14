@@ -16,6 +16,7 @@ EXTERNAL_ID=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
 "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" \
 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" \
 "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" \
+"8bvPnYE5Pvz2Z9dE6RAqWr1rzLknTndZ9hwvRE6kPDXP" # Libreplex fair launch
 )
 EXTERNAL_SO=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s.so" \
 "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY.so" \
@@ -24,6 +25,7 @@ EXTERNAL_SO=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s.so" \
 "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL.so" \
 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA.so" \
 "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb.so" \
+"8bvPnYE5Pvz2Z9dE6RAqWr1rzLknTndZ9hwvRE6kPDXP.so"
 )
 
 if [ -z ${RPC+x} ]; then

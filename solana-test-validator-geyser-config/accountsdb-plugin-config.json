@@ -5,8 +5,7 @@
   "metrics_uri": "graphite",
   "env": "dev",
   "accounts_selector": {
-    "owners":
-    [
+    "owners": [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
       "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
@@ -17,7 +16,8 @@
       "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg",
       "CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4",
       "MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6",
-      "8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit"
+      "8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit",
+      "HuntaX1CmUt5EByyFPE8pMf13SpvezybmMTtjmpmGmfj"
     ]
   },
   "transaction_selector": {
@@ -32,7 +32,8 @@
       "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg",
       "CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4",
       "MiNESdRXUSmWY7NkAKdW9nMkjJZCaucguY3MDvkSmr6",
-      "8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit"
+      "8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit",
+      "HuntaX1CmUt5EByyFPE8pMf13SpvezybmMTtjmpmGmfj"
     ]
   }
 }
