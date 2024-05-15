@@ -1,20 +1,27 @@
-use super::tree::{TreeErrorKind, TreeGapFill, TreeGapModel, TreeResponse};
+use super::{
+    tree::{TreeGapFill, TreeGapModel, TreeResponse},
+    BubblegumOpsErrorKind,
+};
 use anyhow::Result;
 use cadence_macros::{statsd_count, statsd_time};
 use clap::Parser;
-use das_core::{
-    connect_db, setup_metrics, MetricsArgs, PoolArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs,
-};
+use das_core::{connect_db, setup_metrics, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
 use digital_asset_types::dao::cl_audits_v2;
-use flatbuffers::FlatBufferBuilder;
+use futures::future::{ready, FutureExt};
 use futures::{stream::FuturesUnordered, StreamExt};
 use indicatif::HumanDuration;
-use log::{error, info};
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector,
-};
+use log::{debug, error};
+use program_transformers::{ProgramTransformer, TransactionInfo};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector};
+use solana_program::pubkey::Pubkey;
+use solana_sdk::instruction::CompiledInstruction;
 use solana_sdk::signature::Signature;
+use solana_sdk::transaction::VersionedTransaction;
+use solana_transaction_status::{
+    option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
+    InnerInstruction, InnerInstructions, UiInstruction,
+};
+use sqlx::PgPool;
 use std::time::Instant;
 use tokio::{sync::mpsc, task::JoinHandle};
 
@@ -25,7 +32,7 @@ pub struct Args {
     pub tree_crawler_count: usize,
 
     /// The size of the signature channel.
-    #[arg(long, env, default_value = "10000")]
+    #[arg(long, env, default_value = "100000")]
     pub signature_channel_size: usize,
 
     /// The size of the signature channel.
@@ -33,8 +40,8 @@ pub struct Args {
     pub gap_channel_size: usize,
 
     /// The number of transaction workers.
-    #[arg(long, env, default_value = "100")]
-    pub transaction_worker_count: usize,
+    #[arg(long, env, default_value = "50")]
+    pub transaction_worker_count_per_tree: usize,
 
     /// The number of gap workers.
     #[arg(long, env, default_value = "25")]
@@ -48,10 +55,6 @@ pub struct Args {
     #[clap(flatten)]
     pub database: PoolArgs,
 
-    /// Redis configuration
-    #[clap(flatten)]
-    pub queue: QueueArgs,
-
     /// Metrics configuration
     #[clap(flatten)]
     pub metrics: MetricsArgs,
@@ -61,103 +64,53 @@ pub struct Args {
     pub solana: SolanaRpcArgs,
 }
 
-/// Runs the backfilling process for the tree crawler.
+/// Executes the backfilling operation for the tree crawler.
 ///
-/// This function initializes the necessary components for the backfilling process,
-/// including database connections, RPC clients, and worker managers for handling
-/// transactions and gaps. It then proceeds to fetch the trees that need to be crawled
-/// and manages the crawling process across multiple workers.
+/// This function sets up the essential components required for the backfilling operation,
+/// including database connections, RPC clients, and worker managers to handle
+/// transactions and gaps. It retrieves the necessary trees for crawling and orchestrates
+/// the crawling operation across various workers.
 ///
-/// The function handles the following major tasks:
-/// - Establishing connections to the database and initializing RPC clients.
-/// - Setting up channels for communication between different parts of the system.
-/// - Spawning worker managers for processing transactions and gaps.
-/// - Fetching trees from the database and managing their crawling process.
-/// - Reporting metrics and logging information throughout the process.
+/// The function undertakes the following key tasks:
+/// - Establishes database connections and initializes RPC clients.
+/// - Configures channels for inter-component communication.
+/// - Deploys worker managers to handle transactions and gaps.
+/// - Retrieves trees from the database and oversees their crawling.
+/// - Monitors metrics and logs activities throughout the operation.
 ///
 /// # Arguments
 ///
-/// * `config` - A configuration object containing settings for the backfilling process,
-///   including database, RPC, and worker configurations.
+/// * `config` - A configuration object that includes settings for the backfilling operation,
+///   such as database, RPC, and worker configurations.
 ///
 /// # Returns
 ///
-/// This function returns a `Result` which is `Ok` if the backfilling process completes
-/// successfully, or an `Err` with an appropriate error message if any part of the process
-/// fails.
+/// This function returns a `Result` which is `Ok` if the backfilling operation is completed
+/// successfully, or an `Err` with a relevant error message if any part of the operation
+/// encounters issues.
 ///
 /// # Errors
 ///
-/// This function can return errors related to database connectivity, RPC failures,
-/// or issues with spawning and managing worker tasks.
+/// Potential errors can arise from database connectivity issues, RPC failures,
+/// or complications in spawning and managing worker tasks.
 pub async fn run(config: Args) -> Result<()> {
-    let pool = connect_db(config.database).await?;
+    let pool = connect_db(&config.database).await?;
 
-    let solana_rpc = Rpc::from_config(config.solana);
-    let transaction_solana_rpc = solana_rpc.clone();
-    let gap_solana_rpc = solana_rpc.clone();
+    let solana_rpc = Rpc::from_config(&config.solana);
 
-    setup_metrics(config.metrics)?;
-
-    let (sig_sender, mut sig_receiver) = mpsc::channel::<Signature>(config.signature_channel_size);
-    let gap_sig_sender = sig_sender.clone();
-    let (gap_sender, mut gap_receiver) = mpsc::channel::<TreeGapFill>(config.gap_channel_size);
-
-    let queue = QueuePool::try_from_config(config.queue).await?;
-
-    let transaction_worker_count = config.transaction_worker_count;
-
-    let transaction_worker_manager = tokio::spawn(async move {
-        let mut handlers = FuturesUnordered::new();
-
-        while let Some(signature) = sig_receiver.recv().await {
-            if handlers.len() >= transaction_worker_count {
-                handlers.next().await;
-            }
-
-            let solana_rpc = transaction_solana_rpc.clone();
-            let queue = queue.clone();
-
-            let handle = spawn_transaction_worker(solana_rpc, queue, signature);
-
-            handlers.push(handle);
-        }
-
-        futures::future::join_all(handlers).await;
-    });
-
-    let gap_worker_count = config.gap_worker_count;
-
-    let gap_worker_manager = tokio::spawn(async move {
-        let mut handlers = FuturesUnordered::new();
-
-        while let Some(gap) = gap_receiver.recv().await {
-            if handlers.len() >= gap_worker_count {
-                handlers.next().await;
-            }
-
-            let client = gap_solana_rpc.clone();
-            let sender = gap_sig_sender.clone();
-
-            let handle = spawn_crawl_worker(client, sender, gap);
-
-            handlers.push(handle);
-        }
-
-        futures::future::join_all(handlers).await;
-    });
+    setup_metrics(&config.metrics)?;
 
     let started = Instant::now();
 
-    let trees = if let Some(only_trees) = config.only_trees {
-        TreeResponse::find(&solana_rpc, only_trees).await?
+    let trees = if let Some(ref only_trees) = config.only_trees {
+        TreeResponse::find(&solana_rpc, only_trees.clone()).await?
     } else {
         TreeResponse::all(&solana_rpc).await?
     };
 
     let tree_count = trees.len();
 
-    info!(
+    debug!(
         "fetched {} trees in {}",
         tree_count,
         HumanDuration(started.elapsed())
@@ -171,29 +124,19 @@ pub async fn run(config: Args) -> Result<()> {
             crawl_handles.next().await;
         }
 
-        let sender = gap_sender.clone();
         let pool = pool.clone();
-        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
+        let solana_rpc = solana_rpc.clone();
 
-        let handle = spawn_gap_worker(conn, sender, tree);
+        let handle = spawn_tree_worker(&config, pool, solana_rpc, tree);
 
         crawl_handles.push(handle);
     }
 
     futures::future::try_join_all(crawl_handles).await?;
-    drop(gap_sender);
-    info!("crawled all trees");
-
-    gap_worker_manager.await?;
-    drop(sig_sender);
-    info!("all gaps processed");
-
-    transaction_worker_manager.await?;
-    info!("all transactions queued");
 
     statsd_time!("job.completed", started.elapsed());
 
-    info!(
+    debug!(
         "crawled {} trees in {}",
         tree_count,
         HumanDuration(started.elapsed())
@@ -202,13 +145,95 @@ pub async fn run(config: Args) -> Result<()> {
     Ok(())
 }
 
-fn spawn_gap_worker(
-    conn: DatabaseConnection,
-    sender: mpsc::Sender<TreeGapFill>,
+fn spawn_tree_worker(
+    config: &Args,
+    pool: PgPool,
+    rpc: Rpc,
     tree: TreeResponse,
 ) -> JoinHandle<Result<(), anyhow::Error>> {
+    let config = config.clone();
+    let gap_solana_rpc = rpc.clone();
+    let gap_pool = pool.clone();
+
     tokio::spawn(async move {
         let timing = Instant::now();
+
+        let transaction_worker_count = config.transaction_worker_count_per_tree;
+
+        let (sig_sender, mut sig_receiver) =
+            mpsc::channel::<Signature>(config.signature_channel_size);
+        let gap_sig_sender = sig_sender.clone();
+
+        let (gap_sender, mut gap_receiver) = mpsc::channel::<TreeGapFill>(config.gap_channel_size);
+        let (transaction_sender, mut transaction_receiver) =
+            mpsc::channel::<TransactionInfo>(config.signature_channel_size);
+
+        let signature_worker_manager = tokio::spawn(async move {
+            let mut handlers = FuturesUnordered::new();
+
+            while let Some(signature) = sig_receiver.recv().await {
+                if handlers.len() >= transaction_worker_count {
+                    handlers.next().await;
+                }
+
+                let solana_rpc = rpc.clone();
+                let transaction_sender = transaction_sender.clone();
+
+                let handle = spawn_transaction_worker(solana_rpc, transaction_sender, signature);
+
+                handlers.push(handle);
+            }
+
+            futures::future::join_all(handlers).await;
+
+            drop(transaction_sender);
+        });
+
+        let gap_worker_count = config.gap_worker_count;
+
+        let gap_worker_manager = tokio::spawn(async move {
+            let mut handlers = FuturesUnordered::new();
+            let sender = gap_sig_sender.clone();
+
+            while let Some(gap) = gap_receiver.recv().await {
+                if handlers.len() >= gap_worker_count {
+                    handlers.next().await;
+                }
+
+                let client = gap_solana_rpc.clone();
+                let sender = sender.clone();
+
+                let handle = spawn_crawl_worker(client, sender, gap);
+
+                handlers.push(handle);
+            }
+
+            futures::future::join_all(handlers).await;
+
+            drop(sig_sender);
+        });
+
+        let transaction_worker_manager = tokio::spawn(async move {
+            let mut transactions = Vec::new();
+            let pool = pool.clone();
+
+            let program_transformer =
+                ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), true);
+
+            while let Some(gap) = transaction_receiver.recv().await {
+                transactions.push(gap);
+            }
+
+            transactions.sort_by(|a, b| b.signature.cmp(&a.signature));
+
+            for transaction in transactions {
+                if let Err(e) = program_transformer.handle_transaction(&transaction).await {
+                    error!("handle transaction: {:?}", e)
+                };
+            }
+        });
+
+        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(gap_pool);
 
         let mut gaps = TreeGapModel::find(&conn, tree.pubkey)
             .await?
@@ -228,42 +253,35 @@ fn spawn_gap_worker(
             .one(&conn)
             .await?;
 
+        drop(conn);
+
         if let Some(upper_seq) = upper_known_seq {
             let signature = Signature::try_from(upper_seq.tx.as_ref())?;
-            info!(
-                "tree {} has known highest seq {} filling tree from {}",
-                tree.pubkey, upper_seq.seq, signature
-            );
+
             gaps.push(TreeGapFill::new(tree.pubkey, None, Some(signature)));
         } else if tree.seq > 0 {
-            info!(
-                "tree {} has no known highest seq but the actual seq is {} filling whole tree",
-                tree.pubkey, tree.seq
-            );
             gaps.push(TreeGapFill::new(tree.pubkey, None, None));
         }
 
         if let Some(lower_seq) = lower_known_seq.filter(|seq| seq.seq > 1) {
             let signature = Signature::try_from(lower_seq.tx.as_ref())?;
 
-            info!(
-                "tree {} has known lowest seq {} filling tree starting at {}",
-                tree.pubkey, lower_seq.seq, signature
-            );
-
             gaps.push(TreeGapFill::new(tree.pubkey, Some(signature), None));
         }
 
-        let gap_count = gaps.len();
-
         for gap in gaps {
-            if let Err(e) = sender.send(gap).await {
+            if let Err(e) = gap_sender.send(gap).await {
                 statsd_count!("gap.failed", 1);
                 error!("send gap: {:?}", e);
             }
         }
 
-        info!("crawling tree {} with {} gaps", tree.pubkey, gap_count);
+        drop(gap_sender);
+        gap_worker_manager.await?;
+
+        signature_worker_manager.await?;
+
+        transaction_worker_manager.await?;
 
         statsd_count!("tree.succeeded", 1);
         statsd_time!("tree.crawled", timing.elapsed());
@@ -292,27 +310,137 @@ fn spawn_crawl_worker(
     })
 }
 
+pub struct FetchedEncodedTransactionWithStatusMeta(pub EncodedConfirmedTransactionWithStatusMeta);
+
+impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
+    type Error = BubblegumOpsErrorKind;
+
+    fn try_from(
+        fetched_transaction: FetchedEncodedTransactionWithStatusMeta,
+    ) -> Result<Self, Self::Error> {
+        let mut account_keys = Vec::new();
+        let encoded_transaction_with_status_meta = fetched_transaction.0;
+
+        let ui_transaction: VersionedTransaction = encoded_transaction_with_status_meta
+            .transaction
+            .transaction
+            .decode()
+            .ok_or(BubblegumOpsErrorKind::Generic(
+                "unable to decode transaction".to_string(),
+            ))?;
+
+        let signature = ui_transaction.signatures[0];
+
+        let msg = ui_transaction.message;
+
+        let meta = encoded_transaction_with_status_meta
+            .transaction
+            .meta
+            .ok_or(BubblegumOpsErrorKind::Generic(
+                "unable to get meta from transaction".to_string(),
+            ))?;
+
+        for address in msg.static_account_keys().iter().copied() {
+            account_keys.push(address);
+        }
+        let ui_loaded_addresses = meta.loaded_addresses;
+
+        let message_address_table_lookup = msg.address_table_lookups();
+
+        if message_address_table_lookup.is_some() {
+            if let OptionSerializer::Some(ui_lookup_table) = ui_loaded_addresses {
+                for address in ui_lookup_table.writable {
+                    account_keys.push(PubkeyString(address).try_into()?);
+                }
+
+                for address in ui_lookup_table.readonly {
+                    account_keys.push(PubkeyString(address).try_into()?);
+                }
+            }
+        }
+
+        let mut meta_inner_instructions = Vec::new();
+
+        let compiled_instruction = msg.instructions().to_vec();
+
+        let mut instructions = Vec::new();
+
+        for inner in compiled_instruction {
+            instructions.push(InnerInstruction {
+                stack_height: Some(0),
+                instruction: CompiledInstruction {
+                    program_id_index: inner.program_id_index,
+                    accounts: inner.accounts,
+                    data: inner.data,
+                },
+            });
+        }
+
+        meta_inner_instructions.push(InnerInstructions {
+            index: 0,
+            instructions,
+        });
+
+        if let OptionSerializer::Some(inner_instructions) = meta.inner_instructions {
+            for ix in inner_instructions {
+                let mut instructions = Vec::new();
+
+                for inner in ix.instructions {
+                    if let UiInstruction::Compiled(compiled) = inner {
+                        instructions.push(InnerInstruction {
+                            stack_height: compiled.stack_height,
+                            instruction: CompiledInstruction {
+                                program_id_index: compiled.program_id_index,
+                                accounts: compiled.accounts,
+                                data: bs58::decode(compiled.data)
+                                    .into_vec()
+                                    .map_err(|e| BubblegumOpsErrorKind::Generic(e.to_string()))?,
+                            },
+                        });
+                    }
+                }
+
+                meta_inner_instructions.push(InnerInstructions {
+                    index: ix.index,
+                    instructions,
+                });
+            }
+        }
+
+        Ok(Self {
+            slot: encoded_transaction_with_status_meta.slot,
+            account_keys,
+            signature,
+            message_instructions: msg.instructions().to_vec(),
+            meta_inner_instructions,
+        })
+    }
+}
+
 async fn queue_transaction<'a>(
     client: Rpc,
-    queue: QueuePool,
+    sender: mpsc::Sender<TransactionInfo>,
     signature: Signature,
-) -> Result<(), TreeErrorKind> {
+) -> Result<(), BubblegumOpsErrorKind> {
     let transaction = client.get_transaction(&signature).await?;
 
-    let message = seralize_encoded_transaction_with_status(FlatBufferBuilder::new(), transaction)?;
-
-    queue
-        .push_transaction_backfill(message.finished_data())
-        .await?;
+    sender
+        .send(FetchedEncodedTransactionWithStatusMeta(transaction).try_into()?)
+        .await
+        .map_err(|e| BubblegumOpsErrorKind::Generic(e.to_string()))?;
 
     Ok(())
 }
 
-fn spawn_transaction_worker(client: Rpc, queue: QueuePool, signature: Signature) -> JoinHandle<()> {
+fn spawn_transaction_worker(
+    client: Rpc,
+    sender: mpsc::Sender<TransactionInfo>,
+    signature: Signature,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let timing = Instant::now();
 
-        if let Err(e) = queue_transaction(client, queue, signature).await {
+        if let Err(e) = queue_transaction(client, sender, signature).await {
             error!("queue transaction: {:?}", e);
 
             statsd_count!("transaction.failed", 1);
@@ -322,4 +450,19 @@ fn spawn_transaction_worker(client: Rpc, queue: QueuePool, signature: Signature)
 
         statsd_time!("transaction.queued", timing.elapsed());
     })
+}
+
+pub struct PubkeyString(pub String);
+
+impl TryFrom<PubkeyString> for Pubkey {
+    type Error = BubblegumOpsErrorKind;
+
+    fn try_from(value: PubkeyString) -> Result<Self, Self::Error> {
+        let decoded_bytes = bs58::decode(value.0)
+            .into_vec()
+            .map_err(|e| BubblegumOpsErrorKind::Generic(e.to_string()))?;
+
+        Pubkey::try_from(decoded_bytes)
+            .map_err(|_| BubblegumOpsErrorKind::Generic("unable to convert pubkey".to_string()))
+    }
 }
