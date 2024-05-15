@@ -27,10 +27,11 @@ pub struct Args {
     pub batch_size: u64,
 }
 
+/// The `audit` commands checks `cl_audits_v2` for any failed transactions and logs them to stdout.
 pub async fn run(config: Args) -> Result<()> {
-    let pool = connect_db(config.database).await?;
+    let pool = connect_db(&config.database).await?;
 
-    let solana_rpc = Rpc::from_config(config.solana);
+    let solana_rpc = Rpc::from_config(&config.solana);
 
     let mut output = stdout();
     let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);

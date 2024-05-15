@@ -32,8 +32,8 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 }
 
 pub async fn run(config: Args) -> Result<()> {
-    let rpc = Rpc::from_config(config.solana);
-    let queue = QueuePool::try_from_config(config.queue).await?;
+    let rpc = Rpc::from_config(&config.solana);
+    let queue = QueuePool::try_from_config(&config.queue).await?;
 
     let AccountDetails {
         account,

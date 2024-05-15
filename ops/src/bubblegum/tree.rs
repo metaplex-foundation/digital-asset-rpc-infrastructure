@@ -1,8 +1,8 @@
+use super::BubblegumOpsErrorKind;
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Args;
-use das_core::{QueuePoolError, Rpc};
-use log::error;
+use das_core::Rpc;
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
@@ -12,7 +12,6 @@ use spl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
 };
 use std::str::FromStr;
-use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
@@ -22,30 +21,6 @@ pub struct ConfigBackfiller {
     /// Solana RPC URL
     #[arg(long, env)]
     pub solana_rpc_url: String,
-}
-
-#[derive(ThisError, Debug)]
-pub enum TreeErrorKind {
-    #[error("solana rpc")]
-    Rpc(#[from] solana_client::client_error::ClientError),
-    #[error("anchor")]
-    Achor(#[from] anchor_client::anchor_lang::error::Error),
-    #[error("perkle serialize")]
-    PerkleSerialize(#[from] plerkle_serialization::error::PlerkleSerializationError),
-    #[error("perkle messenger")]
-    PlerkleMessenger(#[from] plerkle_messenger::MessengerError),
-    #[error("queue pool")]
-    QueuePool(#[from] QueuePoolError),
-    #[error("parse pubkey")]
-    ParsePubkey(#[from] solana_sdk::pubkey::ParsePubkeyError),
-    #[error("serialize tree response")]
-    SerializeTreeResponse,
-    #[error("sea orm")]
-    Database(#[from] sea_orm::DbErr),
-    #[error("try from pubkey")]
-    TryFromPubkey,
-    #[error("try from signature")]
-    TryFromSignature,
 }
 
 const TREE_GAP_SQL: &str = r#"
@@ -96,7 +71,10 @@ pub struct TreeGapModel {
 }
 
 impl TreeGapModel {
-    pub async fn find(conn: &DatabaseConnection, tree: Pubkey) -> Result<Vec<Self>, TreeErrorKind> {
+    pub async fn find(
+        conn: &DatabaseConnection,
+        tree: Pubkey,
+    ) -> Result<Vec<Self>, BubblegumOpsErrorKind> {
         let statement = Statement::from_sql_and_values(
             DbBackend::Postgres,
             TREE_GAP_SQL,
@@ -111,14 +89,15 @@ impl TreeGapModel {
 }
 
 impl TryFrom<TreeGapModel> for TreeGapFill {
-    type Error = TreeErrorKind;
+    type Error = BubblegumOpsErrorKind;
 
     fn try_from(model: TreeGapModel) -> Result<Self, Self::Error> {
-        let tree = Pubkey::try_from(model.tree).map_err(|_| TreeErrorKind::TryFromPubkey)?;
+        let tree =
+            Pubkey::try_from(model.tree).map_err(|_| BubblegumOpsErrorKind::TryFromPubkey)?;
         let upper = Signature::try_from(model.upper_bound_tx)
-            .map_err(|_| TreeErrorKind::TryFromSignature)?;
+            .map_err(|_| BubblegumOpsErrorKind::TryFromSignature)?;
         let lower = Signature::try_from(model.lower_bound_tx)
-            .map_err(|_| TreeErrorKind::TryFromSignature)?;
+            .map_err(|_| BubblegumOpsErrorKind::TryFromSignature)?;
 
         Ok(Self::new(tree, Some(upper), Some(lower)))
     }
@@ -179,7 +158,7 @@ pub struct TreeHeaderResponse {
 }
 
 impl TryFrom<ConcurrentMerkleTreeHeader> for TreeHeaderResponse {
-    type Error = TreeErrorKind;
+    type Error = BubblegumOpsErrorKind;
 
     fn try_from(payload: ConcurrentMerkleTreeHeader) -> Result<Self, Self::Error> {
         let size = merkle_tree_get_size(&payload)?;
@@ -227,7 +206,7 @@ impl TreeResponse {
         })
     }
 
-    pub async fn all(client: &Rpc) -> Result<Vec<Self>, TreeErrorKind> {
+    pub async fn all(client: &Rpc) -> Result<Vec<Self>, BubblegumOpsErrorKind> {
         Ok(client
             .get_program_accounts(
                 &id(),
@@ -242,7 +221,10 @@ impl TreeResponse {
             .collect())
     }
 
-    pub async fn find(client: &Rpc, pubkeys: Vec<String>) -> Result<Vec<Self>, TreeErrorKind> {
+    pub async fn find(
+        client: &Rpc,
+        pubkeys: Vec<String>,
+    ) -> Result<Vec<Self>, BubblegumOpsErrorKind> {
         let pubkeys: Vec<Pubkey> = pubkeys
             .into_iter()
             .map(|p| Pubkey::from_str(&p))
@@ -258,7 +240,7 @@ impl TreeResponse {
 
                 let results: Vec<(&Pubkey, Option<Account>)> = batch.iter().zip(accounts).collect();
 
-                Ok::<_, TreeErrorKind>(results)
+                Ok::<_, BubblegumOpsErrorKind>(results)
             })
         }
 
@@ -271,7 +253,7 @@ impl TreeResponse {
                 account.map(|account| Self::try_from_rpc(*pubkey, account))
             })
             .collect::<Result<Vec<TreeResponse>, _>>()
-            .map_err(|_| TreeErrorKind::SerializeTreeResponse)?;
+            .map_err(|_| BubblegumOpsErrorKind::SerializeTreeResponse)?;
 
         Ok(trees)
     }
