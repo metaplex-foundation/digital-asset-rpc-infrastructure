@@ -21,13 +21,10 @@ das-core = { workspace = true }
 digital_asset_types = { workspace = true }
 env_logger = { workspace = true }
 figment = { workspace = true }
-flatbuffers = { workspace = true }
 futures = { workspace = true }
 indicatif = { workspace = true }
 log = { workspace = true }
 mpl-bubblegum = { workspace = true }
-plerkle_messenger = { workspace = true }
-plerkle_serialization = { workspace = true }
 program_transformers = { workspace = true }
 sea-orm = { workspace = true }
 solana-account-decoder = { workspace = true }
