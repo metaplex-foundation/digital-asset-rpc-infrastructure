@@ -103,12 +103,12 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-      - ./db-data/:/var/lib/postgresql/data/:rw
+      - /mnt/ledgerdb/localnet/db-data/:/var/lib/postgresql/data/:rw
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.6.0-1.69.0-v1.16.6
     volumes:
       - ./programs:/so/:ro
-      - ./ledger:/config:rw
+      - /mnt/ledgerdb/localnet/ledger:/config:rw
       - ./solana-test-validator-geyser-config:/plugin-config:rw
       - ./runs.sh:/runs.sh
     environment:
@@ -116,26 +116,26 @@ services:
       PLUGIN_MESSENGER_CONFIG.messenger_type: "Redis"
       PLUGIN_MESSENGER_CONFIG.connection_config: '{redis_connection_str="redis://redis"}'
     ports:
-      - "9094:8900"
-      - "9093:8899"
       - "9092:8900"
+      - "8999:8899"
+      # - "9092:8900"
       - "8899:8899"
-      # - "8900:8900"
-      # - "8901:8901"
-      # - "8902:8902"
-      # - "9900:9900"
-      # - "8000:8000"
-      # - "8001:8001"
-      # - "8002:8002"
-      # - "8003:8003"
-      # - "8004:8004"
-      # - "8005:8005"
-      # - "8006:8006"
-      # - "8007:8007"
-      # - "8008:8008"
-      # - "8009:8009"
-      # - "1024:1024"
-      # - "1027:1027"
+      - "8900:8900"
+      - "8901:8901"
+      - "8902:8902"
+      - "9900:9900"
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+      - "8003:8003"
+      - "8004:8004"
+      - "8005:8005"
+      - "8006:8006"
+      - "8007:8007"
+      - "8008:8008"
+      - "8009:8009"
+      - "1024:1024"
+      - "1027:1027"
 volumes:
   grafana_data: {}
   graphite_data: {}

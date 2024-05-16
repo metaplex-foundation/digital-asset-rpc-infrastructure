@@ -64,6 +64,10 @@ impl IndexablePrograms for HoneycombPrograms {
         self.programs
             .push(pubkey!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg")); // CharacterManager
         self.programs
+            .push(pubkey!("Assetw8uxLogzVXic5P8wGYpVdesS1oZHfSnBFHAu42s")); // Test Resource Manager
+        self.programs
+            .push(pubkey!("ATQfyuSouoFHW393YFYeojfBcsPD6KpM4cVCzSwkguT2")); // Resource Manager
+        self.programs
             .push(pubkey!("CrncyaGmZfWvpxRcpHEkSrqeeyQsdn4MAedo9KuARAc4")); // Currency
         self.programs
             .push(pubkey!("Pay9ZxrVRXjt9Da8qpwqq4yBRvvrfx3STWnKK4FstPr")); // Payment
@@ -72,7 +76,7 @@ impl IndexablePrograms for HoneycombPrograms {
         self.programs
             .push(pubkey!("9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK")); // Test GuildKit
         self.programs
-            .push(pubkey!("6ARwjKsMY2P3eLEWhdoU5czNezw3Qg6jEfbmLTVQqrPQ")); // Test ResourceManager
+            .push(pubkey!("HuntaX1CmUt5EByyFPE8pMf13SpvezybmMTtjmpmGmfj")); // Mission
     }
 }
 

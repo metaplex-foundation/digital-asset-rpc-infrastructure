@@ -1,13 +1,14 @@
-use std::{collections::HashSet, str::FromStr};
+use std::collections::HashSet;
 
-use crate::{error::IngesterError, tasks::TaskData};
+use crate::error::IngesterError;
 use base64::Engine;
 use borsh::BorshDeserialize;
 use plerkle_serialization::TransactionInfo;
 
+use anchor_lang::Discriminator;
 use async_trait::async_trait;
 use digital_asset_types::dao::accounts;
-use hpl_toolkit::AccountSchemaValue;
+use hpl_toolkit::schema::{AccountSchemaValue, ToSchema};
 use log::{debug, error, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ConnectionTrait, DatabaseConnection,
@@ -19,11 +20,15 @@ use solana_client::{
 };
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
+    pubkey as pubkey_macro,
     pubkey::Pubkey,
     transaction::Transaction,
 };
 use solana_transaction_status::UiTransactionEncoding;
 use std::collections::HashMap;
+
+mod hpl_character_manager;
+mod hpl_nectar_missions;
 
 #[async_trait]
 pub trait IndexablePrograms {
@@ -149,24 +154,114 @@ pub trait IndexablePrograms {
 
 async fn extract_account_schema_values<'a>(
     program_id: Pubkey,
-    pubkeys: HashSet<Pubkey>,
+    pubkey: Pubkey,
     payer: &'a Option<Pubkey>,
     rpc_client: &'a RpcClient,
     directory: &'a mut HashMap<Pubkey, AccountSchemaValue>,
 ) {
+    // FOR CHARACTER MANAGER
+    if program_id == pubkey_macro!("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg") {
+        debug!("Found character manager account");
+        let data = rpc_client.get_account_data(&pubkey).await.unwrap();
+        let (disc_bytes, data) = data.split_at(8);
+        let mut disc = [0u8; 8];
+        disc.copy_from_slice(disc_bytes);
+        let mut matched = true;
+        match disc {
+            hpl_character_manager::AssemblerConfig::DISCRIMINATOR => {
+                let schema = hpl_character_manager::AssemblerConfig::deserialize(&mut &data[..])
+                    .unwrap()
+                    .schema_value();
+                directory.insert(
+                    pubkey,
+                    AccountSchemaValue {
+                        address: pubkey,
+                        program_id,
+                        discriminator: disc,
+                        value: schema,
+                    },
+                );
+            }
+            hpl_character_manager::CharacterModel::DISCRIMINATOR => {
+                let schema = hpl_character_manager::CharacterModel::deserialize(&mut &data[..])
+                    .unwrap()
+                    .schema_value();
+                directory.insert(
+                    pubkey,
+                    AccountSchemaValue {
+                        address: pubkey,
+                        program_id,
+                        discriminator: disc,
+                        value: schema,
+                    },
+                );
+            }
+            _ => matched = false,
+        }
+
+        if matched {
+            return;
+        } else {
+            debug!("No discriminators matched moving forward to simulation");
+        }
+    } else if program_id == pubkey_macro!("HuntaX1CmUt5EByyFPE8pMf13SpvezybmMTtjmpmGmfj") {
+        debug!("Found Mission Account");
+
+        let data = rpc_client.get_account_data(&pubkey).await.unwrap();
+        let (disc_bytes, data) = data.split_at(8);
+        let mut disc = [0u8; 8];
+        disc.copy_from_slice(disc_bytes);
+
+        let mut matched = true;
+        match disc {
+            hpl_nectar_missions::MissionPool::DISCRIMINATOR => {
+                let schema = hpl_nectar_missions::MissionPool::deserialize(&mut &data[..])
+                    .unwrap()
+                    .schema_value();
+                directory.insert(
+                    pubkey,
+                    AccountSchemaValue {
+                        address: pubkey,
+                        program_id,
+                        discriminator: disc,
+                        value: schema,
+                    },
+                );
+            }
+            hpl_nectar_missions::Mission::DISCRIMINATOR => {
+                let schema = hpl_nectar_missions::Mission::deserialize(&mut &data[..])
+                    .unwrap()
+                    .schema_value();
+                directory.insert(
+                    pubkey,
+                    AccountSchemaValue {
+                        address: pubkey,
+                        program_id,
+                        discriminator: disc,
+                        value: schema,
+                    },
+                );
+            }
+            _ => matched = false,
+        }
+
+        if matched {
+            return;
+        } else {
+            debug!("No discriminators matched moving forward to simulation");
+        }
+    }
+
     if payer.is_none() {
         debug!("Payer is none, aborting");
         return;
     }
 
-    let metas = pubkeys
-        .into_iter()
-        .map(|pubkey| AccountMeta {
-            pubkey: pubkey,
-            is_signer: false,
-            is_writable: false,
-        })
-        .collect::<Vec<AccountMeta>>();
+    let metas = vec![AccountMeta {
+        pubkey: pubkey,
+        is_signer: false,
+        is_writable: false,
+    }];
 
     if metas.len() == 0 {
         return;
@@ -235,7 +330,7 @@ async fn extract_account_schema_values<'a>(
                     Err(error) => error!("Error deserialize_reader {:?}", error),
                 }
             } else {
-                info!("Tx Simualted no response");
+                error!("Tx Simualted no response {:?}", res.value);
             }
         }
         Err(err) => error!("Tx simulation failed {}", err),
@@ -253,7 +348,10 @@ pub async fn etl_account_schema_values<'a>(
     let mut directory = HashMap::<Pubkey, AccountSchemaValue>::new();
 
     for (program, pubkeys) in program_accounts {
-        extract_account_schema_values(program, pubkeys, &payer, rpc_client, &mut directory).await;
+        for pubkey in pubkeys {
+            extract_account_schema_values(program, pubkey, &payer, rpc_client, &mut directory)
+                .await;
+        }
     }
 
     let accounts_schemas = directory.values();
