@@ -372,3 +372,23 @@ create index accounts_parsed_data on accounts (parsed_data);
 -- @@@@@@
 create index accounts_revision on accounts (program_id, discriminator);
 -- @@@@@@
+
+
+create table character_history
+(
+    id                        bigserial PRIMARY KEY,
+
+    character_id  bigserial  not null,
+
+    event varchar(64) not null,
+
+    -- Event Data
+    event_data                   jsonb not null,
+
+    -- visibility
+    created_at                timestamp with time zone           default (now() at time zone 'utc'),
+    slot_updated              bigint                    not null
+);
+-- @@@@@@
+create index character_history_character_id on character_history (character_id);
+-- @@@@@@

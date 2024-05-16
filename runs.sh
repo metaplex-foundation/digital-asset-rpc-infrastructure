@@ -100,4 +100,4 @@ cat /plugin-config/accountsdb-plugin-config.json
 ls -la /so/
 
 apt update && apt install ca-certificates -y && update-ca-certificates
-solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null
+solana-test-validator  "${programs[@]}" "${clones[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS
