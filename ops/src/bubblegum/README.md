@@ -8,24 +8,9 @@ Command line arguments can also be set through environment variables.
 
 ### Backfill
 
-The `backfill` command initiates the crawling and backfilling process. It requires the Solana RPC URL, the database URL, and the messenger Redis URL.
+The `backfill` command initiates the crawling and backfilling process. It requires the Solana RPC URL, the database URL.
 
 **warning**: The command expects full archive access to transactions. Before proceeding ensure your RPC is able to serve complete transaction history for Solana.  
-
-```mermaid
-flowchart
-    start((Start)) -->init[Initialize RPC, DB]
-    init --> fetchTreesDB[Fetch Trees from DB]
-    fetchTreesDB --> findGapsDB[Find Gaps in DB]
-    findGapsDB --> enqueueGapFills[Enqueue Gap Fills]
-    enqueueGapFills --> gapWorkerManager[Gap Worker Manager]
-    gapWorkerManager --> crawlSignatures[Crawl Solana RPC]
-    crawlSignatures --> enqueueSignatures[Enqueue Signatures]
-    enqueueSignatures --> transactionWorkerManager[Transaction Worker Manager]
-    transactionWorkerManager --> fetchTransactionsRPC[Fetch Transactions RPC]
-    fetchTransactionsRPC --> processTransactions[Push Transaction to Messenger]
-    processTransactions ---> Finished
-```
 
 ```
 Usage: das-ops bubblegum backfill [OPTIONS] --database-url <DATABASE_URL> --messenger-redis-url <MESSENGER_REDIS_URL> --solana-rpc-url <SOLANA_RPC_URL>

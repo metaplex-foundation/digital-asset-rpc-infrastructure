@@ -1,19 +1,17 @@
 use anyhow::Result;
 
-use super::account_details::AccountDetails;
+use super::account_info;
 use clap::Parser;
-use das_core::{MetricsArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs};
-use flatbuffers::FlatBufferBuilder;
-use plerkle_serialization::{
-    serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
-};
+use das_core::{connect_db, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
+use futures::future::{ready, FutureExt};
+use program_transformers::ProgramTransformer;
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Redis configuration
+    /// Database configuration
     #[clap(flatten)]
-    pub queue: QueueArgs,
+    pub database: PoolArgs,
 
     /// Metrics configuration
     #[clap(flatten)]
@@ -33,29 +31,16 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 
 pub async fn run(config: Args) -> Result<()> {
     let rpc = Rpc::from_config(&config.solana);
-    let queue = QueuePool::try_from_config(&config.queue).await?;
+    let pool = connect_db(&config.database).await?;
 
-    let AccountDetails {
-        account,
-        slot,
-        pubkey,
-    } = AccountDetails::fetch(&rpc, &config.account).await?;
-    let builder = FlatBufferBuilder::new();
-    let account_info = ReplicaAccountInfoV2 {
-        pubkey: &pubkey.to_bytes(),
-        lamports: account.lamports,
-        owner: &account.owner.to_bytes(),
-        executable: account.executable,
-        rent_epoch: account.rent_epoch,
-        data: &account.data,
-        write_version: 0,
-        txn_signature: None,
-    };
+    let program_transformer =
+        ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), false);
 
-    let fbb = serialize_account(builder, &account_info, slot, false);
-    let bytes = fbb.finished_data();
+    let account_info = account_info::fetch(&rpc, config.account).await?;
 
-    queue.push_account_backfill(bytes).await?;
+    program_transformer
+        .handle_account_update(&account_info)
+        .await?;
 
     Ok(())
 }
