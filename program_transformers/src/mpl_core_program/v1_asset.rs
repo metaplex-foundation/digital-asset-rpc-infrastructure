@@ -270,7 +270,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
 
     // Improve JSON output.
-    remove_plugins_nesting(&mut external_plugins_json, "external_plugin_adapter");
+    remove_plugins_nesting(&mut external_plugins_json, "adapter_config");
     transform_plugins_authority(&mut external_plugins_json);
     convert_keys_to_snake_case(&mut external_plugins_json);
 
@@ -468,21 +468,35 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 // "data":{"freeze_delegate":{"frozen":false}}}
 // to:
 // "data":{"frozen":false}
-fn remove_plugins_nesting(plugins_json: &mut Value, index_to_remove: &str) {
-    if let Some(plugins) = plugins_json.as_object_mut() {
-        for (_, plugin) in plugins.iter_mut() {
-            if let Some(Value::Object(data)) = plugin.get_mut(index_to_remove) {
-                // Extract the plugin data and remove it.
-                if let Some((_, inner_plugin_data)) = data.iter().next() {
-                    let inner_plugin_data_clone = inner_plugin_data.clone();
-                    // Clear the "data" object.
-                    data.clear();
-                    // Move the plugin data fields to the top level of "data".
-                    if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
-                        for (field_name, field_value) in inner_plugin_data.iter() {
-                            data.insert(field_name.clone(), field_value.clone());
-                        }
-                    }
+fn remove_plugins_nesting(plugins_json: &mut Value, nested_key: &str) {
+    match plugins_json {
+        Value::Object(plugins) => {
+            // Handle the case where plugins_json is an object.
+            for (_, plugin) in plugins.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        Value::Array(plugins_array) => {
+            // Handle the case where plugins_json is an array.
+            for plugin in plugins_array.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn remove_nesting_from_plugin(plugin: &mut Value, nested_key: &str) {
+    if let Some(Value::Object(nested_key)) = plugin.get_mut(nested_key) {
+        // Extract the plugin data and remove it.
+        if let Some((_, inner_plugin_data)) = nested_key.iter().next() {
+            let inner_plugin_data_clone = inner_plugin_data.clone();
+            // Clear the `nested_key` object.
+            nested_key.clear();
+            // Move the plugin data fields to the top level of `nested_key`.
+            if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
+                for (field_name, field_value) in inner_plugin_data.iter() {
+                    nested_key.insert(field_name.clone(), field_value.clone());
                 }
             }
         }
