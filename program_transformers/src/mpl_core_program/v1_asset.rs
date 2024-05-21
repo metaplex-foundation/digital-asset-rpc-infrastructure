@@ -234,7 +234,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .plugins
         .get(&PluginType::Royalties)
         .and_then(|plugin_schema| {
-            if let Plugin::Royalties(royalties) = &plugin_schema.plugin {
+            if let Plugin::Royalties(royalties) = &plugin_schema.data {
                 Some((royalties.basis_points, &royalties.creators))
             } else {
                 None
@@ -247,7 +247,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
 
     // Improve JSON output.
-    remove_plugins_nesting(&mut plugins_json);
+    remove_plugins_nesting(&mut plugins_json, "data");
     transform_plugins_authority(&mut plugins_json);
     convert_keys_to_snake_case(&mut plugins_json);
 
@@ -270,7 +270,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
 
     // Improve JSON output.
-    remove_plugins_nesting(&mut external_plugins_json);
+    remove_plugins_nesting(&mut external_plugins_json, "external_plugin_adapter");
     transform_plugins_authority(&mut external_plugins_json);
     convert_keys_to_snake_case(&mut external_plugins_json);
 
@@ -340,7 +340,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .plugins
         .get(&PluginType::FreezeDelegate)
         .and_then(|plugin_schema| {
-            if let Plugin::FreezeDelegate(freeze_delegate) = &plugin_schema.plugin {
+            if let Plugin::FreezeDelegate(freeze_delegate) = &plugin_schema.data {
                 Some(freeze_delegate.frozen)
             } else {
                 None
@@ -468,10 +468,10 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 // "data":{"freeze_delegate":{"frozen":false}}}
 // to:
 // "data":{"frozen":false}
-fn remove_plugins_nesting(plugins_json: &mut Value) {
+fn remove_plugins_nesting(plugins_json: &mut Value, index_to_remove: &str) {
     if let Some(plugins) = plugins_json.as_object_mut() {
         for (_, plugin) in plugins.iter_mut() {
-            if let Some(Value::Object(data)) = plugin.get_mut("data") {
+            if let Some(Value::Object(data)) = plugin.get_mut(index_to_remove) {
                 // Extract the plugin data and remove it.
                 if let Some((_, inner_plugin_data)) = data.iter().next() {
                     let inner_plugin_data_clone = inner_plugin_data.clone();
