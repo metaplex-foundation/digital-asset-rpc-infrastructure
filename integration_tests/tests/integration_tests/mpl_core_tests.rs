@@ -248,7 +248,7 @@ async fn test_mpl_core_get_asset_with_pubkey_in_rule_set() {
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_mpl_core_get_asset_with_external_plugins() {
+async fn test_mpl_core_get_asset_with_two_oracle_external_plugins() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
         name.clone(),
@@ -258,14 +258,14 @@ async fn test_mpl_core_get_asset_with_external_plugins() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["E8FwCS7D6pZa1L3oCeSdSesd3CC4rdZfAedubj1ru6aY"]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["4aarnaiMVtGEp5nToRqBEUGtqY2F1gW2V8bBQe1rN5V9"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     let request = r#"
     {
-        "id": "E8FwCS7D6pZa1L3oCeSdSesd3CC4rdZfAedubj1ru6aY"
+        "id": "4aarnaiMVtGEp5nToRqBEUGtqY2F1gW2V8bBQe1rN5V9"
     }
     "#;
 
