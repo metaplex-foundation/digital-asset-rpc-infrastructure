@@ -273,3 +273,158 @@ async fn test_mpl_core_get_asset_with_two_oracle_external_plugins() {
     let response = setup.das_api.get_asset(request).await.unwrap();
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_oracle_external_plugin_on_collection() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["Hvdg2FjMEndC4jxF2MJgKCaj5omLLZ19LNfD4p9oXkpE"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "Hvdg2FjMEndC4jxF2MJgKCaj5omLLZ19LNfD4p9oXkpE"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_oracle_multiple_lifecycle_events() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["3puHPHUHFXxhS7qPQa5YYTngzPbetoWbu7y2UxxB6xrF"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "3puHPHUHFXxhS7qPQa5YYTngzPbetoWbu7y2UxxB6xrF"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_oracle_custom_offset_and_base_address_config() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["9v2H5sDBXKmYkGHebfaWwdgBWuMTBVWQom3QeEcV8oJj"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "9v2H5sDBXKmYkGHebfaWwdgBWuMTBVWQom3QeEcV8oJj"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_oracle_no_offset() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["2TZpUiBiyMdwLFTKRshVMHK8anQK2W8XXbfUfyxR8yvc"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "2TZpUiBiyMdwLFTKRshVMHK8anQK2W8XXbfUfyxR8yvc"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_assets_by_group_with_oracle_and_custom_pda_all_seeds() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "Do7rVGmVNa9wjsKNyjoa5phqriLER6HCqUQm5zyoTX3f",
+        "CWJDcrzxSDE7FeNRzMK1aSia7qoaUPrrGQ81E7vkQpq4",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "groupKey": "collection",
+        "groupValue": "Do7rVGmVNa9wjsKNyjoa5phqriLER6HCqUQm5zyoTX3f",
+        "sortBy": {
+            "sortBy": "updated",
+            "sortDirection": "asc"
+        },
+        "page": 1,
+        "limit": 50
+    }
+    "#;
+
+    let request: api::GetAssetsByGroup = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_assets_by_group(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
