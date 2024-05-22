@@ -13,9 +13,8 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(CompressedData::Id)
-                            .integer()
+                            .binary()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CompressedData::TreeId).binary().not_null())

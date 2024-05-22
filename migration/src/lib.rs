@@ -35,7 +35,6 @@ mod m20231118_174007_add_compressed_data;
 mod m20231122_191039_create_merkle_tree_table;
 mod m20231206_120101_remove_was_decompressed;
 mod m20240206_175504_create_acccounts_table;
-mod m20240522_110836_change_compressed_data_id_to_hash;
 
 pub struct Migrator;
 
@@ -78,7 +77,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20231122_191039_create_merkle_tree_table::Migration),
             Box::new(m20231206_120101_remove_was_decompressed::Migration),
             Box::new(m20240206_175504_create_acccounts_table::Migration),
-            Box::new(m20240522_110836_change_compressed_data_id_to_hash::Migration),
         ]
     }
 }
