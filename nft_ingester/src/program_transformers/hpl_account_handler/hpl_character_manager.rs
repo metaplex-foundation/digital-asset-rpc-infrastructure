@@ -5,13 +5,15 @@ use {
 
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]
 pub struct AssemblerConfig {
-    pub key: Pubkey,
+    pub bump: u8,
+    pub ticker: String,
     pub project: Pubkey,
-    pub layers: Vec<CharacterLayer>,
+    pub order: Vec<String>,
+    pub merkle_trees: ControlledMerkleTrees,
 }
 
 impl anchor_lang::Discriminator for AssemblerConfig {
-    const DISCRIMINATOR: [u8; 8] = [129, 188, 134, 114, 66, 149, 112, 94];
+    const DISCRIMINATOR: [u8; 8] = [5, 4, 69, 145, 53, 127, 224, 177];
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]
