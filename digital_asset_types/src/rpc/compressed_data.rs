@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CompressedData {
-    pub id: i64,
+    pub id: Vec<u8>,
     pub tree_id: String,
     pub leaf_idx: i64,
     pub schema_validated: bool,

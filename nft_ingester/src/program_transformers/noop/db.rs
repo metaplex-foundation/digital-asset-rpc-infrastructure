@@ -3,6 +3,7 @@ use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
 use digital_asset_types::dao::{compressed_data, merkle_tree};
 use hpl_toolkit::{compression::*, schema::*};
 use log::{debug, info};
+use num_traits::ToBytes;
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
@@ -106,12 +107,6 @@ where
                     schema_validated = true;
                 }
 
-                // if let SchemaValue::Object(object) = data {
-                //     if let Some(used_by) = object.get("used_by") {
-                //         update_character_history(used_by)?;
-                //     }
-                // }
-
                 debug!("Serializing raw data");
                 let raw_data = data.try_to_vec().map_err(|db_err| {
                     IngesterError::CompressedDataParseError(db_err.to_string())
@@ -119,6 +114,11 @@ where
                 debug!("Serialized raw data");
 
                 let item = compressed_data::ActiveModel {
+                    id: Set(anchor_lang::solana_program::keccak::hashv(
+                        &[&tree_id[..], &leaf_idx.to_le_bytes()[..]][..],
+                    )
+                    .to_bytes()
+                    .to_vec()),
                     tree_id: Set(tree_id.to_vec()),
                     leaf_idx: Set(leaf_idx as i64),
                     seq: Set(seq as i64),
@@ -160,9 +160,13 @@ where
                     bs58::encode(tree_id).into_string(),
                     leaf_idx
                 );
+                let id = anchor_lang::solana_program::keccak::hashv(
+                    &[&tree_id[..], &leaf_idx.to_le_bytes()[..]][..],
+                )
+                .to_bytes()
+                .to_vec();
                 let found = compressed_data::Entity::find()
-                    .filter(compressed_data::Column::TreeId.eq(tree_id.to_vec()))
-                    .filter(compressed_data::Column::LeafIdx.eq(leaf_idx as i64))
+                    .filter(compressed_data::Column::Id.eq(id.to_owned()))
                     .one(txn)
                     .await
                     .map_err(|db_err| IngesterError::StorageReadError(db_err.to_string()))?;
@@ -194,8 +198,7 @@ where
                 debug!("Data updated in object");
 
                 let query: Statement = compressed_data::Entity::update(db_data)
-                    .filter(compressed_data::Column::TreeId.eq(tree_id.to_vec()))
-                    .filter(compressed_data::Column::LeafIdx.eq(leaf_idx as i64))
+                    .filter(compressed_data::Column::Id.eq(id))
                     .build(DbBackend::Postgres);
 
                 debug!(
