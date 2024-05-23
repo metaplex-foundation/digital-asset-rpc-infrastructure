@@ -378,7 +378,7 @@ create table character_history
 (
     id                        bigserial PRIMARY KEY,
 
-    character_id  bigserial  not null,
+    character_id  bytea  not null,
 
     event varchar(64) not null,
 

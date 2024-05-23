@@ -15,7 +15,7 @@ impl EntityName for Entity {
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub id: Vec<u8>,
-    pub character_id: u64,
+    pub character_id: Vec<u8>,
     pub event: String,
     pub event_data: Json,
     pub created_at: Option<DateTimeWithTimeZone>,
@@ -54,7 +54,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Binary.def(),
-            Self::CharacterId => ColumnType::BigInteger.def(),
+            Self::CharacterId => ColumnType::Binary.def(),
             Self::Event => ColumnType::String(Some(64u32)).def(),
             Self::EventData => ColumnType::JsonBinary.def(),
             Self::CreatedAt => ColumnType::TimestampWithTimeZone.def().null(),

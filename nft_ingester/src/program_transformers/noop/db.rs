@@ -192,7 +192,7 @@ where
                             if let Some(kind_obj) = character.get("used_by") {
                                 new_character_event(
                                     txn,
-                                    db_data.id.unwrap() as u64,
+                                    db_data.id.unwrap() as Vec<u8>,
                                     kind_obj.clone(),
                                     ("NewCharacter").to_string(),
                                     slot as i64,
@@ -322,7 +322,7 @@ where
 
 pub async fn log_character_history<T>(
     txn: &T,
-    character_id: u64,
+    character_id: Vec<u8>,
     pre_used_by: SchemaValue,
     new_used_by: SchemaValue,
     slot: i64,
@@ -364,7 +364,7 @@ where
 
 pub async fn new_character_event<T>(
     txn: &T,
-    character_id: u64,
+    character_id: Vec<u8>,
     event_data: SchemaValue,
     event: String,
     slot: i64,

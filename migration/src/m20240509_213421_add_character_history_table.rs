@@ -28,7 +28,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(CharacterHistory::CharacterId)
-                            .big_integer()
+                            .binary()
                             .not_null(),
                     )
                     .col(ColumnDef::new(CharacterHistory::Event).string().not_null())
@@ -55,13 +55,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-        .drop_index(
-            sea_query::Index::drop()
-                .name("character_history_character_id")
-                .table(CharacterHistory::Table)
-                .to_owned(),
-        )
-        .await?;
+            .drop_index(
+                sea_query::Index::drop()
+                    .name("character_history_character_id")
+                    .table(CharacterHistory::Table)
+                    .to_owned(),
+            )
+            .await?;
         manager
             .drop_table(Table::drop().table(CharacterHistory::Table).to_owned())
             .await
