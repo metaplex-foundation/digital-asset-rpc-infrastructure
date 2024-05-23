@@ -428,3 +428,32 @@ async fn test_mpl_core_get_assets_by_group_with_oracle_and_custom_pda_all_seeds(
     let response = setup.das_api.get_assets_by_group(request).await.unwrap();
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_multiple_internal_and_external_plugins() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["Aw7KSaeRECbjLW7BYTUtMwGkaiAGhxrQxdLnpLYRnmbB"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "Aw7KSaeRECbjLW7BYTUtMwGkaiAGhxrQxdLnpLYRnmbB"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
