@@ -192,6 +192,8 @@ struct Backfiller<'a, T: Messenger> {
     failure_delay: u64,
     cache: &'a AsyncCache<String, EncodedConfirmedBlock>,
 }
+// @TODO: Implement backfiller for generalized state compression.
+// @TODO: Merge Helius DAS
 
 impl<'a, T: Messenger> Backfiller<'a, T> {
     /// Create a new `Backfiller` struct.

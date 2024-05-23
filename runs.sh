@@ -84,7 +84,7 @@ args=(
   --clone 8fTwUdyGfDAcmdu8X4uWb2vBHzseKGXnxZUpZ2D94iit --clone FHzBQUNk6AyaSbqgS33EXcat8sXeLpvf1PJM6tQ87SPp
   --clone 9NGfVYcDmak9tayJMkxRNr8j5Ji6faThXGHNxSSRn1TK --clone 4UDQZKTAh9fo5TkC7Nh2t9tcyC7dFwFMUnrrHZLxZ1c8 
   --clone 8bvPnYE5Pvz2Z9dE6RAqWr1rzLknTndZ9hwvRE6kPDXP --clone 9xbqDdpmu47Dv2h1L3CyAtzXpMJio9bHDa5K1RWPB6LV # Libreplex fair launch
-  --url https://devnet.helius-rpc.com/?api-key=ccca5bb2-58dc-4b94-838b-664df478cf45
+  --url https://devnet.helius-rpc.com/?api-key=141e32c2-0029-4830-ab7d-6abd61292cb3
 )
 
 # args+=("--url devnet")
@@ -96,4 +96,4 @@ args=(
 
 
 apt update && apt install ca-certificates -y && update-ca-certificates
-solana-test-validator  "${programs[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS > /dev/null
+solana-test-validator  "${programs[@]}" "${args[@]}" $SOLANA_RUN_SH_VALIDATOR_ARGS

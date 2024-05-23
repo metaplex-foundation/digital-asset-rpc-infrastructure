@@ -316,7 +316,7 @@ create index merkle_tree_program on merkle_tree (program);
 
 create table compressed_data
 (
-    id           bigserial PRIMARY KEY,
+    id                        bytea PRIMARY KEY,
     -- Tree Indexing
     tree_id                   bytea not null,
     leaf_idx                  bigint not null, -- This is the index of the leaf in the tree, equivalent to nonce in the asset table
