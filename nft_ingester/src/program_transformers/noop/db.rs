@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::error::IngesterError;
 use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
 use digital_asset_types::dao::{character_history, compressed_data, merkle_tree};
@@ -8,8 +6,9 @@ use log::{debug, info};
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
-use solana_sdk::{pubkey, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 use spl_account_compression::events::ApplicationDataEventV1;
+use std::str::FromStr;
 
 pub async fn save_applicationdata_event<'c, T>(
     application_data: &ApplicationDataEventV1,
@@ -56,8 +55,6 @@ where
                 program: Set(Some(program_id.to_vec())),
                 ..Default::default()
             };
-            info!("New Obj tree id {}", bs58::encode(tree_id).into_string());
-            info!("New Obj tree id {}", bs58::encode(tree_id).into_string());
             let query = merkle_tree::Entity::insert(item)
                 .on_conflict(
                     OnConflict::columns([merkle_tree::Column::Id])
@@ -90,7 +87,6 @@ where
                     .map_err(|db_err| IngesterError::StorageReadError(db_err.to_string()))?;
 
                 debug!("Find tree query executed successfully");
-                info!("Tree obj {:?}", tree);
                 let mut schema_validated: bool = false;
                 let mut program_id: Option<Pubkey> = None;
                 if let Some(tree) = tree {
@@ -100,7 +96,6 @@ where
                             IngesterError::CompressedDataParseError(db_err.to_string())
                         })?;
                     if tree.program.is_none() {
-                        info!("Tree program not found");
                         return Err(IngesterError::CompressedDataParseError(format!(
                             "Tree program not found"
                         )));
@@ -120,7 +115,6 @@ where
                     schema_validated = true;
                 }
 
-                info!("Successpully");
                 debug!("Serializing raw data");
                 let raw_data = data.try_to_vec().map_err(|db_err| {
                     IngesterError::CompressedDataParseError(db_err.to_string())
@@ -168,9 +162,13 @@ where
                     .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
                 debug!("Query executed successfully");
 
+                let id = anchor_lang::solana_program::keccak::hashv(
+                    &[&tree_id[..], &leaf_idx.to_le_bytes()[..]][..],
+                )
+                .to_bytes()
+                .to_vec();
                 let found_latest_entry = compressed_data::Entity::find()
-                    .filter(compressed_data::Column::TreeId.eq(tree_id.to_vec()))
-                    .filter(compressed_data::Column::LeafIdx.eq(leaf_idx as i64))
+                    .filter(compressed_data::Column::Id.eq(id.to_owned()))
                     .one(txn)
                     .await
                     .map_err(|db_err| IngesterError::StorageReadError(db_err.to_string()))?;
@@ -189,7 +187,7 @@ where
                         == Pubkey::from_str("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg").unwrap()
                     {
                         if let SchemaValue::Object(character) = data {
-                            if let Some(kind_obj) = character.get("used_by") {
+                            if let Some(kind_obj) = character.get(&"used_by".to_string()) {
                                 new_character_event(
                                     txn,
                                     db_data.id.unwrap() as Vec<u8>,
@@ -253,6 +251,29 @@ where
                 if let JsonValue::Object(object) = &mut parsed_data {
                     if object.contains_key(&key) {
                         debug!("Patching {}: {:?}", key, data.to_string());
+                        if key == "used_by".to_string() {
+                            if let Some(program_id) = program_id {
+                                debug!("program_id {:?}", program_id);
+                                if program_id
+                                    == Pubkey::from_str(
+                                        "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg",
+                                    )
+                                    .unwrap()
+                                {
+                                    if let Some(used_by) = object.get("used_by") {
+                                        log_character_history(
+                                            txn,
+                                            id.clone(),
+                                            used_by.clone().into(),
+                                            data.clone(),
+                                            slot as i64,
+                                        )
+                                        .await?;
+                                    }
+                                }
+                            }
+                        }
+
                         object.insert(key, data.to_owned().into());
                     }
                 }
@@ -262,8 +283,7 @@ where
                 debug!("Data updated in object");
 
                 let query: Statement = compressed_data::Entity::update(db_data.clone())
-                    .filter(compressed_data::Column::TreeId.eq(tree_id.to_vec()))
-                    .filter(compressed_data::Column::LeafIdx.eq(leaf_idx as i64))
+                    .filter(compressed_data::Column::Id.eq(id))
                     .build(DbBackend::Postgres);
 
                 debug!(
@@ -274,7 +294,6 @@ where
                     .await
                     .map_err(|db_err| IngesterError::StorageWriteError(db_err.to_string()))?;
 
-                debug!("program_id {:?}", program_id);
                 debug!("Query executed successfully");
             }
             CompressedDataEventStream::Empty => {
