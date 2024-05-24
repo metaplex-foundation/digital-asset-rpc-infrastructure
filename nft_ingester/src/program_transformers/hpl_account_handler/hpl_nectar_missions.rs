@@ -1,4 +1,4 @@
-use {anchor_lang::prelude::*, hpl_toolkit::schema::*};
+use {anchor_lang::prelude::*, hpl_toolkit::prelude::*};
 
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]
 pub struct MissionPool {

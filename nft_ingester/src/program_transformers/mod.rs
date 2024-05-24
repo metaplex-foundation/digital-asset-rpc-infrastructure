@@ -270,7 +270,7 @@ impl ProgramTransformer {
             if let Some(indexable_programs) = &self.indexable_programs {
                 indexable_programs
                     .index_tx_accounts(&tx, &self.storage)
-                    .await;
+                    .await?;
             }
         }
 

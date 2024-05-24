@@ -2757,19 +2757,20 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit"
-version = "0.0.3-beta.15"
+version = "0.0.3-beta.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c316765c0b1f60489acc204b74ec301779c9c5df531645f6a4c4f6903cdf5419"
+checksum = "bf0918314abe136edd2a8a5b2c74970e5c99a3c285e2768ed1a3b36f6df9f9d5"
 dependencies = [
  "anchor-lang 0.29.0",
  "hpl-toolkit-attribute-account-schemas-ix-injector",
  "hpl-toolkit-attribute-compressed-account",
  "hpl-toolkit-derive-to-node",
  "hpl-toolkit-derive-to-schema",
+ "hpl-toolkit-macro-add-service",
  "hpl-toolkit-macro-merkle-tree-apply-fn",
  "hpl-toolkit-macro-merkle-tree-apply-fn-deep",
  "hpl-toolkit-macro-merkle-tree-utils",
- "log",
+ "hpl-toolkit-macro-platform-gate",
  "serde_json",
  "spl-account-compression 0.3.0",
 ]
@@ -2813,11 +2814,22 @@ dependencies = [
 
 [[package]]
 name = "hpl-toolkit-derive-to-schema"
-version = "0.0.1"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2319abfa3a038b125e247491a9a41bde62d2515f30cb8a9f4932119c1d5227"
+checksum = "0c1a16d565be68cfc159e49d30b82b5b6754b9a92595f69b5d15829174b6be14"
 dependencies = [
  "convert_case",
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "hpl-toolkit-macro-add-service"
+version = "0.0.2-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bd4a39f34eddfc79d5c1e8e98b8a61c1f31094480686f7830c112999fc6c192"
+dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",
  "syn 2.0.38",
@@ -2850,6 +2862,17 @@ name = "hpl-toolkit-macro-merkle-tree-utils"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34b6624981feab7a478c6e1d775dbd15d8b7c7d1ab3806b77b56ddd114317c67"
+dependencies = [
+ "proc-macro2 1.0.69",
+ "quote 1.0.33",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "hpl-toolkit-macro-platform-gate"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ce0b0488c269a8eae6ed89ea354201254cbefd735b4a12c155f466166658f4d"
 dependencies = [
  "proc-macro2 1.0.69",
  "quote 1.0.33",

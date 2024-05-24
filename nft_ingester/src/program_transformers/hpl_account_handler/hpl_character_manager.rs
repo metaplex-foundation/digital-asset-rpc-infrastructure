@@ -1,7 +1,4 @@
-use {
-    anchor_lang::prelude::*,
-    hpl_toolkit::{compression::ControlledMerkleTrees, schema::*},
-};
+use {anchor_lang::prelude::*, hpl_toolkit::prelude::*};
 
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]
 pub struct AssemblerConfig {
@@ -19,7 +16,7 @@ impl anchor_lang::Discriminator for AssemblerConfig {
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]
 pub struct CharacterLayer {
     pub label: String,
-    pub traits: HashMap<String, String>, // name, uri
+    pub traits: Map<String, String>, // name, uri
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, ToSchema)]

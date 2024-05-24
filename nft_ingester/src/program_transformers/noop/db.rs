@@ -1,9 +1,8 @@
 use crate::error::IngesterError;
 use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
 use digital_asset_types::dao::{compressed_data, merkle_tree};
-use hpl_toolkit::{compression::*, schema::*};
+use hpl_toolkit::prelude::*;
 use log::{debug, info};
-use num_traits::ToBytes;
 use sea_orm::{
     query::*, sea_query::OnConflict, ActiveValue::Set, ColumnTrait, DbBackend, EntityTrait,
 };
@@ -37,6 +36,7 @@ where
             discriminator,
             tree_id,
             schema,
+            ..
         } => {
             info!("Found new tree {}", bs58::encode(tree_id).into_string());
             // @TODO: Fetch and store, maxDepth, maxBufferSize, canopyDepth, etc...
