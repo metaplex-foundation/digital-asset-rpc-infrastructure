@@ -1,6 +1,8 @@
 use crate::error::IngesterError;
 use anchor_lang::prelude::borsh::{BorshDeserialize, BorshSerialize};
-use digital_asset_types::dao::{compressed_data, character_history, compressed_data_changelog, merkle_tree};
+use digital_asset_types::dao::{
+    character_history, compressed_data, compressed_data_changelog, merkle_tree,
+};
 use hpl_toolkit::prelude::*;
 use log::{debug, info};
 use sea_orm::{
@@ -65,8 +67,6 @@ where
     }
     Ok(())
 }
-
-
 
 async fn handle_tree<'c, T: ConnectionTrait + TransactionTrait>(
     txn: &T,
@@ -218,13 +218,13 @@ async fn handle_full_leaf<'c, T: ConnectionTrait + TransactionTrait>(
     debug!("Serialized raw data");
 
     let item = compressed_data::ActiveModel {
-        id: Set(id),
+        id: Set(id.clone()),
         tree_id: Set(tree_id.to_vec()),
         leaf_idx: Set(leaf_idx as i64),
         seq: Set(seq as i64),
         schema_validated: Set(schema_validated),
         raw_data: Set(raw_data),
-        parsed_data: Set(data.into()),
+        parsed_data: Set(data.clone().into()),
         slot_updated: Set(slot as i64),
         ..Default::default()
     };
@@ -249,9 +249,7 @@ async fn handle_full_leaf<'c, T: ConnectionTrait + TransactionTrait>(
     exec_query(txn, query).await?;
 
     if let Some(program_id) = program_id {
-        if program_id
-            == Pubkey::from_str("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg").unwrap()
-        {
+        if program_id == Pubkey::from_str("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg").unwrap() {
             if let SchemaValue::Object(character) = data {
                 if let Some(kind_obj) = character.get(&"used_by".to_string()) {
                     new_character_event(
@@ -278,7 +276,7 @@ async fn handle_leaf_patch<'c, T: ConnectionTrait + TransactionTrait>(
     key: String,
     data: SchemaValue,
     _seq: u64,
-    _slot: u64,
+    slot: u64,
 ) -> Result<(), IngesterError> {
     info!(
         "Patch leaf for {} at index {}",
@@ -287,19 +285,17 @@ async fn handle_leaf_patch<'c, T: ConnectionTrait + TransactionTrait>(
     );
 
     let tree = merkle_tree::Entity::find_by_id(tree_id.to_vec())
-    .one(txn)
-    .await
-    .map_err(|db_err| IngesterError::StorageReadError(db_err.to_string()))?;
+        .one(txn)
+        .await
+        .map_err(|db_err| IngesterError::StorageReadError(db_err.to_string()))?;
 
-debug!("Find tree query executed successfully");
+    debug!("Find tree query executed successfully");
 
-let mut program_id: Option<Pubkey> = None;
-if let Some(tree) = tree {
-    program_id = Some(Pubkey::try_from(tree.program.unwrap()).unwrap());
-    debug!("Parsing tree data schema");
-}
-
-
+    let mut program_id: Option<Pubkey> = None;
+    if let Some(tree) = tree {
+        program_id = Some(Pubkey::try_from(tree.program.unwrap()).unwrap());
+        debug!("Parsing tree data schema");
+    }
 
     let found = compressed_data::Entity::find()
         .filter(compressed_data::Column::Id.eq(id.to_owned()))
@@ -329,10 +325,7 @@ if let Some(tree) = tree {
                 if let Some(program_id) = program_id {
                     debug!("program_id {:?}", program_id);
                     if program_id
-                        == Pubkey::from_str(
-                            "ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg",
-                        )
-                        .unwrap()
+                        == Pubkey::from_str("ChRCtrG7X5kb9YncA4wuyD68DXXL8Szt3zBCCGiioBTg").unwrap()
                     {
                         if let Some(used_by) = object.get("used_by") {
                             log_character_history(
@@ -351,7 +344,6 @@ if let Some(tree) = tree {
             object.insert(key, data.to_owned().into());
         }
     }
-
 
     debug!("Complete Data After Patch: {}", parsed_data.to_string());
     db_data.parsed_data = Set(parsed_data);
@@ -487,6 +479,6 @@ where
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    
+
     exec_query(txn, query).await
 }
