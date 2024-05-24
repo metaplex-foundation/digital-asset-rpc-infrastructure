@@ -36,8 +36,7 @@ mod m20231122_191039_create_merkle_tree_table;
 mod m20231206_120101_remove_was_decompressed;
 mod m20240206_175504_create_acccounts_table;
 mod m20240509_213421_add_character_history_table;
-
-
+mod m20240522_085331_create_compressed_data_changelog_table;
 
 pub struct Migrator;
 
@@ -81,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20231206_120101_remove_was_decompressed::Migration),
             Box::new(m20240206_175504_create_acccounts_table::Migration),
             Box::new(m20240509_213421_add_character_history_table::Migration),
+            Box::new(m20240522_085331_create_compressed_data_changelog_table::Migration),
         ]
     }
 }

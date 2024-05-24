@@ -346,6 +346,24 @@ create unique index compressed_data_tree_leaf_idx on compressed_data (tree_id, l
 create index compressed_data_revision on compressed_data (tree_id, raw_data, leaf_idx);
 -- @@@@@@
 
+create table compressed_data_changelog
+(
+    id                      bigserial PRIMARY KEY,
+    compressed_data_id      bytea not null,
+    key                     text null,
+    data                    jsonb not null,
+    seq                     bigint not null,
+    created_at              timestamp with time zone default (now() at time zone 'utc'),
+    slot_updated            bigint not null
+);
+-- @@@@@@
+
+create index compressed_data_changelog on compressed_data_changelog (compressed_data_id);
+-- @@@@@@
+create index compressed_data_changelog_key_seq on compressed_data_changelog (key, seq);
+-- @@@@@@
+
+
 
 create table accounts
 (

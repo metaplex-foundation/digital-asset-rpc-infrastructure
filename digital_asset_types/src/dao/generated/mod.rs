@@ -13,6 +13,7 @@ pub mod backfill_items;
 pub mod cl_audits;
 pub mod cl_items;
 pub mod compressed_data;
+pub mod compressed_data_changelog;
 pub mod merkle_tree;
 pub mod raw_txn;
 pub mod sea_orm_active_enums;

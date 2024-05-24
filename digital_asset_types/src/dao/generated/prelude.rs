@@ -11,6 +11,7 @@ pub use super::backfill_items::Entity as BackfillItems;
 pub use super::cl_audits::Entity as ClAudits;
 pub use super::cl_items::Entity as ClItems;
 pub use super::compressed_data::Entity as CompressedData;
+pub use super::compressed_data_changelog::Entity as CompressedDataChangelog;
 pub use super::merkle_tree::Entity as MerkleTree;
 pub use super::raw_txn::Entity as RawTxn;
 pub use super::tasks::Entity as Tasks;
