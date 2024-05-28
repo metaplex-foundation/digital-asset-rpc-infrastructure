@@ -247,7 +247,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
 
     // Improve JSON output.
-    remove_plugins_nesting(&mut plugins_json);
+    remove_plugins_nesting(&mut plugins_json, "data");
     transform_plugins_authority(&mut plugins_json);
     convert_keys_to_snake_case(&mut plugins_json);
 
@@ -265,6 +265,30 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         None
     };
 
+    // Serialize known external plugins into JSON.
+    let mut external_plugins_json = serde_json::to_value(&asset.external_plugins)
+        .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+    // Improve JSON output.
+    remove_plugins_nesting(&mut external_plugins_json, "adapter_config");
+    transform_plugins_authority(&mut external_plugins_json);
+    convert_keys_to_snake_case(&mut external_plugins_json);
+
+    // Serialize any unknown external plugins into JSON.
+    let unknown_external_plugins_json = if !asset.unknown_external_plugins.is_empty() {
+        let mut unknown_external_plugins_json =
+            serde_json::to_value(&asset.unknown_external_plugins)
+                .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+        // Improve JSON output.
+        transform_plugins_authority(&mut unknown_external_plugins_json);
+        convert_keys_to_snake_case(&mut unknown_external_plugins_json);
+
+        Some(unknown_external_plugins_json)
+    } else {
+        None
+    };
+
     upsert_assets_metadata_account_columns(
         AssetMetadataAccountColumns {
             mint: id_vec.clone(),
@@ -273,11 +297,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             royalty_amount: royalty_amount as i32,
             asset_data: Some(id_vec.clone()),
             slot_updated_metadata_account: slot,
-            plugins: Some(plugins_json),
-            unknown_plugins: unknown_plugins_json,
+            mpl_core_plugins: Some(plugins_json),
+            mpl_core_unknown_plugins: unknown_plugins_json,
             mpl_core_collection_num_minted: asset.num_minted.map(|val| val as i32),
             mpl_core_collection_current_size: asset.current_size.map(|val| val as i32),
             mpl_core_plugins_json_version: Some(1),
+            mpl_core_external_plugins: Some(external_plugins_json),
+            mpl_core_unknown_external_plugins: unknown_external_plugins_json,
         },
         &txn,
     )
@@ -437,33 +463,47 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
 }
 
-// Modify the JSON structure to remove the `Plugin`` name and just display its data.
+// Modify the JSON structure to remove the `Plugin` name and just display its data.
 // For example, this will transform `FreezeDelegate` JSON from:
 // "data":{"freeze_delegate":{"frozen":false}}}
 // to:
 // "data":{"frozen":false}
-fn remove_plugins_nesting(plugins_json: &mut Value) {
-    if let Some(plugins) = plugins_json.as_object_mut() {
-        for (_, plugin) in plugins.iter_mut() {
-            if let Some(Value::Object(data)) = plugin.get_mut("data") {
-                // Extract the plugin data and remove it.
-                if let Some((_, inner_plugin_data)) = data.iter().next() {
-                    let inner_plugin_data_clone = inner_plugin_data.clone();
-                    // Clear the "data" object.
-                    data.clear();
-                    // Move the plugin data fields to the top level of "data".
-                    if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
-                        for (field_name, field_value) in inner_plugin_data.iter() {
-                            data.insert(field_name.clone(), field_value.clone());
-                        }
-                    }
+fn remove_plugins_nesting(plugins_json: &mut Value, nested_key: &str) {
+    match plugins_json {
+        Value::Object(plugins) => {
+            // Handle the case where plugins_json is an object.
+            for (_, plugin) in plugins.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        Value::Array(plugins_array) => {
+            // Handle the case where plugins_json is an array.
+            for plugin in plugins_array.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn remove_nesting_from_plugin(plugin: &mut Value, nested_key: &str) {
+    if let Some(Value::Object(nested_key)) = plugin.get_mut(nested_key) {
+        // Extract the plugin data and remove it.
+        if let Some((_, inner_plugin_data)) = nested_key.iter().next() {
+            let inner_plugin_data_clone = inner_plugin_data.clone();
+            // Clear the `nested_key` object.
+            nested_key.clear();
+            // Move the plugin data fields to the top level of `nested_key`.
+            if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
+                for (field_name, field_value) in inner_plugin_data.iter() {
+                    nested_key.insert(field_name.clone(), field_value.clone());
                 }
             }
         }
     }
 }
 
-// Modify the JSON for `PluginAuthority`` to have consistent output no matter the enum type.
+// Modify the JSON for `PluginAuthority` to have consistent output no matter the enum type.
 // For example, from:
 // "authority":{"Address":{"address":"D7whDWAP5gN9x4Ff6T9MyQEkotyzmNWtfYhCEWjbUDBM"}}
 // to:

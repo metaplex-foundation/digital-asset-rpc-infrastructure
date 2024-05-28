@@ -1,11 +1,11 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 66
+assertion_line: 274
 expression: response
 ---
 {
   "interface": "MplCoreCollection",
-  "id": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ",
+  "id": "Hvdg2FjMEndC4jxF2MJgKCaj5omLLZ19LNfD4p9oXkpE",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/collection",
@@ -54,23 +54,31 @@ expression: response
   "supply": null,
   "mutable": true,
   "burnt": false,
-  "plugins": {
-    "update_delegate": {
-      "data": {
-        "additional_delegates": []
-      },
+  "plugins": {},
+  "mpl_core_info": {
+    "num_minted": 0,
+    "current_size": 0,
+    "plugins_json_version": 1
+  },
+  "external_plugins": [
+    {
+      "type": "Oracle",
       "index": 0,
       "offset": 103,
       "authority": {
-        "type": "Address",
-        "address": "BpEw34ZXHm9TeqnPbcsHZJnx7StGa3GxBkZ3uTD9scfZ"
+        "type": "UpdateAuthority",
+        "address": null
+      },
+      "adapter_config": {
+        "base_address": "4iV6bzDfTrpvfeovNwwKFkdLneb5GWSLv8nz7F3mdHfG",
+        "results_offset": "Anchor",
+        "base_address_config": null
+      },
+      "lifecycle_checks": {
+        "burn": [
+          "CanReject"
+        ]
       }
     }
-  },
-  "mpl_core_info": {
-    "num_minted": 1,
-    "current_size": 1,
-    "plugins_json_version": 1
-  },
-  "external_plugins": []
+  ]
 }

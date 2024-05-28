@@ -68,7 +68,7 @@ metrics = "0.20.1"
 migration = {path = "migration"}
 mime_guess = "2.0.4"
 mpl-bubblegum = "1.2.0"
-mpl-core = {version = "0.5.0", features = ["serde"]}
+mpl-core = {version = "0.7.0", features = ["serde"]}
 mpl-token-metadata = "4.1.1"
 nft_ingester = {path = "nft_ingester"}
 num-derive = "0.3.3"

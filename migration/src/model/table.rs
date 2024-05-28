@@ -89,6 +89,8 @@ pub enum Asset {
     MplCoreCollectionNumMinted,
     MplCoreCollectionCurrentSize,
     MplCorePluginsJsonVersion,
+    MplCoreExternalPlugins,
+    MplCoreUnknownExternalPlugins,
 }
 
 #[derive(Copy, Clone, Iden)]

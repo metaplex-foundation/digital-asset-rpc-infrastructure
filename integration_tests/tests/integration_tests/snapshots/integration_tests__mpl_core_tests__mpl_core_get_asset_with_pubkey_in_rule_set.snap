@@ -91,5 +91,6 @@ expression: response
   },
   "mpl_core_info": {
     "plugins_json_version": 1
-  }
+  },
+  "external_plugins": []
 }

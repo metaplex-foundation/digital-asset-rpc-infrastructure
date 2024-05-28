@@ -1,17 +1,17 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 216
+assertion_line: 274
 expression: response
 ---
 {
   "interface": "MplCoreAsset",
-  "id": "AejY8LGKAbQsrGZS1qgN4uFu99dJD3f8Js9Yrt7K3tCc",
+  "id": "4aarnaiMVtGEp5nToRqBEUGtqY2F1gW2V8bBQe1rN5V9",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/asset",
     "files": [],
     "metadata": {
-      "name": "Test Asset",
+      "name": "new name 2",
       "symbol": ""
     },
     "links": {}
@@ -54,21 +54,48 @@ expression: response
   "supply": null,
   "mutable": true,
   "burnt": false,
-  "plugins": {
-    "edition": {
-      "data": {
-        "number": 1
-      },
+  "plugins": {},
+  "mpl_core_info": {
+    "plugins_json_version": 1
+  },
+  "external_plugins": [
+    {
+      "type": "Oracle",
       "index": 0,
       "offset": 119,
       "authority": {
         "type": "UpdateAuthority",
         "address": null
+      },
+      "adapter_config": {
+        "base_address": "655aWrKDz4hNFGaSzxmT9xuwxTKPrvb5SMDohCfVFCXL",
+        "results_offset": "Anchor",
+        "base_address_config": null
+      },
+      "lifecycle_checks": {
+        "update": [
+          "CanReject"
+        ]
+      }
+    },
+    {
+      "type": "Oracle",
+      "index": 1,
+      "offset": 154,
+      "authority": {
+        "type": "UpdateAuthority",
+        "address": null
+      },
+      "adapter_config": {
+        "base_address": "6CGzRzs53RppPfSimeEjEYhKMagP9rT9zZrEVVgjSq7A",
+        "results_offset": "Anchor",
+        "base_address_config": null
+      },
+      "lifecycle_checks": {
+        "update": [
+          "CanReject"
+        ]
       }
     }
-  },
-  "mpl_core_info": {
-    "plugins_json_version": 1
-  },
-  "external_plugins": []
+  ]
 }
