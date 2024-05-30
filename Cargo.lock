@@ -1525,6 +1525,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 
 [[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1711,23 +1717,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-backfill"
+version = "0.7.2"
+dependencies = [
+ "anchor-client",
+ "anyhow",
+ "blockbuster",
+ "borsh 0.10.3",
+ "bs58 0.4.0",
+ "clap 4.4.8",
+ "das-core",
+ "digital_asset_types",
+ "futures",
+ "heck 0.5.0",
+ "log",
+ "mpl-bubblegum",
+ "num-traits",
+ "program_transformers",
+ "sea-orm",
+ "serde_json",
+ "solana-client",
+ "solana-program",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-account-compression",
+ "spl-token",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "das-core"
 version = "0.7.2"
 dependencies = [
  "anyhow",
  "backon",
+ "borsh 0.10.3",
+ "bs58 0.4.0",
  "cadence",
  "cadence-macros",
  "clap 4.4.8",
+ "derive_more",
+ "digital_asset_types",
  "figment",
+ "futures",
+ "indicatif",
+ "log",
  "plerkle_messenger",
+ "reqwest",
+ "sea-orm",
+ "serde_json",
  "solana-account-decoder",
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-account-compression",
  "sqlx",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -1736,12 +1786,12 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
- "backon",
  "borsh 0.10.3",
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
  "clap 4.4.8",
+ "das-backfill",
  "das-core",
  "digital_asset_types",
  "env_logger 0.10.0",
@@ -1874,6 +1924,19 @@ checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
 dependencies = [
  "proc-macro2",
  "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
  "syn 1.0.109",
 ]
 
@@ -3544,6 +3607,7 @@ dependencies = [
  "cadence-macros",
  "chrono",
  "clap 4.4.8",
+ "das-core",
  "digital_asset_types",
  "figment",
  "flatbuffers",
@@ -4276,6 +4340,7 @@ dependencies = [
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
+ "das-core",
  "digital_asset_types",
  "futures",
  "heck 0.5.0",

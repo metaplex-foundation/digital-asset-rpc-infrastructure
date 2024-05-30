@@ -1,8 +1,10 @@
 use super::account_info;
 use anyhow::Result;
 use clap::Parser;
-use das_core::{connect_db, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
-use futures::future::{ready, FutureExt};
+use das_core::{
+    connect_db, create_download_metadata_notifier, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc,
+    SolanaRpcArgs,
+};
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::error;
 use program_transformers::{AccountInfo, ProgramTransformer};
@@ -13,10 +15,6 @@ use tokio::task;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Metrics configuration
-    #[clap(flatten)]
-    pub metrics: MetricsArgs,
-
     /// Solana configuration
     #[clap(flatten)]
     pub solana: SolanaRpcArgs,
@@ -37,6 +35,10 @@ pub struct Args {
     #[arg(long, env, default_value = "1000")]
     pub account_worker_count: usize,
 
+    /// Metadata JSON download worker configuration
+    #[clap(flatten)]
+    pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
+
     /// Database configuration
     #[clap(flatten)]
     pub database: PoolArgs,
@@ -51,14 +53,18 @@ pub async fn run(config: Args) -> Result<()> {
     let pool = connect_db(&config.database).await?;
     let num_workers = config.account_worker_count;
 
+    let metadata_json_download_db_pool = pool.clone();
+
+    let (metadata_json_download_worker, metadata_json_download_sender) = config
+        .metadata_json_download_worker
+        .start(metadata_json_download_db_pool)?;
+
     let (tx, mut rx) = mpsc::channel::<Vec<AccountInfo>>(config.max_buffer_size);
+    let download_metadata_notifier =
+        create_download_metadata_notifier(metadata_json_download_sender.clone()).await;
 
     let mut workers = FuturesUnordered::new();
-    let program_transformer = Arc::new(ProgramTransformer::new(
-        pool,
-        Box::new(|_info| ready(Ok(())).boxed()),
-        false,
-    ));
+    let program_transformer = Arc::new(ProgramTransformer::new(pool, download_metadata_notifier));
 
     let account_info_worker_manager = tokio::spawn(async move {
         while let Some(account_infos) = rx.recv().await {
@@ -101,6 +107,10 @@ pub async fn run(config: Args) -> Result<()> {
     }
 
     account_info_worker_manager.await?;
+
+    drop(metadata_json_download_sender);
+
+    metadata_json_download_worker.await?;
 
     Ok(())
 }

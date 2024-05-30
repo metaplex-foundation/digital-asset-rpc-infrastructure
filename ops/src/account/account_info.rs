@@ -17,7 +17,7 @@ pub async fn fetch(rpc: &Rpc, pubkey: Pubkey) -> Result<AccountInfo, AccountInfo
 
     let account = account_response
         .value
-        .ok_or_else(|| AccountInfoError::NotFound { pubkey })?;
+        .ok_or(AccountInfoError::NotFound { pubkey })?;
 
     Ok(AccountInfo {
         slot,

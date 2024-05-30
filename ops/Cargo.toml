@@ -11,12 +11,12 @@ name = "das-ops"
 [dependencies]
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
-backon = { workspace = true }
 borsh = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
+das-backfill = { workspace = true }
 das-core = { workspace = true }
 digital_asset_types = { workspace = true }
 env_logger = { workspace = true }

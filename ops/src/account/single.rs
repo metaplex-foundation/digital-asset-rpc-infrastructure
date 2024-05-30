@@ -2,8 +2,10 @@ use anyhow::Result;
 
 use super::account_info;
 use clap::Parser;
-use das_core::{connect_db, MetricsArgs, PoolArgs, Rpc, SolanaRpcArgs};
-use futures::future::{ready, FutureExt};
+use das_core::{
+    connect_db, create_download_metadata_notifier, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc,
+    SolanaRpcArgs,
+};
 use program_transformers::ProgramTransformer;
 use solana_sdk::pubkey::Pubkey;
 
@@ -13,9 +15,8 @@ pub struct Args {
     #[clap(flatten)]
     pub database: PoolArgs,
 
-    /// Metrics configuration
     #[clap(flatten)]
-    pub metrics: MetricsArgs,
+    pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
 
     /// Solana configuration
     #[clap(flatten)]
@@ -32,15 +33,26 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 pub async fn run(config: Args) -> Result<()> {
     let rpc = Rpc::from_config(&config.solana);
     let pool = connect_db(&config.database).await?;
+    let metadata_json_download_db_pool = pool.clone();
 
-    let program_transformer =
-        ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), false);
+    let (metadata_json_download_worker, metadata_json_download_sender) = config
+        .metadata_json_download_worker
+        .start(metadata_json_download_db_pool)?;
 
-    let account_info = account_info::fetch(&rpc, config.account).await?;
+    {
+        let download_metadata_notifier =
+            create_download_metadata_notifier(metadata_json_download_sender).await;
 
-    program_transformer
-        .handle_account_update(&account_info)
-        .await?;
+        let program_transformer = ProgramTransformer::new(pool, download_metadata_notifier);
+
+        let account_info = account_info::fetch(&rpc, config.account).await?;
+
+        program_transformer
+            .handle_account_update(&account_info)
+            .await?;
+    }
+
+    metadata_json_download_worker.await?;
 
     Ok(())
 }
