@@ -60,12 +60,6 @@ impl From<reqwest::Error> for IngesterError {
     }
 }
 
-impl From<stretto::CacheError> for IngesterError {
-    fn from(err: stretto::CacheError) -> Self {
-        IngesterError::CacheStorageWriteError(err.to_string())
-    }
-}
-
 impl From<serde_json::Error> for IngesterError {
     fn from(_err: serde_json::Error) -> Self {
         IngesterError::SerializatonError("JSON ERROR".to_string())

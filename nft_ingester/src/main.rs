@@ -1,6 +1,5 @@
 mod account_updates;
 mod ack;
-mod backfiller;
 pub mod config;
 mod database;
 pub mod error;
@@ -13,7 +12,6 @@ mod transaction_notifications;
 use crate::{
     account_updates::account_worker,
     ack::ack_worker,
-    backfiller::setup_backfiller,
     config::{init_logger, rand_string, setup_config, IngesterRole, WorkerType},
     database::setup_database,
     error::IngesterError,
@@ -162,11 +160,6 @@ pub async fn main() -> Result<(), IngesterError> {
     if role == IngesterRole::BackgroundTaskRunner || role == IngesterRole::All {
         let background_runner_config = config.clone().background_task_runner_config;
         tasks.spawn(background_task_manager.start_runner(background_runner_config));
-    }
-    // Backfiller Setup ------------------------------------------
-    if role == IngesterRole::Backfiller || role == IngesterRole::All {
-        let backfiller = setup_backfiller::<RedisMessenger>(database_pool.clone(), config.clone());
-        tasks.spawn(backfiller);
     }
 
     let roles_str = role.to_string();

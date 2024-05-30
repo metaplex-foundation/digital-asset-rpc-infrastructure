@@ -122,7 +122,6 @@ pub const CODE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub enum IngesterRole {
     #[default]
     All,
-    Backfiller,
     BackgroundTaskRunner,
     Ingester,
 }
@@ -131,7 +130,6 @@ impl Display for IngesterRole {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             IngesterRole::All => write!(f, "All"),
-            IngesterRole::Backfiller => write!(f, "Backfiller"),
             IngesterRole::BackgroundTaskRunner => write!(f, "BackgroundTaskRunner"),
             IngesterRole::Ingester => write!(f, "Ingester"),
         }
