@@ -90,7 +90,7 @@ services:
     image: 'postgres:14'
     command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200" ]
     ports:
-      - 5432:5432
+      - 5433:5432
     environment:
       POSTGRES_USER: solana # The PostgreSQL user (useful to connect to the database)
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)

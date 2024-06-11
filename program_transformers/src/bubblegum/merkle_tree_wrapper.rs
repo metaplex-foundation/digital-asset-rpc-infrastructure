@@ -1,4 +1,7 @@
-use crate::error::ProgramTransformerError;
+use crate::bubblegum;
+use crate::bubblegum::rollup_persister::Rollup;
+use crate::error::{ProgramTransformerError, RollupValidationError};
+use anchor_lang::solana_program::keccak::Hash;
 use spl_account_compression::{ConcurrentMerkleTree, ConcurrentMerkleTreeError, Node};
 use spl_concurrent_merkle_tree::changelog::ChangeLog;
 use std::slice::Iter;
@@ -228,3 +231,69 @@ pub fn make_concurrent_merkle_tree(
 }
 
 make_changelog_impls!(3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 24, 26, 30);
+
+pub fn validate_change_logs(
+    max_depth: u32,
+    max_buffer_size: u32,
+    leafs: &[[u8; 32]],
+    rollup: &Rollup,
+) -> Result<(), RollupValidationError> {
+    let mut tree = make_concurrent_merkle_tree(max_depth, max_buffer_size)?;
+    tree.initialize()?;
+    for (i, leaf_hash) in leafs.iter().enumerate() {
+        tree.append(*leaf_hash)?;
+        let changelog = tree.change_logs(tree.active_index() as usize);
+        let path_len = changelog.path_len() as u32;
+        let mut path: Vec<spl_account_compression::state::PathNode> = changelog
+            .path_iter()
+            .enumerate()
+            .map(|(lvl, n)| {
+                spl_account_compression::state::PathNode::new(
+                    *n,
+                    (1 << (path_len - lvl as u32)) + (changelog.index() >> lvl),
+                )
+            })
+            .collect();
+        path.push(spl_account_compression::state::PathNode::new(
+            changelog.root(),
+            1,
+        ));
+
+        match rollup.rolled_mints.get(i) {
+            Some(mint) => {
+                if mint.tree_update.path
+                    != path
+                        .into_iter()
+                        .map(Into::<bubblegum::rollup_persister::PathNode>::into)
+                        .collect::<Vec<_>>()
+                {
+                    return Err(RollupValidationError::WrongAssetPath(
+                        mint.leaf_update.id().to_string(),
+                    ));
+                }
+                if mint.tree_update.id != rollup.tree_id {
+                    return Err(RollupValidationError::WrongTreeIdForChangeLog(
+                        mint.leaf_update.id().to_string(),
+                        rollup.tree_id.to_string(),
+                        mint.tree_update.id.to_string(),
+                    ));
+                }
+                if mint.tree_update.index != changelog.index() {
+                    return Err(RollupValidationError::WrongChangeLogIndex(
+                        mint.leaf_update.id().to_string(),
+                        changelog.index(),
+                        mint.tree_update.index,
+                    ));
+                }
+            }
+            None => return Err(RollupValidationError::NoRelevantRolledMint(i as u64)),
+        }
+    }
+    if tree.get_root() != rollup.merkle_root {
+        return Err(RollupValidationError::InvalidRoot(
+            Hash::new(tree.get_root().as_slice()).to_string(),
+            Hash::new(rollup.merkle_root.as_slice()).to_string(),
+        ));
+    }
+    Ok(())
+}

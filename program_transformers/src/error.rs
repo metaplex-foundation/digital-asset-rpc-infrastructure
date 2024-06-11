@@ -1,3 +1,4 @@
+use thiserror::Error;
 use {blockbuster::error::BlockbusterError, sea_orm::DbErr};
 
 pub type ProgramTransformerResult<T> = Result<T, ProgramTransformerError>;
@@ -24,6 +25,8 @@ pub enum ProgramTransformerError {
     DownloadMetadataNotify(Box<dyn std::error::Error + Send + Sync>),
     #[error("Unexpected tree depth={0} and max size={1}")]
     UnexpectedTreeSize(u32, u32),
+    #[error("RollupValidation: {0}")]
+    RollupValidation(#[from] RollupValidationError),
 }
 
 impl From<BlockbusterError> for ProgramTransformerError {

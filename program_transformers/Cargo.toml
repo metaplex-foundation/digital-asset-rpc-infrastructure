@@ -31,6 +31,10 @@ paste = { workspace = true }
 async-trait = { workspace = true }
 serde_derive = { workspace = true }
 anchor-lang = { workspace = true }
+mockall = { workspace = true }
+reqwest = { workspace = true }
+hex = { workspace = true }
+xxhash-rust = { workspace = true }
 
 [lints]
 workspace = true

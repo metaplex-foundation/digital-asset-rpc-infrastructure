@@ -1,79 +1,73 @@
-
+use crate::bubblegum;
+use crate::bubblegum::rollup_persister::Rollup;
+use blockbuster::programs::bubblegum::Payload;
+use digital_asset_types::dao::sea_orm_active_enums::RollupPersistingState;
+use sea_orm::{ActiveModelTrait, Set};
+use solana_sdk::signature::Signature;
+use std::str::FromStr;
 use {
-    crate::{
-        bubblegum::{
-            db::{save_changelog_event, upsert_asset_with_seq},
-            u32_to_u8_array,
-        },
-        error::{ProgramTransformerError, ProgramTransformerResult},
-    },
+    crate::error::{ProgramTransformerError, ProgramTransformerResult},
     blockbuster::{instruction::InstructionBundle, programs::bubblegum::BubblegumInstruction},
-    digital_asset_types::dao::asset,
-    sea_orm::{
-        entity::{ActiveValue, EntityTrait},
-        query::QueryTrait,
-        sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, TransactionTrait,
-    },
-    solana_sdk::pubkey::Pubkey,
-    tracing::debug,
+    sea_orm::{query::QueryTrait, ConnectionTrait, TransactionTrait},
 };
 
 pub async fn finalize_tree_with_root<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
-    instruction: &str,
-    cl_audits: bool,
 ) -> ProgramTransformerResult<()>
-    where
-        T: ConnectionTrait + TransactionTrait,
+where
+    T: ConnectionTrait + TransactionTrait,
 {
-    if let Some(cl) = &parsing_result.tree_update {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
-            .await?;
-        let leaf_index = cl.index;
-        let (asset_id, _) = Pubkey::find_program_address(
-            &[
-                "asset".as_bytes(),
-                cl.id.as_ref(),
-                u32_to_u8_array(leaf_index).as_ref(),
-            ],
-            &mpl_bubblegum::ID,
-        );
-        debug!("Indexing burn for asset id: {:?}", asset_id);
-        let id_bytes = asset_id.to_bytes();
-
-        let asset_model = asset::ActiveModel {
-            id: ActiveValue::Set(id_bytes.to_vec()),
-            burnt: ActiveValue::Set(true),
-            ..Default::default()
-        };
-
-        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-        // an error and this function returns it using the `?` operator), then the transaction is
-        // automatically rolled back.
-        let multi_txn = txn.begin().await?;
-
-        // Upsert asset table `burnt` column.  Note we don't check for decompression (asset.seq = 0)
-        // because we know if the item was burnt it could not have been decompressed later.
-        let query = asset::Entity::insert(asset_model)
-            .on_conflict(
-                OnConflict::columns([asset::Column::Id])
-                    .update_columns([asset::Column::Burnt])
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        multi_txn.execute(query).await?;
-
-        upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
-
-        multi_txn.commit().await?;
-
+    if let Some(Payload::CreateTreeWithRoot { args, .. }) = &parsing_result.payload {
+        digital_asset_types::dao::rollup_to_verify::ActiveModel {
+            file_hash: Set(args.metadata_hash.clone()),
+            url: Set(args.metadata_url.clone()),
+            created_at_slot: Set(bundle.slot as i64),
+            signature: Set(Signature::from_str(bundle.txn_id)
+                .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?
+                .into()),
+            download_attempts: Set(0),
+            rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
+            rollup_fail_status: Set(None),
+        }
+        .insert(txn)
+        .await
+        .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         return Ok(());
     }
+
     Err(ProgramTransformerError::ParsingError(
         "Ix not parsed correctly".to_string(),
     ))
 }
 
+pub async fn store_rollup_update<'c, T>(
+    slot: u64,
+    signature: Signature,
+    rollup: &Rollup,
+    txn: &'c T,
+    cl_audits: bool,
+) -> ProgramTransformerResult<()>
+where
+    T: ConnectionTrait + TransactionTrait,
+{
+    for rolled_mint in rollup.rolled_mints.iter() {
+        bubblegum::mint_v1::mint_v1(
+            &rolled_mint.into(),
+            &InstructionBundle {
+                txn_id: &signature.to_string(),
+                program: Default::default(),
+                instruction: None,
+                inner_ix: None,
+                keys: &[],
+                slot,
+            },
+            txn,
+            "CreateTreeWithRoot",
+            cl_audits,
+        )?;
+    }
+
+    Ok(())
+}

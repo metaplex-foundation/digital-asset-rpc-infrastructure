@@ -24,9 +24,9 @@ mod finalize_tree_with_root;
 mod merkle_tree_wrapper;
 mod mint_v1;
 mod redeem;
+mod rollup_persister;
 mod transfer;
 mod update_metadata;
-mod rollup_persister;
 
 pub async fn handle_bubblegum_instruction<'c, T>(
     parsing_result: &'c BubblegumInstruction,
@@ -112,6 +112,12 @@ where
                     .await
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
+        }
+        InstructionName::CreateTreeWithRoot => {
+            finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn)
+                .await?
+                .map(From::from)
+                .map(Ok)?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
