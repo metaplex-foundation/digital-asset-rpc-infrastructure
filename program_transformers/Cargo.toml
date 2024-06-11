@@ -35,6 +35,9 @@ mockall = { workspace = true }
 reqwest = { workspace = true }
 hex = { workspace = true }
 xxhash-rust = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+bincode = { workspace = true }
 
 [lints]
 workspace = true

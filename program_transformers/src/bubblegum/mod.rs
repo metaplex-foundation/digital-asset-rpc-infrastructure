@@ -21,10 +21,8 @@ mod creator_verification;
 mod db;
 mod delegate;
 mod finalize_tree_with_root;
-mod merkle_tree_wrapper;
-mod mint_v1;
+pub(crate) mod mint_v1;
 mod redeem;
-mod rollup_persister;
 mod transfer;
 mod update_metadata;
 
@@ -114,10 +112,7 @@ where
             }
         }
         InstructionName::CreateTreeWithRoot => {
-            finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn)
-                .await?
-                .map(From::from)
-                .map(Ok)?
+            finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn).await?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }

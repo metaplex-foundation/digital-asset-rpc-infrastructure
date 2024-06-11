@@ -1,4 +1,3 @@
-use thiserror::Error;
 use {blockbuster::error::BlockbusterError, sea_orm::DbErr};
 
 pub type ProgramTransformerResult<T> = Result<T, ProgramTransformerError>;
@@ -23,8 +22,6 @@ pub enum ProgramTransformerError {
     AssetIndexError(String),
     #[error("Failed to notify about download metadata: {0}")]
     DownloadMetadataNotify(Box<dyn std::error::Error + Send + Sync>),
-    #[error("Unexpected tree depth={0} and max size={1}")]
-    UnexpectedTreeSize(u32, u32),
     #[error("RollupValidation: {0}")]
     RollupValidation(#[from] RollupValidationError),
 }
@@ -69,10 +66,26 @@ pub enum RollupValidationError {
     Anchor(#[from] anchor_lang::error::Error),
     #[error("FileChecksumMismatch: expected {0}, actual file hash {1}")]
     FileChecksumMismatch(String, String),
+    #[error("Unexpected tree depth={0} and max size={1}")]
+    UnexpectedTreeSize(u32, u32),
+    #[error("Serialization: {0}")]
+    Serialization(String),
+    #[error("Reqwest: {0}")]
+    Reqwest(String),
 }
 
 impl From<std::io::Error> for RollupValidationError {
     fn from(err: std::io::Error) -> Self {
         RollupValidationError::StdIo(err.to_string())
+    }
+}
+impl From<serde_json::Error> for RollupValidationError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serialization(value.to_string())
+    }
+}
+impl From<reqwest::Error> for RollupValidationError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::Reqwest(value.to_string())
     }
 }

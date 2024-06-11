@@ -12,6 +12,7 @@ pub mod backfill_items;
 pub mod cl_audits_v2;
 pub mod cl_items;
 pub mod raw_txn;
+pub mod rollup;
 pub mod rollup_to_verify;
 pub mod sea_orm_active_enums;
 pub mod tasks;

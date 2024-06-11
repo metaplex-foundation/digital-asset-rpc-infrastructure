@@ -1,6 +1,6 @@
 use enum_iterator::all;
 use enum_iterator_derive::Sequence;
-use sea_orm::sea_query::extension::postgres::{Type, TypeCreateStatement};
+use sea_orm::sea_query::extension::postgres::Type;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -9,7 +9,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Create enums
         manager
             .create_type(
                 Type::create()
@@ -39,7 +38,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create RollupToVerify table
         manager
             .create_table(
                 Table::create()
@@ -59,7 +57,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(RollupToVerify::Signature)
-                            .binary()
+                            .string()
                             .not_null(),
                     )
                     .col(
@@ -87,7 +85,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create indexes
         manager
             .create_index(
                 Index::create()
@@ -99,12 +96,35 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                    .table(Rollup::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Rollup::FileHash)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Rollup::RollupBinaryBincode)
+                            .binary()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_table(Table::drop().table(RollupToVerify::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Rollup::Table).to_owned())
             .await?;
         Ok(())
     }
@@ -137,4 +157,11 @@ enum FailedRollupState {
     ChecksumVerifyFailed,
     RollupVerifyFailed,
     FileSerialization,
+}
+
+#[derive(Iden)]
+enum Rollup {
+    Table,
+    FileHash,
+    RollupBinaryBincode,
 }

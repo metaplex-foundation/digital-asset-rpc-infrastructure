@@ -27,6 +27,11 @@ use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
 use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
+use program_transformers::rollups::rollup_persister::{
+    RollupDownloaderForPersister, RollupPersister,
+};
+use sea_orm::SqlxPostgresConnector;
+use std::sync::Arc;
 use std::{path::PathBuf, time};
 use tokio::{signal, task::JoinSet};
 
@@ -148,6 +153,15 @@ pub async fn main() -> Result<(), IngesterError> {
                 }
             }
         }
+
+        let rollup_persister = RollupPersister::new(
+            Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
+                database_pool.clone(),
+            )),
+            RollupDownloaderForPersister {},
+            config.cl_audits.unwrap_or_default(),
+        );
+        tasks.spawn(async move { rollup_persister.persist_rollups().await });
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
@@ -174,6 +188,7 @@ pub async fn main() -> Result<(), IngesterError> {
         }
     }
 
+    // Don`t we need to use some graceful stop mechanism such as cancellation token?
     tasks.shutdown().await;
 
     Ok(())

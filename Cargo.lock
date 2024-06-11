@@ -3699,7 +3699,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "serde",
- "serde_with 3.6.1",
+ "serde_with 3.8.1",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -3725,7 +3725,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "serde_with 3.6.1",
+ "serde_with 3.8.1",
  "solana-program",
  "thiserror",
 ]
@@ -3740,7 +3740,7 @@ dependencies = [
  "num-derive 0.3.3",
  "num-traits",
  "serde",
- "serde_with 3.6.1",
+ "serde_with 3.8.1",
  "solana-program",
  "thiserror",
 ]
@@ -4570,6 +4570,7 @@ version = "0.7.2"
 dependencies = [
  "anchor-lang",
  "async-trait",
+ "bincode",
  "blockbuster",
  "bs58 0.4.0",
  "cadence",
@@ -4584,8 +4585,10 @@ dependencies = [
  "paste",
  "reqwest",
  "sea-orm",
+ "serde",
  "serde_derive",
  "serde_json",
+ "serde_with 3.8.1",
  "solana-sdk",
  "solana-transaction-status",
  "spl-account-compression",
@@ -5711,11 +5714,11 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.6.1"
+version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15d167997bd841ec232f5b2b8e0e26606df2e7caa4c31b95ea9ca52b200bd270"
+checksum = "0ad483d2ab0149d5a5ebcd9972a3852711e0153d863bf5a5d0391d28883c4a20"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.0",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -5723,7 +5726,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_with_macros 3.6.1",
+ "serde_with_macros 3.8.1",
  "time 0.3.29",
 ]
 
@@ -5741,9 +5744,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.6.1"
+version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "865f9743393e638991566a8b7a479043c2c8da94a33e0a31f18214c9cae0a64d"
+checksum = "65569b702f41443e8bc8bbb1c5779bd0450bbe723b56198980e80ec45780bce2"
 dependencies = [
  "darling",
  "proc-macro2",

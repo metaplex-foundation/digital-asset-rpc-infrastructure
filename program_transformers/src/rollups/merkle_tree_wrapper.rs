@@ -1,6 +1,6 @@
-use crate::bubblegum;
-use crate::bubblegum::rollup_persister::Rollup;
-use crate::error::{ProgramTransformerError, RollupValidationError};
+use crate::error::RollupValidationError;
+use crate::rollups::rollup_persister;
+use crate::rollups::rollup_persister::Rollup;
 use anchor_lang::solana_program::keccak::Hash;
 use spl_account_compression::{ConcurrentMerkleTree, ConcurrentMerkleTreeError, Node};
 use spl_concurrent_merkle_tree::changelog::ChangeLog;
@@ -178,7 +178,7 @@ make_tree_creator_funcs!(
 pub fn make_concurrent_merkle_tree(
     max_dapth: u32,
     max_buf_size: u32,
-) -> Result<Box<dyn ITree>, ProgramTransformerError> {
+) -> Result<Box<dyn ITree>, RollupValidationError> {
     // Note: We do not create ConcurrentMerkleTree<A,B> object right inside of match statement
     // because of how Rust compiler reserves space for functions:
     // the total size of function in memory (i.e. frame size) is as big as total size of
@@ -226,7 +226,7 @@ pub fn make_concurrent_merkle_tree(
         (30, 512) => Ok(make_concurrent_merkle_tree_30_512()),
         (30, 1024) => Ok(make_concurrent_merkle_tree_30_1024()),
         (30, 2048) => Ok(make_concurrent_merkle_tree_30_2048()),
-        (d, s) => Err(ProgramTransformerError::UnexpectedTreeSize(d, s)),
+        (d, s) => Err(RollupValidationError::UnexpectedTreeSize(d, s)),
     }
 }
 
@@ -264,7 +264,7 @@ pub fn validate_change_logs(
                 if mint.tree_update.path
                     != path
                         .into_iter()
-                        .map(Into::<bubblegum::rollup_persister::PathNode>::into)
+                        .map(Into::<rollup_persister::PathNode>::into)
                         .collect::<Vec<_>>()
                 {
                     return Err(RollupValidationError::WrongAssetPath(
