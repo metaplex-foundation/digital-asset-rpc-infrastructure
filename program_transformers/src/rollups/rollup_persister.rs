@@ -193,20 +193,25 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         }
     }
 
-    pub async fn persist_rollups(&self) -> Result<(), JoinError> {
+    pub async fn persist_rollups(&self) {
         loop {
-            let rollup_to_verify = match self.get_rollup_to_verify().await {
-                Ok(res) => res,
-                Err(_) => {
-                    continue;
-                }
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            let Ok((rollup_to_verify, rollup)) = self.get_rollup_to_verify().await else {
+                continue;
             };
             let Some(rollup_to_verify) = rollup_to_verify else {
                 // no rollups to persist
-                return Ok(());
+                continue;
             };
-            self.persist_rollup(rollup_to_verify, None).await;
-            tokio::time::sleep(Duration::from_secs(5)).await
+            let Ok(rollup) = rollup
+                .map(|r| bincode::deserialize::<Rollup>(r.rollup_binary_bincode.as_slice()))
+                .transpose()
+                .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))
+            else {
+                continue;
+            };
+            self.persist_rollup(rollup_to_verify, rollup.map(Box::new))
+                .await;
         }
     }
 
@@ -263,7 +268,8 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
 
     async fn get_rollup_to_verify(
         &self,
-    ) -> Result<Option<rollup_to_verify::Model>, ProgramTransformerError> {
+    ) -> Result<(Option<rollup_to_verify::Model>, Option<rollup::Model>), ProgramTransformerError>
+    {
         let condition = Condition::all()
             .add(
                 rollup_to_verify::Column::RollupPersistingState
@@ -274,12 +280,22 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                     .ne(RollupPersistingState::StoredUpdate),
             );
 
-        rollup_to_verify::Entity::find()
+        let rollup_to_verify = rollup_to_verify::Entity::find()
             .filter(condition)
             .order_by_asc(rollup_to_verify::Column::CreatedAtSlot)
             .one(self.txn.as_ref())
             .await
-            .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))
+            .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
+        let mut rollup = None;
+        if let Some(ref r) = rollup_to_verify {
+            rollup = rollup::Entity::find()
+                .filter(rollup::Column::FileHash.eq(r.file_hash.clone()))
+                .one(self.txn.as_ref())
+                .await
+                .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
+        }
+
+        Ok((rollup_to_verify, rollup))
     }
 
     async fn download_rollup(

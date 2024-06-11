@@ -161,7 +161,10 @@ pub async fn main() -> Result<(), IngesterError> {
             RollupDownloaderForPersister {},
             config.cl_audits.unwrap_or_default(),
         );
-        tasks.spawn(async move { rollup_persister.persist_rollups().await });
+        tasks.spawn(async move {
+            rollup_persister.persist_rollups().await;
+            Ok(())
+        });
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
