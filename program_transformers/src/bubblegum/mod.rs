@@ -20,10 +20,13 @@ mod collection_verification;
 mod creator_verification;
 mod db;
 mod delegate;
+mod finalize_tree_with_root;
+mod merkle_tree_wrapper;
 mod mint_v1;
 mod redeem;
 mod transfer;
 mod update_metadata;
+mod rollup_persister;
 
 pub async fn handle_bubblegum_instruction<'c, T>(
     parsing_result: &'c BubblegumInstruction,
@@ -58,6 +61,7 @@ where
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
+        InstructionName::CreateTreeWithRoot => "CreateTreeWithRoot",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 

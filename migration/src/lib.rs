@@ -42,6 +42,7 @@ mod m20240313_120101_add_mpl_core_plugins_columns;
 mod m20240319_120101_add_mpl_core_enum_vals;
 mod m20240320_120101_add_mpl_core_info_items;
 mod m20240520_120101_add_mpl_core_external_plugins_columns;
+mod m20240720_120101_add_finalize_tree_with_root_instruction_handle;
 
 pub mod model;
 
@@ -93,6 +94,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240319_120101_add_mpl_core_enum_vals::Migration),
             Box::new(m20240320_120101_add_mpl_core_info_items::Migration),
             Box::new(m20240520_120101_add_mpl_core_external_plugins_columns::Migration),
+            Box::new(m20240720_120101_add_finalize_tree_with_root_instruction_handle::Migration),
         ]
     }
 }

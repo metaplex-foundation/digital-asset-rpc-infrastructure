@@ -17,10 +17,10 @@ services:
       - "2004:2004"
   migrator:
     depends_on:
-      - db
+      - reference-db
       - builder
     environment:
-      DATABASE_URL: postgres://solana:solana@db/solana
+      DATABASE_URL: postgres://solana:solana@reference-db/solana
     build:
       context: .
       dockerfile: Migrator.Dockerfile
@@ -29,7 +29,7 @@ services:
       - migrator
       - builder
       - redis
-      - db
+      - reference-db
       - graphite
       - solana
     restart: always
@@ -37,7 +37,7 @@ services:
       RUST_LOG: debug
       INGESTER_METRICS_PORT: 8125
       INGESTER_METRICS_HOST: graphite
-      INGESTER_DATABASE_CONFIG: '{max_postgres_connections=, listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}'
+      INGESTER_DATABASE_CONFIG: '{max_postgres_connections=, listener_channel="backfill_item_added", url="postgres://solana:solana@reference-db/solana"}'
       INGESTER_MESSENGER_CONFIG: '{connection_config={batch_size=500,idle_timeout=5000,redis_connection_str="redis://redis"}, messenger_type="Redis"}'
       INGESTER_RPC_CONFIG: '{url="http://${COMPOSE_PROJECT_NAME}-solana-1:8899/", commitment="confirmed"}'
       RUST_BACKTRACE: 1
@@ -73,7 +73,7 @@ services:
       - builder
     restart: always
     environment:
-      APP_DATABASE_URL: postgres://solana:solana@db/solana
+      APP_DATABASE_URL: postgres://solana:solana@reference-db/solana
       APP_SERVER_PORT: 9090
       APP_METRICS_PORT: 8125
       APP_METRICS_HOST: graphite
@@ -86,7 +86,7 @@ services:
     image: "redis:7.0.0"
     ports:
       - "6379:6379"
-  db:
+  reference-db:
     image: 'postgres:14'
     command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200" ]
     ports:
