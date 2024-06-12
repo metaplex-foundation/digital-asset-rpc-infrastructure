@@ -48,8 +48,6 @@ pub enum RollupValidationError {
     InvalidCreatorsHash(String, String),
     #[error("InvalidRoot: expected: {0}, got: {1}")]
     InvalidRoot(String, String),
-    #[error("CannotCreateMerkleTree: depth [{0}], size [{1}]")]
-    CannotCreateMerkleTree(u32, u32),
     #[error("NoRelevantRolledMint: index {0}")]
     NoRelevantRolledMint(u64),
     #[error("WrongAssetPath: id {0}")]

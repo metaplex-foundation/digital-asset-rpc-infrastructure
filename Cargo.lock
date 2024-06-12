@@ -4583,6 +4583,7 @@ dependencies = [
  "mpl-bubblegum",
  "num-traits",
  "paste",
+ "rand 0.8.5",
  "reqwest",
  "sea-orm",
  "serde",

@@ -461,7 +461,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
     }
 }
 
-async fn validate_rollup(rollup: &Rollup) -> Result<(), RollupValidationError> {
+pub async fn validate_rollup(rollup: &Rollup) -> Result<(), RollupValidationError> {
     let mut leaf_hashes = Vec::new();
     for asset in rollup.rolled_mints.iter() {
         let leaf_hash = match get_leaf_hash(asset, &rollup.tree_id) {
