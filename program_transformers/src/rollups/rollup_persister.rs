@@ -24,7 +24,6 @@ use serde_json::value::RawValue;
 use solana_sdk::keccak;
 use solana_sdk::keccak::Hash;
 use solana_sdk::pubkey::Pubkey;
-use tokio::task::JoinError;
 use tracing::{error, info};
 
 pub const MAX_ROLLUP_DOWNLOAD_ATTEMPTS: u8 = 5;
@@ -39,19 +38,15 @@ pub struct Rollup {
     pub max_buffer_size: u32,
 
     // derived data
-    pub merkle_root: [u8; 32],    // validate
-    pub last_leaf_hash: [u8; 32], // validate
+    pub merkle_root: [u8; 32],
+    pub last_leaf_hash: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RolledMintInstruction {
-    pub tree_update: ChangeLogEventV1, // validate // derive from nonce
-    pub leaf_update: LeafSchema,       // validate
+    pub tree_update: ChangeLogEventV1,
+    pub leaf_update: LeafSchema,
     pub mint_args: MetadataArgs,
-    // V0.1: enforce collection.verify == false
-    // V0.1: enforce creator.verify == false
-    // V0.2: add pub collection_signature: Option<Signature> - sign asset_id with collection authority
-    // V0.2: add pub creator_signature: Option<Map<Pubkey, Signature>> - sign asset_id with creator authority to ensure verified creator
     #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
     pub authority: Pubkey,
 }
