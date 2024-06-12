@@ -1,17 +1,17 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 66
+assertion_line: 390
 expression: response
 ---
 {
-  "interface": "MplCoreCollection",
-  "id": "DHciVfQxHHM7t2asQJRjjkKbjvZ4PuG3Y3uiULMQUjJQ",
+  "interface": "MplCoreAsset",
+  "id": "2TZpUiBiyMdwLFTKRshVMHK8anQK2W8XXbfUfyxR8yvc",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
-    "json_uri": "https://example.com/collection",
+    "json_uri": "https://example.com/asset",
     "files": [],
     "metadata": {
-      "name": "Test Collection",
+      "name": "Test Asset",
       "symbol": ""
     },
     "links": {}
@@ -54,23 +54,29 @@ expression: response
   "supply": null,
   "mutable": true,
   "burnt": false,
-  "plugins": {
-    "update_delegate": {
-      "data": {
-        "additional_delegates": []
-      },
-      "index": 0,
-      "offset": 103,
-      "authority": {
-        "type": "Address",
-        "address": "BpEw34ZXHm9TeqnPbcsHZJnx7StGa3GxBkZ3uTD9scfZ"
-      }
-    }
-  },
+  "plugins": {},
   "mpl_core_info": {
-    "num_minted": 1,
-    "current_size": 1,
     "plugins_json_version": 1
   },
-  "external_plugins": []
+  "external_plugins": [
+    {
+      "type": "Oracle",
+      "index": 0,
+      "offset": 119,
+      "authority": {
+        "type": "UpdateAuthority",
+        "address": null
+      },
+      "adapter_config": {
+        "base_address": "J9JBrE7Jravcpc7Px1iWSXTdvA2Kgt5yB5kQoWSvoQFo",
+        "results_offset": "NoOffset",
+        "base_address_config": null
+      },
+      "lifecycle_checks": {
+        "burn": [
+          "CanReject"
+        ]
+      }
+    }
+  ]
 }
