@@ -2,15 +2,16 @@ use crate::common::TestSetup;
 use borsh::BorshSerialize;
 use das_api::api::ApiContract;
 use das_api::api::GetAssetProof;
-use digital_asset_types::dao::sea_orm_active_enums::RollupPersistingState;
+use digital_asset_types::dao::sea_orm_active_enums::{RollupFailStatus, RollupPersistingState};
 use digital_asset_types::dao::{rollup, rollup_to_verify};
 use flatbuffers::FlatBufferBuilder;
 use mpl_bubblegum::types::LeafSchema;
 use nft_ingester::plerkle::PlerkleTransactionInfo;
 use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_transaction;
+use program_transformers::error::RollupValidationError;
 use program_transformers::rollups::rollup_persister::{
-    MockRollupDownloader, Rollup, RollupPersister,
+    MockRollupDownloader, Rollup, RollupPersister, MAX_ROLLUP_DOWNLOAD_ATTEMPTS,
 };
 use program_transformers::rollups::tests::generate_rollup;
 use sea_orm::sea_query::OnConflict;
@@ -206,9 +207,7 @@ async fn rollup_persister_test() {
         });
 
     let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader, true);
-
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
-
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)
         .await;
@@ -272,5 +271,78 @@ async fn rollup_persister_test() {
             .unwrap()
             .is_some(),
         true
+    );
+}
+
+#[tokio::test]
+async fn rollup_persister_download_fail_test() {
+    let setup = TestSetup::new("rollup_persister_download_fail_test".to_string()).await;
+    let test_rollup = generate_rollup(10);
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let tmp_file = File::create(tmp_dir.path().join("rollup-10.json")).unwrap();
+    serde_json::to_writer(tmp_file, &test_rollup).unwrap();
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let rollup_to_verify = rollup_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        download_attempts: Set(download_attempts),
+        rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
+        rollup_fail_status: Set(None),
+    }
+    .into_active_model();
+
+    let query = rollup_to_verify::Entity::insert(rollup_to_verify)
+        .on_conflict(
+            OnConflict::columns([rollup_to_verify::Column::FileHash])
+                .update_columns([rollup_to_verify::Column::Url])
+                .update_columns([rollup_to_verify::Column::Signature])
+                .update_columns([rollup_to_verify::Column::DownloadAttempts])
+                .update_columns([rollup_to_verify::Column::RollupFailStatus])
+                .update_columns([rollup_to_verify::Column::RollupPersistingState])
+                .update_columns([rollup_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockRollupDownloader::new();
+    mocked_downloader
+        .expect_download_rollup_and_check_checksum()
+        .returning(move |_, _| {
+            Err(RollupValidationError::Reqwest(
+                "Could not download file".to_string(),
+            ))
+        });
+
+    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader, true);
+    let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
+    rollup_persister
+        .persist_rollup(rollup_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        rollup_to_verify::Entity::find()
+            .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .rollup_persisting_state,
+        RollupPersistingState::FailedToPersist
+    );
+    assert_eq!(
+        rollup_to_verify::Entity::find()
+            .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .rollup_fail_status,
+        Some(RollupFailStatus::DownloadFailed)
     );
 }

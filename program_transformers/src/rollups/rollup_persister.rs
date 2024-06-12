@@ -433,7 +433,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         status: RollupFailStatus,
         rollup: &rollup_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
-        rollup_to_verify::ActiveModel {
+        rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
             file_hash: Set(rollup.file_hash.clone()),
             url: Set(rollup.url.clone()),
             created_at_slot: Set(rollup.created_at_slot),
@@ -441,8 +441,9 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             download_attempts: Set(rollup.download_attempts),
             rollup_persisting_state: Set(rollup.rollup_persisting_state.clone()),
             rollup_fail_status: Set(Some(status)),
-        }
-        .insert(self.txn.as_ref())
+        })
+        .filter(rollup_to_verify::Column::FileHash.eq(rollup.file_hash.clone()))
+        .exec(self.txn.as_ref())
         .await
         .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         Ok(())
@@ -454,8 +455,6 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
     ) -> Result<(), ProgramTransformerError> {
         rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
             rollup_persisting_state: Set(rollup_to_verify.rollup_persisting_state.clone()),
-            rollup_fail_status: Set(rollup_to_verify.rollup_fail_status.clone()),
-            download_attempts: Set(rollup_to_verify.download_attempts),
             ..rollup_to_verify.clone().into_active_model()
         })
         .filter(rollup_to_verify::Column::FileHash.eq(rollup_to_verify.file_hash.clone()))
