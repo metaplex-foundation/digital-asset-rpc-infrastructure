@@ -11,7 +11,7 @@ use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-fn generate_rollup(size: usize) -> Rollup {
+pub fn generate_rollup(size: usize) -> Rollup {
     let authority = Pubkey::from_str("3VvLDXqJbw3heyRwFxv8MmurPznmDVUJS9gPMX2BDqfM").unwrap();
     let tree = Pubkey::from_str("HxhCw9g3kZvrdg9zZvctmh6qpSDg1FfsBXfFvRkbCHB7").unwrap();
     let mut mints = Vec::new();

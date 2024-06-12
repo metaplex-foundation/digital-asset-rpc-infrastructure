@@ -3100,6 +3100,7 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "migration",
+ "mpl-bubblegum",
  "mpl-token-metadata",
  "nft_ingester",
  "once_cell",
@@ -3113,8 +3114,10 @@ dependencies = [
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-concurrent-merkle-tree 0.2.0",
  "spl-token",
  "sqlx",
+ "tempfile",
  "tokio",
  "tokio-stream",
 ]

@@ -14,10 +14,11 @@ use mockall::automock;
 use mpl_bubblegum::types::{LeafSchema, MetadataArgs, Version};
 use mpl_bubblegum::utils::get_asset_id;
 use mpl_bubblegum::{InstructionName, LeafSchemaEvent};
+use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QueryTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -250,7 +251,9 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                     }
                 }
                 &RollupPersistingState::FailedToPersist | &RollupPersistingState::StoredUpdate => {
-                    if let Err(_e) = self.drop_rollup_from_queue(&rollup_to_verify).await {};
+                    if let Err(e) = self.drop_rollup_from_queue(&rollup_to_verify).await {
+                        error!("failed to drop rollup from queue: {}", e);
+                    };
                     info!(
                         "Finish processing {} rollup file with {:?} state",
                         &rollup_to_verify.url, &rollup_to_verify.rollup_persisting_state
@@ -261,7 +264,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         }
     }
 
-    async fn get_rollup_to_verify(
+    pub async fn get_rollup_to_verify(
         &self,
     ) -> Result<(Option<rollup_to_verify::Model>, Option<rollup::Model>), ProgramTransformerError>
     {
@@ -310,14 +313,18 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             .await
         {
             Ok(r) => {
-                if let Err(e) = (rollup::ActiveModel {
-                    file_hash: Default::default(),
+                let query = rollup::Entity::insert(rollup::ActiveModel {
+                    file_hash: Set(rollup_to_verify.file_hash.clone()),
                     rollup_binary_bincode: Set(bincode::serialize(rollup)
                         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?),
                 })
-                .insert(self.txn.as_ref())
-                .await
-                {
+                .on_conflict(
+                    OnConflict::columns([rollup::Column::FileHash])
+                        .update_columns([rollup::Column::RollupBinaryBincode])
+                        .to_owned(),
+                )
+                .build(DbBackend::Postgres);
+                if let Err(e) = self.txn.execute(query).await {
                     return Err(e.into());
                 }
                 *rollup = Some(r);
@@ -445,18 +452,17 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         &self,
         rollup_to_verify: &rollup_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
-        if rollup_to_verify::Entity::find_by_id(rollup_to_verify.file_hash.clone())
-            .one(self.txn.as_ref())
-            .await?
-            .is_some()
-        {
-            rollup_to_verify
-                .clone()
-                .into_active_model()
-                .update(self.txn.as_ref())
-                .await
-                .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
-        }
+        rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
+            rollup_persisting_state: Set(rollup_to_verify.rollup_persisting_state.clone()),
+            rollup_fail_status: Set(rollup_to_verify.rollup_fail_status.clone()),
+            download_attempts: Set(rollup_to_verify.download_attempts),
+            ..rollup_to_verify.clone().into_active_model()
+        })
+        .filter(rollup_to_verify::Column::FileHash.eq(rollup_to_verify.file_hash.clone()))
+        .exec(self.txn.as_ref())
+        .await
+        .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 }
