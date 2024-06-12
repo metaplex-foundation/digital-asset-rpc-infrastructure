@@ -33,3 +33,6 @@ spl-token = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+mpl-bubblegum = { workspace = true }
+spl-concurrent-merkle-tree = { workspace = true }
+tempfile = { workspace = true }

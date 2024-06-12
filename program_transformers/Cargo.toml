@@ -25,6 +25,20 @@ sqlx = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
+triomphe = { workspace = true }
+spl-concurrent-merkle-tree = { workspace = true }
+paste = { workspace = true }
+async-trait = { workspace = true }
+serde_derive = { workspace = true }
+anchor-lang = { workspace = true }
+mockall = { workspace = true }
+reqwest = { workspace = true }
+hex = { workspace = true }
+xxhash-rust = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+bincode = { workspace = true }
+rand = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,5 +1,6 @@
 use {
     crate::error::{ProgramTransformerError, ProgramTransformerResult},
+    blockbuster::programs::bubblegum::ChangeLogEventV1,
     digital_asset_types::dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
         cl_audits_v2, cl_items,
@@ -15,7 +16,6 @@ use {
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
-    spl_account_compression::events::ChangeLogEventV1,
     tracing::{debug, error, info},
 };
 

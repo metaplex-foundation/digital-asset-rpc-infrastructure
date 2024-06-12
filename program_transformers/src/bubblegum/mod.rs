@@ -20,7 +20,8 @@ mod collection_verification;
 mod creator_verification;
 mod db;
 mod delegate;
-mod mint_v1;
+mod finalize_tree_with_root;
+pub(crate) mod mint_v1;
 mod redeem;
 mod transfer;
 mod update_metadata;
@@ -58,6 +59,7 @@ where
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
+        InstructionName::CreateTreeWithRoot => "CreateTreeWithRoot",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
@@ -108,6 +110,9 @@ where
                     .await
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
+        }
+        InstructionName::CreateTreeWithRoot => {
+            finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn).await?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }

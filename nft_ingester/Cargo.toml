@@ -60,6 +60,7 @@ tracing-subscriber = { workspace = true, features = [
   "ansi",
 ] }
 url = { workspace = true }
+triomphe = { workspace = true }
 
 [lints]
 workspace = true

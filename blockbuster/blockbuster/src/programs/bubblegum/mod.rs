@@ -9,7 +9,8 @@ use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
     instructions::{
-        UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs, VerifyCreatorInstructionArgs,
+        FinalizeTreeWithRootInstructionArgs, UnverifyCreatorInstructionArgs,
+        UpdateMetadataInstructionArgs, VerifyCreatorInstructionArgs,
     },
     types::{BubblegumEventType, MetadataArgs, UpdateArgs},
 };
@@ -51,6 +52,10 @@ pub enum Payload {
     UpdateMetadata {
         current_metadata: MetadataArgs,
         update_args: UpdateArgs,
+        tree_id: Pubkey,
+    },
+    CreateTreeWithRoot {
+        args: FinalizeTreeWithRootInstructionArgs,
         tree_id: Pubkey,
     },
 }
@@ -206,6 +211,9 @@ impl ProgramParser for BubblegumParser {
                     InstructionName::UpdateMetadata => {
                         b_inst.payload = Some(build_update_metadata_payload(keys, ix_data)?);
                     }
+                    InstructionName::CreateTreeWithRoot => {
+                        b_inst.payload = Some(build_create_tree_with_root_payload(keys, ix_data)?);
+                    }
                     _ => {}
                 };
             }
@@ -298,4 +306,19 @@ fn build_update_metadata_payload(
         update_args: args.update_args,
         tree_id,
     })
+}
+
+// See Bubblegum for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md
+fn build_create_tree_with_root_payload(
+    keys: &[Pubkey],
+    ix_data: &[u8],
+) -> Result<Payload, BlockbusterError> {
+    let args = FinalizeTreeWithRootInstructionArgs::try_from_slice(ix_data)?;
+
+    let tree_id = *keys
+        .get(1)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    Ok(Payload::CreateTreeWithRoot { args, tree_id })
 }

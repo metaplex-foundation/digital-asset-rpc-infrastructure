@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "blockbuster",
+  "blockbuster/blockbuster",
   "core",
   "das_api",
   "digital_asset_types",
@@ -32,7 +32,7 @@ anyhow = "1.0.75"
 async-std = "1.0.0"
 async-trait = "0.1.60"
 backon = "0.4.1"
-blockbuster = {path = "blockbuster"}
+blockbuster = {path = "blockbuster/blockbuster"}
 borsh = "~0.10.3"
 borsh-derive = "~0.10.3"
 bs58 = "0.4.0"
@@ -67,8 +67,8 @@ log = "0.4.17"
 metrics = "0.20.1"
 migration = {path = "migration"}
 mime_guess = "2.0.4"
-mpl-bubblegum = "1.2.0"
-mpl-core = {version = "0.7.0", features = ["serde"]}
+mpl-bubblegum = { path = "blockbuster/mpl-bubblegum/clients/rust", features = ["serde"] }
+mpl-core = { git = "https://github.com/RequescoS/mpl-core.git", features = ["serde"] }
 mpl-token-metadata = "4.1.1"
 nft_ingester = {path = "nft_ingester"}
 num-derive = "0.3.3"
@@ -77,7 +77,7 @@ once_cell = "1.19.0"
 open-rpc-derive = "0.0.4"
 open-rpc-schema = "0.0.4"
 plerkle_messenger = "1.6.0"
-plerkle_serialization = "1.8.0"
+plerkle_serialization = { git = "https://github.com/n00m4d/digital-asset-validator-plugin.git" }
 program_transformers = {path = "program_transformers"}
 prometheus = "0.13.3"
 proxy-wasm = "0.2.0"
@@ -93,17 +93,17 @@ sea-query = "0.28.1"
 serde = "1.0.137"
 serde_json = "1.0.81"
 serial_test = "2.0.0"
-solana-account-decoder = "~1.17"
-solana-client = "~1.17"
-solana-geyser-plugin-interface = "~1.17"
-solana-program = "~1.17"
-solana-sdk = "~1.17"
-solana-transaction-status = "~1.17"
+solana-account-decoder = "1.18.11"
+solana-client = "1.18.11"
+solana-geyser-plugin-interface = "1.18.11"
+solana-program = "1.18.11"
+solana-sdk = "1.18.11"
+solana-transaction-status = "1.18.11"
 solana-zk-token-sdk = "1.17.16"
-spl-account-compression = "0.3.0"
+spl-account-compression = { path = "blockbuster/mpl-bubblegum/solana-program-library/account-compression/programs/account-compression", features = ["no-entrypoint"] }
 spl-associated-token-account = ">= 1.1.3, < 3.0"
-spl-concurrent-merkle-tree = "0.2.0"
-spl-noop = "0.2.0"
+spl-concurrent-merkle-tree = { path = "blockbuster/mpl-bubblegum/solana-program-library/libraries/concurrent-merkle-tree"}
+spl-noop =  { path = "blockbuster/mpl-bubblegum/solana-program-library/account-compression/programs/noop", features = ["no-entrypoint"] }
 spl-pod = {version = "0.1.0", features = ["serde-traits"]}
 spl-token = ">= 3.5.0, < 5.0"
 spl-token-2022 = {version = "1.0", features = ["no-entrypoint"]}
@@ -122,6 +122,14 @@ txn_forwarder = {path = "tools/txn_forwarder"}
 url = "2.3.1"
 wasi = "0.7.0"
 wasm-bindgen = "0.2.83"
+triomphe = "=0.1.9"
+paste = "1"
+serde_derive = "1.0.190"
+mockall = "0.11.4"
+xxhash-rust = { version = "0.8.10", features = ["xxh3"] }
+serde_with = "3.8.1"
+bincode = "1.3.3"
+tempfile = "3.10.1"
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"
