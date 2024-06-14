@@ -84,15 +84,10 @@ pub struct ProgramTransformer {
     download_metadata_notifier: DownloadMetadataNotifier,
     parsers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
-    cl_audits: bool,
 }
 
 impl ProgramTransformer {
-    pub fn new(
-        pool: PgPool,
-        download_metadata_notifier: DownloadMetadataNotifier,
-        cl_audits: bool,
-    ) -> Self {
+    pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
@@ -112,7 +107,6 @@ impl ProgramTransformer {
             download_metadata_notifier,
             parsers,
             key_set: hs,
-            cl_audits,
         }
     }
 
@@ -186,7 +180,6 @@ impl ProgramTransformer {
                             &ix,
                             &self.storage,
                             &self.download_metadata_notifier,
-                            self.cl_audits,
                         )
                         .await
                         .map_err(|err| {
@@ -205,7 +198,10 @@ impl ProgramTransformer {
         }
 
         if not_impl == ixlen {
-            debug!("Not imple");
+            debug!(
+                "Not implemented for transaction signature: {:?}",
+                tx_info.signature
+            );
             return Err(ProgramTransformerError::NotImplemented);
         }
         Ok(())
