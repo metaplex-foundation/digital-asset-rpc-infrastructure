@@ -74,12 +74,10 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
         create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
-        false,
     ));
     let pt_transactions = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
         create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
-        config.program_transformer.transactions_cl_audits,
     ));
     let pt_max_tasks_in_process = config.program_transformer.max_tasks_in_process;
     let mut pt_tasks = JoinSet::new();
