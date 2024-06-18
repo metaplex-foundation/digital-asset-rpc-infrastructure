@@ -17,14 +17,12 @@ pub async fn redeem<'c, T>(
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
     instruction: &str,
-    cl_audits: bool,
 ) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(cl) = &parsing_result.tree_update {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction, cl_audits)
-            .await?;
+        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
         let leaf_index = cl.index;
         let (asset_id, _) = Pubkey::find_program_address(
             &[
