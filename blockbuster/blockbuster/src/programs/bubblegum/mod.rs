@@ -4,7 +4,7 @@ use crate::{
     program_handler::{NotUsed, ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
-use borsh::de::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
@@ -25,6 +25,32 @@ pub use spl_account_compression::events::{
 };
 
 use spl_noop;
+
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FinalizeTreeWithRootInstructionArgsWithStaker {
+    pub rightmost_root: [u8; 32],
+    pub rightmost_leaf: [u8; 32],
+    pub rightmost_index: u32,
+    pub metadata_url: String,
+    pub metadata_hash: String,
+    pub staker: Pubkey,
+}
+impl FinalizeTreeWithRootInstructionArgsWithStaker {
+    fn build_finalize_tree_with_root_instruction_args_with_staker(
+        args: FinalizeTreeWithRootInstructionArgs,
+        staker: Pubkey,
+    ) -> Self {
+        Self {
+            rightmost_root: args.rightmost_root,
+            rightmost_leaf: args.rightmost_leaf,
+            rightmost_index: args.rightmost_index,
+            metadata_url: args.metadata_url,
+            metadata_hash: args.metadata_hash,
+            staker,
+        }
+    }
+}
 
 #[derive(Eq, PartialEq)]
 pub enum Payload {
@@ -55,7 +81,7 @@ pub enum Payload {
         tree_id: Pubkey,
     },
     CreateTreeWithRoot {
-        args: FinalizeTreeWithRootInstructionArgs,
+        args: FinalizeTreeWithRootInstructionArgsWithStaker,
         tree_id: Pubkey,
     },
 }
@@ -319,6 +345,10 @@ fn build_create_tree_with_root_payload(
     let tree_id = *keys
         .get(1)
         .ok_or(BlockbusterError::InstructionParsingError)?;
+    let staker = *keys
+        .get(2)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+    let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(args, staker);
 
     Ok(Payload::CreateTreeWithRoot { args, tree_id })
 }

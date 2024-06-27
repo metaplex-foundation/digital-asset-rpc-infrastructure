@@ -82,6 +82,7 @@ pubkeys!(
 
 pub struct Token2022AccountParser;
 
+#[allow(clippy::large_enum_variant)]
 pub enum TokenExtensionsProgramAccount {
     TokenAccount(TokenAccount),
     MintAccount(MintAccount),

@@ -1,4 +1,0 @@
-[submodule "mpl-bubblegum"]
-	path = mpl-bubblegum
-	url = git@github.com:n00m4d/mpl-bubblegum.git
-	branch = feat/rollup

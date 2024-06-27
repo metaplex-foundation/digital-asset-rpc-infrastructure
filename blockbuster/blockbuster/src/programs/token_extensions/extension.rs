@@ -287,8 +287,8 @@ impl<'de> Visitor<'de> for ShadowAeCiphertextVisitor {
         A: SeqAccess<'de>,
     {
         let mut arr = [0u8; AE_CIPHERTEXT_LEN];
-        for i in 0..AE_CIPHERTEXT_LEN {
-            arr[i] = seq
+        for (i, item) in arr.iter_mut().enumerate().take(AE_CIPHERTEXT_LEN) {
+            *item = seq
                 .next_element()?
                 .ok_or(de::Error::invalid_length(i, &self))?;
         }
