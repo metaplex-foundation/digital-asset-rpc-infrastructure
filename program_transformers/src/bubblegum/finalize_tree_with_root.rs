@@ -23,6 +23,7 @@ where
                 url: Set(args.metadata_url.clone()),
                 created_at_slot: Set(bundle.slot as i64),
                 signature: Set(bundle.txn_id.to_string()),
+                staker: Set(args.staker.to_bytes().to_vec()),
                 download_attempts: Set(0),
                 rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
                 rollup_fail_status: Set(None),

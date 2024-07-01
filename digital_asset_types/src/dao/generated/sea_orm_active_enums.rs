@@ -4,114 +4,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "rollup_fail_status")]
-pub enum RollupFailStatus {
-    #[sea_orm(string_value = "checksum_verify_failed")]
-    ChecksumVerifyFailed,
-    #[sea_orm(string_value = "download_failed")]
-    DownloadFailed,
-    #[sea_orm(string_value = "file_serialization")]
-    FileSerialization,
-    #[sea_orm(string_value = "rollup_verify_failed")]
-    RollupVerifyFailed,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "v1_account_attachments"
-)]
-pub enum V1AccountAttachments {
-    #[sea_orm(string_value = "edition")]
-    Edition,
-    #[sea_orm(string_value = "edition_marker")]
-    EditionMarker,
-    #[sea_orm(string_value = "master_edition_v1")]
-    MasterEditionV1,
-    #[sea_orm(string_value = "master_edition_v2")]
-    MasterEditionV2,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "rollup_persisting_state"
-)]
-pub enum RollupPersistingState {
-    #[sea_orm(string_value = "failed_to_persist")]
-    FailedToPersist,
-    #[sea_orm(string_value = "received_transaction")]
-    ReceivedTransaction,
-    #[sea_orm(string_value = "stored_update")]
-    StoredUpdate,
-    #[sea_orm(string_value = "successfully_download")]
-    SuccessfullyDownload,
-    #[sea_orm(string_value = "successfully_validate")]
-    SuccessfullyValidate,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "specification_asset_class"
-)]
-pub enum SpecificationAssetClass {
-    #[sea_orm(string_value = "FUNGIBLE_ASSET")]
-    FungibleAsset,
-    #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
-    FungibleToken,
-    #[sea_orm(string_value = "IDENTITY_NFT")]
-    IdentityNft,
-    #[sea_orm(string_value = "MPL_CORE_ASSET")]
-    MplCoreAsset,
-    #[sea_orm(string_value = "MPL_CORE_COLLECTION")]
-    MplCoreCollection,
-    #[sea_orm(string_value = "NFT")]
-    Nft,
-    #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]
-    NonTransferableNft,
-    #[sea_orm(string_value = "PRINT")]
-    Print,
-    #[sea_orm(string_value = "PRINTABLE_NFT")]
-    PrintableNft,
-    #[sea_orm(string_value = "PROGRAMMABLE_NFT")]
-    ProgrammableNft,
-    #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
-    TransferRestrictedNft,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
-pub enum TaskStatus {
-    #[sea_orm(string_value = "failed")]
-    Failed,
-    #[sea_orm(string_value = "pending")]
-    Pending,
-    #[sea_orm(string_value = "running")]
-    Running,
-    #[sea_orm(string_value = "success")]
-    Success,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "royalty_target_type"
-)]
-pub enum RoyaltyTargetType {
-    #[sea_orm(string_value = "creators")]
-    Creators,
-    #[sea_orm(string_value = "fanout")]
-    Fanout,
-    #[sea_orm(string_value = "single")]
-    Single,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "instruction")]
 pub enum Instruction {
     #[sea_orm(string_value = "burn")]
@@ -148,6 +40,106 @@ pub enum Instruction {
     VerifyCreator,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "specification_asset_class"
+)]
+pub enum SpecificationAssetClass {
+    #[sea_orm(string_value = "FUNGIBLE_ASSET")]
+    FungibleAsset,
+    #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
+    FungibleToken,
+    #[sea_orm(string_value = "IDENTITY_NFT")]
+    IdentityNft,
+    #[sea_orm(string_value = "MPL_CORE_ASSET")]
+    MplCoreAsset,
+    #[sea_orm(string_value = "MPL_CORE_COLLECTION")]
+    MplCoreCollection,
+    #[sea_orm(string_value = "NFT")]
+    Nft,
+    #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]
+    NonTransferableNft,
+    #[sea_orm(string_value = "PRINT")]
+    Print,
+    #[sea_orm(string_value = "PRINTABLE_NFT")]
+    PrintableNft,
+    #[sea_orm(string_value = "PROGRAMMABLE_NFT")]
+    ProgrammableNft,
+    #[sea_orm(string_value = "TRANSFER_RESTRICTED_NFT")]
+    TransferRestrictedNft,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "royalty_target_type"
+)]
+pub enum RoyaltyTargetType {
+    #[sea_orm(string_value = "creators")]
+    Creators,
+    #[sea_orm(string_value = "fanout")]
+    Fanout,
+    #[sea_orm(string_value = "single")]
+    Single,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "rollup_fail_status")]
+pub enum RollupFailStatus {
+    #[sea_orm(string_value = "checksum_verify_failed")]
+    ChecksumVerifyFailed,
+    #[sea_orm(string_value = "download_failed")]
+    DownloadFailed,
+    #[sea_orm(string_value = "file_serialization")]
+    FileSerialization,
+    #[sea_orm(string_value = "rollup_verify_failed")]
+    RollupVerifyFailed,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "task_status")]
+pub enum TaskStatus {
+    #[sea_orm(string_value = "failed")]
+    Failed,
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "running")]
+    Running,
+    #[sea_orm(string_value = "success")]
+    Success,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
+pub enum ChainMutability {
+    #[sea_orm(string_value = "immutable")]
+    Immutable,
+    #[sea_orm(string_value = "mutable")]
+    Mutable,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "v1_account_attachments"
+)]
+pub enum V1AccountAttachments {
+    #[sea_orm(string_value = "edition")]
+    Edition,
+    #[sea_orm(string_value = "edition_marker")]
+    EditionMarker,
+    #[sea_orm(string_value = "master_edition_v1")]
+    MasterEditionV1,
+    #[sea_orm(string_value = "master_edition_v2")]
+    MasterEditionV2,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "mutability")]
 pub enum Mutability {
     #[sea_orm(string_value = "immutable")]
@@ -174,22 +166,32 @@ pub enum SpecificationVersions {
     V2,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "rollup_persisting_state"
+)]
+pub enum RollupPersistingState {
+    #[sea_orm(string_value = "failed_to_persist")]
+    FailedToPersist,
+    #[sea_orm(string_value = "received_transaction")]
+    ReceivedTransaction,
+    #[sea_orm(string_value = "start_processing")]
+    StartProcessing,
+    #[sea_orm(string_value = "stored_update")]
+    StoredUpdate,
+    #[sea_orm(string_value = "successfully_download")]
+    SuccessfullyDownload,
+    #[sea_orm(string_value = "successfully_validate")]
+    SuccessfullyValidate,
+}
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "owner_type")]
 pub enum OwnerType {
     #[sea_orm(string_value = "single")]
     Single,
     #[sea_orm(string_value = "token")]
     Token,
-    #[sea_orm(string_value = "unknown")]
-    Unknown,
-}
-#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "chain_mutability")]
-pub enum ChainMutability {
-    #[sea_orm(string_value = "immutable")]
-    Immutable,
-    #[sea_orm(string_value = "mutable")]
-    Mutable,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }

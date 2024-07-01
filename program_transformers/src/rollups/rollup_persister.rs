@@ -211,7 +211,8 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         info!("Persisting {} rollup", &rollup_to_verify.url);
         loop {
             match &rollup_to_verify.rollup_persisting_state {
-                &RollupPersistingState::ReceivedTransaction => {
+                &RollupPersistingState::ReceivedTransaction
+                | &RollupPersistingState::StartProcessing => {
                     if let Err(err) = self
                         .download_rollup(&mut rollup_to_verify, &mut rollup)
                         .await
@@ -260,6 +261,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         &self,
     ) -> Result<(Option<rollup_to_verify::Model>, Option<rollup::Model>), ProgramTransformerError>
     {
+        let multi_txn = self.txn.begin().await?;
         let condition = Condition::all()
             .add(
                 rollup_to_verify::Column::RollupPersistingState
@@ -268,12 +270,16 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             .add(
                 rollup_to_verify::Column::RollupPersistingState
                     .ne(RollupPersistingState::StoredUpdate),
+            )
+            .add(
+                rollup_to_verify::Column::RollupPersistingState
+                    .ne(RollupPersistingState::StartProcessing),
             );
 
         let rollup_to_verify = rollup_to_verify::Entity::find()
             .filter(condition)
             .order_by_asc(rollup_to_verify::Column::CreatedAtSlot)
-            .one(self.txn.as_ref())
+            .one(&multi_txn)
             .await
             .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         let mut rollup = None;
@@ -283,7 +289,22 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                 .one(self.txn.as_ref())
                 .await
                 .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
+            rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
+                file_hash: Set(r.file_hash.clone()),
+                url: Set(r.url.clone()),
+                created_at_slot: Set(r.created_at_slot),
+                signature: Set(r.signature.clone()),
+                staker: Set(r.staker.clone()),
+                download_attempts: Set(r.download_attempts),
+                rollup_persisting_state: Set(RollupPersistingState::StartProcessing),
+                rollup_fail_status: Set(r.rollup_fail_status.clone()),
+            })
+            .filter(rollup_to_verify::Column::FileHash.eq(r.file_hash.clone()))
+            .exec(&multi_txn)
+            .await
+            .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         }
+        multi_txn.commit().await?;
 
         Ok((rollup_to_verify, rollup))
     }
@@ -360,6 +381,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                         url: Set(rollup_to_verify.url.clone()),
                         created_at_slot: Set(rollup_to_verify.created_at_slot),
                         signature: Set(rollup_to_verify.signature.clone()),
+                        staker: Set(rollup_to_verify.staker.clone()),
                         download_attempts: Set(rollup_to_verify.download_attempts + 1),
                         rollup_persisting_state: Set(rollup_to_verify
                             .rollup_persisting_state
@@ -429,6 +451,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             url: Set(rollup.url.clone()),
             created_at_slot: Set(rollup.created_at_slot),
             signature: Set(rollup.signature.clone()),
+            staker: Set(rollup.staker.clone()),
             download_attempts: Set(rollup.download_attempts),
             rollup_persisting_state: Set(rollup.rollup_persisting_state.clone()),
             rollup_fail_status: Set(Some(status)),
