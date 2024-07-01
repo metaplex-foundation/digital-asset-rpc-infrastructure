@@ -159,7 +159,6 @@ pub async fn main() -> Result<(), IngesterError> {
                 database_pool.clone(),
             )),
             RollupDownloaderForPersister {},
-            config.cl_audits.unwrap_or_default(),
         );
         tasks.spawn(async move {
             rollup_persister.persist_rollups().await;

@@ -150,7 +150,6 @@ pub trait RollupDownloader {
 pub struct RollupPersister<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> {
     txn: Arc<T>,
     downloader: D,
-    cl_audits: bool,
 }
 
 pub struct RollupDownloaderForPersister {}
@@ -181,12 +180,8 @@ impl RollupDownloader for RollupDownloaderForPersister {
 }
 
 impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister<T, D> {
-    pub fn new(txn: Arc<T>, downloader: D, cl_audits: bool) -> Self {
-        Self {
-            txn,
-            downloader,
-            cl_audits,
-        }
+    pub fn new(txn: Arc<T>, downloader: D) -> Self {
+        Self { txn, downloader }
     }
 
     pub async fn persist_rollups(&self) {
@@ -199,13 +194,10 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                 // no rollups to persist
                 continue;
             };
-            let Ok(rollup) = rollup
+            let rollup = rollup
                 .map(|r| bincode::deserialize::<Rollup>(r.rollup_binary_bincode.as_slice()))
                 .transpose()
-                .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))
-            else {
-                continue;
-            };
+                .unwrap_or_default();
             self.persist_rollup(rollup_to_verify, rollup.map(Box::new))
                 .await;
         }
@@ -416,7 +408,6 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             rollup_to_verify.signature.clone(),
             rollup,
             self.txn.as_ref(),
-            self.cl_audits,
         )
         .await
         .is_err()
@@ -544,7 +535,6 @@ pub async fn store_rollup_update<T>(
     signature: String,
     rollup: &Rollup,
     txn: &T,
-    cl_audits: bool,
 ) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -562,7 +552,7 @@ where
             },
             txn,
             "CreateTreeWithRoot",
-            cl_audits,
+            false,
         )
         .await?;
     }

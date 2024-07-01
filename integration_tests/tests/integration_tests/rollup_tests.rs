@@ -206,7 +206,7 @@ async fn rollup_persister_test() {
             Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
         });
 
-    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader, true);
+    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader);
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)
@@ -319,7 +319,7 @@ async fn rollup_persister_download_fail_test() {
             ))
         });
 
-    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader, true);
+    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader);
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)

@@ -29,6 +29,7 @@ impl MigrationTrait for Migration {
                     .as_enum(RollupToVerify::RollupPersistingState)
                     .values([
                         PersistingRollupState::ReceivedTransaction,
+                        PersistingRollupState::StartProcessing,
                         PersistingRollupState::FailedToPersist,
                         PersistingRollupState::SuccessfullyDownload,
                         PersistingRollupState::SuccessfullyValidate,
@@ -60,6 +61,7 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(RollupToVerify::Staker).binary().not_null())
                     .col(
                         ColumnDef::new(RollupToVerify::DownloadAttempts)
                             .unsigned()
@@ -140,12 +142,14 @@ enum RollupToVerify {
     DownloadAttempts,
     RollupPersistingState,
     RollupFailStatus,
+    Staker,
 }
 
 #[derive(Iden, Debug, PartialEq, Sequence)]
 enum PersistingRollupState {
     ReceivedTransaction,
     FailedToPersist,
+    StartProcessing,
     SuccessfullyDownload,
     SuccessfullyValidate,
     StoredUpdate,
