@@ -66,6 +66,7 @@ pub struct TestSetup {
     pub db: Arc<DatabaseConnection>,
     pub transformer: ProgramTransformer,
     pub das_api: DasApi,
+    pub database_test_url: String,
 }
 
 impl TestSetup {
@@ -104,6 +105,7 @@ impl TestSetup {
             name,
             client,
             db: Arc::new(db),
+            database_test_url,
             transformer,
             das_api,
         }

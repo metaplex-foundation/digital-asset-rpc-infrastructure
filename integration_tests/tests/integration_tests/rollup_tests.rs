@@ -11,7 +11,7 @@ use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_transaction;
 use program_transformers::error::RollupValidationError;
 use program_transformers::rollups::rollup_persister::{
-    MockRollupDownloader, Rollup, RollupPersister, MAX_ROLLUP_DOWNLOAD_ATTEMPTS,
+    MockRollupDownloader, Rollup, RollupPersister,
 };
 use program_transformers::rollups::tests::generate_rollup;
 use sea_orm::sea_query::OnConflict;
@@ -178,6 +178,7 @@ async fn rollup_persister_test() {
         url: Set(metadata_url.clone()),
         created_at_slot: Set(10),
         signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
         download_attempts: Set(0),
         rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
         rollup_fail_status: Set(None),
@@ -206,7 +207,11 @@ async fn rollup_persister_test() {
             Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
         });
 
-    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader);
+    let rollup_persister = RollupPersister::new(
+        setup.db.clone(),
+        setup.database_test_url.clone(),
+        mocked_downloader,
+    );
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)
@@ -290,6 +295,7 @@ async fn rollup_persister_download_fail_test() {
         url: Set(metadata_url.clone()),
         created_at_slot: Set(10),
         signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
         download_attempts: Set(download_attempts),
         rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
         rollup_fail_status: Set(None),
@@ -319,7 +325,11 @@ async fn rollup_persister_download_fail_test() {
             ))
         });
 
-    let rollup_persister = RollupPersister::new(setup.db.clone(), mocked_downloader);
+    let rollup_persister = RollupPersister::new(
+        setup.db.clone(),
+        setup.database_test_url.clone(),
+        mocked_downloader,
+    );
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)

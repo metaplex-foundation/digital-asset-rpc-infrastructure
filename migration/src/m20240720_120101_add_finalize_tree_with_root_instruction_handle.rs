@@ -1,7 +1,9 @@
+use crate::sea_orm::{DatabaseBackend, Statement};
 use enum_iterator::all;
 use enum_iterator_derive::Sequence;
 use sea_orm::sea_query::extension::postgres::Type;
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::ConnectionTrait;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -117,11 +119,36 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "CREATE FUNCTION notify_new_rollup() RETURNS trigger LANGUAGE plpgsql AS $$
+                    BEGIN
+                      PERFORM pg_notify('new_rollup', NEW::text);
+                      RETURN NEW;
+                    END;
+                    $$;
+                    CREATE TRIGGER rollup_to_verify_trigger
+                    AFTER INSERT ON rollup_to_verify
+                    FOR EACH ROW EXECUTE FUNCTION notify_new_rollup();"
+                    .to_string(),
+            ))
+            .await?;
 
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "DROP TRIGGER IF EXISTS rollup_to_verify_trigger ON rollup_to_verify;
+                DROP FUNCTION IF EXISTS notify_new_rollup;"
+                    .to_string(),
+            ))
+            .await?;
         manager
             .drop_table(Table::drop().table(RollupToVerify::Table).to_owned())
             .await?;

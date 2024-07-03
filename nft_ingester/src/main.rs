@@ -158,6 +158,7 @@ pub async fn main() -> Result<(), IngesterError> {
             Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
                 database_pool.clone(),
             )),
+            config.get_database_url(),
             RollupDownloaderForPersister {},
         );
         tasks.spawn(async move {
