@@ -8,6 +8,7 @@ use crate::rollups::merkle_tree_wrapper;
 use async_trait::async_trait;
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
+use cadence_macros::{statsd_count, statsd_histogram};
 use digital_asset_types::dao::sea_orm_active_enums::{RollupFailStatus, RollupPersistingState};
 use digital_asset_types::dao::{rollup, rollup_to_verify};
 use mockall::automock;
@@ -27,6 +28,7 @@ use solana_sdk::keccak::Hash;
 use solana_sdk::pubkey::Pubkey;
 use sqlx::postgres::PgListener;
 use tokio::sync::Mutex;
+use tokio::time::Instant;
 use tracing::{error, info};
 
 pub const MAX_ROLLUP_DOWNLOAD_ATTEMPTS: u8 = 5;
@@ -211,6 +213,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                 continue;
             };
             let Ok((rollup_to_verify, rollup)) = self.get_rollup_to_verify().await else {
+                statsd_count!("rollup.fail_get_rollup", 1);
                 continue;
             };
             let Some(rollup_to_verify) = rollup_to_verify else {
@@ -231,6 +234,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         mut rollup_to_verify: rollup_to_verify::Model,
         mut rollup: Option<Box<Rollup>>,
     ) {
+        let start_time = Instant::now();
         info!("Persisting {} rollup", &rollup_to_verify.url);
         loop {
             match &rollup_to_verify.rollup_persisting_state {
@@ -274,6 +278,11 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                         "Finish processing {} rollup file with {:?} state",
                         &rollup_to_verify.url, &rollup_to_verify.rollup_persisting_state
                     );
+                    statsd_histogram!(
+                        "rollup.persisting_latency",
+                        start_time.elapsed().as_millis() as u64
+                    );
+                    statsd_count!("rollup.total_processed", 1);
                     return;
                 }
             }
@@ -366,8 +375,10 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                 *rollup = Some(r);
                 rollup_to_verify.rollup_persisting_state =
                     RollupPersistingState::SuccessfullyDownload;
+                statsd_count!("rollup.successfully_download", 1);
             }
             Err(e) => {
+                statsd_count!("rollup.download_fail", 1);
                 if let RollupValidationError::InvalidDataHash(expected, actual) = e {
                     rollup_to_verify.rollup_persisting_state =
                         RollupPersistingState::FailedToPersist;
@@ -377,6 +388,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                     )
                     .await?;
 
+                    statsd_count!("rollup.checksum_verify_fail", 1);
                     return Err(ProgramTransformerError::RollupValidation(
                         RollupValidationError::FileChecksumMismatch(expected, actual),
                     ));
@@ -390,6 +402,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                     )
                     .await?;
 
+                    statsd_count!("rollup.file_deserialization_fail", 1);
                     return Err(ProgramTransformerError::SerializatonError(e));
                 }
                 if rollup_to_verify.download_attempts + 1 > MAX_ROLLUP_DOWNLOAD_ATTEMPTS as i32 {
@@ -431,6 +444,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         if let Err(e) = validate_rollup(rollup).await {
             error!("Error while validating rollup: {}", e.to_string());
 
+            statsd_count!("rollup.validating_fail", 1);
             rollup_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
             if let Err(err) = self
                 .save_rollup_as_failed(RollupFailStatus::RollupVerifyFailed, rollup_to_verify)
@@ -440,6 +454,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
             };
             return;
         }
+        statsd_count!("rollup.validating_success", 1);
         rollup_to_verify.rollup_persisting_state = RollupPersistingState::SuccessfullyValidate;
     }
 
@@ -457,9 +472,11 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         .await
         .is_err()
         {
+            statsd_count!("rollup.store_update_fail", 1);
             rollup_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
             return Ok(());
         }
+        statsd_count!("rollup.store_update_success", 1);
         rollup_to_verify.rollup_persisting_state = RollupPersistingState::StoredUpdate;
         Ok(())
     }
