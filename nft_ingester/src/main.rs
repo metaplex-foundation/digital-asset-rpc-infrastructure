@@ -154,7 +154,7 @@ pub async fn main() -> Result<(), IngesterError> {
             }
         }
 
-        if config.process_rollups.unwrap_or_default() {
+        if !config.skip_rollup_indexing {
             let rollup_persister = RollupPersister::new(
                 Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
                     database_pool.clone(),

@@ -31,7 +31,7 @@ pub struct IngesterConfig {
     pub code_version: Option<&'static str>,
     pub background_task_runner_config: Option<BackgroundTaskRunnerConfig>,
     pub cl_audits: Option<bool>, // save transaction logs for compressed nfts
-    pub process_rollups: Option<bool>,
+    pub skip_rollup_indexing: bool,
 }
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
