@@ -154,17 +154,19 @@ pub async fn main() -> Result<(), IngesterError> {
             }
         }
 
-        let rollup_persister = RollupPersister::new(
-            Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
-                database_pool.clone(),
-            )),
-            config.get_database_url(),
-            RollupDownloaderForPersister {},
-        );
-        tasks.spawn(async move {
-            rollup_persister.persist_rollups().await;
-            Ok(())
-        });
+        if config.process_rollups.unwrap_or_default() {
+            let rollup_persister = RollupPersister::new(
+                Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
+                    database_pool.clone(),
+                )),
+                config.get_database_url(),
+                RollupDownloaderForPersister {},
+            );
+            tasks.spawn(async move {
+                rollup_persister.persist_rollups().await;
+                Ok(())
+            });
+        }
     }
     // Stream Size Timers ----------------------------------------
     // Setup Stream Size Timers, these are small processes that run every 60 seconds and farm metrics for the size of the streams.
