@@ -3098,6 +3098,7 @@ name = "integration_tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-channel 2.3.1",
  "borsh 0.10.3",
  "das_api",
  "digital_asset_types",

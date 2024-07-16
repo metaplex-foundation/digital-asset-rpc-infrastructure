@@ -346,7 +346,7 @@ fn build_create_tree_with_root_payload(
         .get(1)
         .ok_or(BlockbusterError::InstructionParsingError)?;
     let staker = *keys
-        .get(2)
+        .get(4)
         .ok_or(BlockbusterError::InstructionParsingError)?;
     let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(args, staker);
 

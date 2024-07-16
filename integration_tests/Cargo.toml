@@ -36,3 +36,4 @@ tokio-stream = { workspace = true }
 mpl-bubblegum = { workspace = true }
 spl-concurrent-merkle-tree = { workspace = true }
 tempfile = { workspace = true }
+async-channel = { workspace = true }

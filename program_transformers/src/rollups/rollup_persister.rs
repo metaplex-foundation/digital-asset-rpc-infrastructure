@@ -225,7 +225,11 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         info!("Persisting {} rollup", &rollup_to_verify.url);
         loop {
             match &rollup_to_verify.rollup_persisting_state {
-                &RollupPersistingState::ReceivedTransaction => {}
+                &RollupPersistingState::ReceivedTransaction => {
+                    // We get ReceivedTransaction state on the start of processing
+                    rollup_to_verify.rollup_persisting_state =
+                        RollupPersistingState::StartProcessing;
+                }
                 &RollupPersistingState::StartProcessing => {
                     if let Err(err) = self
                         .download_rollup(&mut rollup_to_verify, &mut rollup)

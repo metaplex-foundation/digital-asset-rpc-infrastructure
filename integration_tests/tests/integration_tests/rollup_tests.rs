@@ -7,6 +7,7 @@ use digital_asset_types::dao::{rollup, rollup_to_verify};
 use flatbuffers::FlatBufferBuilder;
 use mpl_bubblegum::types::LeafSchema;
 use nft_ingester::plerkle::PlerkleTransactionInfo;
+use nft_ingester::rollup_updates::create_rollup_notification_channel;
 use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_transaction;
 use program_transformers::error::RollupValidationError;
@@ -27,6 +28,7 @@ use solana_transaction_status::{InnerInstruction, InnerInstructions, Transaction
 use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
 use std::fs::File;
 use std::str::FromStr;
+use tokio::task::JoinSet;
 
 #[tokio::test]
 async fn save_rollup_to_queue_test() {
@@ -207,11 +209,11 @@ async fn rollup_persister_test() {
             Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
         });
 
-    let rollup_persister = RollupPersister::new(
-        setup.db.clone(),
-        setup.database_test_url.clone(),
-        mocked_downloader,
-    );
+    let mut tasks = JoinSet::new();
+    let r = create_rollup_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let rollup_persister = RollupPersister::new(setup.db.clone(), r, mocked_downloader);
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)
@@ -325,11 +327,11 @@ async fn rollup_persister_download_fail_test() {
             ))
         });
 
-    let rollup_persister = RollupPersister::new(
-        setup.db.clone(),
-        setup.database_test_url.clone(),
-        mocked_downloader,
-    );
+    let mut tasks = JoinSet::new();
+    let r = create_rollup_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let rollup_persister = RollupPersister::new(setup.db.clone(), r, mocked_downloader);
     let (rollup_to_verify, _) = rollup_persister.get_rollup_to_verify().await.unwrap();
     rollup_persister
         .persist_rollup(rollup_to_verify.unwrap(), None)
