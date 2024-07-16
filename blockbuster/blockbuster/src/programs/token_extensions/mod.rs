@@ -130,7 +130,7 @@ impl ProgramParser for Token2022AccountParser {
             let confidential_transfer = account
                 .get_extension::<ConfidentialTransferAccount>()
                 .ok()
-                .map(|x| x.clone());
+                .copied();
             let cpi_guard = account.get_extension::<CpiGuard>().ok().copied();
             let memo_transfer = account.get_extension::<MemoTransfer>().ok().copied();
             let transfer_fee_amount = account.get_extension::<TransferFeeAmount>().ok().copied();
@@ -148,7 +148,7 @@ impl ProgramParser for Token2022AccountParser {
             };
 
             result = TokenExtensionsProgramAccount::TokenAccount(structured_account);
-        } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(&account_data) {
+        } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(account_data) {
             let confidential_transfer_mint = mint
                 .get_extension::<ConfidentialTransferMint>()
                 .ok()
