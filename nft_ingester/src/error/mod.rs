@@ -52,6 +52,8 @@ pub enum IngesterError {
     HttpError { status_code: String },
     #[error("AssetIndex Error {0}")]
     AssetIndexError(String),
+    #[error("sqlx Error {0}")]
+    SqlxError(String),
 }
 
 impl From<reqwest::Error> for IngesterError {
@@ -111,5 +113,11 @@ impl From<MessengerError> for IngesterError {
 impl From<PlerkleSerializationError> for IngesterError {
     fn from(e: PlerkleSerializationError) -> Self {
         IngesterError::SerializatonError(e.to_string())
+    }
+}
+
+impl From<sqlx::Error> for IngesterError {
+    fn from(e: sqlx::Error) -> Self {
+        IngesterError::SqlxError(e.to_string())
     }
 }

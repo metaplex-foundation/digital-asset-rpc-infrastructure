@@ -498,24 +498,19 @@ impl From<ConfidentialTransferMint> for ShadowConfidentialTransferMint {
 impl From<ConfidentialTransferAccount> for ShadowConfidentialTransferAccount {
     fn from(original: ConfidentialTransferAccount) -> Self {
         ShadowConfidentialTransferAccount {
-            approved: original.approved.into(),
+            approved: original.approved,
             elgamal_pubkey: original.elgamal_pubkey.into(),
             pending_balance_lo: original.pending_balance_lo.into(),
             pending_balance_hi: original.pending_balance_hi.into(),
             available_balance: original.available_balance.into(),
             decryptable_available_balance: original.decryptable_available_balance.into(),
-            allow_confidential_credits: original.allow_confidential_credits.into(),
-            allow_non_confidential_credits: original.allow_non_confidential_credits.into(),
-            pending_balance_credit_counter: original.pending_balance_credit_counter.into(),
-            maximum_pending_balance_credit_counter: original
-                .maximum_pending_balance_credit_counter
-                .into(),
+            allow_confidential_credits: original.allow_confidential_credits,
+            allow_non_confidential_credits: original.allow_non_confidential_credits,
+            pending_balance_credit_counter: original.pending_balance_credit_counter,
+            maximum_pending_balance_credit_counter: original.maximum_pending_balance_credit_counter,
             expected_pending_balance_credit_counter: original
-                .expected_pending_balance_credit_counter
-                .into(),
-            actual_pending_balance_credit_counter: original
-                .actual_pending_balance_credit_counter
-                .into(),
+                .expected_pending_balance_credit_counter,
+            actual_pending_balance_credit_counter: original.actual_pending_balance_credit_counter,
         }
     }
 }

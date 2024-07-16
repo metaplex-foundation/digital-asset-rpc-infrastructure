@@ -26,14 +26,14 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
+use nft_ingester::rollup_updates;
 use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
 use program_transformers::rollups::rollup_persister::{
     RollupDownloaderForPersister, RollupPersister,
 };
-use sea_orm::SqlxPostgresConnector;
+use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use std::sync::Arc;
 use std::{path::PathBuf, time};
-use sqlx::postgres::PgListener;
 use tokio::{signal, task::JoinSet};
 
 #[tokio::main(flavor = "multi_thread")]
@@ -101,6 +101,24 @@ pub async fn main() -> Result<(), IngesterError> {
     if role != IngesterRole::BackgroundTaskRunner {
         tasks.spawn(bg_task_listener);
     }
+    let mut rollup_persister: Option<
+        Arc<RollupPersister<DatabaseConnection, RollupDownloaderForPersister>>,
+    > = None;
+    if !config.skip_rollup_indexing {
+        let r = rollup_updates::create_rollup_notification_channel(
+            &config.get_database_url(),
+            &mut tasks,
+        )
+        .await
+        .unwrap();
+        rollup_persister = Some(Arc::new(RollupPersister::new(
+            Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
+                database_pool.clone(),
+            )),
+            r,
+            RollupDownloaderForPersister {},
+        )));
+    }
 
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
@@ -124,50 +142,46 @@ pub async fn main() -> Result<(), IngesterError> {
             }
 
             for i in 0..worker.worker_count {
-                if worker.worker_type == WorkerType::Account {
-                    let _account = account_worker::<RedisMessenger>(
-                        database_pool.clone(),
-                        config.get_messneger_client_config(),
-                        bg_task_sender.clone(),
-                        ack_sender.clone(),
-                        if i == 0 {
-                            ConsumptionType::Redeliver
-                        } else {
-                            ConsumptionType::New
-                        },
-                        stream_name,
-                    );
-                } else if worker.worker_type == WorkerType::Transaction {
-                    let _txn = transaction_worker::<RedisMessenger>(
-                        database_pool.clone(),
-                        config.get_messneger_client_config(),
-                        bg_task_sender.clone(),
-                        ack_sender.clone(),
-                        if i == 0 {
-                            ConsumptionType::Redeliver
-                        } else {
-                            ConsumptionType::New
-                        },
-                        config.cl_audits.unwrap_or(false),
-                        stream_name,
-                    );
+                match worker.worker_type {
+                    WorkerType::Account => {
+                        let _account = account_worker::<RedisMessenger>(
+                            database_pool.clone(),
+                            config.get_messneger_client_config(),
+                            bg_task_sender.clone(),
+                            ack_sender.clone(),
+                            if i == 0 {
+                                ConsumptionType::Redeliver
+                            } else {
+                                ConsumptionType::New
+                            },
+                            stream_name,
+                        );
+                    }
+                    WorkerType::Transaction => {
+                        let _txn = transaction_worker::<RedisMessenger>(
+                            database_pool.clone(),
+                            config.get_messneger_client_config(),
+                            bg_task_sender.clone(),
+                            ack_sender.clone(),
+                            if i == 0 {
+                                ConsumptionType::Redeliver
+                            } else {
+                                ConsumptionType::New
+                            },
+                            config.cl_audits.unwrap_or(false),
+                            stream_name,
+                        );
+                    }
+                    WorkerType::Rollup => {
+                        if let Some(rollup_persister) = rollup_persister.clone() {
+                            tasks.spawn(async move {
+                                rollup_persister.persist_rollups().await;
+                                Ok(())
+                            });
+                        }
+                    }
                 }
             }
-        }
-
-        if !config.skip_rollup_indexing {
-
-            let rollup_persister = RollupPersister::new(
-                Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
-                    database_pool.clone(),
-                )),
-                config.get_database_url(),
-                RollupDownloaderForPersister {},
-            );
-            tasks.spawn(async move {
-                rollup_persister.persist_rollups().await;
-                Ok(())
-            });
         }
     }
     // Stream Size Timers ----------------------------------------

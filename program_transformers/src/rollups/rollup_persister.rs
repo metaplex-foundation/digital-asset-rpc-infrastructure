@@ -1,4 +1,5 @@
 use anchor_lang::AnchorSerialize;
+use async_channel::Receiver;
 use std::collections::HashMap;
 use std::{sync::Arc, time::Duration};
 
@@ -15,19 +16,17 @@ use mockall::automock;
 use mpl_bubblegum::types::{LeafSchema, MetadataArgs, Version};
 use mpl_bubblegum::utils::get_asset_id;
 use mpl_bubblegum::{InstructionName, LeafSchemaEvent};
-use sea_orm::sea_query::OnConflict;
+use sea_orm::sea_query::{LockType, OnConflict};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, QueryTrait, TransactionTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use solana_sdk::keccak;
 use solana_sdk::keccak::Hash;
 use solana_sdk::pubkey::Pubkey;
-use sqlx::postgres::PgListener;
-use tokio::sync::Mutex;
 use tokio::time::Instant;
 use tracing::{error, info};
 
@@ -153,7 +152,7 @@ pub trait RollupDownloader {
 
 pub struct RollupPersister<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> {
     txn: Arc<T>,
-    database_url: String,
+    notification_receiver: Receiver<()>,
     downloader: D,
 }
 
@@ -185,18 +184,21 @@ impl RollupDownloader for RollupDownloaderForPersister {
 }
 
 impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister<T, D> {
-    pub fn new(txn: Arc<T>, database_url: String, downloader: D) -> Self {
+    pub fn new(txn: Arc<T>, notification_receiver: Receiver<()>, downloader: D) -> Self {
         Self {
             txn,
-            database_url,
+            notification_receiver,
             downloader,
         }
     }
 
     pub async fn persist_rollups(&self) {
-
         loop {
-
+            if let Err(e) = self.notification_receiver.recv().await {
+                error!("Recv rollup notification: {}", e);
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            };
             let Ok((rollup_to_verify, rollup)) = self.get_rollup_to_verify().await else {
                 statsd_count!("rollup.fail_get_rollup", 1);
                 continue;
@@ -223,8 +225,8 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         info!("Persisting {} rollup", &rollup_to_verify.url);
         loop {
             match &rollup_to_verify.rollup_persisting_state {
-                &RollupPersistingState::ReceivedTransaction
-                | &RollupPersistingState::StartProcessing => {
+                &RollupPersistingState::ReceivedTransaction => {}
+                &RollupPersistingState::StartProcessing => {
                     if let Err(err) = self
                         .download_rollup(&mut rollup_to_verify, &mut rollup)
                         .await
@@ -296,6 +298,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         let rollup_to_verify = rollup_to_verify::Entity::find()
             .filter(condition)
             .order_by_asc(rollup_to_verify::Column::CreatedAtSlot)
+            .lock(LockType::Update)
             .one(&multi_txn)
             .await
             .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;

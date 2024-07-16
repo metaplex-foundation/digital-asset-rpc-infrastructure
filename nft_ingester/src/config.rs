@@ -45,6 +45,7 @@ pub struct WorkerConfig {
 pub enum WorkerType {
     Account,
     Transaction,
+    Rollup,
 }
 
 impl IngesterConfig {
@@ -91,6 +92,11 @@ impl IngesterConfig {
                     stream_name: "TXN".to_string(),
                     worker_count: 2,
                     worker_type: WorkerType::Transaction,
+                },
+                WorkerConfig {
+                    stream_name: "RLP".to_string(),
+                    worker_count: 1,
+                    worker_type: WorkerType::Rollup,
                 },
             ]
         }

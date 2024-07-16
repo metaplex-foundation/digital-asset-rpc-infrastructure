@@ -1064,7 +1064,6 @@ dependencies = [
  "spl-token-group-interface",
  "spl-token-metadata-interface",
  "thiserror",
- "triomphe",
 ]
 
 [[package]]
