@@ -33,6 +33,7 @@ use program_transformers::rollups::rollup_persister::{
 use sea_orm::SqlxPostgresConnector;
 use std::sync::Arc;
 use std::{path::PathBuf, time};
+use sqlx::postgres::PgListener;
 use tokio::{signal, task::JoinSet};
 
 #[tokio::main(flavor = "multi_thread")]
@@ -155,6 +156,7 @@ pub async fn main() -> Result<(), IngesterError> {
         }
 
         if !config.skip_rollup_indexing {
+
             let rollup_persister = RollupPersister::new(
                 Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
                     database_pool.clone(),

@@ -61,6 +61,7 @@ tracing-subscriber = { workspace = true, features = [
 ] }
 url = { workspace = true }
 triomphe = { workspace = true }
+async-channel = { workspace = true }
 
 [lints]
 workspace = true

@@ -130,6 +130,7 @@ xxhash-rust = { version = "0.8.10", features = ["xxh3"] }
 serde_with = "3.8.1"
 bincode = "1.3.3"
 tempfile = "3.10.1"
+async-channel = "2.3.1"
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"

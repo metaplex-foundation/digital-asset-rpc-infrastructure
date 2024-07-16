@@ -32,7 +32,6 @@ use tokio::time::Instant;
 use tracing::{error, info};
 
 pub const MAX_ROLLUP_DOWNLOAD_ATTEMPTS: u8 = 5;
-const ROLLUP_LISTEN_KEY: &str = "new_rollup";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Rollup {
@@ -195,23 +194,9 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
     }
 
     pub async fn persist_rollups(&self) {
-        let mut listener = match PgListener::connect(&self.database_url).await {
-            Ok(listener) => listener,
-            Err(e) => {
-                error!("New rollup listener: {}", e);
-                return;
-            }
-        };
-        if let Err(e) = listener.listen(ROLLUP_LISTEN_KEY).await {
-            error!("New rollup listener: {}", e);
-            return;
-        };
+
         loop {
-            if let Err(e) = listener.recv().await {
-                error!("Recv rollup notification: {}", e);
-                tokio::time::sleep(Duration::from_secs(5)).await;
-                continue;
-            };
+
             let Ok((rollup_to_verify, rollup)) = self.get_rollup_to_verify().await else {
                 statsd_count!("rollup.fail_get_rollup", 1);
                 continue;

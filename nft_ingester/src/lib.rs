@@ -8,3 +8,4 @@ pub mod plerkle;
 pub mod stream;
 pub mod tasks;
 pub mod transaction_notifications;
+pub mod rollup_updates;
