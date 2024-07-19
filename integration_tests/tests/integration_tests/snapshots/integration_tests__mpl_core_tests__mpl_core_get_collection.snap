@@ -71,5 +71,6 @@ expression: response
     "num_minted": 1,
     "current_size": 1,
     "plugins_json_version": 1
-  }
+  },
+  "external_plugins": []
 }

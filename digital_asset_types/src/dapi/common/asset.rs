@@ -447,6 +447,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
+        external_plugins: asset.mpl_core_external_plugins,
+        unknown_external_plugins: asset.mpl_core_unknown_external_plugins,
     })
 }
 
