@@ -10,6 +10,7 @@ use {
     },
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue, EntityTrait, RelationTrait},
+        prelude::*,
         query::{JoinType, QuerySelect, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DatabaseTransaction, DbBackend,
@@ -86,7 +87,7 @@ pub async fn save_master_edition(
 
     if let Some((_me, Some(asset))) = master_edition {
         let mut updatable: asset::ActiveModel = asset.into();
-        updatable.supply = ActiveValue::Set(1);
+        updatable.supply = ActiveValue::Set(Decimal::from(1));
         updatable.specification_asset_class = ActiveValue::Set(Some(SpecificationAssetClass::Nft));
         updatable.update(txn).await?;
     }

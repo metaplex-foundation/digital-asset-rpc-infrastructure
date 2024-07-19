@@ -30,13 +30,14 @@ use {
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, DbErr, TransactionTrait,
     },
-    solana_sdk::{pubkey, pubkey::Pubkey},
+    solana_sdk::pubkey,
+    sqlx::types::Decimal,
     tracing::warn,
 };
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: Pubkey,
+    id: pubkey::Pubkey,
     slot: u64,
 ) -> ProgramTransformerResult<()> {
     let slot_i = slot as i64;
@@ -62,7 +63,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 }
 
 const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
-static WSOL_PUBKEY: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+static WSOL_PUBKEY: pubkey::Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
 pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
@@ -84,7 +85,7 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
             AssetMintAccountColumns {
                 mint: mint_pubkey_vec.clone(),
                 supply_mint: Some(token.mint.clone()),
-                supply: token.supply as u64,
+                supply: token.supply,
                 slot_updated_mint_account: token.slot_updated as u64,
             },
             conn,
@@ -189,13 +190,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         index_and_fetch_mint_data(conn, mint_pubkey_vec.clone()).await?;
 
     // get supply of token, default to 1 since most cases will be NFTs. Token mint ingester will properly set supply if token_result is None
-    let supply = token.map(|t| t.supply).unwrap_or(1);
-
+    let supply = token.map(|t| t.supply).unwrap_or_else(|| Decimal::from(1));
     // Map unknown ownership types based on the supply.
     if ownership_type == OwnerType::Unknown {
-        ownership_type = match supply.cmp(&1) {
-            std::cmp::Ordering::Equal => OwnerType::Single,
-            std::cmp::Ordering::Greater => OwnerType::Token,
+        ownership_type = match supply {
+            s if s == Decimal::from(1) => OwnerType::Single,
+            s if s > Decimal::from(1) => OwnerType::Token,
             _ => OwnerType::Unknown,
         };
     };
