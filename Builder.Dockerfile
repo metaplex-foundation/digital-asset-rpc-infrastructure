@@ -1,4 +1,4 @@
-FROM rust:1.75-bullseye AS builder
+FROM rust:1.76-bullseye AS builder
 RUN apt-get update -y && \
     apt-get install -y build-essential make git
     
