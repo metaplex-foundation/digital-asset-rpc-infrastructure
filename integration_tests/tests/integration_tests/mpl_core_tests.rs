@@ -573,3 +573,90 @@ async fn test_mpl_core_verified_creators_plugin_with_signature() {
     let response = setup.das_api.get_asset(request).await.unwrap();
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_app_data_binary_data_owner_data_authority() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["8T5eiRKTpdKAxEWFCBqMDGUk6etg5qRzd8uVated6Jco"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "8T5eiRKTpdKAxEWFCBqMDGUk6etg5qRzd8uVated6Jco"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_app_data_json_data_update_authority_data_authority() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["329Y4HKMn7xHvPYAakNASVvP9uW5497Me1SHGbDj9PF6"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "329Y4HKMn7xHvPYAakNASVvP9uW5497Me1SHGbDj9PF6"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mpl_core_get_asset_with_app_data_msg_pack_data_address_data_authority() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["2trJPEiv9hsu6BKATzF6XHte6nL8kK3YKagnZ8cpkrvk"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    {
+        "id": "2trJPEiv9hsu6BKATzF6XHte6nL8kK3YKagnZ8cpkrvk"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
