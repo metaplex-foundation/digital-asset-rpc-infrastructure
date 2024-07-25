@@ -29,10 +29,10 @@ use {
 };
 
 mod asset_upserts;
+pub mod batch_minting;
 mod bubblegum;
 pub mod error;
 mod mpl_core_program;
-pub mod rollups;
 mod token;
 mod token_metadata;
 

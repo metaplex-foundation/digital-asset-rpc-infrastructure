@@ -1,6 +1,6 @@
-use crate::error::RollupValidationError;
-use crate::rollups::rollup_persister;
-use crate::rollups::rollup_persister::Rollup;
+use crate::batch_minting::batch_mint_persister;
+use crate::batch_minting::batch_mint_persister::BatchMint;
+use crate::error::BatchMintValidationError;
 use anchor_lang::solana_program::keccak::Hash;
 use spl_account_compression::{ConcurrentMerkleTree, ConcurrentMerkleTreeError, Node};
 use spl_concurrent_merkle_tree::changelog::ChangeLog;
@@ -176,9 +176,9 @@ make_tree_creator_funcs!(
 );
 
 pub fn make_concurrent_merkle_tree(
-    max_dapth: u32,
+    max_depth: u32,
     max_buf_size: u32,
-) -> Result<Box<dyn ITree>, RollupValidationError> {
+) -> Result<Box<dyn ITree>, BatchMintValidationError> {
     // Note: We do not create ConcurrentMerkleTree<A,B> object right inside of match statement
     // because of how Rust compiler reserves space for functions:
     // the total size of function in memory (i.e. frame size) is as big as total size of
@@ -191,7 +191,7 @@ pub fn make_concurrent_merkle_tree(
     // Though, we need the debug to not fail with the stack overflow,
     // that's why we had to move creation of an exact ConcurrentMerkleTree<A,B> objects
     // into separate function that return trait objects.
-    match (max_dapth, max_buf_size) {
+    match (max_depth, max_buf_size) {
         (3, 8) => Ok(make_concurrent_merkle_tree_3_8()),
         (5, 8) => Ok(make_concurrent_merkle_tree_5_8()),
         (6, 16) => Ok(make_concurrent_merkle_tree_6_16()),
@@ -226,7 +226,7 @@ pub fn make_concurrent_merkle_tree(
         (30, 512) => Ok(make_concurrent_merkle_tree_30_512()),
         (30, 1024) => Ok(make_concurrent_merkle_tree_30_1024()),
         (30, 2048) => Ok(make_concurrent_merkle_tree_30_2048()),
-        (d, s) => Err(RollupValidationError::UnexpectedTreeSize(d, s)),
+        (d, s) => Err(BatchMintValidationError::UnexpectedTreeSize(d, s)),
     }
 }
 
@@ -235,12 +235,12 @@ make_changelog_impls!(3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
 pub fn validate_change_logs(
     max_depth: u32,
     max_buffer_size: u32,
-    leafs: &[[u8; 32]],
-    rollup: &Rollup,
-) -> Result<(), RollupValidationError> {
+    leaves: &[[u8; 32]],
+    batch_mint: &BatchMint,
+) -> Result<(), BatchMintValidationError> {
     let mut tree = make_concurrent_merkle_tree(max_depth, max_buffer_size)?;
     tree.initialize()?;
-    for (i, leaf_hash) in leafs.iter().enumerate() {
+    for (i, leaf_hash) in leaves.iter().enumerate() {
         tree.append(*leaf_hash)?;
         let changelog = tree.change_logs(tree.active_index() as usize);
         let path_len = changelog.path_len() as u32;
@@ -259,40 +259,40 @@ pub fn validate_change_logs(
             1,
         ));
 
-        match rollup.rolled_mints.get(i) {
+        match batch_mint.batch_mints.get(i) {
             Some(mint) => {
                 if mint.tree_update.path
                     != path
                         .into_iter()
-                        .map(Into::<rollup_persister::PathNode>::into)
+                        .map(Into::<batch_mint_persister::PathNode>::into)
                         .collect::<Vec<_>>()
                 {
-                    return Err(RollupValidationError::WrongAssetPath(
+                    return Err(BatchMintValidationError::WrongAssetPath(
                         mint.leaf_update.id().to_string(),
                     ));
                 }
-                if mint.tree_update.id != rollup.tree_id {
-                    return Err(RollupValidationError::WrongTreeIdForChangeLog(
+                if mint.tree_update.id != batch_mint.tree_id {
+                    return Err(BatchMintValidationError::WrongTreeIdForChangeLog(
                         mint.leaf_update.id().to_string(),
-                        rollup.tree_id.to_string(),
+                        batch_mint.tree_id.to_string(),
                         mint.tree_update.id.to_string(),
                     ));
                 }
                 if mint.tree_update.index != changelog.index() {
-                    return Err(RollupValidationError::WrongChangeLogIndex(
+                    return Err(BatchMintValidationError::WrongChangeLogIndex(
                         mint.leaf_update.id().to_string(),
                         changelog.index(),
                         mint.tree_update.index,
                     ));
                 }
             }
-            None => return Err(RollupValidationError::NoRelevantRolledMint(i as u64)),
+            None => return Err(BatchMintValidationError::NoRelevantRolledMint(i as u64)),
         }
     }
-    if tree.get_root() != rollup.merkle_root {
-        return Err(RollupValidationError::InvalidRoot(
+    if tree.get_root() != batch_mint.merkle_root {
+        return Err(BatchMintValidationError::InvalidRoot(
             Hash::new(tree.get_root().as_slice()).to_string(),
-            Hash::new(rollup.merkle_root.as_slice()).to_string(),
+            Hash::new(batch_mint.merkle_root.as_slice()).to_string(),
         ));
     }
     Ok(())

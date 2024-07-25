@@ -30,20 +30,19 @@ where
             },
         )
         .on_conflict(
-            OnConflict::columns([digital_asset_types::dao::rollup_to_verify::Column::FileHash])
-                .update_columns([digital_asset_types::dao::rollup_to_verify::Column::Url])
-                .update_columns([digital_asset_types::dao::rollup_to_verify::Column::Signature])
-                .update_columns([
-                    digital_asset_types::dao::rollup_to_verify::Column::DownloadAttempts,
-                ])
-                .update_columns([
-                    digital_asset_types::dao::rollup_to_verify::Column::RollupFailStatus,
-                ])
-                .update_columns([
-                    digital_asset_types::dao::rollup_to_verify::Column::RollupPersistingState,
-                ])
-                .update_columns([digital_asset_types::dao::rollup_to_verify::Column::CreatedAtSlot])
-                .to_owned(),
+            OnConflict::columns([
+                digital_asset_types::dao::rollup_to_verify::Column::FileHash,
+                digital_asset_types::dao::rollup_to_verify::Column::Staker,
+            ])
+            .update_columns([digital_asset_types::dao::rollup_to_verify::Column::Url])
+            .update_columns([digital_asset_types::dao::rollup_to_verify::Column::Signature])
+            .update_columns([digital_asset_types::dao::rollup_to_verify::Column::DownloadAttempts])
+            .update_columns([digital_asset_types::dao::rollup_to_verify::Column::RollupFailStatus])
+            .update_columns([
+                digital_asset_types::dao::rollup_to_verify::Column::RollupPersistingState,
+            ])
+            .update_columns([digital_asset_types::dao::rollup_to_verify::Column::CreatedAtSlot])
+            .to_owned(),
         )
         .build(DbBackend::Postgres);
         txn.execute(query)

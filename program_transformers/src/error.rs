@@ -22,8 +22,8 @@ pub enum ProgramTransformerError {
     AssetIndexError(String),
     #[error("Failed to notify about download metadata: {0}")]
     DownloadMetadataNotify(Box<dyn std::error::Error + Send + Sync>),
-    #[error("RollupValidation: {0}")]
-    RollupValidation(#[from] RollupValidationError),
+    #[error("BatchMintValidation: {0}")]
+    BatchMintValidation(#[from] BatchMintValidationError),
 }
 
 impl From<BlockbusterError> for ProgramTransformerError {
@@ -39,7 +39,7 @@ impl From<DbErr> for ProgramTransformerError {
 }
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
-pub enum RollupValidationError {
+pub enum BatchMintValidationError {
     #[error("PDACheckFail: expected: {0}, got: {1}")]
     PDACheckFail(String, String),
     #[error("InvalidDataHash: expected: {0}, got: {1}")]
@@ -72,17 +72,17 @@ pub enum RollupValidationError {
     Reqwest(String),
 }
 
-impl From<std::io::Error> for RollupValidationError {
+impl From<std::io::Error> for BatchMintValidationError {
     fn from(err: std::io::Error) -> Self {
-        RollupValidationError::StdIo(err.to_string())
+        BatchMintValidationError::StdIo(err.to_string())
     }
 }
-impl From<serde_json::Error> for RollupValidationError {
+impl From<serde_json::Error> for BatchMintValidationError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serialization(value.to_string())
     }
 }
-impl From<reqwest::Error> for RollupValidationError {
+impl From<reqwest::Error> for BatchMintValidationError {
     fn from(value: reqwest::Error) -> Self {
         Self::Reqwest(value.to_string())
     }

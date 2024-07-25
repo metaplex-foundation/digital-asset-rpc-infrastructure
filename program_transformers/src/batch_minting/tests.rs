@@ -1,7 +1,7 @@
-use crate::error::RollupValidationError;
-use crate::rollups::rollup_persister::{
-    validate_rollup, ChangeLogEventV1, PathNode, RolledMintInstruction, Rollup,
+use crate::batch_minting::batch_mint_persister::{
+    validate_batch_mint, BatchMint, BatchedMintInstruction, ChangeLogEventV1, PathNode,
 };
+use crate::error::BatchMintValidationError;
 use anchor_lang::AnchorSerialize;
 use mpl_bubblegum::types::{LeafSchema, MetadataArgs};
 use rand::{thread_rng, Rng};
@@ -11,7 +11,7 @@ use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub fn generate_rollup(size: usize) -> Rollup {
+pub fn generate_batch_mint(size: usize) -> BatchMint {
     let authority = Pubkey::from_str("3VvLDXqJbw3heyRwFxv8MmurPznmDVUJS9gPMX2BDqfM").unwrap();
     let tree = Pubkey::from_str("HxhCw9g3kZvrdg9zZvctmh6qpSDg1FfsBXfFvRkbCHB7").unwrap();
     let mut mints = Vec::new();
@@ -124,7 +124,7 @@ pub fn generate_rollup(size: usize) -> Rollup {
             1,
         ));
 
-        let rolled_mint = RolledMintInstruction {
+        let rolled_mint = BatchedMintInstruction {
             tree_update: ChangeLogEventV1 {
                 id: tree,
                 path: path.into_iter().map(Into::into).collect::<Vec<_>>(),
@@ -144,112 +144,112 @@ pub fn generate_rollup(size: usize) -> Rollup {
         };
         mints.push(rolled_mint);
     }
-    let rollup = Rollup {
+    let batch_mint = BatchMint {
         tree_id: tree,
         raw_metadata_map: HashMap::new(),
         max_depth: 10,
-        rolled_mints: mints,
+        batch_mints: mints,
         merkle_root: merkle.get_root(),
         last_leaf_hash,
         max_buffer_size: 32,
     };
 
-    rollup
+    batch_mint
 }
 
 #[tokio::test]
-async fn rollup_validation_test() {
-    let mut rollup = generate_rollup(1000);
+async fn batch_mint_validation_test() {
+    let mut batch_mint = generate_batch_mint(1000);
 
-    let validation_result = validate_rollup(&rollup).await;
+    let validation_result = validate_batch_mint(&batch_mint).await;
     assert_eq!(validation_result, Ok(()));
 
-    let old_root = rollup.merkle_root;
+    let old_root = batch_mint.merkle_root;
     let new_root = Pubkey::new_unique();
-    rollup.merkle_root = new_root.to_bytes();
+    batch_mint.merkle_root = new_root.to_bytes();
 
-    let validation_result = validate_rollup(&rollup).await;
+    let validation_result = validate_batch_mint(&batch_mint).await;
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::InvalidRoot(
+        Err(BatchMintValidationError::InvalidRoot(
             Pubkey::from(old_root).to_string(),
             new_root.to_string()
         ))
     );
 
-    rollup.merkle_root = old_root;
+    batch_mint.merkle_root = old_root;
     let leaf_idx = 111;
-    let old_leaf_data_hash = rollup.rolled_mints[leaf_idx].leaf_update.data_hash();
+    let old_leaf_data_hash = batch_mint.batch_mints[leaf_idx].leaf_update.data_hash();
     let new_leaf_data_hash = Pubkey::new_unique();
-    rollup.rolled_mints[leaf_idx].leaf_update = LeafSchema::V1 {
-        id: rollup.rolled_mints[leaf_idx].leaf_update.id(),
-        owner: rollup.rolled_mints[leaf_idx].leaf_update.owner(),
-        delegate: rollup.rolled_mints[leaf_idx].leaf_update.delegate(),
-        nonce: rollup.rolled_mints[leaf_idx].leaf_update.nonce(),
+    batch_mint.batch_mints[leaf_idx].leaf_update = LeafSchema::V1 {
+        id: batch_mint.batch_mints[leaf_idx].leaf_update.id(),
+        owner: batch_mint.batch_mints[leaf_idx].leaf_update.owner(),
+        delegate: batch_mint.batch_mints[leaf_idx].leaf_update.delegate(),
+        nonce: batch_mint.batch_mints[leaf_idx].leaf_update.nonce(),
         data_hash: new_leaf_data_hash.to_bytes(),
-        creator_hash: rollup.rolled_mints[leaf_idx].leaf_update.creator_hash(),
+        creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let validation_result = validate_rollup(&rollup).await;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::InvalidDataHash(
+        Err(BatchMintValidationError::InvalidDataHash(
             Pubkey::from(old_leaf_data_hash).to_string(),
             new_leaf_data_hash.to_string()
         ))
     );
 
-    rollup.rolled_mints[leaf_idx].leaf_update = LeafSchema::V1 {
-        id: rollup.rolled_mints[leaf_idx].leaf_update.id(),
-        owner: rollup.rolled_mints[leaf_idx].leaf_update.owner(),
-        delegate: rollup.rolled_mints[leaf_idx].leaf_update.delegate(),
-        nonce: rollup.rolled_mints[leaf_idx].leaf_update.nonce(),
+    batch_mint.batch_mints[leaf_idx].leaf_update = LeafSchema::V1 {
+        id: batch_mint.batch_mints[leaf_idx].leaf_update.id(),
+        owner: batch_mint.batch_mints[leaf_idx].leaf_update.owner(),
+        delegate: batch_mint.batch_mints[leaf_idx].leaf_update.delegate(),
+        nonce: batch_mint.batch_mints[leaf_idx].leaf_update.nonce(),
         data_hash: old_leaf_data_hash,
-        creator_hash: rollup.rolled_mints[leaf_idx].leaf_update.creator_hash(),
+        creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let old_tree_depth = rollup.max_depth;
+    let old_tree_depth = batch_mint.max_depth;
     let new_tree_depth = 100;
-    rollup.max_depth = new_tree_depth;
-    let validation_result = validate_rollup(&rollup).await;
+    batch_mint.max_depth = new_tree_depth;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::UnexpectedTreeSize(
+        Err(BatchMintValidationError::UnexpectedTreeSize(
             new_tree_depth,
-            rollup.max_buffer_size
+            batch_mint.max_buffer_size
         ))
     );
 
-    rollup.max_depth = old_tree_depth;
+    batch_mint.max_depth = old_tree_depth;
     let new_asset_id = Pubkey::new_unique();
-    let old_asset_id = rollup.rolled_mints[leaf_idx].leaf_update.id();
-    rollup.rolled_mints[leaf_idx].leaf_update = LeafSchema::V1 {
+    let old_asset_id = batch_mint.batch_mints[leaf_idx].leaf_update.id();
+    batch_mint.batch_mints[leaf_idx].leaf_update = LeafSchema::V1 {
         id: new_asset_id,
-        owner: rollup.rolled_mints[leaf_idx].leaf_update.owner(),
-        delegate: rollup.rolled_mints[leaf_idx].leaf_update.delegate(),
-        nonce: rollup.rolled_mints[leaf_idx].leaf_update.nonce(),
-        data_hash: rollup.rolled_mints[leaf_idx].leaf_update.data_hash(),
-        creator_hash: rollup.rolled_mints[leaf_idx].leaf_update.creator_hash(),
+        owner: batch_mint.batch_mints[leaf_idx].leaf_update.owner(),
+        delegate: batch_mint.batch_mints[leaf_idx].leaf_update.delegate(),
+        nonce: batch_mint.batch_mints[leaf_idx].leaf_update.nonce(),
+        data_hash: batch_mint.batch_mints[leaf_idx].leaf_update.data_hash(),
+        creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let validation_result = validate_rollup(&rollup).await;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::PDACheckFail(
+        Err(BatchMintValidationError::PDACheckFail(
             old_asset_id.to_string(),
             new_asset_id.to_string()
         ))
     );
 
-    rollup.rolled_mints[leaf_idx].leaf_update = LeafSchema::V1 {
+    batch_mint.batch_mints[leaf_idx].leaf_update = LeafSchema::V1 {
         id: old_asset_id,
-        owner: rollup.rolled_mints[leaf_idx].leaf_update.owner(),
-        delegate: rollup.rolled_mints[leaf_idx].leaf_update.delegate(),
-        nonce: rollup.rolled_mints[leaf_idx].leaf_update.nonce(),
-        data_hash: rollup.rolled_mints[leaf_idx].leaf_update.data_hash(),
-        creator_hash: rollup.rolled_mints[leaf_idx].leaf_update.creator_hash(),
+        owner: batch_mint.batch_mints[leaf_idx].leaf_update.owner(),
+        delegate: batch_mint.batch_mints[leaf_idx].leaf_update.delegate(),
+        nonce: batch_mint.batch_mints[leaf_idx].leaf_update.nonce(),
+        data_hash: batch_mint.batch_mints[leaf_idx].leaf_update.data_hash(),
+        creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let old_path = rollup.rolled_mints[leaf_idx]
+    let old_path = batch_mint.batch_mints[leaf_idx]
         .tree_update
         .path
         .iter()
@@ -259,41 +259,50 @@ async fn rollup_validation_test() {
         })
         .collect::<Vec<_>>();
     let new_path = Vec::new();
-    rollup.rolled_mints[leaf_idx].tree_update.path = new_path;
-    let validation_result = validate_rollup(&rollup).await;
+    batch_mint.batch_mints[leaf_idx].tree_update.path = new_path;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::WrongAssetPath(
-            rollup.rolled_mints[leaf_idx].leaf_update.id().to_string()
+        Err(BatchMintValidationError::WrongAssetPath(
+            batch_mint.batch_mints[leaf_idx]
+                .leaf_update
+                .id()
+                .to_string()
         ))
     );
 
-    rollup.rolled_mints[leaf_idx].tree_update.path = old_path;
-    let old_tree_id = rollup.rolled_mints[leaf_idx].tree_update.id;
+    batch_mint.batch_mints[leaf_idx].tree_update.path = old_path;
+    let old_tree_id = batch_mint.batch_mints[leaf_idx].tree_update.id;
     let new_tree_id = Pubkey::new_unique();
-    rollup.rolled_mints[leaf_idx].tree_update.id = new_tree_id;
-    let validation_result = validate_rollup(&rollup).await;
+    batch_mint.batch_mints[leaf_idx].tree_update.id = new_tree_id;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::WrongTreeIdForChangeLog(
-            rollup.rolled_mints[leaf_idx].leaf_update.id().to_string(),
+        Err(BatchMintValidationError::WrongTreeIdForChangeLog(
+            batch_mint.batch_mints[leaf_idx]
+                .leaf_update
+                .id()
+                .to_string(),
             old_tree_id.to_string(),
             new_tree_id.to_string()
         ))
     );
 
-    rollup.rolled_mints[leaf_idx].tree_update.id = old_tree_id;
-    let old_index = rollup.rolled_mints[leaf_idx].tree_update.index;
+    batch_mint.batch_mints[leaf_idx].tree_update.id = old_tree_id;
+    let old_index = batch_mint.batch_mints[leaf_idx].tree_update.index;
     let new_index = 1;
-    rollup.rolled_mints[leaf_idx].tree_update.index = new_index;
-    let validation_result = validate_rollup(&rollup).await;
+    batch_mint.batch_mints[leaf_idx].tree_update.index = new_index;
+    let validation_result = validate_batch_mint(&batch_mint).await;
 
     assert_eq!(
         validation_result,
-        Err(RollupValidationError::WrongChangeLogIndex(
-            rollup.rolled_mints[leaf_idx].leaf_update.id().to_string(),
+        Err(BatchMintValidationError::WrongChangeLogIndex(
+            batch_mint.batch_mints[leaf_idx]
+                .leaf_update
+                .id()
+                .to_string(),
             old_index,
             new_index
         ))

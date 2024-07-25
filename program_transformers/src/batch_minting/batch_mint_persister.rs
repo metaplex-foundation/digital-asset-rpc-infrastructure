@@ -1,11 +1,11 @@
 use anchor_lang::AnchorSerialize;
 use async_channel::Receiver;
 use std::collections::HashMap;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
+use crate::batch_minting::merkle_tree_wrapper;
 use crate::bubblegum;
-use crate::error::{ProgramTransformerError, ProgramTransformerResult, RollupValidationError};
-use crate::rollups::merkle_tree_wrapper;
+use crate::error::{BatchMintValidationError, ProgramTransformerError, ProgramTransformerResult};
 use async_trait::async_trait;
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
@@ -30,13 +30,13 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::time::Instant;
 use tracing::{error, info};
 
-pub const MAX_ROLLUP_DOWNLOAD_ATTEMPTS: u8 = 5;
+pub const MAX_BATCH_MINT_DOWNLOAD_ATTEMPTS: u8 = 5;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Rollup {
+pub struct BatchMint {
     #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
     pub tree_id: Pubkey,
-    pub rolled_mints: Vec<RolledMintInstruction>,
+    pub batch_mints: Vec<BatchedMintInstruction>,
     pub raw_metadata_map: HashMap<String, Box<RawValue>>, // map by uri
     pub max_depth: u32,
     pub max_buffer_size: u32,
@@ -47,7 +47,7 @@ pub struct Rollup {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct RolledMintInstruction {
+pub struct BatchedMintInstruction {
     pub tree_update: ChangeLogEventV1,
     pub leaf_update: LeafSchema,
     pub mint_args: MetadataArgs,
@@ -119,8 +119,8 @@ impl From<blockbuster::programs::bubblegum::ChangeLogEventV1> for ChangeLogEvent
     }
 }
 
-impl From<&RolledMintInstruction> for BubblegumInstruction {
-    fn from(value: &RolledMintInstruction) -> Self {
+impl From<&BatchedMintInstruction> for BubblegumInstruction {
+    fn from(value: &BatchedMintInstruction) -> Self {
         let hash = value.leaf_update.hash();
         Self {
             instruction: InstructionName::MintV1,
@@ -141,40 +141,46 @@ impl From<&RolledMintInstruction> for BubblegumInstruction {
 
 #[automock]
 #[async_trait]
-pub trait RollupDownloader {
-    async fn download_rollup(&self, url: &str) -> Result<Box<Rollup>, RollupValidationError>;
-    async fn download_rollup_and_check_checksum(
+pub trait BatchMintDownloader {
+    async fn download_batch_mint(
+        &self,
+        url: &str,
+    ) -> Result<Box<BatchMint>, BatchMintValidationError>;
+    async fn download_batch_mint_and_check_checksum(
         &self,
         url: &str,
         checksum: &str,
-    ) -> Result<Box<Rollup>, RollupValidationError>;
+    ) -> Result<Box<BatchMint>, BatchMintValidationError>;
 }
 
-pub struct RollupPersister<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> {
+pub struct BatchMintPersister<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> {
     txn: Arc<T>,
     notification_receiver: Receiver<()>,
     downloader: D,
 }
 
-pub struct RollupDownloaderForPersister {}
+pub struct BatchMintDownloaderForPersister {}
 
 #[async_trait]
-impl RollupDownloader for RollupDownloaderForPersister {
-    async fn download_rollup(&self, url: &str) -> Result<Box<Rollup>, RollupValidationError> {
+impl BatchMintDownloader for BatchMintDownloaderForPersister {
+    async fn download_batch_mint(
+        &self,
+        url: &str,
+    ) -> Result<Box<BatchMint>, BatchMintValidationError> {
         let response = reqwest::get(url).await?.bytes().await?;
         Ok(Box::new(serde_json::from_slice(&response)?))
     }
 
-    async fn download_rollup_and_check_checksum(
+    async fn download_batch_mint_and_check_checksum(
         &self,
         url: &str,
         checksum: &str,
-    ) -> Result<Box<Rollup>, RollupValidationError> {
+    ) -> Result<Box<BatchMint>, BatchMintValidationError> {
         let response = reqwest::get(url).await?.bytes().await?;
         let file_hash = xxhash_rust::xxh3::xxh3_128(&response);
         let hash_hex = hex::encode(file_hash.to_be_bytes());
         if hash_hex != checksum {
-            return Err(RollupValidationError::InvalidDataHash(
+            return Err(BatchMintValidationError::InvalidDataHash(
                 checksum.to_string(),
                 hash_hex,
             ));
@@ -183,7 +189,7 @@ impl RollupDownloader for RollupDownloaderForPersister {
     }
 }
 
-impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister<T, D> {
+impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPersister<T, D> {
     pub fn new(txn: Arc<T>, notification_receiver: Receiver<()>, downloader: D) -> Self {
         Self {
             txn,
@@ -192,95 +198,97 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         }
     }
 
-    pub async fn persist_rollups(&self) {
+    pub async fn persist_batch_mints(&self) {
         loop {
             if let Err(e) = self.notification_receiver.recv().await {
-                error!("Recv rollup notification: {}", e);
-                tokio::time::sleep(Duration::from_secs(5)).await;
+                error!("Recv batch mint notification: {}", e);
                 continue;
             };
-            let Ok((rollup_to_verify, rollup)) = self.get_rollup_to_verify().await else {
-                statsd_count!("rollup.fail_get_rollup", 1);
+            let Ok((batch_mint_to_verify, batch_mint)) = self.get_batch_mint_to_verify().await
+            else {
+                statsd_count!("batch_mint.fail_get_rollup", 1);
                 continue;
             };
-            let Some(rollup_to_verify) = rollup_to_verify else {
-                // no rollups to persist
+            let Some(batch_mint_to_verify) = batch_mint_to_verify else {
+                // no batch mints to persist
                 continue;
             };
-            let rollup = rollup
-                .map(|r| bincode::deserialize::<Rollup>(r.rollup_binary_bincode.as_slice()))
+            let batch_mint = batch_mint
+                .map(|r| bincode::deserialize::<BatchMint>(r.rollup_binary_bincode.as_slice()))
                 .transpose()
                 .unwrap_or_default();
-            self.persist_rollup(rollup_to_verify, rollup.map(Box::new))
+            self.persist_batch_mint(batch_mint_to_verify, batch_mint.map(Box::new))
                 .await;
         }
     }
 
-    pub async fn persist_rollup(
+    pub async fn persist_batch_mint(
         &self,
-        mut rollup_to_verify: rollup_to_verify::Model,
-        mut rollup: Option<Box<Rollup>>,
+        mut batch_mint_to_verify: rollup_to_verify::Model,
+        mut batch_mint: Option<Box<BatchMint>>,
     ) {
         let start_time = Instant::now();
-        info!("Persisting {} rollup", &rollup_to_verify.url);
+        info!("Persisting {} batch mint", &batch_mint_to_verify.url);
         loop {
-            match &rollup_to_verify.rollup_persisting_state {
+            match &batch_mint_to_verify.rollup_persisting_state {
                 &RollupPersistingState::ReceivedTransaction => {
                     // We get ReceivedTransaction state on the start of processing
-                    rollup_to_verify.rollup_persisting_state =
+                    batch_mint_to_verify.rollup_persisting_state =
                         RollupPersistingState::StartProcessing;
                 }
                 &RollupPersistingState::StartProcessing => {
                     if let Err(err) = self
-                        .download_rollup(&mut rollup_to_verify, &mut rollup)
+                        .download_batch_mint(&mut batch_mint_to_verify, &mut batch_mint)
                         .await
                     {
-                        error!("Error during rollup downloading: {}", err)
+                        error!("Error during batch mint downloading: {}", err)
                     };
                 }
                 &RollupPersistingState::SuccessfullyDownload => {
-                    if let Some(r) = &rollup {
-                        self.validate_rollup(&mut rollup_to_verify, r).await;
+                    if let Some(r) = &batch_mint {
+                        self.validate_batch_mint(&mut batch_mint_to_verify, r).await;
                     } else {
                         error!(
-                            "Trying to validate non downloaded rollup: {:#?}",
-                            &rollup_to_verify
+                            "Trying to validate non downloaded batch mint: {:#?}",
+                            &batch_mint_to_verify
                         )
                     }
                 }
                 &RollupPersistingState::SuccessfullyValidate => {
-                    if let Some(r) = &rollup {
-                        // TODO: Add retry?
-                        if let Err(e) = self.store_rollup_update(&mut rollup_to_verify, r).await {
-                            error!("Store rollup update: {}", e)
+                    if let Some(r) = &batch_mint {
+                        if let Err(e) = self
+                            .store_batch_mint_update(&mut batch_mint_to_verify, r)
+                            .await
+                        {
+                            error!("Store batch mint update: {}", e)
                         };
                     } else {
                         error!(
-                            "Trying to store update for non downloaded rollup: {:#?}",
-                            &rollup_to_verify
+                            "Trying to store update for non downloaded batch mint: {:#?}",
+                            &batch_mint_to_verify
                         )
                     }
                 }
                 &RollupPersistingState::FailedToPersist | &RollupPersistingState::StoredUpdate => {
-                    if let Err(e) = self.drop_rollup_from_queue(&rollup_to_verify).await {
-                        error!("failed to drop rollup from queue: {}", e);
+                    if let Err(e) = self.drop_batch_mint_from_queue(&batch_mint_to_verify).await {
+                        error!("failed to drop batch mint from queue: {}", e);
                     };
                     info!(
-                        "Finish processing {} rollup file with {:?} state",
-                        &rollup_to_verify.url, &rollup_to_verify.rollup_persisting_state
+                        "Finish processing {} batch mint file with {:?} state",
+                        &batch_mint_to_verify.url, &batch_mint_to_verify.rollup_persisting_state
                     );
                     statsd_histogram!(
-                        "rollup.persisting_latency",
+                        "batch_mint.persisting_latency",
                         start_time.elapsed().as_millis() as u64
                     );
-                    statsd_count!("rollup.total_processed", 1);
+                    statsd_count!("batch_mint.total_processed", 1);
                     return;
                 }
             }
         }
     }
 
-    pub async fn get_rollup_to_verify(
+    pub async fn get_batch_mint_to_verify(
         &self,
     ) -> Result<(Option<rollup_to_verify::Model>, Option<rollup::Model>), ProgramTransformerError>
     {
@@ -299,16 +307,16 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                     .ne(RollupPersistingState::StartProcessing),
             );
 
-        let rollup_to_verify = rollup_to_verify::Entity::find()
+        let batch_mint_verify = rollup_to_verify::Entity::find()
             .filter(condition)
             .order_by_asc(rollup_to_verify::Column::CreatedAtSlot)
             .lock(LockType::Update)
             .one(&multi_txn)
             .await
             .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
-        let mut rollup = None;
-        if let Some(ref r) = rollup_to_verify {
-            rollup = rollup::Entity::find()
+        let mut batch_mint = None;
+        if let Some(ref r) = batch_mint_verify {
+            batch_mint = rollup::Entity::find()
                 .filter(rollup::Column::FileHash.eq(r.file_hash.clone()))
                 .one(self.txn.as_ref())
                 .await
@@ -330,29 +338,29 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
         }
         multi_txn.commit().await?;
 
-        Ok((rollup_to_verify, rollup))
+        Ok((batch_mint_verify, batch_mint))
     }
 
-    async fn download_rollup(
+    async fn download_batch_mint(
         &self,
-        rollup_to_verify: &mut rollup_to_verify::Model,
-        rollup: &mut Option<Box<Rollup>>,
+        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint: &mut Option<Box<BatchMint>>,
     ) -> Result<(), ProgramTransformerError> {
-        if rollup.is_some() {
+        if batch_mint.is_some() {
             return Ok(());
         }
         match self
             .downloader
-            .download_rollup_and_check_checksum(
-                rollup_to_verify.url.as_ref(),
-                &rollup_to_verify.file_hash,
+            .download_batch_mint_and_check_checksum(
+                batch_mint_to_verify.url.as_ref(),
+                &batch_mint_to_verify.file_hash,
             )
             .await
         {
             Ok(r) => {
                 let query = rollup::Entity::insert(rollup::ActiveModel {
-                    file_hash: Set(rollup_to_verify.file_hash.clone()),
-                    rollup_binary_bincode: Set(bincode::serialize(rollup)
+                    file_hash: Set(batch_mint_to_verify.file_hash.clone()),
+                    rollup_binary_bincode: Set(bincode::serialize(batch_mint)
                         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?),
                 })
                 .on_conflict(
@@ -364,57 +372,63 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                 if let Err(e) = self.txn.execute(query).await {
                     return Err(e.into());
                 }
-                *rollup = Some(r);
-                rollup_to_verify.rollup_persisting_state =
+                *batch_mint = Some(r);
+                batch_mint_to_verify.rollup_persisting_state =
                     RollupPersistingState::SuccessfullyDownload;
-                statsd_count!("rollup.successfully_download", 1);
+                statsd_count!("batch_mint.successfully_download", 1);
             }
             Err(e) => {
-                statsd_count!("rollup.download_fail", 1);
-                if let RollupValidationError::InvalidDataHash(expected, actual) = e {
-                    rollup_to_verify.rollup_persisting_state =
+                statsd_count!("batch_mint.download_fail", 1);
+                if let BatchMintValidationError::InvalidDataHash(expected, actual) = e {
+                    batch_mint_to_verify.rollup_persisting_state =
                         RollupPersistingState::FailedToPersist;
-                    self.save_rollup_as_failed(
+                    self.save_batch_mint_as_failed(
                         RollupFailStatus::ChecksumVerifyFailed,
-                        rollup_to_verify,
+                        batch_mint_to_verify,
                     )
                     .await?;
 
-                    statsd_count!("rollup.checksum_verify_fail", 1);
-                    return Err(ProgramTransformerError::RollupValidation(
-                        RollupValidationError::FileChecksumMismatch(expected, actual),
+                    statsd_count!("batch_mint.checksum_verify_fail", 1);
+                    return Err(ProgramTransformerError::BatchMintValidation(
+                        BatchMintValidationError::FileChecksumMismatch(expected, actual),
                     ));
                 }
-                if let RollupValidationError::Serialization(e) = e {
-                    rollup_to_verify.rollup_persisting_state =
+                if let BatchMintValidationError::Serialization(e) = e {
+                    batch_mint_to_verify.rollup_persisting_state =
                         RollupPersistingState::FailedToPersist;
-                    self.save_rollup_as_failed(
+                    self.save_batch_mint_as_failed(
                         RollupFailStatus::FileSerialization,
-                        rollup_to_verify,
+                        batch_mint_to_verify,
                     )
                     .await?;
 
-                    statsd_count!("rollup.file_deserialization_fail", 1);
+                    statsd_count!("batch_mint.file_deserialization_fail", 1);
                     return Err(ProgramTransformerError::SerializatonError(e));
                 }
-                if rollup_to_verify.download_attempts + 1 > MAX_ROLLUP_DOWNLOAD_ATTEMPTS as i32 {
-                    rollup_to_verify.rollup_persisting_state =
+                if batch_mint_to_verify.download_attempts + 1
+                    > MAX_BATCH_MINT_DOWNLOAD_ATTEMPTS as i32
+                {
+                    batch_mint_to_verify.rollup_persisting_state =
                         RollupPersistingState::FailedToPersist;
-                    self.save_rollup_as_failed(RollupFailStatus::DownloadFailed, rollup_to_verify)
-                        .await?;
+                    self.save_batch_mint_as_failed(
+                        RollupFailStatus::DownloadFailed,
+                        batch_mint_to_verify,
+                    )
+                    .await?;
                 } else {
-                    rollup_to_verify.download_attempts = rollup_to_verify.download_attempts + 1;
+                    batch_mint_to_verify.download_attempts =
+                        batch_mint_to_verify.download_attempts + 1;
                     if let Err(e) = (rollup_to_verify::ActiveModel {
-                        file_hash: Set(rollup_to_verify.file_hash.clone()),
-                        url: Set(rollup_to_verify.url.clone()),
-                        created_at_slot: Set(rollup_to_verify.created_at_slot),
-                        signature: Set(rollup_to_verify.signature.clone()),
-                        staker: Set(rollup_to_verify.staker.clone()),
-                        download_attempts: Set(rollup_to_verify.download_attempts + 1),
-                        rollup_persisting_state: Set(rollup_to_verify
+                        file_hash: Set(batch_mint_to_verify.file_hash.clone()),
+                        url: Set(batch_mint_to_verify.url.clone()),
+                        created_at_slot: Set(batch_mint_to_verify.created_at_slot),
+                        signature: Set(batch_mint_to_verify.signature.clone()),
+                        staker: Set(batch_mint_to_verify.staker.clone()),
+                        download_attempts: Set(batch_mint_to_verify.download_attempts + 1),
+                        rollup_persisting_state: Set(batch_mint_to_verify
                             .rollup_persisting_state
                             .clone()),
-                        rollup_fail_status: Set(rollup_to_verify.rollup_fail_status.clone()),
+                        rollup_fail_status: Set(batch_mint_to_verify.rollup_fail_status.clone()),
                     }
                     .insert(self.txn.as_ref()))
                     .await
@@ -422,88 +436,91 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
                         return Err(e.into());
                     }
                 }
-                return Err(ProgramTransformerError::RollupValidation(e));
+                return Err(ProgramTransformerError::BatchMintValidation(e));
             }
         }
         Ok(())
     }
 
-    async fn validate_rollup(
+    async fn validate_batch_mint(
         &self,
-        rollup_to_verify: &mut rollup_to_verify::Model,
-        rollup: &Rollup,
+        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint: &BatchMint,
     ) {
-        if let Err(e) = validate_rollup(rollup).await {
-            error!("Error while validating rollup: {}", e.to_string());
+        if let Err(e) = validate_batch_mint(batch_mint).await {
+            error!("Error while validating batch mint: {}", e.to_string());
 
-            statsd_count!("rollup.validating_fail", 1);
-            rollup_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
+            statsd_count!("batch_mint.validating_fail", 1);
+            batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
             if let Err(err) = self
-                .save_rollup_as_failed(RollupFailStatus::RollupVerifyFailed, rollup_to_verify)
+                .save_batch_mint_as_failed(
+                    RollupFailStatus::RollupVerifyFailed,
+                    batch_mint_to_verify,
+                )
                 .await
             {
-                error!("Save rollup as failed: {}", err);
+                error!("Save batch mint as failed: {}", err);
             };
             return;
         }
-        statsd_count!("rollup.validating_success", 1);
-        rollup_to_verify.rollup_persisting_state = RollupPersistingState::SuccessfullyValidate;
+        statsd_count!("batch_mint.validating_success", 1);
+        batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::SuccessfullyValidate;
     }
 
-    async fn store_rollup_update(
+    async fn store_batch_mint_update(
         &self,
-        rollup_to_verify: &mut rollup_to_verify::Model,
-        rollup: &Rollup,
+        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint: &BatchMint,
     ) -> Result<(), ProgramTransformerError> {
-        if store_rollup_update(
-            rollup_to_verify.created_at_slot as u64,
-            rollup_to_verify.signature.clone(),
-            rollup,
+        if store_batch_mint_update(
+            batch_mint_to_verify.created_at_slot as u64,
+            batch_mint_to_verify.signature.clone(),
+            batch_mint,
             self.txn.as_ref(),
         )
         .await
         .is_err()
         {
-            statsd_count!("rollup.store_update_fail", 1);
-            rollup_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
+            statsd_count!("batch_mint.store_update_fail", 1);
+            batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
             return Ok(());
         }
-        statsd_count!("rollup.store_update_success", 1);
-        rollup_to_verify.rollup_persisting_state = RollupPersistingState::StoredUpdate;
+        statsd_count!("batch_mint.store_update_success", 1);
+        batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::StoredUpdate;
         Ok(())
     }
 
-    async fn save_rollup_as_failed(
+    async fn save_batch_mint_as_failed(
         &self,
         status: RollupFailStatus,
-        rollup: &rollup_to_verify::Model,
+        batch_mint: &rollup_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
         rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
-            file_hash: Set(rollup.file_hash.clone()),
-            url: Set(rollup.url.clone()),
-            created_at_slot: Set(rollup.created_at_slot),
-            signature: Set(rollup.signature.clone()),
-            staker: Set(rollup.staker.clone()),
-            download_attempts: Set(rollup.download_attempts),
-            rollup_persisting_state: Set(rollup.rollup_persisting_state.clone()),
+            file_hash: Set(batch_mint.file_hash.clone()),
+            url: Set(batch_mint.url.clone()),
+            created_at_slot: Set(batch_mint.created_at_slot),
+            signature: Set(batch_mint.signature.clone()),
+            staker: Set(batch_mint.staker.clone()),
+            download_attempts: Set(batch_mint.download_attempts),
+            rollup_persisting_state: Set(batch_mint.rollup_persisting_state.clone()),
             rollup_fail_status: Set(Some(status)),
         })
-        .filter(rollup_to_verify::Column::FileHash.eq(rollup.file_hash.clone()))
+        .filter(rollup_to_verify::Column::FileHash.eq(batch_mint.file_hash.clone()))
         .exec(self.txn.as_ref())
         .await
         .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         Ok(())
     }
 
-    async fn drop_rollup_from_queue(
+    async fn drop_batch_mint_from_queue(
         &self,
-        rollup_to_verify: &rollup_to_verify::Model,
+        batch_mint_to_verify: &rollup_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
         rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
-            rollup_persisting_state: Set(rollup_to_verify.rollup_persisting_state.clone()),
-            ..rollup_to_verify.clone().into_active_model()
+            rollup_persisting_state: Set(batch_mint_to_verify.rollup_persisting_state.clone()),
+            ..batch_mint_to_verify.clone().into_active_model()
         })
-        .filter(rollup_to_verify::Column::FileHash.eq(rollup_to_verify.file_hash.clone()))
+        .filter(rollup_to_verify::Column::FileHash.eq(batch_mint_to_verify.file_hash.clone()))
         .exec(self.txn.as_ref())
         .await
         .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
@@ -512,10 +529,10 @@ impl<T: ConnectionTrait + TransactionTrait, D: RollupDownloader> RollupPersister
     }
 }
 
-pub async fn validate_rollup(rollup: &Rollup) -> Result<(), RollupValidationError> {
+pub async fn validate_batch_mint(batch_mint: &BatchMint) -> Result<(), BatchMintValidationError> {
     let mut leaf_hashes = Vec::new();
-    for asset in rollup.rolled_mints.iter() {
-        let leaf_hash = match get_leaf_hash(asset, &rollup.tree_id) {
+    for asset in batch_mint.batch_mints.iter() {
+        let leaf_hash = match get_leaf_hash(asset, &batch_mint.tree_id) {
             Ok(leaf_hash) => leaf_hash,
             Err(e) => {
                 return Err(e);
@@ -525,20 +542,20 @@ pub async fn validate_rollup(rollup: &Rollup) -> Result<(), RollupValidationErro
     }
 
     merkle_tree_wrapper::validate_change_logs(
-        rollup.max_depth,
-        rollup.max_buffer_size,
+        batch_mint.max_depth,
+        batch_mint.max_buffer_size,
         &leaf_hashes,
-        rollup,
+        batch_mint,
     )
 }
 
 fn get_leaf_hash(
-    asset: &RolledMintInstruction,
+    asset: &BatchedMintInstruction,
     tree_id: &Pubkey,
-) -> Result<[u8; 32], RollupValidationError> {
+) -> Result<[u8; 32], BatchMintValidationError> {
     let asset_id = get_asset_id(tree_id, asset.leaf_update.nonce());
     if asset_id != asset.leaf_update.id() {
-        return Err(RollupValidationError::PDACheckFail(
+        return Err(BatchMintValidationError::PDACheckFail(
             asset_id.to_string(),
             asset.leaf_update.id().to_string(),
         ));
@@ -552,7 +569,7 @@ fn get_leaf_hash(
         &asset.mint_args.seller_fee_basis_points.to_le_bytes(),
     ]);
     if asset.leaf_update.data_hash() != data_hash.to_bytes() {
-        return Err(RollupValidationError::InvalidDataHash(
+        return Err(BatchMintValidationError::InvalidDataHash(
             data_hash.to_string(),
             Hash::new(asset.leaf_update.data_hash().as_slice()).to_string(),
         ));
@@ -576,7 +593,7 @@ fn get_leaf_hash(
             .as_ref(),
     );
     if asset.leaf_update.creator_hash() != creator_hash.to_bytes() {
-        return Err(RollupValidationError::InvalidCreatorsHash(
+        return Err(BatchMintValidationError::InvalidCreatorsHash(
             creator_hash.to_string(),
             Hash::new(asset.leaf_update.creator_hash().as_slice()).to_string(),
         ));
@@ -585,18 +602,18 @@ fn get_leaf_hash(
     Ok(asset.leaf_update.hash())
 }
 
-pub async fn store_rollup_update<T>(
+pub async fn store_batch_mint_update<T>(
     slot: u64,
     signature: String,
-    rollup: &Rollup,
+    batch_mint: &BatchMint,
     txn: &T,
 ) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    for rolled_mint in rollup.rolled_mints.iter() {
+    for batched_mint in batch_mint.batch_mints.iter() {
         bubblegum::mint_v1::mint_v1(
-            &rolled_mint.into(),
+            &batched_mint.into(),
             &InstructionBundle {
                 txn_id: &signature,
                 program: Default::default(),

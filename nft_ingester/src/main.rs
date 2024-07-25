@@ -26,10 +26,10 @@ use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
 use clap::{arg, command, value_parser};
 use log::{error, info};
-use nft_ingester::rollup_updates;
+use nft_ingester::batch_mint_updates;
 use plerkle_messenger::{redis_messenger::RedisMessenger, ConsumptionType};
-use program_transformers::rollups::rollup_persister::{
-    RollupDownloaderForPersister, RollupPersister,
+use program_transformers::batch_minting::batch_mint_persister::{
+    BatchMintDownloaderForPersister, BatchMintPersister,
 };
 use sea_orm::{DatabaseConnection, SqlxPostgresConnector};
 use std::sync::Arc;
@@ -102,21 +102,21 @@ pub async fn main() -> Result<(), IngesterError> {
         tasks.spawn(bg_task_listener);
     }
     let mut rollup_persister: Option<
-        Arc<RollupPersister<DatabaseConnection, RollupDownloaderForPersister>>,
+        Arc<BatchMintPersister<DatabaseConnection, BatchMintDownloaderForPersister>>,
     > = None;
     if !config.skip_rollup_indexing {
-        let r = rollup_updates::create_rollup_notification_channel(
+        let r = batch_mint_updates::create_batch_mint_notification_channel(
             &config.get_database_url(),
             &mut tasks,
         )
         .await
         .unwrap();
-        rollup_persister = Some(Arc::new(RollupPersister::new(
+        rollup_persister = Some(Arc::new(BatchMintPersister::new(
             Arc::new(SqlxPostgresConnector::from_sqlx_postgres_pool(
                 database_pool.clone(),
             )),
             r,
-            RollupDownloaderForPersister {},
+            BatchMintDownloaderForPersister {},
         )));
     }
 
@@ -175,7 +175,7 @@ pub async fn main() -> Result<(), IngesterError> {
                     WorkerType::Rollup => {
                         if let Some(rollup_persister) = rollup_persister.clone() {
                             tasks.spawn(async move {
-                                rollup_persister.persist_rollups().await;
+                                rollup_persister.persist_batch_mints().await;
                                 Ok(())
                             });
                         }
