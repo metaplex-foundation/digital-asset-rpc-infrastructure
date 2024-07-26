@@ -519,6 +519,8 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
             for (_, plugin) in plugins.iter_mut() {
                 if let Some(plugin_obj) = plugin.as_object_mut() {
                     transform_authority_in_object(plugin_obj);
+                    transform_data_authority_in_object(plugin_obj);
+                    transform_linked_app_data_parent_key_in_object(plugin_obj);
                 }
             }
         }
@@ -527,6 +529,8 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
             for plugin in plugins_array.iter_mut() {
                 if let Some(plugin_obj) = plugin.as_object_mut() {
                     transform_authority_in_object(plugin_obj);
+                    transform_data_authority_in_object(plugin_obj);
+                    transform_linked_app_data_parent_key_in_object(plugin_obj);
                 }
             }
         }
@@ -534,26 +538,58 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
     }
 }
 
-// Helper for `transform_plugins_authority` logic.
 fn transform_authority_in_object(plugin: &mut Map<String, Value>) {
-    match plugin.get_mut("authority") {
-        Some(Value::Object(authority)) => {
-            if let Some(authority_type) = authority.keys().next().cloned() {
+    if let Some(authority) = plugin.get_mut("authority") {
+        transform_authority(authority);
+    }
+}
+
+fn transform_data_authority_in_object(plugin: &mut Map<String, Value>) {
+    if let Some(adapter_config) = plugin.get_mut("adapter_config") {
+        if let Some(data_authority) = adapter_config
+            .as_object_mut()
+            .and_then(|o| o.get_mut("data_authority"))
+        {
+            transform_authority(data_authority);
+        }
+    }
+}
+
+fn transform_linked_app_data_parent_key_in_object(plugin: &mut Map<String, Value>) {
+    if let Some(adapter_config) = plugin.get_mut("adapter_config") {
+        if let Some(parent_key) = adapter_config
+            .as_object_mut()
+            .and_then(|o| o.get_mut("parent_key"))
+        {
+            if let Some(linked_app_data) = parent_key
+                .as_object_mut()
+                .and_then(|o| o.get_mut("LinkedAppData"))
+            {
+                transform_authority(linked_app_data);
+            }
+        }
+    }
+}
+
+fn transform_authority(authority: &mut Value) {
+    match authority {
+        Value::Object(authority_obj) => {
+            if let Some(authority_type) = authority_obj.keys().next().cloned() {
                 // Replace the nested JSON objects with desired format.
-                if let Some(Value::Object(pubkey_obj)) = authority.remove(&authority_type) {
+                if let Some(Value::Object(pubkey_obj)) = authority_obj.remove(&authority_type) {
                     if let Some(address_value) = pubkey_obj.get("address") {
-                        authority.insert("type".to_string(), Value::from(authority_type));
-                        authority.insert("address".to_string(), address_value.clone());
+                        authority_obj.insert("type".to_string(), Value::from(authority_type));
+                        authority_obj.insert("address".to_string(), address_value.clone());
                     }
                 }
             }
         }
-        Some(Value::String(authority_type)) => {
+        Value::String(authority_type) => {
             // Handle the case where authority is a string.
             let mut authority_obj = Map::new();
             authority_obj.insert("type".to_string(), Value::String(authority_type.clone()));
             authority_obj.insert("address".to_string(), Value::Null);
-            plugin.insert("authority".to_string(), Value::Object(authority_obj));
+            *authority = Value::Object(authority_obj);
         }
         _ => {}
     }
