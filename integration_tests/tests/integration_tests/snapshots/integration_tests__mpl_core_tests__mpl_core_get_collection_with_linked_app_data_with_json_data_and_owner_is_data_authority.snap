@@ -71,7 +71,10 @@ expression: response
       },
       "adapter_config": {
         "schema": "Json",
-        "data_authority": "Owner"
+        "data_authority": {
+          "type": "Owner",
+          "address": null
+        }
       }
     }
   ]

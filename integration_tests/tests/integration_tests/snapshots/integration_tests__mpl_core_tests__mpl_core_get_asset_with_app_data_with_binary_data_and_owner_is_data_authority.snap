@@ -72,7 +72,10 @@ expression: response
       "data_offset": 122,
       "adapter_config": {
         "schema": "Binary",
-        "data_authority": "Owner"
+        "data_authority": {
+          "type": "Owner",
+          "address": null
+        }
       }
     }
   ]

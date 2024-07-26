@@ -81,7 +81,10 @@ expression: response
       "adapter_config": {
         "schema": "Json",
         "parent_key": {
-          "linked_app_data": "Owner"
+          "linked_app_data": {
+            "type": "Owner",
+            "address": null
+          }
         }
       }
     }

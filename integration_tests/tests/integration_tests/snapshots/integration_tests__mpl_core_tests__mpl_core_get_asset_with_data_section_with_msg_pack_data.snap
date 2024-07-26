@@ -81,7 +81,10 @@ expression: response
       "adapter_config": {
         "schema": "MsgPack",
         "parent_key": {
-          "linked_app_data": "UpdateAuthority"
+          "linked_app_data": {
+            "type": "UpdateAuthority",
+            "address": null
+          }
         }
       }
     }

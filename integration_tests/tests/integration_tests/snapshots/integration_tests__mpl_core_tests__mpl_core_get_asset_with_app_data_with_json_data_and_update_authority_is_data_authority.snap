@@ -75,7 +75,10 @@ expression: response
       "data_offset": 122,
       "adapter_config": {
         "schema": "Json",
-        "data_authority": "UpdateAuthority"
+        "data_authority": {
+          "type": "UpdateAuthority",
+          "address": null
+        }
       }
     }
   ]

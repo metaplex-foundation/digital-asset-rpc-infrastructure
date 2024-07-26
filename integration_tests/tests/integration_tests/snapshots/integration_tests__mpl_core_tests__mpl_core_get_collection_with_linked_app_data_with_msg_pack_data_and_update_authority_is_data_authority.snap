@@ -71,7 +71,10 @@ expression: response
       },
       "adapter_config": {
         "schema": "MsgPack",
-        "data_authority": "UpdateAuthority"
+        "data_authority": {
+          "type": "UpdateAuthority",
+          "address": null
+        }
       }
     }
   ]

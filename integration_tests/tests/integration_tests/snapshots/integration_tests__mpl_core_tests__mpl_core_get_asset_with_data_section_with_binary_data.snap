@@ -79,9 +79,8 @@ expression: response
         "schema": "Binary",
         "parent_key": {
           "linked_app_data": {
-            "address": {
-              "address": "CYHj4vYrPnuQ1pyqrjeRBJJ4QA4LfyoFaaRgSow16Ziw"
-            }
+            "type": "Address",
+            "address": "CYHj4vYrPnuQ1pyqrjeRBJJ4QA4LfyoFaaRgSow16Ziw"
           }
         }
       }
