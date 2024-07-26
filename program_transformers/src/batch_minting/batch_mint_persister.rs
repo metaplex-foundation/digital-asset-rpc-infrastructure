@@ -10,8 +10,10 @@ use async_trait::async_trait;
 use blockbuster::instruction::InstructionBundle;
 use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
 use cadence_macros::{statsd_count, statsd_histogram};
-use digital_asset_types::dao::sea_orm_active_enums::{RollupFailStatus, RollupPersistingState};
-use digital_asset_types::dao::{rollup, rollup_to_verify};
+use digital_asset_types::dao::sea_orm_active_enums::{
+    BatchMintFailStatus, BatchMintPersistingState,
+};
+use digital_asset_types::dao::{batch_mint, batch_mint_to_verify};
 use mockall::automock;
 use mpl_bubblegum::types::{LeafSchema, MetadataArgs, Version};
 use mpl_bubblegum::utils::get_asset_id;
@@ -206,7 +208,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             };
             let Ok((batch_mint_to_verify, batch_mint)) = self.get_batch_mint_to_verify().await
             else {
-                statsd_count!("batch_mint.fail_get_rollup", 1);
+                statsd_count!("batch_mint.fail_get_batch_mint", 1);
                 continue;
             };
             let Some(batch_mint_to_verify) = batch_mint_to_verify else {
@@ -214,7 +216,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                 continue;
             };
             let batch_mint = batch_mint
-                .map(|r| bincode::deserialize::<BatchMint>(r.rollup_binary_bincode.as_slice()))
+                .map(|r| bincode::deserialize::<BatchMint>(r.batch_mint_binary_bincode.as_slice()))
                 .transpose()
                 .unwrap_or_default();
             self.persist_batch_mint(batch_mint_to_verify, batch_mint.map(Box::new))
@@ -224,19 +226,19 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
     pub async fn persist_batch_mint(
         &self,
-        mut batch_mint_to_verify: rollup_to_verify::Model,
+        mut batch_mint_to_verify: batch_mint_to_verify::Model,
         mut batch_mint: Option<Box<BatchMint>>,
     ) {
         let start_time = Instant::now();
         info!("Persisting {} batch mint", &batch_mint_to_verify.url);
         loop {
-            match &batch_mint_to_verify.rollup_persisting_state {
-                &RollupPersistingState::ReceivedTransaction => {
+            match &batch_mint_to_verify.batch_mint_persisting_state {
+                &BatchMintPersistingState::ReceivedTransaction => {
                     // We get ReceivedTransaction state on the start of processing
-                    batch_mint_to_verify.rollup_persisting_state =
-                        RollupPersistingState::StartProcessing;
+                    batch_mint_to_verify.batch_mint_persisting_state =
+                        BatchMintPersistingState::StartProcessing;
                 }
-                &RollupPersistingState::StartProcessing => {
+                &BatchMintPersistingState::StartProcessing => {
                     if let Err(err) = self
                         .download_batch_mint(&mut batch_mint_to_verify, &mut batch_mint)
                         .await
@@ -244,7 +246,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                         error!("Error during batch mint downloading: {}", err)
                     };
                 }
-                &RollupPersistingState::SuccessfullyDownload => {
+                &BatchMintPersistingState::SuccessfullyDownload => {
                     if let Some(r) = &batch_mint {
                         self.validate_batch_mint(&mut batch_mint_to_verify, r).await;
                     } else {
@@ -254,7 +256,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                         )
                     }
                 }
-                &RollupPersistingState::SuccessfullyValidate => {
+                &BatchMintPersistingState::SuccessfullyValidate => {
                     if let Some(r) = &batch_mint {
                         if let Err(e) = self
                             .store_batch_mint_update(&mut batch_mint_to_verify, r)
@@ -269,13 +271,15 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                         )
                     }
                 }
-                &RollupPersistingState::FailedToPersist | &RollupPersistingState::StoredUpdate => {
+                &BatchMintPersistingState::FailedToPersist
+                | &BatchMintPersistingState::StoredUpdate => {
                     if let Err(e) = self.drop_batch_mint_from_queue(&batch_mint_to_verify).await {
                         error!("failed to drop batch mint from queue: {}", e);
                     };
                     info!(
                         "Finish processing {} batch mint file with {:?} state",
-                        &batch_mint_to_verify.url, &batch_mint_to_verify.rollup_persisting_state
+                        &batch_mint_to_verify.url,
+                        &batch_mint_to_verify.batch_mint_persisting_state
                     );
                     statsd_histogram!(
                         "batch_mint.persisting_latency",
@@ -290,48 +294,53 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
     pub async fn get_batch_mint_to_verify(
         &self,
-    ) -> Result<(Option<rollup_to_verify::Model>, Option<rollup::Model>), ProgramTransformerError>
-    {
+    ) -> Result<
+        (
+            Option<batch_mint_to_verify::Model>,
+            Option<batch_mint::Model>,
+        ),
+        ProgramTransformerError,
+    > {
         let multi_txn = self.txn.begin().await?;
         let condition = Condition::all()
             .add(
-                rollup_to_verify::Column::RollupPersistingState
-                    .ne(RollupPersistingState::FailedToPersist),
+                batch_mint_to_verify::Column::BatchMintPersistingState
+                    .ne(BatchMintPersistingState::FailedToPersist),
             )
             .add(
-                rollup_to_verify::Column::RollupPersistingState
-                    .ne(RollupPersistingState::StoredUpdate),
+                batch_mint_to_verify::Column::BatchMintPersistingState
+                    .ne(BatchMintPersistingState::StoredUpdate),
             )
             .add(
-                rollup_to_verify::Column::RollupPersistingState
-                    .ne(RollupPersistingState::StartProcessing),
+                batch_mint_to_verify::Column::BatchMintPersistingState
+                    .ne(BatchMintPersistingState::StartProcessing),
             );
 
-        let batch_mint_verify = rollup_to_verify::Entity::find()
+        let batch_mint_verify = batch_mint_to_verify::Entity::find()
             .filter(condition)
-            .order_by_asc(rollup_to_verify::Column::CreatedAtSlot)
+            .order_by_asc(batch_mint_to_verify::Column::CreatedAtSlot)
             .lock(LockType::Update)
             .one(&multi_txn)
             .await
             .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
         let mut batch_mint = None;
         if let Some(ref r) = batch_mint_verify {
-            batch_mint = rollup::Entity::find()
-                .filter(rollup::Column::FileHash.eq(r.file_hash.clone()))
+            batch_mint = batch_mint::Entity::find()
+                .filter(batch_mint::Column::FileHash.eq(r.file_hash.clone()))
                 .one(self.txn.as_ref())
                 .await
                 .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
-            rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
+            batch_mint_to_verify::Entity::update(batch_mint_to_verify::ActiveModel {
                 file_hash: Set(r.file_hash.clone()),
                 url: Set(r.url.clone()),
                 created_at_slot: Set(r.created_at_slot),
                 signature: Set(r.signature.clone()),
                 staker: Set(r.staker.clone()),
                 download_attempts: Set(r.download_attempts),
-                rollup_persisting_state: Set(RollupPersistingState::StartProcessing),
-                rollup_fail_status: Set(r.rollup_fail_status.clone()),
+                batch_mint_persisting_state: Set(BatchMintPersistingState::StartProcessing),
+                batch_mint_fail_status: Set(r.batch_mint_fail_status.clone()),
             })
-            .filter(rollup_to_verify::Column::FileHash.eq(r.file_hash.clone()))
+            .filter(batch_mint_to_verify::Column::FileHash.eq(r.file_hash.clone()))
             .exec(&multi_txn)
             .await
             .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
@@ -343,7 +352,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
     async fn download_batch_mint(
         &self,
-        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &mut Option<Box<BatchMint>>,
     ) -> Result<(), ProgramTransformerError> {
         if batch_mint.is_some() {
@@ -358,14 +367,14 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             .await
         {
             Ok(r) => {
-                let query = rollup::Entity::insert(rollup::ActiveModel {
+                let query = batch_mint::Entity::insert(batch_mint::ActiveModel {
                     file_hash: Set(batch_mint_to_verify.file_hash.clone()),
-                    rollup_binary_bincode: Set(bincode::serialize(batch_mint)
+                    batch_mint_binary_bincode: Set(bincode::serialize(batch_mint)
                         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?),
                 })
                 .on_conflict(
-                    OnConflict::columns([rollup::Column::FileHash])
-                        .update_columns([rollup::Column::RollupBinaryBincode])
+                    OnConflict::columns([batch_mint::Column::FileHash])
+                        .update_columns([batch_mint::Column::BatchMintBinaryBincode])
                         .to_owned(),
                 )
                 .build(DbBackend::Postgres);
@@ -373,17 +382,17 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                     return Err(e.into());
                 }
                 *batch_mint = Some(r);
-                batch_mint_to_verify.rollup_persisting_state =
-                    RollupPersistingState::SuccessfullyDownload;
+                batch_mint_to_verify.batch_mint_persisting_state =
+                    BatchMintPersistingState::SuccessfullyDownload;
                 statsd_count!("batch_mint.successfully_download", 1);
             }
             Err(e) => {
                 statsd_count!("batch_mint.download_fail", 1);
                 if let BatchMintValidationError::InvalidDataHash(expected, actual) = e {
-                    batch_mint_to_verify.rollup_persisting_state =
-                        RollupPersistingState::FailedToPersist;
+                    batch_mint_to_verify.batch_mint_persisting_state =
+                        BatchMintPersistingState::FailedToPersist;
                     self.save_batch_mint_as_failed(
-                        RollupFailStatus::ChecksumVerifyFailed,
+                        BatchMintFailStatus::ChecksumVerifyFailed,
                         batch_mint_to_verify,
                     )
                     .await?;
@@ -394,10 +403,10 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                     ));
                 }
                 if let BatchMintValidationError::Serialization(e) = e {
-                    batch_mint_to_verify.rollup_persisting_state =
-                        RollupPersistingState::FailedToPersist;
+                    batch_mint_to_verify.batch_mint_persisting_state =
+                        BatchMintPersistingState::FailedToPersist;
                     self.save_batch_mint_as_failed(
-                        RollupFailStatus::FileSerialization,
+                        BatchMintFailStatus::FileSerialization,
                         batch_mint_to_verify,
                     )
                     .await?;
@@ -408,27 +417,29 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                 if batch_mint_to_verify.download_attempts + 1
                     > MAX_BATCH_MINT_DOWNLOAD_ATTEMPTS as i32
                 {
-                    batch_mint_to_verify.rollup_persisting_state =
-                        RollupPersistingState::FailedToPersist;
+                    batch_mint_to_verify.batch_mint_persisting_state =
+                        BatchMintPersistingState::FailedToPersist;
                     self.save_batch_mint_as_failed(
-                        RollupFailStatus::DownloadFailed,
+                        BatchMintFailStatus::DownloadFailed,
                         batch_mint_to_verify,
                     )
                     .await?;
                 } else {
                     batch_mint_to_verify.download_attempts =
                         batch_mint_to_verify.download_attempts + 1;
-                    if let Err(e) = (rollup_to_verify::ActiveModel {
+                    if let Err(e) = (batch_mint_to_verify::ActiveModel {
                         file_hash: Set(batch_mint_to_verify.file_hash.clone()),
                         url: Set(batch_mint_to_verify.url.clone()),
                         created_at_slot: Set(batch_mint_to_verify.created_at_slot),
                         signature: Set(batch_mint_to_verify.signature.clone()),
                         staker: Set(batch_mint_to_verify.staker.clone()),
                         download_attempts: Set(batch_mint_to_verify.download_attempts + 1),
-                        rollup_persisting_state: Set(batch_mint_to_verify
-                            .rollup_persisting_state
+                        batch_mint_persisting_state: Set(batch_mint_to_verify
+                            .batch_mint_persisting_state
                             .clone()),
-                        rollup_fail_status: Set(batch_mint_to_verify.rollup_fail_status.clone()),
+                        batch_mint_fail_status: Set(batch_mint_to_verify
+                            .batch_mint_fail_status
+                            .clone()),
                     }
                     .insert(self.txn.as_ref()))
                     .await
@@ -444,17 +455,18 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
     async fn validate_batch_mint(
         &self,
-        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &BatchMint,
     ) {
         if let Err(e) = validate_batch_mint(batch_mint).await {
             error!("Error while validating batch mint: {}", e.to_string());
 
             statsd_count!("batch_mint.validating_fail", 1);
-            batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
+            batch_mint_to_verify.batch_mint_persisting_state =
+                BatchMintPersistingState::FailedToPersist;
             if let Err(err) = self
                 .save_batch_mint_as_failed(
-                    RollupFailStatus::RollupVerifyFailed,
+                    BatchMintFailStatus::BatchMintVerifyFailed,
                     batch_mint_to_verify,
                 )
                 .await
@@ -464,12 +476,13 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             return;
         }
         statsd_count!("batch_mint.validating_success", 1);
-        batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::SuccessfullyValidate;
+        batch_mint_to_verify.batch_mint_persisting_state =
+            BatchMintPersistingState::SuccessfullyValidate;
     }
 
     async fn store_batch_mint_update(
         &self,
-        batch_mint_to_verify: &mut rollup_to_verify::Model,
+        batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &BatchMint,
     ) -> Result<(), ProgramTransformerError> {
         if store_batch_mint_update(
@@ -482,30 +495,31 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
         .is_err()
         {
             statsd_count!("batch_mint.store_update_fail", 1);
-            batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::FailedToPersist;
+            batch_mint_to_verify.batch_mint_persisting_state =
+                BatchMintPersistingState::FailedToPersist;
             return Ok(());
         }
         statsd_count!("batch_mint.store_update_success", 1);
-        batch_mint_to_verify.rollup_persisting_state = RollupPersistingState::StoredUpdate;
+        batch_mint_to_verify.batch_mint_persisting_state = BatchMintPersistingState::StoredUpdate;
         Ok(())
     }
 
     async fn save_batch_mint_as_failed(
         &self,
-        status: RollupFailStatus,
-        batch_mint: &rollup_to_verify::Model,
+        status: BatchMintFailStatus,
+        batch_mint: &batch_mint_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
-        rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
+        batch_mint_to_verify::Entity::update(batch_mint_to_verify::ActiveModel {
             file_hash: Set(batch_mint.file_hash.clone()),
             url: Set(batch_mint.url.clone()),
             created_at_slot: Set(batch_mint.created_at_slot),
             signature: Set(batch_mint.signature.clone()),
             staker: Set(batch_mint.staker.clone()),
             download_attempts: Set(batch_mint.download_attempts),
-            rollup_persisting_state: Set(batch_mint.rollup_persisting_state.clone()),
-            rollup_fail_status: Set(Some(status)),
+            batch_mint_persisting_state: Set(batch_mint.batch_mint_persisting_state.clone()),
+            batch_mint_fail_status: Set(Some(status)),
         })
-        .filter(rollup_to_verify::Column::FileHash.eq(batch_mint.file_hash.clone()))
+        .filter(batch_mint_to_verify::Column::FileHash.eq(batch_mint.file_hash.clone()))
         .exec(self.txn.as_ref())
         .await
         .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;
@@ -514,13 +528,15 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
     async fn drop_batch_mint_from_queue(
         &self,
-        batch_mint_to_verify: &rollup_to_verify::Model,
+        batch_mint_to_verify: &batch_mint_to_verify::Model,
     ) -> Result<(), ProgramTransformerError> {
-        rollup_to_verify::Entity::update(rollup_to_verify::ActiveModel {
-            rollup_persisting_state: Set(batch_mint_to_verify.rollup_persisting_state.clone()),
+        batch_mint_to_verify::Entity::update(batch_mint_to_verify::ActiveModel {
+            batch_mint_persisting_state: Set(batch_mint_to_verify
+                .batch_mint_persisting_state
+                .clone()),
             ..batch_mint_to_verify.clone().into_active_model()
         })
-        .filter(rollup_to_verify::Column::FileHash.eq(batch_mint_to_verify.file_hash.clone()))
+        .filter(batch_mint_to_verify::Column::FileHash.eq(batch_mint_to_verify.file_hash.clone()))
         .exec(self.txn.as_ref())
         .await
         .map_err(|e| ProgramTransformerError::DatabaseError(e.to_string()))?;

@@ -2,10 +2,9 @@ use crate::error::IngesterError;
 use async_channel::Receiver;
 use log::error;
 use sqlx::postgres::PgListener;
-use std::time::Duration;
 use tokio::task::{JoinError, JoinSet};
 
-const BATCH_MINT_LISTEN_KEY: &str = "new_rollup";
+const BATCH_MINT_LISTEN_KEY: &str = "new_batch_mint";
 
 pub async fn create_batch_mint_notification_channel(
     database_url: &str,

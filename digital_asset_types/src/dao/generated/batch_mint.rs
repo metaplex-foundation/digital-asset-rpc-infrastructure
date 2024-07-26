@@ -8,20 +8,20 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "rollup"
+        "batch_mint"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Serialize, Deserialize)]
 pub struct Model {
     pub file_hash: String,
-    pub rollup_binary_bincode: Vec<u8>,
+    pub batch_mint_binary_bincode: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     FileHash,
-    RollupBinaryBincode,
+    BatchMintBinaryBincode,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -44,7 +44,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::FileHash => ColumnType::String(None).def(),
-            Self::RollupBinaryBincode => ColumnType::Binary.def(),
+            Self::BatchMintBinaryBincode => ColumnType::Binary.def(),
         }
     }
 }

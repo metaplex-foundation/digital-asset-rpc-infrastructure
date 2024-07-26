@@ -14,12 +14,12 @@ impl MigrationTrait for Migration {
         manager
             .create_type(
                 Type::create()
-                    .as_enum(RollupToVerify::RollupFailStatus)
+                    .as_enum(BatchMintToVerify::BatchMintFailStatus)
                     .values([
-                        FailedRollupState::ChecksumVerifyFailed,
-                        FailedRollupState::RollupVerifyFailed,
-                        FailedRollupState::DownloadFailed,
-                        FailedRollupState::FileSerialization,
+                        FailedBatchMintState::ChecksumVerifyFailed,
+                        FailedBatchMintState::BatchMintVerifyFailed,
+                        FailedBatchMintState::DownloadFailed,
+                        FailedBatchMintState::FileSerialization,
                     ])
                     .to_owned(),
             )
@@ -28,14 +28,14 @@ impl MigrationTrait for Migration {
         manager
             .create_type(
                 Type::create()
-                    .as_enum(RollupToVerify::RollupPersistingState)
+                    .as_enum(BatchMintToVerify::BatchMintPersistingState)
                     .values([
-                        PersistingRollupState::ReceivedTransaction,
-                        PersistingRollupState::StartProcessing,
-                        PersistingRollupState::FailedToPersist,
-                        PersistingRollupState::SuccessfullyDownload,
-                        PersistingRollupState::SuccessfullyValidate,
-                        PersistingRollupState::StoredUpdate,
+                        PersistingBatchMintState::ReceivedTransaction,
+                        PersistingBatchMintState::StartProcessing,
+                        PersistingBatchMintState::FailedToPersist,
+                        PersistingBatchMintState::SuccessfullyDownload,
+                        PersistingBatchMintState::SuccessfullyValidate,
+                        PersistingBatchMintState::StoredUpdate,
                     ])
                     .to_owned(),
             )
@@ -44,44 +44,48 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(RollupToVerify::Table)
+                    .table(BatchMintToVerify::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(RollupToVerify::FileHash)
+                        ColumnDef::new(BatchMintToVerify::FileHash)
                             .string()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(RollupToVerify::Url).string().not_null())
+                    .col(ColumnDef::new(BatchMintToVerify::Url).string().not_null())
                     .col(
-                        ColumnDef::new(RollupToVerify::CreatedAtSlot)
+                        ColumnDef::new(BatchMintToVerify::CreatedAtSlot)
                             .big_integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(RollupToVerify::Signature)
+                        ColumnDef::new(BatchMintToVerify::Signature)
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(RollupToVerify::Staker).binary().not_null())
                     .col(
-                        ColumnDef::new(RollupToVerify::DownloadAttempts)
+                        ColumnDef::new(BatchMintToVerify::Staker)
+                            .binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(BatchMintToVerify::DownloadAttempts)
                             .unsigned()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(RollupToVerify::RollupPersistingState)
+                        ColumnDef::new(BatchMintToVerify::BatchMintPersistingState)
                             .enumeration(
-                                RollupToVerify::RollupPersistingState,
-                                all::<PersistingRollupState>().collect::<Vec<_>>(),
+                                BatchMintToVerify::BatchMintPersistingState,
+                                all::<PersistingBatchMintState>().collect::<Vec<_>>(),
                             )
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(RollupToVerify::RollupFailStatus)
+                        ColumnDef::new(BatchMintToVerify::BatchMintFailStatus)
                             .enumeration(
-                                RollupToVerify::RollupFailStatus,
-                                all::<FailedRollupState>().collect::<Vec<_>>(),
+                                BatchMintToVerify::BatchMintFailStatus,
+                                all::<FailedBatchMintState>().collect::<Vec<_>>(),
                             )
                             .null(),
                     )
@@ -93,9 +97,9 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_created_at_slot")
-                    .table(RollupToVerify::Table)
-                    .col(RollupToVerify::CreatedAtSlot)
-                    .col(RollupToVerify::RollupPersistingState)
+                    .table(BatchMintToVerify::Table)
+                    .col(BatchMintToVerify::CreatedAtSlot)
+                    .col(BatchMintToVerify::BatchMintPersistingState)
                     .to_owned(),
             )
             .await?;
@@ -103,16 +107,16 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Rollup::Table)
+                    .table(BatchMint::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Rollup::FileHash)
+                        ColumnDef::new(BatchMint::FileHash)
                             .string()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(Rollup::RollupBinaryBincode)
+                        ColumnDef::new(BatchMint::BatchMintBinaryBincode)
                             .binary()
                             .not_null(),
                     )
@@ -123,15 +127,15 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "CREATE FUNCTION notify_new_rollup() RETURNS trigger LANGUAGE plpgsql AS $$
+                "CREATE FUNCTION notify_new_batch_mint() RETURNS trigger LANGUAGE plpgsql AS $$
                     BEGIN
-                      PERFORM pg_notify('new_rollup', NEW::text);
+                      PERFORM pg_notify('new_batch_mint', NEW::text);
                       RETURN NEW;
                     END;
                     $$;
-                    CREATE TRIGGER rollup_to_verify_trigger
-                    AFTER INSERT ON rollup_to_verify
-                    FOR EACH ROW EXECUTE FUNCTION notify_new_rollup();"
+                    CREATE TRIGGER batch_mint_to_verify_trigger
+                    AFTER INSERT ON batch_mint_to_verify
+                    FOR EACH ROW EXECUTE FUNCTION notify_new_batch_mint();"
                     .to_string(),
             ))
             .await?;
@@ -144,36 +148,36 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute(Statement::from_string(
                 DatabaseBackend::Postgres,
-                "DROP TRIGGER IF EXISTS rollup_to_verify_trigger ON rollup_to_verify;
-                DROP FUNCTION IF EXISTS notify_new_rollup;"
+                "DROP TRIGGER IF EXISTS batch_mint_to_verify_trigger ON batch_mint_to_verify;
+                DROP FUNCTION IF EXISTS notify_new_batch_mint;"
                     .to_string(),
             ))
             .await?;
         manager
-            .drop_table(Table::drop().table(RollupToVerify::Table).to_owned())
+            .drop_table(Table::drop().table(BatchMintToVerify::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(Rollup::Table).to_owned())
+            .drop_table(Table::drop().table(BatchMint::Table).to_owned())
             .await?;
         Ok(())
     }
 }
 
 #[derive(Iden)]
-enum RollupToVerify {
+enum BatchMintToVerify {
     Table,
     Url,
     FileHash,
     CreatedAtSlot,
     Signature,
     DownloadAttempts,
-    RollupPersistingState,
-    RollupFailStatus,
+    BatchMintPersistingState,
+    BatchMintFailStatus,
     Staker,
 }
 
 #[derive(Iden, Debug, PartialEq, Sequence)]
-enum PersistingRollupState {
+enum PersistingBatchMintState {
     ReceivedTransaction,
     FailedToPersist,
     StartProcessing,
@@ -183,16 +187,16 @@ enum PersistingRollupState {
 }
 
 #[derive(Iden, Debug, PartialEq, Sequence)]
-enum FailedRollupState {
+enum FailedBatchMintState {
     DownloadFailed,
     ChecksumVerifyFailed,
-    RollupVerifyFailed,
+    BatchMintVerifyFailed,
     FileSerialization,
 }
 
 #[derive(Iden)]
-enum Rollup {
+enum BatchMint {
     Table,
     FileHash,
-    RollupBinaryBincode,
+    BatchMintBinaryBincode,
 }
