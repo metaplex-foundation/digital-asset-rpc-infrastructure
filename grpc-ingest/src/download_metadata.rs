@@ -4,12 +4,12 @@ use {
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         util::create_shutdown,
     },
+    das_core::DownloadMetadataInfo,
     digital_asset_types::dao::{asset_data, sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, FutureExt},
         stream::StreamExt,
     },
-    program_transformers::DownloadMetadataInfo,
     reqwest::{ClientBuilder, StatusCode},
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},

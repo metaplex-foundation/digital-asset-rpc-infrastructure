@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "backfill",
   "blockbuster",
   "core",
   "das_api",
@@ -47,7 +48,9 @@ cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-core = { path = "core" }
+das-backfill = { path = "backfill" }
 das_api = { path = "das_api" }
+derive_more = { version = "0.99.17" }
 digital_asset_types = { path = "digital_asset_types" }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
@@ -127,6 +130,9 @@ stretto = "0.8.4"
 thiserror = "1.0.31"
 tokio = "1.30.0"
 tokio-stream = "0.1.14"
+topograph = { version = "0.4.0", features = [
+  "tokio",
+], git = "https://github.com/ray-kast/topograph", branch = "v0.4-wip" }
 tower = "0.4.13"
 tower-http = "0.3.5"
 tracing = "0.1.35"
@@ -137,8 +143,8 @@ url = "2.3.1"
 vergen = "8.2.1"
 wasi = "0.7.0"
 wasm-bindgen = "0.2.83"
-yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" }                          # tag is geyser plugin
-yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" }                           # tag is geyser plugin
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" } # tag is geyser plugin
+yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" } # tag is geyser plugin
 yellowstone-grpc-tools = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28", default-features = false } # tag is geyser plugin
 
 [workspace.lints.clippy]

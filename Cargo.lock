@@ -1618,6 +1618,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 
 [[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1664,6 +1670,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossbeam"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
+dependencies = [
+ "crossbeam-channel",
+ "crossbeam-deque",
+ "crossbeam-epoch",
+ "crossbeam-queue",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1794,23 +1813,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-backfill"
+version = "0.7.2"
+dependencies = [
+ "anchor-client",
+ "anyhow",
+ "blockbuster",
+ "borsh 0.10.3",
+ "bs58 0.4.0",
+ "clap 4.5.9",
+ "das-core",
+ "digital_asset_types",
+ "futures",
+ "heck 0.5.0",
+ "log",
+ "mpl-bubblegum",
+ "num-traits",
+ "program_transformers",
+ "sea-orm",
+ "serde_json",
+ "solana-client",
+ "solana-program",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-account-compression",
+ "spl-token",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "das-core"
 version = "0.7.2"
 dependencies = [
  "anyhow",
  "backon",
+ "borsh 0.10.3",
+ "bs58 0.4.0",
  "cadence",
  "cadence-macros",
  "clap 4.5.9",
+ "derive_more",
+ "digital_asset_types",
  "figment",
+ "futures",
+ "indicatif",
+ "log",
  "plerkle_messenger",
+ "reqwest",
+ "sea-orm",
+ "serde",
+ "serde_json",
  "solana-account-decoder",
  "solana-client",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-account-compression",
  "sqlx",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -1823,6 +1887,7 @@ dependencies = [
  "cargo-lock",
  "chrono",
  "clap 4.5.9",
+ "das-core",
  "digital_asset_types",
  "futures",
  "git-version",
@@ -1846,6 +1911,7 @@ dependencies = [
  "solana-sdk",
  "sqlx",
  "tokio",
+ "topograph",
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
@@ -1861,28 +1927,29 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
- "backon",
  "borsh 0.10.3",
+ "bs58 0.4.0",
  "cadence",
  "cadence-macros",
  "clap 4.5.9",
+ "das-backfill",
  "das-core",
  "digital_asset_types",
  "env_logger 0.10.2",
  "figment",
- "flatbuffers",
  "futures",
  "indicatif",
  "log",
  "mpl-bubblegum",
- "plerkle_messenger",
- "plerkle_serialization",
+ "program_transformers",
  "sea-orm",
  "solana-account-decoder",
  "solana-client",
+ "solana-program",
  "solana-sdk",
  "solana-transaction-status",
  "spl-account-compression",
+ "sqlx",
  "thiserror",
  "tokio",
 ]
@@ -2003,6 +2070,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn 2.0.71",
+]
+
+[[package]]
 name = "deunicode"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2098,6 +2178,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.71",
+]
+
+[[package]]
+name = "dispose"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a73c22432c5657d246abd8b3490c0678ed59549c474d96402367be7bd18700d1"
+dependencies = [
+ "dispose-derive",
+]
+
+[[package]]
+name = "dispose-derive"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62e5546deabd472871fc4de055f8d75c0a97c492f1889cc19623e98d20ba294"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3753,6 +3854,7 @@ dependencies = [
  "cadence-macros",
  "chrono",
  "clap 4.5.9",
+ "das-core",
  "digital_asset_types",
  "figment",
  "flatbuffers",
@@ -4660,6 +4762,7 @@ dependencies = [
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
+ "das-core",
  "digital_asset_types",
  "futures",
  "heck 0.5.0",
@@ -7789,6 +7892,22 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+]
+
+[[package]]
+name = "topograph"
+version = "0.4.0"
+source = "git+https://github.com/ray-kast/topograph?branch=v0.4-wip#f56fe34a5614507c50721e9555b412f18db0c51e"
+dependencies = [
+ "crossbeam",
+ "dispose",
+ "futures-util",
+ "log",
+ "num_cpus",
+ "parking_lot 0.11.2",
+ "pin-project",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
