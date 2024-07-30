@@ -1,4 +1,4 @@
-mod account_details;
+mod account_info;
 mod cmd;
 mod program;
 mod single;

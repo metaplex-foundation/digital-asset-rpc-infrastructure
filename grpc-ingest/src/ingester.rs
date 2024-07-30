@@ -12,15 +12,13 @@ use {
     },
     chrono::Utc,
     crypto::{digest::Digest, sha2::Sha256},
+    das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
         stream::StreamExt,
     },
-    program_transformers::{
-        error::ProgramTransformerError, DownloadMetadataInfo, DownloadMetadataNotifier,
-        ProgramTransformer,
-    },
+    program_transformers::{error::ProgramTransformerError, ProgramTransformer},
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue},
         error::{DbErr, RuntimeErr},
@@ -74,16 +72,15 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
         create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
-        false,
     ));
     let pt_transactions = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
         create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
-        config.program_transformer.transactions_cl_audits,
     ));
     let pt_max_tasks_in_process = config.program_transformer.max_tasks_in_process;
     let mut pt_tasks = JoinSet::new();
     let pt_tasks_len = Arc::new(AtomicUsize::new(0));
+
     tokio::spawn({
         let pt_tasks_len = Arc::clone(&pt_tasks_len);
         async move {

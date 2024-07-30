@@ -1,51 +1,72 @@
 use {
     crate::{
-        config::ConfigGrpc, prom::redis_xadd_status_inc, redis::metrics_xlen, util::create_shutdown,
+        config::ConfigGrpc,
+        prom::redis_xadd_status_inc,
+        redis::{metrics_xlen, TrackedPipeline},
+        util::create_shutdown,
     },
     anyhow::Context,
     futures::{channel::mpsc, stream::StreamExt, SinkExt},
     lru::LruCache,
-    redis::{streams::StreamMaxlen, RedisResult, Value as RedisValue},
-    std::num::NonZeroUsize,
-    std::{collections::HashMap, sync::Arc, time::Duration},
+    opentelemetry_sdk::trace::Config,
+    redis::{
+        aio::MultiplexedConnection, streams::StreamMaxlen, Pipeline, RedisResult,
+        Value as RedisValue,
+    },
+    serde::de,
+    std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration},
     tokio::{
         spawn,
+        sync::Mutex,
         task::JoinSet,
         time::{sleep, Instant},
     },
-    tracing::warn,
+    topograph::{
+        executor::{Executor, Nonblock, Tokio},
+        prelude::*,
+    },
+    tracing::{debug, warn},
+    tracing_subscriber::field::debug,
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
-        geyser::SubscribeRequest, prelude::subscribe_update::UpdateOneof, prost::Message,
+        geyser::{SubscribeRequest, SubscribeUpdate},
+        prelude::subscribe_update::UpdateOneof,
+        prost::Message,
     },
     yellowstone_grpc_tools::config::GrpcRequestToProto,
 };
 
+enum GrpcJob {
+    FlushRedisPipe(Arc<Mutex<TrackedPipeline>>, MultiplexedConnection),
+    ProcessSubscribeUpdate(Arc<Mutex<TrackedPipeline>>, SubscribeUpdate),
+}
+
 pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
+    let redis_client = redis::Client::open(config.redis.url.clone())?;
     let config = Arc::new(config);
-    let (tx, mut rx) = mpsc::channel::<UpdateOneof>(config.geyser_update_message_buffer_size); // Adjust buffer size as needed
+    let connection = redis_client.get_multiplexed_tokio_connection().await?;
 
-    // Connect to Redis
-    let client = redis::Client::open(config.redis.url.clone())?;
-    let connection = client.get_multiplexed_tokio_connection().await?;
+    let mut shutdown = create_shutdown()?;
 
-    // Check stream length for the metrics
-    let jh_metrics_xlen = spawn({
-        let connection = connection.clone();
-        let streams = vec![
-            config.accounts.stream.clone(),
-            config.transactions.stream.clone(),
-        ];
-        async move { metrics_xlen(connection, &streams).await }
-    });
-    tokio::pin!(jh_metrics_xlen);
+    let pipe = Arc::new(Mutex::new(TrackedPipeline::default()));
 
-    // Spawn gRPC client connections
-    for endpoint in config.geyser_endpoints.clone() {
-        let config = Arc::clone(&config);
-        let mut tx = tx.clone();
+    let mut accounts = HashMap::with_capacity(1);
+    let mut transactions = HashMap::with_capacity(1);
 
-        let mut client = GeyserGrpcClient::build_from_shared(endpoint)?
+    accounts.insert("das".to_string(), config.accounts.filter.clone().to_proto());
+    transactions.insert(
+        "das".to_string(),
+        config.transactions.filter.clone().to_proto(),
+    );
+
+    let request = SubscribeRequest {
+        accounts,
+        transactions,
+        ..Default::default()
+    };
+
+    let mut dragon_mouth_client =
+        GeyserGrpcClient::build_from_shared(config.geyser_endpoint.clone())?
             .x_token(config.x_token.clone())?
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(10))
@@ -53,164 +74,105 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
             .await
             .context("failed to connect to gRPC")?;
 
-        spawn(async move {
-            let mut accounts = HashMap::with_capacity(1);
-            let mut transactions = HashMap::with_capacity(1);
+    let (_subscribe_tx, mut stream) = dragon_mouth_client
+        .subscribe_with_request(Some(request))
+        .await?;
 
-            accounts.insert("das".to_string(), config.accounts.filter.clone().to_proto());
-            transactions.insert(
-                "das".to_string(),
-                config.transactions.filter.clone().to_proto(),
-            );
+    let pool_config = Arc::clone(&config);
 
-            let request = SubscribeRequest {
-                accounts,
-                transactions,
-                ..Default::default()
-            };
+    let exec = Executor::builder(Nonblock(Tokio))
+        .num_threads(None)
+        .build(move |update, _| {
+            let config = pool_config.clone();
 
-            let (_subscribe_tx, mut stream) = client.subscribe_with_request(Some(request)).await?;
+            async move {
+                match update {
+                    GrpcJob::FlushRedisPipe(pipe, connection) => {
+                        let mut pipe = pipe.lock().await;
+                        let mut connection = connection;
 
-            while let Some(Ok(msg)) = stream.next().await {
-                if let Some(update) = msg.update_oneof {
-                    tx.send(update)
-                        .await
-                        .expect("Failed to send update to management thread");
+                        let flush = pipe.flush(&mut connection).await;
+
+                        let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                        let counts = flush.as_ref().unwrap_or_else(|counts| counts);
+
+                        for (stream, count) in counts.iter() {
+                            redis_xadd_status_inc(stream, status, count);
+                        }
+
+                        debug!(message = "Redis pipe flushed", ?status, ?counts);
+                    }
+                    GrpcJob::ProcessSubscribeUpdate(pipe, update) => {
+                        let accounts_stream = config.accounts.stream.clone();
+                        let accounts_stream_maxlen = config.accounts.stream_maxlen;
+                        let accounts_stream_data_key = config.accounts.stream_data_key.clone();
+                        let transactions_stream = config.transactions.stream.clone();
+                        let transactions_stream_maxlen = config.transactions.stream_maxlen;
+                        let transactions_stream_data_key =
+                            config.transactions.stream_data_key.clone();
+
+                        let SubscribeUpdate { update_oneof, .. } = update;
+                        let mut pipe = pipe.lock().await;
+
+                        if let Some(update) = update_oneof {
+                            match update {
+                                UpdateOneof::Account(account) => {
+                                    pipe.xadd_maxlen(
+                                        &accounts_stream,
+                                        StreamMaxlen::Approx(accounts_stream_maxlen),
+                                        "*",
+                                        &[(&accounts_stream_data_key, account.encode_to_vec())],
+                                    );
+
+                                    debug!(
+                                        message = "Account update",
+                                        ?account,
+                                        ?accounts_stream,
+                                        ?accounts_stream_maxlen
+                                    );
+                                }
+                                UpdateOneof::Transaction(transaction) => {
+                                    pipe.xadd_maxlen(
+                                        &transactions_stream,
+                                        StreamMaxlen::Approx(transactions_stream_maxlen),
+                                        "*",
+                                        &[(
+                                            &transactions_stream_data_key,
+                                            transaction.encode_to_vec(),
+                                        )],
+                                    );
+
+                                    debug!(message = "Transaction update", ?transaction,);
+                                }
+                                var => warn!(message = "Unknown update variant", ?var),
+                            }
+                        }
+                    }
                 }
             }
-            Ok::<(), anyhow::Error>(())
-        });
+        })?;
+
+    let deadline_pipe = Arc::clone(&pipe);
+    let deadline_config = Arc::clone(&config);
+    let deadline_connection = connection.clone();
+
+    loop {
+        tokio::select! {
+            _ = sleep(deadline_config.redis.pipeline_max_idle) => {
+                exec.push(GrpcJob::FlushRedisPipe(deadline_pipe.clone(), deadline_connection.clone()));
+            }
+            Some(Ok(msg)) = stream.next() => {
+                debug!(message = "Received gRPC message", ?msg);
+                exec.push(GrpcJob::ProcessSubscribeUpdate(Arc::clone(&pipe), msg));
+            }
+            _ = shutdown.next() => {
+                exec.push(GrpcJob::FlushRedisPipe(Arc::clone(&pipe), connection.clone()));
+                break;
+            }
+        }
     }
 
-    // Management thread
-    let mut shutdown = create_shutdown()?;
-    let mut tasks = JoinSet::new();
-    let mut pipe = redis::pipe();
-    let mut pipe_accounts = 0;
-    let mut pipe_transactions = 0;
-    let deadline = sleep(config.redis.pipeline_max_idle);
-    tokio::pin!(deadline);
+    exec.join_async().await;
 
-    let mut seen_update_events = LruCache::<String, ()>::new(
-        NonZeroUsize::new(config.solana_seen_event_cache_max_size).expect("Non zero value"),
-    );
-
-    let result = loop {
-        tokio::select! {
-            result = &mut jh_metrics_xlen => match result {
-                Ok(Ok(_)) => unreachable!(),
-                Ok(Err(error)) => break Err(error),
-                Err(error) => break Err(error.into()),
-            },
-            Some(signal) = shutdown.next() => {
-                warn!("{signal} received, waiting spawned tasks...");
-                break Ok(());
-            },
-            Some(update) = rx.next() => {
-                match update {
-                    UpdateOneof::Account(account) => {
-                        let slot_pubkey = format!("{}:{}", account.slot, hex::encode(account.account.as_ref().map(|account| account.pubkey.clone()).unwrap_or_default()));
-
-                        if seen_update_events.get(&slot_pubkey).is_some() {
-                            continue;
-                        } else {
-                            seen_update_events.put(slot_pubkey, ());
-                        };
-
-                        pipe.xadd_maxlen(
-                            &config.accounts.stream,
-                            StreamMaxlen::Approx(config.accounts.stream_maxlen),
-                            "*",
-                            &[(&config.accounts.stream_data_key, account.encode_to_vec())],
-                        );
-
-                        pipe_accounts += 1;
-                    }
-                    UpdateOneof::Transaction(transaction) => {
-                        let slot_signature = hex::encode(transaction.transaction.as_ref().map(|t| t.signature.clone()).unwrap_or_default()).to_string();
-
-                        if seen_update_events.get(&slot_signature).is_some() {
-                            continue;
-                        } else {
-                            seen_update_events.put(slot_signature, ());
-                        };
-
-                        pipe.xadd_maxlen(
-                            &config.transactions.stream,
-                            StreamMaxlen::Approx(config.transactions.stream_maxlen),
-                            "*",
-                            &[(&config.transactions.stream_data_key, transaction.encode_to_vec())]
-                        );
-
-                        pipe_transactions += 1;
-                    }
-                    _ => continue,
-                }
-                if pipe_accounts + pipe_transactions >= config.redis.pipeline_max_size {
-                    let mut pipe = std::mem::replace(&mut pipe, redis::pipe());
-                    let pipe_accounts = std::mem::replace(&mut pipe_accounts, 0);
-                    let pipe_transactions = std::mem::replace(&mut pipe_transactions, 0);
-                    deadline.as_mut().reset(Instant::now() + config.redis.pipeline_max_idle);
-
-                    tasks.spawn({
-                        let mut connection = connection.clone();
-                        let config = Arc::clone(&config);
-                        async move {
-                            let result: RedisResult<RedisValue> =
-                                pipe.atomic().query_async(&mut connection).await;
-
-                            let status = result.map(|_| ()).map_err(|_| ());
-                            redis_xadd_status_inc(&config.accounts.stream, status, pipe_accounts);
-                            redis_xadd_status_inc(&config.transactions.stream, status, pipe_transactions);
-
-                            Ok::<(), anyhow::Error>(())
-                        }
-                    });
-                }
-            },
-            _ = &mut deadline => {
-                if pipe_accounts + pipe_transactions > 0 {
-                    let mut pipe = std::mem::replace(&mut pipe, redis::pipe());
-                    let pipe_accounts = std::mem::replace(&mut pipe_accounts, 0);
-                    let pipe_transactions = std::mem::replace(&mut pipe_transactions, 0);
-                    deadline.as_mut().reset(Instant::now() + config.redis.pipeline_max_idle);
-
-                    tasks.spawn({
-                        let mut connection = connection.clone();
-                        let config = Arc::clone(&config);
-                        async move {
-                            let result: RedisResult<RedisValue> =
-                                pipe.atomic().query_async(&mut connection).await;
-
-                            let status = result.map(|_| ()).map_err(|_| ());
-                            redis_xadd_status_inc(&config.accounts.stream, status, pipe_accounts);
-                            redis_xadd_status_inc(&config.transactions.stream, status, pipe_transactions);
-
-                            Ok::<(), anyhow::Error>(())
-                        }
-                    });
-                }
-            },
-        };
-
-        while tasks.len() >= config.redis.max_xadd_in_process {
-            if let Some(result) = tasks.join_next().await {
-                result??;
-            }
-        }
-    };
-
-    tokio::select! {
-        Some(signal) = shutdown.next() => {
-            anyhow::bail!("{signal} received, force shutdown...");
-        }
-        result = async move {
-            while let Some(result) = tasks.join_next().await {
-                result??;
-            }
-            Ok::<(), anyhow::Error>(())
-        } => result?,
-    };
-
-    result
+    Ok(())
 }

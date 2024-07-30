@@ -8,10 +8,10 @@ use {
     redis::{
         aio::MultiplexedConnection,
         streams::{
-            StreamClaimReply, StreamId, StreamKey, StreamPendingCountReply, StreamReadOptions,
-            StreamReadReply,
+            StreamClaimReply, StreamId, StreamKey, StreamMaxlen, StreamPendingCountReply,
+            StreamReadOptions, StreamReadReply,
         },
-        AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
+        AsyncCommands, Cmd, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{
@@ -177,6 +177,7 @@ impl RedisStreamMessageInfo {
                         .map_err(to_anyhow)?,
                     })
                 }
+                ConfigIngesterRedisStreamType::MetadataJson => todo!(),
             },
             Some(_) => anyhow::bail!(
                 "invalid data (key: {:?}) from stream {:?}",
@@ -450,5 +451,52 @@ impl RedisStream {
         }
 
         result
+    }
+}
+
+pub struct TrackedPipeline {
+    pipeline: redis::Pipeline,
+    counts: HashMap<String, usize>,
+}
+
+impl Default for TrackedPipeline {
+    fn default() -> Self {
+        Self {
+            pipeline: redis::pipe(),
+            counts: HashMap::new(),
+        }
+    }
+}
+
+type TrackedStreamCounts = HashMap<String, usize>;
+
+impl TrackedPipeline {
+    pub fn xadd_maxlen<F, V>(
+        &mut self,
+        key: &str,
+        maxlen: StreamMaxlen,
+        id: F,
+        fields: &[(&str, V)],
+    ) where
+        F: redis::ToRedisArgs,
+        V: redis::ToRedisArgs,
+    {
+        self.pipeline.xadd_maxlen(key, maxlen, id, fields);
+        *self.counts.entry(key.to_string()).or_insert(0) += 1;
+    }
+
+    pub async fn flush(
+        &mut self,
+        connection: &mut MultiplexedConnection,
+    ) -> Result<TrackedStreamCounts, TrackedStreamCounts> {
+        let result: RedisResult<RedisValue> = self.pipeline.atomic().query_async(connection).await;
+        let counts = self.counts.clone();
+        self.counts.clear();
+        self.pipeline.clear();
+
+        match result {
+            Ok(_) => Ok(counts),
+            Err(_) => Err(counts),
+        }
     }
 }

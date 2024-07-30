@@ -12,6 +12,7 @@ use {
 
 pub const REDIS_STREAM_ACCOUNTS: &str = "ACCOUNTS";
 pub const REDIS_STREAM_TRANSACTIONS: &str = "TRANSACTIONS";
+pub const REDIS_STREAM_METADETA_JSONS: &str = "METADETA_JSONS";
 pub const REDIS_STREAM_DATA_KEY: &str = "data";
 
 pub async fn load<T>(path: impl AsRef<Path> + Copy) -> anyhow::Result<T>
@@ -45,7 +46,7 @@ pub struct ConfigGrpc {
     pub accounts: ConfigGrpcAccounts,
     pub transactions: ConfigGrpcTransactions,
 
-    pub geyser_endpoints: Vec<String>,
+    pub geyser_endpoint: String,
 
     #[serde(
         default = "ConfigGrpc::default_geyser_update_message_buffer_size",
@@ -299,6 +300,9 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
             stream: raw.stream.unwrap_or_else(|| match raw.stream_type {
                 ConfigIngesterRedisStreamType::Account => REDIS_STREAM_ACCOUNTS.to_owned(),
                 ConfigIngesterRedisStreamType::Transaction => REDIS_STREAM_TRANSACTIONS.to_owned(),
+                ConfigIngesterRedisStreamType::MetadataJson => {
+                    REDIS_STREAM_METADETA_JSONS.to_owned()
+                }
             }),
             data_key: raw
                 .data_key
@@ -315,6 +319,7 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
 pub enum ConfigIngesterRedisStreamType {
     Account,
     Transaction,
+    MetadataJson,
 }
 
 #[derive(Debug, Deserialize)]
@@ -344,8 +349,6 @@ impl ConfigIngesterPostgres {
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigIngesterProgramTransformer {
-    #[serde(default = "ConfigIngesterProgramTransformer::default_transactions_cl_audits")]
-    pub transactions_cl_audits: bool,
     #[serde(
         default = "ConfigIngesterProgramTransformer::default_max_tasks_in_process",
         deserialize_with = "deserialize_usize_str"
@@ -354,10 +357,6 @@ pub struct ConfigIngesterProgramTransformer {
 }
 
 impl ConfigIngesterProgramTransformer {
-    pub const fn default_transactions_cl_audits() -> bool {
-        false
-    }
-
     pub const fn default_max_tasks_in_process() -> usize {
         40
     }
