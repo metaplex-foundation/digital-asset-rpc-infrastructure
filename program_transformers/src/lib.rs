@@ -15,11 +15,12 @@ use {
             ProgramParseResult,
         },
     },
-    futures::future::BoxFuture,
+    das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     sea_orm::{
         entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
         SqlxPostgresConnector, TransactionTrait,
     },
+    serde::{Deserialize, Serialize},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
@@ -51,33 +52,6 @@ pub struct TransactionInfo {
     pub message_instructions: Vec<CompiledInstruction>,
     pub meta_inner_instructions: Vec<InnerInstructions>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DownloadMetadataInfo {
-    asset_data_id: Vec<u8>,
-    uri: String,
-}
-
-impl DownloadMetadataInfo {
-    pub fn new(asset_data_id: Vec<u8>, uri: String) -> Self {
-        Self {
-            asset_data_id,
-            uri: uri.trim().replace('\0', ""),
-        }
-    }
-
-    pub fn into_inner(self) -> (Vec<u8>, String) {
-        (self.asset_data_id, self.uri)
-    }
-}
-
-pub type DownloadMetadataNotifier = Box<
-    dyn Fn(
-            DownloadMetadataInfo,
-        ) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
-        + Sync
-        + Send,
->;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,
