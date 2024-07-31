@@ -10,6 +10,7 @@ use {
         TransactionTrait,
     },
     serde_json::value::Value,
+    sqlx::types::Decimal,
 };
 
 pub struct AssetTokenAccountColumns {
@@ -54,7 +55,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
-    pub supply: u64,
+    pub supply: Decimal,
     pub supply_mint: Option<Vec<u8>>,
     pub slot_updated_mint_account: u64,
 }
@@ -65,7 +66,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
 ) -> Result<(), DbErr> {
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
-        supply: Set(columns.supply as i64),
+        supply: Set(columns.supply),
         supply_mint: Set(columns.supply_mint),
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
         ..Default::default()
