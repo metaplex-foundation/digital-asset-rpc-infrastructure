@@ -24,6 +24,7 @@ use {
     heck::ToSnakeCase,
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
+        prelude::*,
         query::{JsonValue, QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
         sea_query::Expr,
@@ -309,7 +310,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     )
     .await?;
 
-    let supply = 1;
+    let supply = Decimal::from(1);
 
     // Note: these need to be separate for Token Metadata but here could be one upsert.
     upsert_assets_mint_account_columns(

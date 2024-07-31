@@ -26,7 +26,7 @@ pub struct Model {
     pub owner_type: OwnerType,
     pub delegate: Option<Vec<u8>>,
     pub frozen: bool,
-    pub supply: i64,
+    pub supply: Decimal,
     pub supply_mint: Option<Vec<u8>>,
     pub compressed: bool,
     pub compressible: bool,

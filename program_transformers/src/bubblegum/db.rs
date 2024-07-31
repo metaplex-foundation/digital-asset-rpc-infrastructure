@@ -10,6 +10,7 @@ use {
     mpl_bubblegum::types::{Collection, Creator},
     sea_orm::{
         entity::{ActiveValue, EntityTrait},
+        prelude::*,
         query::{JsonValue, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
@@ -235,7 +236,7 @@ pub async fn upsert_asset_with_compression_info<T>(
     id: Vec<u8>,
     compressed: bool,
     compressible: bool,
-    supply: i64,
+    supply: u64,
     supply_mint: Option<Vec<u8>>,
 ) -> ProgramTransformerResult<()>
 where
@@ -245,7 +246,7 @@ where
         id: ActiveValue::Set(id),
         compressed: ActiveValue::Set(compressed),
         compressible: ActiveValue::Set(compressible),
-        supply: ActiveValue::Set(supply),
+        supply: ActiveValue::Set(Decimal::from(supply)),
         supply_mint: ActiveValue::Set(supply_mint),
         ..Default::default()
     };
