@@ -31,8 +31,8 @@ pub struct SolanaRpcArgs {
 pub struct Rpc(Arc<RpcClient>);
 
 impl Rpc {
-    pub fn from_config(config: SolanaRpcArgs) -> Self {
-        Rpc(Arc::new(RpcClient::new(config.solana_rpc_url)))
+    pub fn from_config(config: &SolanaRpcArgs) -> Self {
+        Rpc(Arc::new(RpcClient::new(config.solana_rpc_url.clone())))
     }
 
     pub async fn get_transaction(
