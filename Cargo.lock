@@ -3481,9 +3481,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-core"
-version = "0.7.1"
+version = "0.8.0-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cefa4362d05dec8fb97ebebf20fb2dc5224228c8c9550d9da8f2d1b657b49954"
+checksum = "1178d8a405352e2a2478abf5b62e2a4d6a91ed6f0470307ab6732614662dbf85"
 dependencies = [
  "base64 0.22.0",
  "borsh 0.10.3",
