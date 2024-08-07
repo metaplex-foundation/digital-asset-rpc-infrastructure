@@ -70,6 +70,14 @@ pub enum BatchMintValidationError {
     Serialization(String),
     #[error("Reqwest: {0}")]
     Reqwest(String),
+    #[error("WrongCollectionVerified: {0}")]
+    WrongCollectionVerified(String),
+    #[error("VerifiedCollectionMismatch: expected :{0}, got :{1}")]
+    VerifiedCollectionMismatch(String, String),
+    #[error("Failed creator's signature verification: {0}")]
+    FailedCreatorVerification(String),
+    #[error("Missing creator's signature in batch mint: {0}")]
+    MissingCreatorSignature(String),
 }
 
 impl From<std::io::Error> for BatchMintValidationError {

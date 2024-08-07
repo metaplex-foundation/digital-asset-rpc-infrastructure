@@ -1,11 +1,14 @@
 use crate::common::TestSetup;
+use bubblegum_batch_sdk::model::CollectionConfig;
 use borsh::BorshSerialize;
 use das_api::api::ApiContract;
 use das_api::api::GetAssetProof;
-use digital_asset_types::dao::sea_orm_active_enums::{RollupFailStatus, RollupPersistingState};
-use digital_asset_types::dao::{rollup, rollup_to_verify};
+use digital_asset_types::dao::sea_orm_active_enums::{BatchMintFailStatus, BatchMintPersistingState};
+use digital_asset_types::dao::{batch_mint, batch_mint_to_verify};
 use flatbuffers::FlatBufferBuilder;
-use mpl_bubblegum::types::LeafSchema;
+use mpl_bubblegum::types::Collection;
+use mpl_bubblegum::types::Creator;
+use mpl_bubblegum::types::{LeafSchema, MetadataArgs};
 use nft_ingester::batch_mint_updates::create_batch_mint_notification_channel;
 use nft_ingester::plerkle::PlerkleTransactionInfo;
 use plerkle_serialization::root_as_transaction_info;
@@ -26,12 +29,27 @@ use solana_sdk::signature::Signature;
 use solana_sdk::transaction::{SanitizedTransaction, Transaction};
 use solana_transaction_status::{InnerInstruction, InnerInstructions, TransactionStatusMeta};
 use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
+use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
 use tokio::task::JoinSet;
+use cadence::{StatsdClient, NopMetricSink};
+use cadence_macros::set_global_default;
+use bubblegum_batch_sdk::batch_mint_client::BatchMintClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::signature::Keypair;
+use solana_sdk::signer::Signer;
+use std::sync::Arc;
+use std::time::Duration;
 
 #[tokio::test]
 async fn save_batch_mint_to_queue_test() {
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
     let setup = TestSetup::new("save_batch_mint_to_queue_test".to_string()).await;
     let metadata_url = "url".to_string();
     let metadata_hash = "hash".to_string();
@@ -39,7 +57,7 @@ async fn save_batch_mint_to_queue_test() {
     // arbitrary data
     let batch_mint_instruction_data =
         mpl_bubblegum::instructions::FinalizeTreeWithRootInstructionArgs {
-            rightmost_root: [1; 32],
+            root: [1; 32],
             rightmost_leaf: [1; 32],
             rightmost_index: 99,
             metadata_url: metadata_url.clone(),
@@ -112,8 +130,8 @@ async fn save_batch_mint_to_queue_test() {
         .await
         .unwrap();
 
-    let r = rollup_to_verify::Entity::find()
-        .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+    let r = batch_mint_to_verify::Entity::find()
+        .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
         .one(setup.db.as_ref())
         .await
         .unwrap()
@@ -166,8 +184,14 @@ fn generate_merkle_tree_from_batch_mint(batch_mint: &BatchMint) -> ConcurrentMer
 
 #[tokio::test]
 async fn batch_mint_persister_test() {
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
     let setup = TestSetup::new("batch_mint_persister_test".to_string()).await;
-    let test_batch_mint = generate_batch_mint(10);
+    let test_batch_mint = generate_batch_mint(10, false);
     let tmp_dir = tempfile::TempDir::new().unwrap();
 
     let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
@@ -175,27 +199,28 @@ async fn batch_mint_persister_test() {
 
     let metadata_url = "url".to_string();
     let metadata_hash = "hash".to_string();
-    let batch_mint_to_verify = rollup_to_verify::ActiveModel {
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
         file_hash: Set(metadata_hash.clone()),
         url: Set(metadata_url.clone()),
         created_at_slot: Set(10),
         signature: Set(Signature::new_unique().to_string()),
         staker: Set(Pubkey::default().to_bytes().to_vec()),
         download_attempts: Set(0),
-        rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
-        rollup_fail_status: Set(None),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(None),
     }
     .into_active_model();
 
-    let query = rollup_to_verify::Entity::insert(batch_mint_to_verify)
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
         .on_conflict(
-            OnConflict::columns([rollup_to_verify::Column::FileHash])
-                .update_columns([rollup_to_verify::Column::Url])
-                .update_columns([rollup_to_verify::Column::Signature])
-                .update_columns([rollup_to_verify::Column::DownloadAttempts])
-                .update_columns([rollup_to_verify::Column::RollupFailStatus])
-                .update_columns([rollup_to_verify::Column::RollupPersistingState])
-                .update_columns([rollup_to_verify::Column::CreatedAtSlot])
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -264,19 +289,19 @@ async fn batch_mint_persister_test() {
     );
 
     assert_eq!(
-        rollup_to_verify::Entity::find()
-            .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
             .one(setup.db.as_ref())
             .await
             .unwrap()
             .unwrap()
-            .rollup_persisting_state,
-        RollupPersistingState::StoredUpdate
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::StoredUpdate
     );
 
     assert_eq!(
-        rollup::Entity::find()
-            .filter(rollup::Column::FileHash.eq(metadata_hash.clone()))
+        batch_mint::Entity::find()
+            .filter(batch_mint::Column::FileHash.eq(metadata_hash.clone()))
             .one(setup.db.as_ref())
             .await
             .unwrap()
@@ -287,8 +312,14 @@ async fn batch_mint_persister_test() {
 
 #[tokio::test]
 async fn batch_mint_persister_download_fail_test() {
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
     let setup = TestSetup::new("batch_mint_persister_download_fail_test".to_string()).await;
-    let test_batch_mint = generate_batch_mint(10);
+    let test_batch_mint = generate_batch_mint(10, false);
     let tmp_dir = tempfile::TempDir::new().unwrap();
     let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
     serde_json::to_writer(tmp_file, &test_batch_mint).unwrap();
@@ -296,27 +327,28 @@ async fn batch_mint_persister_download_fail_test() {
     let download_attempts = 0;
     let metadata_url = "url".to_string();
     let metadata_hash = "hash".to_string();
-    let batch_mint_to_verify = rollup_to_verify::ActiveModel {
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
         file_hash: Set(metadata_hash.clone()),
         url: Set(metadata_url.clone()),
         created_at_slot: Set(10),
         signature: Set(Signature::new_unique().to_string()),
         staker: Set(Pubkey::default().to_bytes().to_vec()),
         download_attempts: Set(download_attempts),
-        rollup_persisting_state: Set(RollupPersistingState::ReceivedTransaction),
-        rollup_fail_status: Set(None),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(None),
     }
     .into_active_model();
 
-    let query = rollup_to_verify::Entity::insert(batch_mint_to_verify)
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
         .on_conflict(
-            OnConflict::columns([rollup_to_verify::Column::FileHash])
-                .update_columns([rollup_to_verify::Column::Url])
-                .update_columns([rollup_to_verify::Column::Signature])
-                .update_columns([rollup_to_verify::Column::DownloadAttempts])
-                .update_columns([rollup_to_verify::Column::RollupFailStatus])
-                .update_columns([rollup_to_verify::Column::RollupPersistingState])
-                .update_columns([rollup_to_verify::Column::CreatedAtSlot])
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -345,23 +377,680 @@ async fn batch_mint_persister_download_fail_test() {
         .await;
 
     assert_eq!(
-        rollup_to_verify::Entity::find()
-            .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
             .one(setup.db.as_ref())
             .await
             .unwrap()
             .unwrap()
-            .rollup_persisting_state,
-        RollupPersistingState::FailedToPersist
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::FailedToPersist
     );
     assert_eq!(
-        rollup_to_verify::Entity::find()
-            .filter(rollup_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
             .one(setup.db.as_ref())
             .await
             .unwrap()
             .unwrap()
-            .rollup_fail_status,
-        Some(RollupFailStatus::DownloadFailed)
+            .batch_mint_fail_status,
+        Some(BatchMintFailStatus::DownloadFailed)
+    );
+}
+
+#[tokio::test]
+async fn batch_mint_with_verified_creators_test() {
+    // For this test it's necessary to use Solana mainnet RPC
+    let url = "https://api.mainnet-beta.solana.com".to_string();
+    let solana_client = Arc::new(RpcClient::new_with_timeout(url, Duration::from_secs(3)));
+    // Merkle tree created in mainnet for testing purposes
+    let tree_key = Pubkey::from_str("AGMiLKtXX7PiVneM8S1KkTmCnF7X5zh6bKq4t1Mhrwpb").unwrap();
+
+    // First we have to create offchain Merkle tree with SDK
+
+    let batch_mint_client = BatchMintClient::new(solana_client);
+    let mut batch_mint_builder = batch_mint_client
+        .create_batch_mint_builder(&tree_key)
+        .await
+        .unwrap();
+
+    let asset_creator = Keypair::new();
+    let owner = Keypair::new();
+    let delegate = Keypair::new();
+
+    let asset = MetadataArgs {
+        name: "Name".to_string(),
+        symbol: "Symbol".to_string(),
+        uri: "https://immutable-storage/asset/".to_string(),
+        seller_fee_basis_points: 0,
+        primary_sale_happened: false,
+        is_mutable: false,
+        edition_nonce: None,
+        token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
+        collection: None,
+        uses: None,
+        token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
+        creators: vec![Creator {
+            address: asset_creator.pubkey(),
+            verified: true,
+            share: 100,
+        }],
+    };
+
+    let metadata_hash_arg = batch_mint_builder
+        .add_asset(&owner.pubkey(), &delegate.pubkey(), &asset)
+        .unwrap();
+
+    let signature = asset_creator.sign_message(&metadata_hash_arg.get_message());
+
+    let mut creators_signatures = HashMap::new();
+    creators_signatures.insert(asset_creator.pubkey(), signature);
+
+    let mut message_and_signatures = HashMap::new();
+    message_and_signatures.insert(metadata_hash_arg.get_nonce(), creators_signatures);
+
+    batch_mint_builder
+        .add_signatures_for_verified_creators(message_and_signatures)
+        .unwrap();
+
+    let finalized_batch_mint = batch_mint_builder.build_batch_mint().unwrap();
+
+    // Offchain Merkle tree creation is finished
+    // Start to process it
+
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
+    let setup = TestSetup::new("batch_mint_with_verified_creators_test".to_string()).await;
+
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let tmp_file = File::create(tmp_dir.path().join("batch-mint.json")).unwrap();
+    serde_json::to_writer(tmp_file, &finalized_batch_mint).unwrap();
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
+        download_attempts: Set(download_attempts),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(None),
+    }
+    .into_active_model();
+
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
+        .on_conflict(
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockBatchMintDownloader::new();
+    mocked_downloader
+        .expect_download_batch_mint_and_check_checksum()
+        .returning(move |_, _| {
+            let json_file =
+                std::fs::read_to_string(tmp_dir.path().join("batch-mint.json")).unwrap();
+            Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
+        });
+
+    let mut tasks = JoinSet::new();
+    let r = create_batch_mint_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let batch_mint_persister = BatchMintPersister::new(setup.db.clone(), r, mocked_downloader);
+    let (batch_mint_to_verify, _) = batch_mint_persister
+        .get_batch_mint_to_verify()
+        .await
+        .unwrap();
+    batch_mint_persister
+        .persist_batch_mint(batch_mint_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::StoredUpdate
+    );
+
+    assert_eq!(
+        batch_mint::Entity::find()
+            .filter(batch_mint::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .is_some(),
+        true
+    );
+}
+
+#[tokio::test]
+async fn batch_mint_with_unverified_creators_test() {
+    let setup = TestSetup::new("batch_mint_with_unverified_creators_test".to_string()).await;
+    // generate batch mint with creators verified value set to true
+    // but signatures will not be attached
+    // batch should not be saved
+    let test_batch_mint = generate_batch_mint(10, true);
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+
+    let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
+    serde_json::to_writer(tmp_file, &test_batch_mint).unwrap();
+
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
+        download_attempts: Set(download_attempts),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(None),
+    }
+    .into_active_model();
+
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
+        .on_conflict(
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockBatchMintDownloader::new();
+    mocked_downloader
+        .expect_download_batch_mint_and_check_checksum()
+        .returning(move |_, _| {
+            let json_file =
+                std::fs::read_to_string(tmp_dir.path().join("batch-mint-10.json")).unwrap();
+            Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
+        });
+
+    let mut tasks = JoinSet::new();
+    let r = create_batch_mint_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let batch_mint_persister = BatchMintPersister::new(setup.db.clone(), r, mocked_downloader);
+    let (batch_mint_to_verify, _) = batch_mint_persister
+        .get_batch_mint_to_verify()
+        .await
+        .unwrap();
+    batch_mint_persister
+        .persist_batch_mint(batch_mint_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::FailedToPersist
+    );
+}
+
+#[tokio::test]
+async fn batch_mint_with_verified_collection_test() {
+    // For this test it's necessary to use Solana mainnet RPC
+    let url = "https://api.mainnet-beta.solana.com".to_string();
+    let solana_client = Arc::new(RpcClient::new_with_timeout(url, Duration::from_secs(3)));
+    // Merkle tree created in mainnet for testing purposes
+    let tree_key = Pubkey::from_str("AGMiLKtXX7PiVneM8S1KkTmCnF7X5zh6bKq4t1Mhrwpb").unwrap();
+
+    // First we have to create offchain Merkle tree with SDK
+
+    let batch_mint_client = BatchMintClient::new(solana_client);
+    let mut batch_mint_builder = batch_mint_client
+        .create_batch_mint_builder(&tree_key)
+        .await
+        .unwrap();
+
+    let asset_creator = Keypair::new();
+    let owner = Keypair::new();
+    let delegate = Keypair::new();
+    let collection_key = Pubkey::new_unique();
+
+    let collection_config = CollectionConfig {
+        collection_authority: Keypair::from_bytes(asset_creator.to_bytes().as_ref()).unwrap(),
+        collection_authority_record_pda: None,
+        collection_mint: collection_key,
+        collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+    };
+    batch_mint_builder.setup_collection_config(collection_config);
+
+    let asset = MetadataArgs {
+        name: "Name".to_string(),
+        symbol: "Symbol".to_string(),
+        uri: "https://immutable-storage/asset/".to_string(),
+        seller_fee_basis_points: 0,
+        primary_sale_happened: false,
+        is_mutable: false,
+        edition_nonce: None,
+        token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
+        collection: Some(
+            Collection {
+                verified: true,
+                key: collection_key,
+            }
+        ),
+        uses: None,
+        token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
+        creators: vec![Creator {
+            address: asset_creator.pubkey(),
+            verified: false,
+            share: 100,
+        }],
+    };
+
+    let _ = batch_mint_builder
+        .add_asset(&owner.pubkey(), &delegate.pubkey(), &asset)
+        .unwrap();
+
+    let finalized_batch_mint = batch_mint_builder.build_batch_mint().unwrap();
+
+    // Offchain Merkle tree creation is finished
+    // Start to process it
+
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
+    let setup = TestSetup::new("batch_mint_with_verified_collection_test".to_string()).await;
+
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let tmp_file = File::create(tmp_dir.path().join("batch-mint.json")).unwrap();
+    serde_json::to_writer(tmp_file, &finalized_batch_mint).unwrap();
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
+        download_attempts: Set(download_attempts),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(Some(collection_key.to_bytes().to_vec())),
+    }
+    .into_active_model();
+
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
+        .on_conflict(
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockBatchMintDownloader::new();
+    mocked_downloader
+        .expect_download_batch_mint_and_check_checksum()
+        .returning(move |_, _| {
+            let json_file =
+                std::fs::read_to_string(tmp_dir.path().join("batch-mint.json")).unwrap();
+            Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
+        });
+
+    let mut tasks = JoinSet::new();
+    let r = create_batch_mint_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let batch_mint_persister = BatchMintPersister::new(setup.db.clone(), r, mocked_downloader);
+    let (batch_mint_to_verify, _) = batch_mint_persister
+        .get_batch_mint_to_verify()
+        .await
+        .unwrap();
+    batch_mint_persister
+        .persist_batch_mint(batch_mint_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::StoredUpdate
+    );
+
+    assert_eq!(
+        batch_mint::Entity::find()
+            .filter(batch_mint::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .is_some(),
+        true
+    );
+}
+
+#[tokio::test]
+async fn batch_mint_with_wrong_collection_test() {
+    // For this test it's necessary to use Solana mainnet RPC
+    let url = "https://api.mainnet-beta.solana.com".to_string();
+    let solana_client = Arc::new(RpcClient::new_with_timeout(url, Duration::from_secs(3)));
+    // Merkle tree created in mainnet for testing purposes
+    let tree_key = Pubkey::from_str("AGMiLKtXX7PiVneM8S1KkTmCnF7X5zh6bKq4t1Mhrwpb").unwrap();
+
+    // First we have to create offchain Merkle tree with SDK
+
+    let batch_mint_client = BatchMintClient::new(solana_client);
+    let mut batch_mint_builder = batch_mint_client
+        .create_batch_mint_builder(&tree_key)
+        .await
+        .unwrap();
+
+    let asset_creator = Keypair::new();
+    let owner = Keypair::new();
+    let delegate = Keypair::new();
+    let collection_key = Pubkey::new_unique();
+
+    let wrong_collection_key = Pubkey::new_unique();
+
+    let collection_config = CollectionConfig {
+        collection_authority: Keypair::from_bytes(asset_creator.to_bytes().as_ref()).unwrap(),
+        collection_authority_record_pda: None,
+        collection_mint: collection_key,
+        collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+    };
+    batch_mint_builder.setup_collection_config(collection_config);
+
+    let asset = MetadataArgs {
+        name: "Name".to_string(),
+        symbol: "Symbol".to_string(),
+        uri: "https://immutable-storage/asset/".to_string(),
+        seller_fee_basis_points: 0,
+        primary_sale_happened: false,
+        is_mutable: false,
+        edition_nonce: None,
+        token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
+        collection: Some(
+            Collection {
+                verified: true,
+                key: collection_key,
+            }
+        ),
+        uses: None,
+        token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
+        creators: vec![Creator {
+            address: asset_creator.pubkey(),
+            verified: false,
+            share: 100,
+        }],
+    };
+
+    let _ = batch_mint_builder
+        .add_asset(&owner.pubkey(), &delegate.pubkey(), &asset)
+        .unwrap();
+
+    let finalized_batch_mint = batch_mint_builder.build_batch_mint().unwrap();
+
+    // Offchain Merkle tree creation is finished
+    // Start to process it
+
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
+    let setup = TestSetup::new("batch_mint_with_verified_collection_test".to_string()).await;
+
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let tmp_file = File::create(tmp_dir.path().join("batch-mint.json")).unwrap();
+    serde_json::to_writer(tmp_file, &finalized_batch_mint).unwrap();
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
+        download_attempts: Set(download_attempts),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(Some(wrong_collection_key.to_bytes().to_vec())),
+    }
+    .into_active_model();
+
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
+        .on_conflict(
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockBatchMintDownloader::new();
+    mocked_downloader
+        .expect_download_batch_mint_and_check_checksum()
+        .returning(move |_, _| {
+            let json_file =
+                std::fs::read_to_string(tmp_dir.path().join("batch-mint.json")).unwrap();
+            Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
+        });
+
+    let mut tasks = JoinSet::new();
+    let r = create_batch_mint_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let batch_mint_persister = BatchMintPersister::new(setup.db.clone(), r, mocked_downloader);
+    let (batch_mint_to_verify, _) = batch_mint_persister
+        .get_batch_mint_to_verify()
+        .await
+        .unwrap();
+    batch_mint_persister
+        .persist_batch_mint(batch_mint_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::FailedToPersist
+    );
+}
+
+#[tokio::test]
+async fn batch_mint_with_unverified_collection_test() {
+    // For this test it's necessary to use Solana mainnet RPC
+    let url = "https://api.mainnet-beta.solana.com".to_string();
+    let solana_client = Arc::new(RpcClient::new_with_timeout(url, Duration::from_secs(3)));
+    // Merkle tree created in mainnet for testing purposes
+    let tree_key = Pubkey::from_str("AGMiLKtXX7PiVneM8S1KkTmCnF7X5zh6bKq4t1Mhrwpb").unwrap();
+
+    // First we have to create offchain Merkle tree with SDK
+
+    let batch_mint_client = BatchMintClient::new(solana_client);
+    let mut batch_mint_builder = batch_mint_client
+        .create_batch_mint_builder(&tree_key)
+        .await
+        .unwrap();
+
+    let asset_creator = Keypair::new();
+    let owner = Keypair::new();
+    let delegate = Keypair::new();
+    let collection_key = Pubkey::new_unique();
+
+    let collection_config = CollectionConfig {
+        collection_authority: Keypair::from_bytes(asset_creator.to_bytes().as_ref()).unwrap(),
+        collection_authority_record_pda: None,
+        collection_mint: collection_key,
+        collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+    };
+    batch_mint_builder.setup_collection_config(collection_config);
+
+    let asset = MetadataArgs {
+        name: "Name".to_string(),
+        symbol: "Symbol".to_string(),
+        uri: "https://immutable-storage/asset/".to_string(),
+        seller_fee_basis_points: 0,
+        primary_sale_happened: false,
+        is_mutable: false,
+        edition_nonce: None,
+        token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
+        collection: Some(
+            Collection {
+                verified: true,
+                key: collection_key,
+            }
+        ),
+        uses: None,
+        token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
+        creators: vec![Creator {
+            address: asset_creator.pubkey(),
+            verified: false,
+            share: 100,
+        }],
+    };
+
+    let _ = batch_mint_builder
+        .add_asset(&owner.pubkey(), &delegate.pubkey(), &asset)
+        .unwrap();
+
+    let finalized_batch_mint = batch_mint_builder.build_batch_mint().unwrap();
+
+    // Offchain Merkle tree creation is finished
+    // Start to process it
+
+    let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
+        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .build();
+
+    set_global_default(client);
+
+    let setup = TestSetup::new("batch_mint_with_verified_collection_test".to_string()).await;
+
+    let tmp_dir = tempfile::TempDir::new().unwrap();
+    let tmp_file = File::create(tmp_dir.path().join("batch-mint.json")).unwrap();
+    serde_json::to_writer(tmp_file, &finalized_batch_mint).unwrap();
+
+    let download_attempts = 0;
+    let metadata_url = "url".to_string();
+    let metadata_hash = "hash".to_string();
+    let batch_mint_to_verify = batch_mint_to_verify::ActiveModel {
+        file_hash: Set(metadata_hash.clone()),
+        url: Set(metadata_url.clone()),
+        created_at_slot: Set(10),
+        signature: Set(Signature::new_unique().to_string()),
+        staker: Set(Pubkey::default().to_bytes().to_vec()),
+        download_attempts: Set(download_attempts),
+        batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
+        batch_mint_fail_status: Set(None),
+        collection: Set(None),
+    }
+    .into_active_model();
+
+    let query = batch_mint_to_verify::Entity::insert(batch_mint_to_verify)
+        .on_conflict(
+            OnConflict::columns([batch_mint_to_verify::Column::FileHash])
+                .update_columns([batch_mint_to_verify::Column::Url])
+                .update_columns([batch_mint_to_verify::Column::Signature])
+                .update_columns([batch_mint_to_verify::Column::DownloadAttempts])
+                .update_columns([batch_mint_to_verify::Column::BatchMintFailStatus])
+                .update_columns([batch_mint_to_verify::Column::BatchMintPersistingState])
+                .update_columns([batch_mint_to_verify::Column::CreatedAtSlot])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    setup.db.execute(query).await.unwrap();
+
+    let mut mocked_downloader = MockBatchMintDownloader::new();
+    mocked_downloader
+        .expect_download_batch_mint_and_check_checksum()
+        .returning(move |_, _| {
+            let json_file =
+                std::fs::read_to_string(tmp_dir.path().join("batch-mint.json")).unwrap();
+            Ok(Box::new(serde_json::from_str(&json_file).unwrap()))
+        });
+
+    let mut tasks = JoinSet::new();
+    let r = create_batch_mint_notification_channel(&setup.database_test_url, &mut tasks)
+        .await
+        .unwrap();
+    let batch_mint_persister = BatchMintPersister::new(setup.db.clone(), r, mocked_downloader);
+    let (batch_mint_to_verify, _) = batch_mint_persister
+        .get_batch_mint_to_verify()
+        .await
+        .unwrap();
+    batch_mint_persister
+        .persist_batch_mint(batch_mint_to_verify.unwrap(), None)
+        .await;
+
+    assert_eq!(
+        batch_mint_to_verify::Entity::find()
+            .filter(batch_mint_to_verify::Column::FileHash.eq(metadata_hash.clone()))
+            .one(setup.db.as_ref())
+            .await
+            .unwrap()
+            .unwrap()
+            .batch_mint_persisting_state,
+            BatchMintPersistingState::FailedToPersist
     );
 }

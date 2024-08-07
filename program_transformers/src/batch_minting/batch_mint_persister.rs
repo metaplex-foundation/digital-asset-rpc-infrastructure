@@ -1,5 +1,7 @@
 use anchor_lang::AnchorSerialize;
 use async_channel::Receiver;
+use bubblegum_batch_sdk::batch_mint_builder::{verify_signature, MetadataArgsHash};
+use solana_sdk::signature::Signature;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -26,6 +28,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use serde_with::DisplayFromStr;
 use solana_sdk::keccak;
 use solana_sdk::keccak::Hash;
 use solana_sdk::pubkey::Pubkey;
@@ -55,6 +58,8 @@ pub struct BatchedMintInstruction {
     pub mint_args: MetadataArgs,
     #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
     pub authority: Pubkey,
+    #[serde(with = "serde_with::As::<Option<HashMap<DisplayFromStr, DisplayFromStr>>>")]
+    pub creator_signature: Option<HashMap<Pubkey, Signature>>, // signatures of the asset with the creator pubkey to ensure verified creator
 }
 
 #[derive(Default, Clone)]
@@ -339,6 +344,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                 download_attempts: Set(r.download_attempts),
                 batch_mint_persisting_state: Set(BatchMintPersistingState::StartProcessing),
                 batch_mint_fail_status: Set(r.batch_mint_fail_status.clone()),
+                collection: Set(r.collection.clone()),
             })
             .filter(batch_mint_to_verify::Column::FileHash.eq(r.file_hash.clone()))
             .exec(&multi_txn)
@@ -440,6 +446,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                         batch_mint_fail_status: Set(batch_mint_to_verify
                             .batch_mint_fail_status
                             .clone()),
+                        collection: Set(batch_mint_to_verify.collection.clone()),
                     }
                     .insert(self.txn.as_ref()))
                     .await
@@ -458,7 +465,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
         batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &BatchMint,
     ) {
-        if let Err(e) = validate_batch_mint(batch_mint).await {
+        if let Err(e) = validate_batch_mint(batch_mint, batch_mint_to_verify.collection.clone()).await {
             error!("Error while validating batch mint: {}", e.to_string());
 
             statsd_count!("batch_mint.validating_fail", 1);
@@ -518,6 +525,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             download_attempts: Set(batch_mint.download_attempts),
             batch_mint_persisting_state: Set(batch_mint.batch_mint_persisting_state.clone()),
             batch_mint_fail_status: Set(Some(status)),
+            collection: Set(batch_mint.collection.clone()),
         })
         .filter(batch_mint_to_verify::Column::FileHash.eq(batch_mint.file_hash.clone()))
         .exec(self.txn.as_ref())
@@ -545,9 +553,35 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
     }
 }
 
-pub async fn validate_batch_mint(batch_mint: &BatchMint) -> Result<(), BatchMintValidationError> {
+pub async fn validate_batch_mint(batch_mint: &BatchMint, collection_mint: Option<Vec<u8>>) -> Result<(), BatchMintValidationError> {
     let mut leaf_hashes = Vec::new();
     for asset in batch_mint.batch_mints.iter() {
+        verify_creators_signatures(
+            &batch_mint.tree_id,
+            asset,
+            asset.creator_signature.clone().unwrap_or_default(),
+        )?;
+
+        if let Some(ref collection) = asset.mint_args.collection {
+            match &collection_mint {
+                None => {
+                    if collection.verified {
+                        return Err(BatchMintValidationError::WrongCollectionVerified(
+                            collection.key.to_string(),
+                        ));
+                    }
+                }
+                Some(collection_mint) => {
+                    if collection.verified && collection_mint != collection.key.to_bytes().as_ref() {
+                        return Err(BatchMintValidationError::VerifiedCollectionMismatch(
+                            bs58::encode(collection_mint.clone()).into_string(),
+                            collection.key.to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+
         let leaf_hash = match get_leaf_hash(asset, &batch_mint.tree_id) {
             Ok(leaf_hash) => leaf_hash,
             Err(e) => {
@@ -563,6 +597,34 @@ pub async fn validate_batch_mint(batch_mint: &BatchMint) -> Result<(), BatchMint
         &leaf_hashes,
         batch_mint,
     )
+}
+
+// TODO: move this func to SDK once this crate will import data types from SDK
+fn verify_creators_signatures(
+    tree_key: &Pubkey,
+    rolled_mint: &BatchedMintInstruction,
+    creator_signatures: HashMap<Pubkey, Signature>,
+) -> Result<(), BatchMintValidationError> {
+    let metadata_hash =
+        MetadataArgsHash::new(&rolled_mint.leaf_update, tree_key, &rolled_mint.mint_args);
+
+    for creator in &rolled_mint.mint_args.creators {
+        if creator.verified {
+            if let Some(signature) = creator_signatures.get(&creator.address) {
+                if !verify_signature(&creator.address, &metadata_hash.get_message(), signature) {
+                    return Err(BatchMintValidationError::FailedCreatorVerification(
+                        creator.address.to_string(),
+                    ));
+                }
+            } else {
+                return Err(BatchMintValidationError::MissingCreatorSignature(
+                    creator.address.to_string(),
+                ));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn get_leaf_hash(
@@ -639,7 +701,7 @@ where
                 slot,
             },
             txn,
-            "CreateTreeWithRoot",
+            "FinalizeTreeWithRoot",
             false,
         )
         .await?;
