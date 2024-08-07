@@ -114,7 +114,8 @@ where
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
-        InstructionName::FinalizeTreeWithRoot | InstructionName::FinalizeTreeWithRootAndCollection => {
+        InstructionName::FinalizeTreeWithRoot
+        | InstructionName::FinalizeTreeWithRootAndCollection => {
             finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn).await?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),

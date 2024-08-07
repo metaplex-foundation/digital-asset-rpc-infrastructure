@@ -465,7 +465,9 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
         batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &BatchMint,
     ) {
-        if let Err(e) = validate_batch_mint(batch_mint, batch_mint_to_verify.collection.clone()).await {
+        if let Err(e) =
+            validate_batch_mint(batch_mint, batch_mint_to_verify.collection.clone()).await
+        {
             error!("Error while validating batch mint: {}", e.to_string());
 
             statsd_count!("batch_mint.validating_fail", 1);
@@ -553,7 +555,10 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
     }
 }
 
-pub async fn validate_batch_mint(batch_mint: &BatchMint, collection_mint: Option<Vec<u8>>) -> Result<(), BatchMintValidationError> {
+pub async fn validate_batch_mint(
+    batch_mint: &BatchMint,
+    collection_mint: Option<Vec<u8>>,
+) -> Result<(), BatchMintValidationError> {
     let mut leaf_hashes = Vec::new();
     for asset in batch_mint.batch_mints.iter() {
         verify_creators_signatures(
@@ -572,7 +577,8 @@ pub async fn validate_batch_mint(batch_mint: &BatchMint, collection_mint: Option
                     }
                 }
                 Some(collection_mint) => {
-                    if collection.verified && collection_mint != collection.key.to_bytes().as_ref() {
+                    if collection.verified && collection_mint != collection.key.to_bytes().as_ref()
+                    {
                         return Err(BatchMintValidationError::VerifiedCollectionMismatch(
                             bs58::encode(collection_mint.clone()).into_string(),
                             collection.key.to_string(),

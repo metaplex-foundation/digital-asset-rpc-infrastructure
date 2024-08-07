@@ -1,9 +1,14 @@
 use crate::common::TestSetup;
-use bubblegum_batch_sdk::model::CollectionConfig;
 use borsh::BorshSerialize;
+use bubblegum_batch_sdk::batch_mint_client::BatchMintClient;
+use bubblegum_batch_sdk::model::CollectionConfig;
+use cadence::{NopMetricSink, StatsdClient};
+use cadence_macros::set_global_default;
 use das_api::api::ApiContract;
 use das_api::api::GetAssetProof;
-use digital_asset_types::dao::sea_orm_active_enums::{BatchMintFailStatus, BatchMintPersistingState};
+use digital_asset_types::dao::sea_orm_active_enums::{
+    BatchMintFailStatus, BatchMintPersistingState,
+};
 use digital_asset_types::dao::{batch_mint, batch_mint_to_verify};
 use flatbuffers::FlatBufferBuilder;
 use mpl_bubblegum::types::Collection;
@@ -21,31 +26,28 @@ use program_transformers::error::BatchMintValidationError;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbBackend, IntoActiveModel, QueryTrait, Set};
 use sea_orm::{EntityTrait, QueryFilter};
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::instruction::CompiledInstruction;
 use solana_sdk::keccak;
 use solana_sdk::message::{Message, MessageHeader};
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signature::Signature;
+use solana_sdk::signer::Signer;
 use solana_sdk::transaction::{SanitizedTransaction, Transaction};
 use solana_transaction_status::{InnerInstruction, InnerInstructions, TransactionStatusMeta};
 use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
 use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
-use tokio::task::JoinSet;
-use cadence::{StatsdClient, NopMetricSink};
-use cadence_macros::set_global_default;
-use bubblegum_batch_sdk::batch_mint_client::BatchMintClient;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::signature::Keypair;
-use solana_sdk::signer::Signer;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::task::JoinSet;
 
 #[tokio::test]
 async fn save_batch_mint_to_queue_test() {
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -185,7 +187,7 @@ fn generate_merkle_tree_from_batch_mint(batch_mint: &BatchMint) -> ConcurrentMer
 #[tokio::test]
 async fn batch_mint_persister_test() {
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -296,7 +298,7 @@ async fn batch_mint_persister_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::StoredUpdate
+        BatchMintPersistingState::StoredUpdate
     );
 
     assert_eq!(
@@ -313,7 +315,7 @@ async fn batch_mint_persister_test() {
 #[tokio::test]
 async fn batch_mint_persister_download_fail_test() {
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -384,7 +386,7 @@ async fn batch_mint_persister_download_fail_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::FailedToPersist
+        BatchMintPersistingState::FailedToPersist
     );
     assert_eq!(
         batch_mint_to_verify::Entity::find()
@@ -459,7 +461,7 @@ async fn batch_mint_with_verified_creators_test() {
     // Start to process it
 
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -530,7 +532,7 @@ async fn batch_mint_with_verified_creators_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::StoredUpdate
+        BatchMintPersistingState::StoredUpdate
     );
 
     assert_eq!(
@@ -557,7 +559,7 @@ async fn batch_mint_with_unverified_creators_test() {
     serde_json::to_writer(tmp_file, &test_batch_mint).unwrap();
 
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -622,7 +624,7 @@ async fn batch_mint_with_unverified_creators_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::FailedToPersist
+        BatchMintPersistingState::FailedToPersist
     );
 }
 
@@ -652,7 +654,7 @@ async fn batch_mint_with_verified_collection_test() {
         collection_authority_record_pda: None,
         collection_mint: collection_key,
         collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
-        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(),     // doesn't matter in this case
     };
     batch_mint_builder.setup_collection_config(collection_config);
 
@@ -665,12 +667,10 @@ async fn batch_mint_with_verified_collection_test() {
         is_mutable: false,
         edition_nonce: None,
         token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
-        collection: Some(
-            Collection {
-                verified: true,
-                key: collection_key,
-            }
-        ),
+        collection: Some(Collection {
+            verified: true,
+            key: collection_key,
+        }),
         uses: None,
         token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
         creators: vec![Creator {
@@ -690,7 +690,7 @@ async fn batch_mint_with_verified_collection_test() {
     // Start to process it
 
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -761,7 +761,7 @@ async fn batch_mint_with_verified_collection_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::StoredUpdate
+        BatchMintPersistingState::StoredUpdate
     );
 
     assert_eq!(
@@ -803,7 +803,7 @@ async fn batch_mint_with_wrong_collection_test() {
         collection_authority_record_pda: None,
         collection_mint: collection_key,
         collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
-        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(),     // doesn't matter in this case
     };
     batch_mint_builder.setup_collection_config(collection_config);
 
@@ -816,12 +816,10 @@ async fn batch_mint_with_wrong_collection_test() {
         is_mutable: false,
         edition_nonce: None,
         token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
-        collection: Some(
-            Collection {
-                verified: true,
-                key: collection_key,
-            }
-        ),
+        collection: Some(Collection {
+            verified: true,
+            key: collection_key,
+        }),
         uses: None,
         token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
         creators: vec![Creator {
@@ -841,7 +839,7 @@ async fn batch_mint_with_wrong_collection_test() {
     // Start to process it
 
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -912,7 +910,7 @@ async fn batch_mint_with_wrong_collection_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::FailedToPersist
+        BatchMintPersistingState::FailedToPersist
     );
 }
 
@@ -942,7 +940,7 @@ async fn batch_mint_with_unverified_collection_test() {
         collection_authority_record_pda: None,
         collection_mint: collection_key,
         collection_metadata: Pubkey::new_unique(), // doesn't matter in this case
-        edition_account: Pubkey::new_unique(), // doesn't matter in this case
+        edition_account: Pubkey::new_unique(),     // doesn't matter in this case
     };
     batch_mint_builder.setup_collection_config(collection_config);
 
@@ -955,12 +953,10 @@ async fn batch_mint_with_unverified_collection_test() {
         is_mutable: false,
         edition_nonce: None,
         token_standard: Some(mpl_bubblegum::types::TokenStandard::NonFungible),
-        collection: Some(
-            Collection {
-                verified: true,
-                key: collection_key,
-            }
-        ),
+        collection: Some(Collection {
+            verified: true,
+            key: collection_key,
+        }),
         uses: None,
         token_program_version: mpl_bubblegum::types::TokenProgramVersion::Original,
         creators: vec![Creator {
@@ -980,7 +976,7 @@ async fn batch_mint_with_unverified_collection_test() {
     // Start to process it
 
     let client = StatsdClient::builder("batch_mint.test", NopMetricSink)
-        .with_error_handler(|e| { eprintln!("metric error: {}", e) })
+        .with_error_handler(|e| eprintln!("metric error: {}", e))
         .build();
 
     set_global_default(client);
@@ -1051,6 +1047,6 @@ async fn batch_mint_with_unverified_collection_test() {
             .unwrap()
             .unwrap()
             .batch_mint_persisting_state,
-            BatchMintPersistingState::FailedToPersist
+        BatchMintPersistingState::FailedToPersist
     );
 }

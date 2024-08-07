@@ -9,7 +9,9 @@ use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
     instructions::{
-        FinalizeTreeWithRootAndCollectionInstructionArgs, FinalizeTreeWithRootInstructionArgs, UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs, VerifyCreatorInstructionArgs
+        FinalizeTreeWithRootAndCollectionInstructionArgs, FinalizeTreeWithRootInstructionArgs,
+        UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs,
+        VerifyCreatorInstructionArgs,
     },
     types::{BubblegumEventType, MetadataArgs, UpdateArgs},
 };
