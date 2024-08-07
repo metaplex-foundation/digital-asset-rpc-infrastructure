@@ -37,3 +37,6 @@ mpl-bubblegum = { workspace = true }
 spl-concurrent-merkle-tree = { workspace = true }
 tempfile = { workspace = true }
 async-channel = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+bubblegum-batch-sdk = { workspace = true }
