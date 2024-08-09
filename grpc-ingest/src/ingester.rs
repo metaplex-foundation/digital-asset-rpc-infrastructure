@@ -7,7 +7,7 @@ use {
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
             program_transformer_tasks_total_set, ProgramTransformerTaskStatusKind,
         },
-        redis::{metrics_xlen, ProgramTransformerInfo, RedisStream},
+        redis::{metrics_xlen, ProgramTransformerInfo, RedisStream, RedisStreamMessageInfo},
         util::create_shutdown,
     },
     chrono::Utc,
@@ -18,6 +18,7 @@ use {
         future::{pending, BoxFuture, FusedFuture, FutureExt},
         stream::StreamExt,
     },
+    opentelemetry_sdk::trace::Config,
     program_transformers::{error::ProgramTransformerError, ProgramTransformer},
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue},
@@ -36,9 +37,125 @@ use {
         task::JoinSet,
         time::{sleep, Duration},
     },
-    tracing::warn,
+    topograph::{
+        executor::{Executor, Nonblock, Tokio},
+        prelude::*,
+    },
+    tracing::{error, warn},
 };
 
+enum IngestJob {
+    SaveMessage(RedisStreamMessageInfo),
+}
+
+pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
+    let client = redis::Client::open(config.redis.url.clone())?;
+    let connection = client.get_multiplexed_tokio_connection().await?;
+    let pool = pg_create_pool(config.postgres).await?;
+
+    let (mut redis_messages, redis_tasks_fut) = RedisStream::new(config.redis, connection).await?;
+    tokio::pin!(redis_tasks_fut);
+
+    let pt_accounts = Arc::new(ProgramTransformer::new(
+        pool.clone(),
+        create_download_metadata_notifier(pool.clone(), config.download_metadata)?,
+    ));
+    let pt_transactions = Arc::new(ProgramTransformer::new(
+        pool.clone(),
+        create_download_metadata_notifier(pool.clone(), config.download_metadata)?,
+    ));
+
+    let exec =
+        Executor::builder(Nonblock(Tokio))
+            .num_threads(None)
+            .build(move |update, _handle| {
+                let pt_accounts = Arc::clone(&pt_accounts);
+                let pt_transactions = Arc::clone(&pt_transactions);
+
+                async move {
+                    match update {
+                        IngestJob::SaveMessage(msg) => {
+                            let result = match &msg.get_data() {
+                                ProgramTransformerInfo::Account(account) => {
+                                    pt_accounts.handle_account_update(account).await
+                                }
+                                ProgramTransformerInfo::Transaction(transaction) => {
+                                    pt_transactions.handle_transaction(transaction).await
+                                }
+                            };
+                            match result {
+                                Ok(()) => program_transformer_task_status_inc(
+                                    ProgramTransformerTaskStatusKind::Success,
+                                ),
+                                Err(ProgramTransformerError::NotImplemented) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::NotImplemented,
+                                    );
+                                    error!("not implemented")
+                                }
+                                Err(ProgramTransformerError::DeserializationError(error)) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::DeserializationError,
+                                    );
+
+                                    error!("failed to deserialize {:?}", error)
+                                }
+                                Err(ProgramTransformerError::ParsingError(error)) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::ParsingError,
+                                    );
+
+                                    error!("failed to parse {:?}", error)
+                                }
+                                Err(ProgramTransformerError::DatabaseError(error)) => {
+                                    error!("database error for {:?}", error)
+                                }
+                                Err(ProgramTransformerError::AssetIndexError(error)) => {
+                                    error!("indexing error for {:?}", error)
+                                }
+                                Err(error) => {
+                                    error!("failed to handle {:?}", error)
+                                }
+                            }
+
+                            let _ = msg.ack();
+
+                            ()
+                        }
+                    }
+                }
+            })?;
+
+    let mut shutdown = create_shutdown()?;
+
+    loop {
+        tokio::select! {
+            Some(msg) = redis_messages.recv() => {
+                exec.push(IngestJob::SaveMessage(msg));
+            }
+            Some(signal) = shutdown.next() => {
+                warn!("{signal} received, waiting spawned tasks...");
+                break;
+            }
+            result = &mut redis_tasks_fut => {
+                if let Err(error) = result {
+                    error!("Error in redis_tasks_fut: {:?}", error);
+                }
+                break;
+            }
+        }
+    }
+
+    redis_messages.shutdown();
+
+    exec.join_async().await;
+
+    pool.close().await;
+
+    Ok::<(), anyhow::Error>(())
+}
+
+#[allow(dead_code)]
 pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     // connect to Redis
     let client = redis::Client::open(config.redis.url.clone())?;
@@ -83,6 +200,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
 
     tokio::spawn({
         let pt_tasks_len = Arc::clone(&pt_tasks_len);
+
         async move {
             loop {
                 program_transformer_tasks_total_set(pt_tasks_len.load(Ordering::Relaxed));

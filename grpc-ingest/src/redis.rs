@@ -499,4 +499,8 @@ impl TrackedPipeline {
             Err(_) => Err(counts),
         }
     }
+
+    pub fn size(&self) -> usize {
+        self.counts.values().sum()
+    }
 }
