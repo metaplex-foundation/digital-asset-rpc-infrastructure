@@ -200,7 +200,7 @@ fn build_asset_proof(
     tree_id: Vec<u8>,
     leaf_node_idx: i64,
     leaf_hash: Vec<u8>,
-    req_indexes: &Vec<i64>,
+    req_indexes: &[i64],
     required_nodes: &[SimpleChangeLog],
 ) -> AssetProof {
     let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
@@ -211,7 +211,7 @@ fn build_asset_proof(
     }
     for (i, (n, nin)) in final_node_list
         .iter_mut()
-        .zip(req_indexes.clone())
+        .zip(req_indexes.to_owned())
         .enumerate()
     {
         if *n == SimpleChangeLog::default() {

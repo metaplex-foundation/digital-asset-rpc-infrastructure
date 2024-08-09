@@ -127,10 +127,10 @@ pub fn redis_xlen_set(stream: &str, len: usize) {
         .set(len as i64);
 }
 
-pub fn redis_xadd_status_inc(stream: &str, status: Result<(), ()>, delta: &usize) {
+pub fn redis_xadd_status_inc(stream: &str, status: Result<(), ()>, delta: usize) {
     REDIS_XADD_STATUS
         .with_label_values(&[stream, if status.is_ok() { "success" } else { "failed" }])
-        .inc_by(*delta as u64);
+        .inc_by(delta as u64);
 }
 
 pub fn redis_xack_inc(stream: &str, delta: usize) {
