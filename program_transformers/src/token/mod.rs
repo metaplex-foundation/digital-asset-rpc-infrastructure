@@ -110,7 +110,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                 mint: ActiveValue::Set(account_key.clone()),
                 token_program: ActiveValue::Set(account_owner),
                 slot_updated: ActiveValue::Set(account_info.slot as i64),
-                supply: ActiveValue::Set(m.supply as i64),
+                supply: ActiveValue::Set(m.supply.into()),
                 decimals: ActiveValue::Set(m.decimals as i32),
                 close_authority: ActiveValue::Set(None),
                 extension_data: ActiveValue::Set(None),
@@ -155,7 +155,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                     AssetMintAccountColumns {
                         mint: account_key.clone(),
                         supply_mint: Some(account_key),
-                        supply: m.supply,
+                        supply: m.supply.into(),
                         slot_updated_mint_account: account_info.slot,
                     },
                     db,
