@@ -19,11 +19,14 @@ sqlx = { workspace = true, features = [
 ] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo", "derive"] }
+das-core = { workspace = true }
 digital_asset_types = { workspace = true }
 futures = { workspace = true }
+hex = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
 json5 = { workspace = true }
 lazy_static = { workspace = true }
+lru = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
 opentelemetry_sdk = { workspace = true, features = ["trace"] }
@@ -47,6 +50,7 @@ tokio = { workspace = true, features = [
 tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+topograph = { workspace = true, features = ["tokio"] }
 yellowstone-grpc-client = { workspace = true }
 yellowstone-grpc-proto = { workspace = true }
 yellowstone-grpc-tools = { workspace = true }

@@ -1,0 +1,92 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 839
+expression: response
+---
+{
+  "interface": "MplCoreAsset",
+  "id": "EuXEcqHhF9jPxV9CKB5hjHC2TRo3xprdgk5vJTc9qRaY",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://example.com/asset",
+    "files": [],
+    "metadata": {
+      "name": "Test Asset",
+      "symbol": ""
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "53q1PCBy5KgzZfoHu6bnLWQFVmJtKyceP8DqNMhXWUaA"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "HKwwF4sPVYFPgqEgxth4GZRZjJ9o4E3wA8eu2QM5Vt3H"
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false,
+  "plugins": {},
+  "mpl_core_info": {
+    "plugins_json_version": 1
+  },
+  "external_plugins": [
+    {
+      "data": {
+        "target": "msgpack",
+        "message": "Hello"
+      },
+      "type": "DataSection",
+      "index": 0,
+      "offset": 119,
+      "data_len": 30,
+      "authority": {
+        "type": "None",
+        "address": null
+      },
+      "data_offset": 123,
+      "adapter_config": {
+        "schema": "MsgPack",
+        "parent_key": {
+          "linked_app_data": {
+            "type": "UpdateAuthority",
+            "address": null
+          }
+        }
+      }
+    }
+  ]
+}

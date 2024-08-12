@@ -1,46 +1,252 @@
 use {
     crate::{
         config::{ConfigIngester, ConfigIngesterDownloadMetadata},
-        download_metadata::TASK_TYPE,
+        download_metadata::{self, TASK_TYPE},
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
-            program_transformer_tasks_total_set, ProgramTransformerTaskStatusKind,
+            program_transformer_tasks_total_set, redis_xadd_status_inc,
+            ProgramTransformerTaskStatusKind,
         },
-        redis::{metrics_xlen, ProgramTransformerInfo, RedisStream},
+        redis::{
+            metrics_xlen, ProgramTransformerInfo, RedisStream, RedisStreamMessageInfo,
+            TrackedPipeline,
+        },
         util::create_shutdown,
     },
     chrono::Utc,
     crypto::{digest::Digest, sha2::Sha256},
+    das_core::{
+        perform_metadata_json_task, DownloadMetadata, DownloadMetadataInfo,
+        DownloadMetadataNotifier,
+    },
     digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
         stream::StreamExt,
+        Future,
     },
-    program_transformers::{
-        error::ProgramTransformerError, DownloadMetadataInfo, DownloadMetadataNotifier,
-        ProgramTransformer,
-    },
+    opentelemetry_sdk::trace::Config,
+    program_transformers::{error::ProgramTransformerError, ProgramTransformer},
+    redis::{aio::MultiplexedConnection, streams::StreamMaxlen},
     sea_orm::{
         entity::{ActiveModelTrait, ActiveValue},
         error::{DbErr, RuntimeErr},
         SqlxPostgresConnector,
     },
+    serde::Serialize,
     sqlx::{Error as SqlxError, PgPool},
     std::{
         borrow::Cow,
+        pin::Pin,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
         },
     },
     tokio::{
+        sync::Mutex,
         task::JoinSet,
         time::{sleep, Duration},
     },
-    tracing::warn,
+    topograph::{
+        executor::{Executor, Nonblock, Tokio},
+        prelude::*,
+    },
+    tracing::{debug, error, warn},
 };
 
+enum IngestJob {
+    SaveMessage(RedisStreamMessageInfo),
+    FlushRedisPipe(Arc<Mutex<TrackedPipeline>>, MultiplexedConnection),
+}
+
+fn download_metadata_notifier_v2(
+    pipe: Arc<Mutex<TrackedPipeline>>,
+    stream: String,
+    stream_maxlen: usize,
+) -> anyhow::Result<DownloadMetadataNotifier> {
+    Ok(
+            Box::new(
+                move |info: DownloadMetadataInfo| -> BoxFuture<
+                    'static,
+                    Result<(), Box<dyn std::error::Error + Send + Sync>>,
+                > {
+                    let pipe = Arc::clone(&pipe);
+                    let stream = stream.clone();
+                    Box::pin(async move {
+                        download_metadata_inserted_total_inc();
+
+                        let mut pipe = pipe.lock().await;
+                        let info_bytes = serde_json::to_vec(&info)?;
+
+                        // pipe.xadd_maxlen(
+                        //     &stream,
+                        //     StreamMaxlen::Approx(stream_maxlen),
+                        //     "*",
+                        //     info_bytes,
+                        // );
+
+                        Ok(())
+                    })
+                },
+            ),
+        )
+}
+
+pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
+    let redis_client = redis::Client::open(config.redis.url.clone())?;
+    let connection = redis_client.get_multiplexed_tokio_connection().await?;
+    let pool = pg_create_pool(config.postgres).await?;
+
+    let pipe = Arc::new(Mutex::new(TrackedPipeline::default()));
+    let (mut redis_messages, redis_tasks_fut) =
+        RedisStream::new(config.redis, connection.clone()).await?;
+    tokio::pin!(redis_tasks_fut);
+
+    let stream = config.download_metadata.stream.clone();
+    let stream_maxlen = config.download_metadata.stream_maxlen;
+
+    let accounts_download_metadata_notifier =
+        download_metadata_notifier_v2(Arc::clone(&pipe), stream.clone(), stream_maxlen)?;
+    let transactions_download_metadata_notifier =
+        download_metadata_notifier_v2(Arc::clone(&pipe), stream.clone(), stream_maxlen)?;
+
+    let pt_accounts = Arc::new(ProgramTransformer::new(
+        pool.clone(),
+        accounts_download_metadata_notifier,
+    ));
+    let pt_transactions = Arc::new(ProgramTransformer::new(
+        pool.clone(),
+        transactions_download_metadata_notifier,
+    ));
+    let http_client = reqwest::Client::builder()
+        .timeout(config.download_metadata.request_timeout)
+        .build()?;
+    let download_metadata = Arc::new(DownloadMetadata::new(http_client, pool.clone()));
+
+    let exec =
+        Executor::builder(Nonblock(Tokio))
+            .num_threads(None)
+            .build(move |update, _handle| {
+                let pt_accounts = Arc::clone(&pt_accounts);
+                let pt_transactions = Arc::clone(&pt_transactions);
+                let download_metadata = Arc::clone(&download_metadata);
+
+                async move {
+                    match update {
+                        IngestJob::FlushRedisPipe(pipe, connection) => {
+                            let mut pipe = pipe.lock().await;
+                            let mut connection = connection;
+
+                            let flush = pipe.flush(&mut connection).await;
+
+                            let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                            let counts = flush.as_ref().unwrap_or_else(|counts| counts);
+
+                            for (stream, count) in counts.iter() {
+                                redis_xadd_status_inc(stream, status, *count);
+                            }
+
+                            debug!(message = "Redis pipe flushed", ?status, ?counts);
+                        }
+                        IngestJob::SaveMessage(msg) => {
+                            let result = match &msg.get_data() {
+                                ProgramTransformerInfo::Account(account) => {
+                                    pt_accounts.handle_account_update(account).await
+                                }
+                                ProgramTransformerInfo::Transaction(transaction) => {
+                                    pt_transactions.handle_transaction(transaction).await
+                                }
+                                ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                                    download_metadata
+                                        .handle_download(download_metadata_info)
+                                        .await
+                                        .map_err(|e| {
+                                            ProgramTransformerError::AssetIndexError(e.to_string())
+                                        })
+                                }
+                            };
+                            match result {
+                                Ok(()) => program_transformer_task_status_inc(
+                                    ProgramTransformerTaskStatusKind::Success,
+                                ),
+                                Err(ProgramTransformerError::NotImplemented) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::NotImplemented,
+                                    );
+                                    error!("not implemented")
+                                }
+                                Err(ProgramTransformerError::DeserializationError(error)) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::DeserializationError,
+                                    );
+
+                                    error!("failed to deserialize {:?}", error)
+                                }
+                                Err(ProgramTransformerError::ParsingError(error)) => {
+                                    program_transformer_task_status_inc(
+                                        ProgramTransformerTaskStatusKind::ParsingError,
+                                    );
+
+                                    error!("failed to parse {:?}", error)
+                                }
+                                Err(ProgramTransformerError::DatabaseError(error)) => {
+                                    error!("database error for {:?}", error)
+                                }
+                                Err(ProgramTransformerError::AssetIndexError(error)) => {
+                                    error!("indexing error for {:?}", error)
+                                }
+                                Err(error) => {
+                                    error!("failed to handle {:?}", error)
+                                }
+                            }
+
+                            if let Err(e) = msg.ack() {
+                                error!("Failed to acknowledge message: {:?}", e);
+                            } else {
+                                debug!("Message acknowledged successfully");
+                            }
+
+                            ()
+                        }
+                    }
+                }
+            })?;
+
+    let mut shutdown = create_shutdown()?;
+
+    loop {
+        tokio::select! {
+            _ = sleep(config.download_metadata.pipeline_max_idle) => {
+                exec.push(IngestJob::FlushRedisPipe(Arc::clone(&pipe), connection.clone()));
+            }
+            Some(msg) = redis_messages.recv() => {
+                exec.push(IngestJob::SaveMessage(msg));
+            }
+            Some(signal) = shutdown.next() => {
+                warn!("{signal} received, waiting spawned tasks...");
+                break;
+            }
+            result = &mut redis_tasks_fut => {
+                if let Err(error) = result {
+                    error!("Error in redis_tasks_fut: {:?}", error);
+                }
+                break;
+            }
+        }
+    }
+
+    redis_messages.shutdown();
+
+    exec.join_async().await;
+
+    pool.close().await;
+
+    Ok::<(), anyhow::Error>(())
+}
+
+#[allow(dead_code)]
 pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     // connect to Redis
     let client = redis::Client::open(config.redis.url.clone())?;
@@ -53,8 +259,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
             .redis
             .streams
             .iter()
-            .map(|config| config.stream.clone())
-            .collect::<Vec<_>>();
+            .map(|config| config.stream.to_string())
+            .collect::<Vec<String>>();
         async move { metrics_xlen(connection, &streams).await }
     });
     tokio::pin!(jh_metrics_xlen);
@@ -73,7 +279,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     // program transforms related
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
-        create_download_metadata_notifier(pgpool.clone(), config.download_metadata)?,
+        create_download_metadata_notifier(pgpool.clone(), config.download_metadata.clone())?,
     ));
     let pt_transactions = Arc::new(ProgramTransformer::new(
         pgpool.clone(),
@@ -82,8 +288,10 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let pt_max_tasks_in_process = config.program_transformer.max_tasks_in_process;
     let mut pt_tasks = JoinSet::new();
     let pt_tasks_len = Arc::new(AtomicUsize::new(0));
+
     tokio::spawn({
         let pt_tasks_len = Arc::clone(&pt_tasks_len);
+
         async move {
             loop {
                 program_transformer_tasks_total_set(pt_tasks_len.load(Ordering::Relaxed));
@@ -142,6 +350,9 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     ProgramTransformerInfo::Transaction(transaction) => {
                         pt_transactions.handle_transaction(transaction).await
                     }
+                    ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                        todo!()
+                    }
                 };
 
                 macro_rules! log_or_bail {
@@ -157,6 +368,9 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                                     transaction.signature,
                                     $error
                                 )
+                            }
+                            ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                                todo!()
                             }
                         }
                     };

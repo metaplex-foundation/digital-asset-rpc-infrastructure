@@ -8,18 +8,35 @@ publish.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 backon = { workspace = true }
+borsh = { workspace = true }
+bs58 = { workspace = true }
+cadence = { workspace = true }
+cadence-macros = { workspace = true }
+clap = { workspace = true, features = ["derive", "cargo", "env"] }
+derive_more = { workspace = true }
+digital_asset_types = { workspace = true }
+figment = { workspace = true }
+futures = { workspace = true }
+indicatif = { workspace = true }
+log = { workspace = true }
+plerkle_messenger = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true, features = [
+  "sqlx-postgres",
+  "with-chrono",
+  "runtime-tokio-rustls",
+] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+spl-account-compression = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-cadence = { workspace = true }
-cadence-macros = { workspace = true }
+sqlx = { workspace = true, fatures = ["runtime-tokio-rustls", "postgres"] }
 thiserror = { workspace = true }
-figment = { workspace = true }
-plerkle_messenger = { workspace = true }
 tokio = { workspace = true }
-clap = { workspace = true, features = ["derive", "cargo", "env"] }
-sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
+url = { workspace = true }
 
 [lints]
 workspace = true

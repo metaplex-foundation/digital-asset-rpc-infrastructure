@@ -10,6 +10,7 @@ blockbuster = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
+das-core = { workspace = true }
 digital_asset_types = { workspace = true, features = [
   "json_types",
   "sql_types",

@@ -1,11 +1,11 @@
 [workspace]
 members = [
+  "backfill",
   "blockbuster",
   "core",
   "das_api",
   "digital_asset_types",
   "integration_tests",
-  "metadata_json",
   "metaplex-rpc-proxy",
   "migration",
   "nft_ingester",
@@ -29,8 +29,6 @@ version = "0.7.2"
 
 [workspace.dependencies]
 
-backon = "0.4.1"
-heck = "0.5.0"
 anchor-client = "0.29.0"
 anchor-lang = "0.29.0"
 anyhow = "1.0.75"
@@ -38,6 +36,7 @@ async-std = "1.0.0"
 async-stream = "0.3.5"
 async-trait = "0.1.60"
 atty = "0.2.14"
+backon = "0.4.1"
 blockbuster = { path = "blockbuster" }
 borsh = "~0.10.3"
 borsh-derive = "~0.10.3"
@@ -48,10 +47,11 @@ cadence-macros = "0.29.0"
 cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
-das_api = { path = "das_api" }
 das-core = { path = "core" }
+das-backfill = { path = "backfill" }
+das_api = { path = "das_api" }
+derive_more = { version = "0.99.17" }
 digital_asset_types = { path = "digital_asset_types" }
-das-metadata-json = { path = "metadata_json" }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
 env_logger = "0.10.0"
@@ -60,24 +60,26 @@ figment = "0.10.8"
 flatbuffers = "23.1.21"
 function_name = "0.3.0"
 futures = "0.3.28"
+git-version = "0.3.5"
+heck = "0.5.0"
 hex = "0.4.3"
 hyper = "0.14.23"
 indexmap = "1.9.3"
 indicatif = "0.17.5"
 insta = "1.34.0"
 itertools = "0.10.1"
-git-version = "0.3.5"
 json5 = "0.4.1"
 jsonpath_lib = "0.3.0"
 jsonrpsee = "0.16.2"
 jsonrpsee-core = "0.16.2"
 lazy_static = "1.4.0"
 log = "0.4.17"
+lru = "0.12.3"
 metrics = "0.20.1"
 migration = { path = "migration" }
 mime_guess = "2.0.4"
 mpl-bubblegum = "1.2.0"
-mpl-core = { version = "0.7.1", features = ["serde"] }
+mpl-core = { version = "0.8.0-beta.1", features = ["serde"] }
 mpl-token-metadata = "4.1.1"
 nft_ingester = { path = "nft_ingester" }
 num-derive = "0.3.3"
@@ -124,9 +126,13 @@ spl-token-2022 = { version = "1.0", features = ["no-entrypoint"] }
 spl-token-group-interface = "0.1.0"
 spl-token-metadata-interface = "0.2.0"
 sqlx = "0.6.2"
+stretto = "0.8.4"
 thiserror = "1.0.31"
 tokio = "1.30.0"
 tokio-stream = "0.1.14"
+topograph = { version = "0.4.0", features = [
+  "tokio",
+], git = "https://github.com/ray-kast/topograph", branch = "v0.4-wip" }
 tower = "0.4.13"
 tower-http = "0.3.5"
 tracing = "0.1.35"
@@ -134,11 +140,11 @@ tracing-opentelemetry = "0.22.0"
 tracing-subscriber = "0.3.16"
 txn_forwarder = { path = "tools/txn_forwarder" }
 url = "2.3.1"
+vergen = "8.2.1"
 wasi = "0.7.0"
 wasm-bindgen = "0.2.83"
-vergen = "8.2.1"
-yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" }                          # tag is geyser plugin
-yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" }                           # tag is geyser plugin
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" } # tag is geyser plugin
+yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28" } # tag is geyser plugin
 yellowstone-grpc-tools = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.14.1+solana.1.17.28", default-features = false } # tag is geyser plugin
 
 [workspace.lints.clippy]
