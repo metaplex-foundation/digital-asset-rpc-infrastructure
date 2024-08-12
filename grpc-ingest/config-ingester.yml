@@ -4,12 +4,13 @@ redis:
   group: ingester
   consumer: consumer # every new ingester instance should have uniq name
   streams:
-    - type: account # possible values: `account`, `metadata_json`, `transaction`, required for message decoding
+    - type: account # possible values: `account`, `metadatajson`, `transaction`, required for message decoding
       stream: ACCOUNTS
       data_key: data
+    - type: metadatajson
+      stream: METADATA_JSON
     - type: transaction
       stream: TRANSACTIONS
-      data_key: data
       xack_batch_max_size: 100
       xack_batch_max_idle_ms: 10
       xack_max_in_process: 100
@@ -22,7 +23,6 @@ postgres:
   min_connections: 10
   max_connections: 50 # `max_connection` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible
 program_transformer:
-  transactions_cl_audits: false
   max_tasks_in_process: 40
 download_metadata:
   max_attempts: 3

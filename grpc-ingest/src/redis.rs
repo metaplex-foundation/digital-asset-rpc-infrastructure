@@ -1,8 +1,9 @@
 use {
     crate::{
-        config::{ConfigIngesterRedis, ConfigIngesterRedisStreamType},
+        config::{ConfigIngesterRedis, ConfigIngesterRedisStreamType, REDIS_STREAM_DATA_KEY},
         prom::{redis_xack_inc, redis_xlen_set},
     },
+    das_core::DownloadMetadataInfo,
     futures::future::{BoxFuture, Fuse, FutureExt},
     program_transformers::{AccountInfo, TransactionInfo},
     redis::{
@@ -13,6 +14,7 @@ use {
         },
         AsyncCommands, Cmd, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
+    serde::{Deserialize, Serialize},
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{
         collections::HashMap,
@@ -89,7 +91,6 @@ struct RedisStreamInfo {
     consumer: String,
     stream_name: String,
     stream_type: ConfigIngesterRedisStreamType,
-    stream_data_key: String,
     xack_batch_max_size: usize,
     xack_batch_max_idle: Duration,
     xack_max_in_process: usize,
@@ -99,6 +100,7 @@ struct RedisStreamInfo {
 pub enum ProgramTransformerInfo {
     Account(AccountInfo),
     Transaction(TransactionInfo),
+    MetadataJson(DownloadMetadataInfo),
 }
 
 #[derive(Debug)]
@@ -116,7 +118,7 @@ impl RedisStreamMessageInfo {
     ) -> anyhow::Result<Self> {
         let to_anyhow = |error: String| anyhow::anyhow!(error);
 
-        let data = match map.get(&stream.stream_data_key) {
+        let data = match map.get(REDIS_STREAM_DATA_KEY) {
             Some(RedisValue::Data(vec)) => match stream.stream_type {
                 ConfigIngesterRedisStreamType::Account => {
                     let SubscribeUpdateAccount { account, slot, .. } =
@@ -177,16 +179,20 @@ impl RedisStreamMessageInfo {
                         .map_err(to_anyhow)?,
                     })
                 }
-                ConfigIngesterRedisStreamType::MetadataJson => todo!(),
+                ConfigIngesterRedisStreamType::MetadataJson => {
+                    let info: DownloadMetadataInfo = serde_json::from_slice(vec.as_ref())?;
+
+                    ProgramTransformerInfo::MetadataJson(info)
+                }
             },
             Some(_) => anyhow::bail!(
                 "invalid data (key: {:?}) from stream {:?}",
-                stream.stream_data_key,
+                REDIS_STREAM_DATA_KEY,
                 stream.stream_name
             ),
             None => anyhow::bail!(
                 "failed to get data (key: {:?}) from stream {:?}",
-                stream.stream_data_key,
+                REDIS_STREAM_DATA_KEY,
                 stream.stream_name
             ),
         };
@@ -219,7 +225,7 @@ impl RedisStream {
         for stream in config.streams.iter() {
             xgroup_create(
                 &mut connection,
-                &stream.stream,
+                stream.stream,
                 &config.group,
                 &config.consumer,
             )
@@ -239,15 +245,14 @@ impl RedisStream {
                 let info = Arc::new(RedisStreamInfo {
                     group: config.group.clone(),
                     consumer: config.consumer.clone(),
-                    stream_name: stream.stream.clone(),
+                    stream_name: stream.stream.to_string(),
                     stream_type: stream.stream_type,
-                    stream_data_key: stream.data_key.clone(),
                     xack_batch_max_size: stream.xack_batch_max_size,
                     xack_batch_max_idle: stream.xack_batch_max_idle,
                     xack_max_in_process: stream.xack_max_in_process,
                 });
                 ack_tasks.push((Arc::clone(&info), ack_rx));
-                (stream.stream.clone(), (ack_tx, info))
+                (stream.stream, (ack_tx, info))
             })
             .collect::<HashMap<_, _>>();
 
@@ -296,7 +301,7 @@ impl RedisStream {
 
     async fn run_prefetch(
         config: ConfigIngesterRedis,
-        streams: HashMap<String, (mpsc::UnboundedSender<String>, Arc<RedisStreamInfo>)>,
+        streams: HashMap<&str, (mpsc::UnboundedSender<String>, Arc<RedisStreamInfo>)>,
         mut connection: MultiplexedConnection,
         messages_tx: mpsc::Sender<RedisStreamMessageInfo>,
         shutdown: Arc<AtomicBool>,
@@ -358,7 +363,7 @@ impl RedisStream {
             return Ok(());
         }
 
-        let streams_keys = streams.keys().map(|name| name.as_str()).collect::<Vec<_>>();
+        let streams_keys = streams.keys().collect::<Vec<_>>();
         let streams_ids = (0..streams_keys.len()).map(|_| ">").collect::<Vec<_>>();
         while !shutdown.load(Ordering::Relaxed) {
             let opts = StreamReadOptions::default()
@@ -373,7 +378,7 @@ impl RedisStream {
             }
 
             for StreamKey { key, ids } in results.keys {
-                let (ack_tx, stream) = match streams.get(&key) {
+                let (ack_tx, stream) = match streams.get(key.as_str()) {
                     Some(value) => value,
                     None => anyhow::bail!("unknown stream: {:?}", key),
                 };
@@ -471,17 +476,13 @@ impl Default for TrackedPipeline {
 type TrackedStreamCounts = HashMap<String, usize>;
 
 impl TrackedPipeline {
-    pub fn xadd_maxlen<F, V>(
-        &mut self,
-        key: &str,
-        maxlen: StreamMaxlen,
-        id: F,
-        fields: &[(&str, V)],
-    ) where
+    pub fn xadd_maxlen<F, V>(&mut self, key: &str, maxlen: StreamMaxlen, id: F, field: V)
+    where
         F: redis::ToRedisArgs,
         V: redis::ToRedisArgs,
     {
-        self.pipeline.xadd_maxlen(key, maxlen, id, fields);
+        self.pipeline
+            .xadd_maxlen(key, maxlen, id, &[(REDIS_STREAM_DATA_KEY, field)]);
         *self.counts.entry(key.to_string()).or_insert(0) += 1;
     }
 

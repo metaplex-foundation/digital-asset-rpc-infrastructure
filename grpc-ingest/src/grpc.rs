@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::ConfigGrpc,
+        config::{ConfigGrpc, REDIS_STREAM_DATA_KEY},
         prom::redis_xadd_status_inc,
         redis::{metrics_xlen, TrackedPipeline},
         util::create_shutdown,
@@ -112,11 +112,8 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
                         GrpcJob::ProcessSubscribeUpdate(update) => {
                             let accounts_stream = config.accounts.stream.clone();
                             let accounts_stream_maxlen = config.accounts.stream_maxlen;
-                            let accounts_stream_data_key = config.accounts.stream_data_key.clone();
                             let transactions_stream = config.transactions.stream.clone();
                             let transactions_stream_maxlen = config.transactions.stream_maxlen;
-                            let transactions_stream_data_key =
-                                config.transactions.stream_data_key.clone();
 
                             let SubscribeUpdate { update_oneof, .. } = *update;
 
@@ -129,7 +126,7 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
                                             &accounts_stream,
                                             StreamMaxlen::Approx(accounts_stream_maxlen),
                                             "*",
-                                            &[(&accounts_stream_data_key, account.encode_to_vec())],
+                                            account.encode_to_vec(),
                                         );
 
                                         debug!(message = "Account update", ?account,);
@@ -139,10 +136,7 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
                                             &transactions_stream,
                                             StreamMaxlen::Approx(transactions_stream_maxlen),
                                             "*",
-                                            &[(
-                                                &transactions_stream_data_key,
-                                                transaction.encode_to_vec(),
-                                            )],
+                                            transaction.encode_to_vec(),
                                         );
 
                                         debug!(message = "Transaction update", ?transaction);
@@ -275,7 +269,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                             &config.accounts.stream,
                             StreamMaxlen::Approx(config.accounts.stream_maxlen),
                             "*",
-                            &[(&config.accounts.stream_data_key, account.encode_to_vec())],
+                            &[(REDIS_STREAM_DATA_KEY, account.encode_to_vec())],
                         );
 
                         pipe_accounts += 1;
@@ -285,7 +279,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                             &config.transactions.stream,
                             StreamMaxlen::Approx(config.transactions.stream_maxlen),
                             "*",
-                            &[(&config.transactions.stream_data_key, transaction.encode_to_vec())]
+                            &[(REDIS_STREAM_DATA_KEY, transaction.encode_to_vec())]
                         );
 
                         pipe_transactions += 1;

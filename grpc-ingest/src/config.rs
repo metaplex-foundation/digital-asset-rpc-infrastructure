@@ -12,7 +12,7 @@ use {
 
 pub const REDIS_STREAM_ACCOUNTS: &str = "ACCOUNTS";
 pub const REDIS_STREAM_TRANSACTIONS: &str = "TRANSACTIONS";
-pub const REDIS_STREAM_METADETA_JSONS: &str = "METADETA_JSONS";
+pub const REDIS_STREAM_METADATA_JSON: &str = "METADATA_JSON";
 pub const REDIS_STREAM_DATA_KEY: &str = "data";
 
 pub async fn load<T>(path: impl AsRef<Path> + Copy) -> anyhow::Result<T>
@@ -104,30 +104,19 @@ impl ConfigGrpcAccounts {
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigGrpcTransactions {
-    #[serde(default = "ConfigGrpcTransactions::default_stream")]
     pub stream: String,
     #[serde(
         default = "ConfigGrpcTransactions::default_stream_maxlen",
         deserialize_with = "deserialize_usize_str"
     )]
     pub stream_maxlen: usize,
-    #[serde(default = "ConfigGrpcTransactions::default_stream_data_key")]
-    pub stream_data_key: String,
 
     pub filter: ConfigGrpcRequestTransactions,
 }
 
 impl ConfigGrpcTransactions {
-    pub fn default_stream() -> String {
-        REDIS_STREAM_TRANSACTIONS.to_owned()
-    }
-
     pub const fn default_stream_maxlen() -> usize {
         10_000_000
-    }
-
-    pub fn default_stream_data_key() -> String {
-        REDIS_STREAM_DATA_KEY.to_owned()
     }
 }
 
@@ -243,11 +232,10 @@ impl ConfigIngesterRedis {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ConfigIngesterRedisStream {
     pub stream_type: ConfigIngesterRedisStreamType,
-    pub stream: String,
-    pub data_key: String,
+    pub stream: &'static str,
     pub xack_batch_max_size: usize,
     pub xack_batch_max_idle: Duration,
     pub xack_max_in_process: usize,
@@ -262,8 +250,6 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
         struct Raw {
             #[serde(rename = "type")]
             pub stream_type: ConfigIngesterRedisStreamType,
-            pub stream: Option<String>,
-            pub data_key: Option<String>,
             #[serde(
                 default = "default_xack_batch_max_size",
                 deserialize_with = "deserialize_usize_str"
@@ -295,18 +281,14 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
         }
 
         let raw = Raw::deserialize(deserializer)?;
+
         Ok(Self {
             stream_type: raw.stream_type,
-            stream: raw.stream.unwrap_or_else(|| match raw.stream_type {
-                ConfigIngesterRedisStreamType::Account => REDIS_STREAM_ACCOUNTS.to_owned(),
-                ConfigIngesterRedisStreamType::Transaction => REDIS_STREAM_TRANSACTIONS.to_owned(),
-                ConfigIngesterRedisStreamType::MetadataJson => {
-                    REDIS_STREAM_METADETA_JSONS.to_owned()
-                }
-            }),
-            data_key: raw
-                .data_key
-                .unwrap_or_else(|| REDIS_STREAM_DATA_KEY.to_owned()),
+            stream: match raw.stream_type {
+                ConfigIngesterRedisStreamType::Account => REDIS_STREAM_ACCOUNTS,
+                ConfigIngesterRedisStreamType::Transaction => REDIS_STREAM_TRANSACTIONS,
+                ConfigIngesterRedisStreamType::MetadataJson => REDIS_STREAM_METADATA_JSON,
+            },
             xack_batch_max_size: raw.xack_batch_max_size,
             xack_batch_max_idle: raw.xack_batch_max_idle,
             xack_max_in_process: raw.xack_max_in_process,
@@ -362,18 +344,62 @@ impl ConfigIngesterProgramTransformer {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngesterDownloadMetadata {
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_attempts: usize,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_request_timeout",
+        deserialize_with = "deserialize_duration_str",
+        rename = "request_timeout_ms"
+    )]
+    pub request_timeout: Duration,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_stream_maxlen",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub stream_maxlen: usize,
+    #[serde(default = "ConfigIngesterDownloadMetadata::default_stream")]
+    pub stream: String,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_stream_max_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub pipeline_max_size: usize,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_pipeline_max_idle",
+        deserialize_with = "deserialize_duration_str",
+        rename = "pipeline_max_idle_ms"
+    )]
+    pub pipeline_max_idle: Duration,
 }
 
 impl ConfigIngesterDownloadMetadata {
+    pub const fn default_pipeline_max_idle() -> Duration {
+        Duration::from_millis(10)
+    }
+
+    pub const fn default_stream_max_size() -> usize {
+        10
+    }
+
+    pub fn default_stream() -> String {
+        REDIS_STREAM_METADATA_JSON.to_owned()
+    }
+
+    pub const fn default_stream_maxlen() -> usize {
+        10_000_000
+    }
+
     pub const fn default_max_attempts() -> usize {
         3
+    }
+
+    pub const fn default_request_timeout() -> Duration {
+        Duration::from_millis(3_000)
     }
 }
 
@@ -412,6 +438,8 @@ pub struct ConfigDownloadMetadataOpts {
         rename = "download_timeout_ms"
     )]
     pub download_timeout: Duration,
+
+    pub stream: ConfigIngesterRedisStream,
 }
 
 impl ConfigDownloadMetadataOpts {
