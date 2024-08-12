@@ -377,7 +377,7 @@ fn build_create_tree_with_root_and_collection_payload(
         .get(4)
         .ok_or(BlockbusterError::InstructionParsingError)?;
     let collection_mint = *keys
-        .get(10)
+        .get(11)
         .ok_or(BlockbusterError::InstructionParsingError)?;
     let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(FinalizeTreeWithRootInstructionArgs {
         root: args.root,
