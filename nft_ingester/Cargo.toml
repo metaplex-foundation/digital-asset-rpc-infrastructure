@@ -15,6 +15,7 @@ cadence-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo"] }
 das-core = { workspace = true }
+das-metadata-json = { workspace = true }
 digital_asset_types = { workspace = true, features = [
   "json_types",
   "sql_types",

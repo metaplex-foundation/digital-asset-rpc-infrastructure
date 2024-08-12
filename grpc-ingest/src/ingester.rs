@@ -1,7 +1,7 @@
 use {
     crate::{
         config::{ConfigIngester, ConfigIngesterDownloadMetadata},
-        download_metadata::{TASK_TYPE},
+        download_metadata::TASK_TYPE,
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
@@ -16,10 +16,7 @@ use {
     },
     chrono::Utc,
     crypto::{digest::Digest, sha2::Sha256},
-    das_core::{
-        DownloadMetadata, DownloadMetadataInfo,
-        DownloadMetadataNotifier,
-    },
+    das_core::{DownloadMetadata, DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
@@ -203,8 +200,6 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
                             } else {
                                 debug!("Message acknowledged successfully");
                             }
-
-                            
                         }
                     }
                 }

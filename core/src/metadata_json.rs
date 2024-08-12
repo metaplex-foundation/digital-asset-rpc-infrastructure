@@ -53,7 +53,7 @@ pub async fn create_download_metadata_notifier(
     })
 }
 
-#[derive(Parser, Clone, Debug)]
+#[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct MetadataJsonDownloadWorkerArgs {
     /// The number of worker threads
     #[arg(long, env, default_value = "25")]

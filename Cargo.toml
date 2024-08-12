@@ -7,6 +7,7 @@ members = [
   "digital_asset_types",
   "integration_tests",
   "metaplex-rpc-proxy",
+  "metadata_json",
   "migration",
   "nft_ingester",
   "ops",
@@ -48,6 +49,7 @@ cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-core = { path = "core" }
+das-metadata-json = { path = "metadata_json" }
 das-backfill = { path = "backfill" }
 das_api = { path = "das_api" }
 derive_more = { version = "0.99.17" }

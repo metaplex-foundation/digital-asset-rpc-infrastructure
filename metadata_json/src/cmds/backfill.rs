@@ -30,9 +30,9 @@ pub struct BackfillArgs {
 pub async fn run(args: BackfillArgs) -> Result<(), anyhow::Error> {
     let batch_size = args.batch_size;
 
-    let pool = connect_db(args.database).await?;
+    let pool = connect_db(&args.database).await?;
 
-    setup_metrics(args.metrics)?;
+    setup_metrics(&args.metrics)?;
 
     let client = ClientBuilder::new()
         .timeout(Duration::from_millis(args.timeout))

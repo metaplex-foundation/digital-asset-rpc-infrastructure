@@ -21,9 +21,9 @@ pub struct ReportArgs {
 }
 
 pub async fn run(args: ReportArgs) -> Result<(), anyhow::Error> {
-    let pool = connect_db(args.database).await?;
+    let pool = connect_db(&args.database).await?;
 
-    setup_metrics(args.metrics)?;
+    setup_metrics(&args.metrics)?;
 
     loop {
         {

@@ -20,9 +20,9 @@ pub struct SingleArgs {
 }
 
 pub async fn run(args: SingleArgs) -> Result<(), anyhow::Error> {
-    let pool = connect_db(args.database).await?;
+    let pool = connect_db(&args.database).await?;
 
-    setup_metrics(args.metrics)?;
+    setup_metrics(&args.metrics)?;
 
     let asset_data = bs58::decode(args.mint.as_str()).into_vec()?;
 
