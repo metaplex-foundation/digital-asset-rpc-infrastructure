@@ -1,7 +1,7 @@
 use {
     crate::{
         config::{ConfigIngester, ConfigIngesterDownloadMetadata},
-        download_metadata::{self, TASK_TYPE},
+        download_metadata::{TASK_TYPE},
         postgres::{create_pool as pg_create_pool, metrics_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
@@ -17,16 +17,14 @@ use {
     chrono::Utc,
     crypto::{digest::Digest, sha2::Sha256},
     das_core::{
-        perform_metadata_json_task, DownloadMetadata, DownloadMetadataInfo,
+        DownloadMetadata, DownloadMetadataInfo,
         DownloadMetadataNotifier,
     },
     digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
         stream::StreamExt,
-        Future,
     },
-    opentelemetry_sdk::trace::Config,
     program_transformers::{error::ProgramTransformerError, ProgramTransformer},
     redis::{aio::MultiplexedConnection, streams::StreamMaxlen},
     sea_orm::{
@@ -34,11 +32,9 @@ use {
         error::{DbErr, RuntimeErr},
         SqlxPostgresConnector,
     },
-    serde::Serialize,
     sqlx::{Error as SqlxError, PgPool},
     std::{
         borrow::Cow,
-        pin::Pin,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
@@ -208,7 +204,7 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
                                 debug!("Message acknowledged successfully");
                             }
 
-                            ()
+                            
                         }
                     }
                 }
@@ -226,6 +222,7 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
             }
             Some(signal) = shutdown.next() => {
                 warn!("{signal} received, waiting spawned tasks...");
+                exec.push(IngestJob::FlushRedisPipe(Arc::clone(&pipe), connection.clone()));
                 break;
             }
             result = &mut redis_tasks_fut => {
@@ -350,7 +347,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     ProgramTransformerInfo::Transaction(transaction) => {
                         pt_transactions.handle_transaction(transaction).await
                     }
-                    ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                    ProgramTransformerInfo::MetadataJson(_download_metadata_info) => {
                         todo!()
                     }
                 };
@@ -369,7 +366,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                                     $error
                                 )
                             }
-                            ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                            ProgramTransformerInfo::MetadataJson(_download_metadata_info) => {
                                 todo!()
                             }
                         }
