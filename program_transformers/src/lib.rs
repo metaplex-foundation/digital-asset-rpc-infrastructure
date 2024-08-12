@@ -20,7 +20,6 @@ use {
         entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
         SqlxPostgresConnector, TransactionTrait,
     },
-    serde::{Deserialize, Serialize},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,

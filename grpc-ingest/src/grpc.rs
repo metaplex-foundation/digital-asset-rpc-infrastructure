@@ -7,15 +7,8 @@ use {
     },
     anyhow::Context,
     futures::{channel::mpsc, stream::StreamExt, SinkExt},
-    lru::LruCache,
-    opentelemetry_sdk::trace::Config,
-    redis::{
-        aio::MultiplexedConnection, streams::StreamMaxlen, Pipeline, RedisResult,
-        Value as RedisValue,
-    },
-    serde::de,
-    sqlx::pool,
-    std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration},
+    redis::{streams::StreamMaxlen, RedisResult, Value as RedisValue},
+    std::{collections::HashMap, sync::Arc, time::Duration},
     tokio::{
         spawn,
         sync::Mutex,
@@ -27,7 +20,6 @@ use {
         prelude::*,
     },
     tracing::{debug, warn},
-    tracing_subscriber::field::debug,
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
         geyser::{SubscribeRequest, SubscribeUpdate},
@@ -176,6 +168,7 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
     let config = Arc::new(config);
     let (tx, mut rx) = mpsc::channel::<UpdateOneof>(config.geyser_update_message_buffer_size); // Adjust buffer size as needed

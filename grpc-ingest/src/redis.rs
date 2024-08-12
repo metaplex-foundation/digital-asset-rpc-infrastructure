@@ -12,9 +12,8 @@ use {
             StreamClaimReply, StreamId, StreamKey, StreamMaxlen, StreamPendingCountReply,
             StreamReadOptions, StreamReadReply,
         },
-        AsyncCommands, Cmd, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
+        AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
-    serde::{Deserialize, Serialize},
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{
         collections::HashMap,
