@@ -120,7 +120,7 @@ fn spawn_task(
         let asset_data_id =
             bs58::encode(download_metadata_info.asset_data_id.clone()).into_string();
 
-        if let Err(e) = perform_metadata_json_task(client, pool, download_metadata_info).await {
+        if let Err(e) = perform_metadata_json_task(client, pool, &download_metadata_info).await {
             error!("Asset {} failed: {}", asset_data_id, e);
         }
 
@@ -202,12 +202,12 @@ pub enum MetadataJsonTaskError {
 pub async fn perform_metadata_json_task(
     client: Client,
     pool: sqlx::PgPool,
-    download_metadata_info: DownloadMetadataInfo,
+    download_metadata_info: &DownloadMetadataInfo,
 ) -> Result<asset_data::Model, MetadataJsonTaskError> {
     match fetch_metadata_json(client, &download_metadata_info.uri).await {
         Ok(metadata) => {
             let active_model = asset_data::ActiveModel {
-                id: Set(download_metadata_info.asset_data_id),
+                id: Set(download_metadata_info.asset_data_id.clone()),
                 metadata: Set(metadata),
                 reindex: Set(Some(false)),
                 ..Default::default()
@@ -220,5 +220,29 @@ pub async fn perform_metadata_json_task(
             Ok(model)
         }
         Err(e) => Err(MetadataJsonTaskError::Fetch(e)),
+    }
+}
+
+pub struct DownloadMetadata {
+    client: Client,
+    pool: sqlx::PgPool,
+}
+
+impl DownloadMetadata {
+    pub const fn new(client: Client, pool: sqlx::PgPool) -> Self {
+        Self { client, pool }
+    }
+
+    pub async fn handle_download(
+        &self,
+        download_metadata_info: &DownloadMetadataInfo,
+    ) -> Result<(), MetadataJsonTaskError> {
+        perform_metadata_json_task(
+            self.client.clone(),
+            self.pool.clone(),
+            download_metadata_info,
+        )
+        .await
+        .map(|_| ())
     }
 }
