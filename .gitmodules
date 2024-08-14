@@ -1,4 +1,0 @@
-[submodule "mpl-bubblegum"]
-	path = mpl-bubblegum
-	url = git@github.com:adm-metaex/mpl-bubblegum.git
-	branch = feat/staker-role-reference

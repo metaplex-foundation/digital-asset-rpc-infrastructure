@@ -16,7 +16,7 @@ pub async fn finalize_tree_with_root<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    if let Some(Payload::CreateTreeWithRoot { args, .. }) = &parsing_result.payload {
+    if let Some(Payload::FinalizeTreeWithRoot { args, .. }) = &parsing_result.payload {
         let query = digital_asset_types::dao::batch_mint_to_verify::Entity::insert(
             digital_asset_types::dao::batch_mint_to_verify::ActiveModel {
                 file_hash: Set(args.metadata_hash.clone()),
@@ -27,6 +27,7 @@ where
                 download_attempts: Set(0),
                 batch_mint_persisting_state: Set(BatchMintPersistingState::ReceivedTransaction),
                 batch_mint_fail_status: Set(None),
+                collection: Set(args.collection_mint.map(|k| k.to_bytes().to_vec())),
             },
         )
         .on_conflict(

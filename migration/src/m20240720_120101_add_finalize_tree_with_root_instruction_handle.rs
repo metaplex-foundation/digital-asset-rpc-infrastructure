@@ -69,6 +69,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
+                        ColumnDef::new(BatchMintToVerify::Collection)
+                            .binary()
+                            .null(),
+                    )
+                    .col(
                         ColumnDef::new(BatchMintToVerify::DownloadAttempts)
                             .unsigned()
                             .not_null(),
@@ -174,6 +179,7 @@ enum BatchMintToVerify {
     BatchMintPersistingState,
     BatchMintFailStatus,
     Staker,
+    Collection,
 }
 
 #[derive(Iden, Debug, PartialEq, Sequence)]

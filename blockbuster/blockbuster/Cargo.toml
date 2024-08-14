@@ -11,9 +11,9 @@ readme = "../README.md"
 [dependencies]
 bytemuck = { version = "1.14.0", features = ["derive"] }
 spl-token-2022 = { version = "1.0", features = ["no-entrypoint"] }
-spl-account-compression = { path = "../mpl-bubblegum/solana-program-library/account-compression/programs/account-compression", features = ["no-entrypoint"] }
-spl-noop = { path = "../mpl-bubblegum/solana-program-library/account-compression/programs/noop", features = ["no-entrypoint"] }
-mpl-bubblegum = { path = "../mpl-bubblegum/clients/rust" }
+spl-account-compression = { git = "https://github.com/StanChe/solana-program-library.git", branch = "feature/init_with_root", features = ["no-entrypoint"] }
+spl-noop = { workspace = true }
+mpl-bubblegum = { workspace = true }
 mpl-core = { git = "https://github.com/RequescoS/mpl-core.git", features = ["serde"] }
 mpl-token-metadata = { version = "4.1.1", features = ["serde"] }
 spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
@@ -21,7 +21,7 @@ async-trait = "0.1.57"
 bs58 = "0.4.0"
 lazy_static = "1.4.0"
 borsh = "~0.10.3"
-thiserror = "1.0.32"
+thiserror = "1.0.63"
 log = "0.4.17"
 solana-sdk = "~1.18.11"
 solana-transaction-status = "~1.18.11"

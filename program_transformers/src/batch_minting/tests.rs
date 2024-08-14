@@ -11,7 +11,7 @@ use spl_concurrent_merkle_tree::concurrent_merkle_tree::ConcurrentMerkleTree;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub fn generate_batch_mint(size: usize) -> BatchMint {
+pub fn generate_batch_mint(size: usize, creators_verified: bool) -> BatchMint {
     let authority = Pubkey::from_str("3VvLDXqJbw3heyRwFxv8MmurPznmDVUJS9gPMX2BDqfM").unwrap();
     let tree = Pubkey::from_str("HxhCw9g3kZvrdg9zZvctmh6qpSDg1FfsBXfFvRkbCHB7").unwrap();
     let mut mints = Vec::new();
@@ -66,7 +66,7 @@ pub fn generate_batch_mint(size: usize) -> BatchMint {
             creators: (0..thread_rng().sample(rand::distributions::Uniform::new(1, 5)))
                 .map(|_| mpl_bubblegum::types::Creator {
                     address: Pubkey::new_unique(),
-                    verified: false,
+                    verified: creators_verified,
                     share: thread_rng().sample(rand::distributions::Uniform::new(0, 100)),
                 })
                 .collect(),
@@ -141,6 +141,7 @@ pub fn generate_batch_mint(size: usize) -> BatchMint {
             },
             mint_args,
             authority,
+            creator_signature: None,
         };
         mints.push(rolled_mint);
     }
@@ -159,16 +160,16 @@ pub fn generate_batch_mint(size: usize) -> BatchMint {
 
 #[tokio::test]
 async fn batch_mint_validation_test() {
-    let mut batch_mint = generate_batch_mint(1000);
+    let mut batch_mint = generate_batch_mint(1000, false);
 
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
     assert_eq!(validation_result, Ok(()));
 
     let old_root = batch_mint.merkle_root;
     let new_root = Pubkey::new_unique();
     batch_mint.merkle_root = new_root.to_bytes();
 
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
     assert_eq!(
         validation_result,
         Err(BatchMintValidationError::InvalidRoot(
@@ -189,7 +190,7 @@ async fn batch_mint_validation_test() {
         data_hash: new_leaf_data_hash.to_bytes(),
         creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,
@@ -210,7 +211,7 @@ async fn batch_mint_validation_test() {
     let old_tree_depth = batch_mint.max_depth;
     let new_tree_depth = 100;
     batch_mint.max_depth = new_tree_depth;
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,
@@ -231,7 +232,7 @@ async fn batch_mint_validation_test() {
         data_hash: batch_mint.batch_mints[leaf_idx].leaf_update.data_hash(),
         creator_hash: batch_mint.batch_mints[leaf_idx].leaf_update.creator_hash(),
     };
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,
@@ -260,7 +261,7 @@ async fn batch_mint_validation_test() {
         .collect::<Vec<_>>();
     let new_path = Vec::new();
     batch_mint.batch_mints[leaf_idx].tree_update.path = new_path;
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,
@@ -276,7 +277,7 @@ async fn batch_mint_validation_test() {
     let old_tree_id = batch_mint.batch_mints[leaf_idx].tree_update.id;
     let new_tree_id = Pubkey::new_unique();
     batch_mint.batch_mints[leaf_idx].tree_update.id = new_tree_id;
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,
@@ -294,7 +295,7 @@ async fn batch_mint_validation_test() {
     let old_index = batch_mint.batch_mints[leaf_idx].tree_update.index;
     let new_index = 1;
     batch_mint.batch_mints[leaf_idx].tree_update.index = new_index;
-    let validation_result = validate_batch_mint(&batch_mint).await;
+    let validation_result = validate_batch_mint(&batch_mint, None).await;
 
     assert_eq!(
         validation_result,

@@ -9,8 +9,9 @@ use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
     instructions::{
-        FinalizeTreeWithRootInstructionArgs, UnverifyCreatorInstructionArgs,
-        UpdateMetadataInstructionArgs, VerifyCreatorInstructionArgs,
+        FinalizeTreeWithRootAndCollectionInstructionArgs, FinalizeTreeWithRootInstructionArgs,
+        UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs,
+        VerifyCreatorInstructionArgs,
     },
     types::{BubblegumEventType, MetadataArgs, UpdateArgs},
 };
@@ -29,25 +30,28 @@ use spl_noop;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FinalizeTreeWithRootInstructionArgsWithStaker {
-    pub rightmost_root: [u8; 32],
+    pub root: [u8; 32],
     pub rightmost_leaf: [u8; 32],
     pub rightmost_index: u32,
     pub metadata_url: String,
     pub metadata_hash: String,
     pub staker: Pubkey,
+    pub collection_mint: Option<Pubkey>,
 }
 impl FinalizeTreeWithRootInstructionArgsWithStaker {
     fn build_finalize_tree_with_root_instruction_args_with_staker(
         args: FinalizeTreeWithRootInstructionArgs,
         staker: Pubkey,
+        collection_mint: Option<Pubkey>,
     ) -> Self {
         Self {
-            rightmost_root: args.rightmost_root,
+            root: args.root,
             rightmost_leaf: args.rightmost_leaf,
             rightmost_index: args.rightmost_index,
             metadata_url: args.metadata_url,
             metadata_hash: args.metadata_hash,
             staker,
+            collection_mint,
         }
     }
 }
@@ -80,7 +84,7 @@ pub enum Payload {
         update_args: UpdateArgs,
         tree_id: Pubkey,
     },
-    CreateTreeWithRoot {
+    FinalizeTreeWithRoot {
         args: FinalizeTreeWithRootInstructionArgsWithStaker,
         tree_id: Pubkey,
     },
@@ -237,8 +241,13 @@ impl ProgramParser for BubblegumParser {
                     InstructionName::UpdateMetadata => {
                         b_inst.payload = Some(build_update_metadata_payload(keys, ix_data)?);
                     }
-                    InstructionName::CreateTreeWithRoot => {
+                    InstructionName::FinalizeTreeWithRoot => {
                         b_inst.payload = Some(build_create_tree_with_root_payload(keys, ix_data)?);
+                    }
+                    InstructionName::FinalizeTreeWithRootAndCollection => {
+                        b_inst.payload = Some(build_create_tree_with_root_and_collection_payload(
+                            keys, ix_data,
+                        )?);
                     }
                     _ => {}
                 };
@@ -348,7 +357,35 @@ fn build_create_tree_with_root_payload(
     let staker = *keys
         .get(4)
         .ok_or(BlockbusterError::InstructionParsingError)?;
-    let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(args, staker);
+    let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(args, staker, None);
 
-    Ok(Payload::CreateTreeWithRoot { args, tree_id })
+    Ok(Payload::FinalizeTreeWithRoot { args, tree_id })
+}
+
+// See Bubblegum for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md
+fn build_create_tree_with_root_and_collection_payload(
+    keys: &[Pubkey],
+    ix_data: &[u8],
+) -> Result<Payload, BlockbusterError> {
+    let args = FinalizeTreeWithRootAndCollectionInstructionArgs::try_from_slice(ix_data)?;
+
+    let tree_id = *keys
+        .get(1)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+    let staker = *keys
+        .get(4)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+    let collection_mint = *keys
+        .get(11)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+    let args = FinalizeTreeWithRootInstructionArgsWithStaker::build_finalize_tree_with_root_instruction_args_with_staker(FinalizeTreeWithRootInstructionArgs {
+        root: args.root,
+        rightmost_leaf: args.rightmost_leaf,
+        rightmost_index: args.rightmost_index,
+        metadata_url: args.metadata_url,
+        metadata_hash: args.metadata_hash,
+    }, staker, Some(collection_mint));
+
+    Ok(Payload::FinalizeTreeWithRoot { args, tree_id })
 }

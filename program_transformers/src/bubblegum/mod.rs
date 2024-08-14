@@ -59,7 +59,10 @@ where
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
-        InstructionName::CreateTreeWithRoot => "CreateTreeWithRoot",
+        InstructionName::PrepareTree => "PrepareTree",
+        InstructionName::AddCanopy => "AddCanopy",
+        InstructionName::FinalizeTreeWithRoot => "FinalizeTreeWithRoot",
+        InstructionName::FinalizeTreeWithRootAndCollection => "FinalizeTreeWithRootAndCollection",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
@@ -111,7 +114,8 @@ where
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
-        InstructionName::CreateTreeWithRoot => {
+        InstructionName::FinalizeTreeWithRoot
+        | InstructionName::FinalizeTreeWithRootAndCollection => {
             finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn).await?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
