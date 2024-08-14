@@ -1,4 +1,6 @@
 prometheus: 127.0.0.1:8874
+topograph:
+  num_threads: 1
 redis:
   url: redis://localhost:6379
   group: ingester
@@ -22,6 +24,6 @@ postgres:
   min_connections: 10
   max_connections: 50 # `max_connection` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible
 program_transformer:
-  max_tasks_in_process: 40
+  max_tasks_in_process: 100
 download_metadata:
   max_attempts: 3
