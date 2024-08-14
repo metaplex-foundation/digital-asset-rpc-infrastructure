@@ -30,7 +30,7 @@ use spl_noop;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FinalizeTreeWithRootInstructionArgsWithStaker {
-    pub rightmost_root: [u8; 32],
+    pub root: [u8; 32],
     pub rightmost_leaf: [u8; 32],
     pub rightmost_index: u32,
     pub metadata_url: String,
@@ -45,7 +45,7 @@ impl FinalizeTreeWithRootInstructionArgsWithStaker {
         collection_mint: Option<Pubkey>,
     ) -> Self {
         Self {
-            rightmost_root: args.root,
+            root: args.root,
             rightmost_leaf: args.rightmost_leaf,
             rightmost_index: args.rightmost_index,
             metadata_url: args.metadata_url,
