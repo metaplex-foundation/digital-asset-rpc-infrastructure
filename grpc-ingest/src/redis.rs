@@ -37,6 +37,22 @@ use {
     },
 };
 
+pub async fn report_xlen<C: AsyncCommands>(
+    mut connection: C,
+    streams: Vec<String>,
+) -> anyhow::Result<()> {
+    let mut pipe = redis::pipe();
+    for stream in &streams {
+        pipe.xlen(stream);
+    }
+    let xlens: Vec<usize> = pipe.query_async(&mut connection).await?;
+
+    for (stream, xlen) in streams.iter().zip(xlens.into_iter()) {
+        redis_xlen_set(stream, xlen);
+    }
+
+    Ok(())
+}
 pub async fn metrics_xlen<C: AsyncCommands>(
     mut connection: C,
     streams: &[String],

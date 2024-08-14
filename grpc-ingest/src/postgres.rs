@@ -20,10 +20,14 @@ pub async fn create_pool(config: ConfigIngesterPostgres) -> anyhow::Result<PgPoo
         .map_err(Into::into)
 }
 
+pub fn report_pgpool(pgpool: PgPool) {
+    pgpool_connections_set(PgpoolConnectionsKind::Total, pgpool.size() as usize);
+    pgpool_connections_set(PgpoolConnectionsKind::Idle, pgpool.num_idle());
+}
+
 pub async fn metrics_pgpool(pgpool: PgPool) {
     loop {
-        pgpool_connections_set(PgpoolConnectionsKind::Total, pgpool.size() as usize);
-        pgpool_connections_set(PgpoolConnectionsKind::Idle, pgpool.num_idle());
+        report_pgpool(pgpool.clone());
         sleep(Duration::from_millis(100)).await;
     }
 }

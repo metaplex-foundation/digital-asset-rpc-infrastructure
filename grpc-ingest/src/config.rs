@@ -32,13 +32,26 @@ where
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct ConfigTopograph {
+    #[serde(default = "ConfigTopograph::default_num_threads")]
+    pub num_threads: usize,
+}
+
+impl ConfigTopograph {
+    pub const fn default_num_threads() -> usize {
+        5
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct ConfigPrometheus {
     pub prometheus: Option<SocketAddr>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigGrpc {
     pub x_token: Option<String>,
 
@@ -61,6 +74,8 @@ pub struct ConfigGrpc {
     pub solana_seen_event_cache_max_size: usize,
 
     pub redis: ConfigGrpcRedis,
+
+    pub topograph: ConfigTopograph,
 }
 
 impl ConfigGrpc {
@@ -73,7 +88,7 @@ impl ConfigGrpc {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigGrpcAccounts {
     #[serde(default = "ConfigGrpcAccounts::default_stream")]
     pub stream: String,
@@ -102,7 +117,7 @@ impl ConfigGrpcAccounts {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigGrpcTransactions {
     pub stream: String,
     #[serde(
@@ -120,7 +135,7 @@ impl ConfigGrpcTransactions {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigGrpcRedis {
     pub url: String,
     #[serde(
@@ -163,23 +178,27 @@ where
     Ok(Duration::from_millis(ms as u64))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
     pub postgres: ConfigIngesterPostgres,
-    pub program_transformer: ConfigIngesterProgramTransformer,
     pub download_metadata: ConfigIngesterDownloadMetadata,
+    pub topograph: ConfigTopograph,
+    pub program_transformer: ConfigIngesterProgramTransformer,
 }
 
 impl ConfigIngester {
     pub fn check(&self) {
-        if self.postgres.max_connections < self.program_transformer.max_tasks_in_process {
-            warn!("`postgres.max_connections` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible");
+        if self.postgres.max_connections < self.topograph.num_threads {
+            warn!(
+                "postgres.max_connections ({}) should be more than the number of threads ({})",
+                self.postgres.max_connections, self.topograph.num_threads
+            );
         }
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngesterRedis {
     pub url: String,
     #[serde(default = "ConfigIngesterRedis::default_group")]
@@ -246,7 +265,7 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
     where
         D: de::Deserializer<'de>,
     {
-        #[derive(Debug, Deserialize)]
+        #[derive(Debug, Clone, Copy, Deserialize)]
         struct Raw {
             #[serde(rename = "type")]
             pub stream_type: ConfigIngesterRedisStreamType,
@@ -296,7 +315,7 @@ impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ConfigIngesterRedisStreamType {
     Account,
@@ -304,7 +323,7 @@ pub enum ConfigIngesterRedisStreamType {
     MetadataJson,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngesterPostgres {
     pub url: String,
     #[serde(
@@ -329,7 +348,7 @@ impl ConfigIngesterPostgres {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngesterProgramTransformer {
     #[serde(
         default = "ConfigIngesterProgramTransformer::default_max_tasks_in_process",
@@ -403,7 +422,7 @@ impl ConfigIngesterDownloadMetadata {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigDownloadMetadata {
     pub postgres: ConfigIngesterPostgres,
     pub download_metadata: ConfigDownloadMetadataOpts,
