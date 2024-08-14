@@ -1,25 +1,22 @@
 use {
     crate::{
         config::{ConfigIngester, ConfigIngesterDownloadMetadata},
-        download_metadata::{TASK_TYPE},
-        postgres::{create_pool as pg_create_pool, metrics_pgpool},
+        download_metadata::TASK_TYPE,
+        postgres::{create_pool as pg_create_pool, metrics_pgpool, report_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
             program_transformer_tasks_total_set, redis_xadd_status_inc,
             ProgramTransformerTaskStatusKind,
         },
         redis::{
-            metrics_xlen, ProgramTransformerInfo, RedisStream, RedisStreamMessageInfo,
+            metrics_xlen, report_xlen, ProgramTransformerInfo, RedisStream, RedisStreamMessageInfo,
             TrackedPipeline,
         },
         util::create_shutdown,
     },
     chrono::Utc,
     crypto::{digest::Digest, sha2::Sha256},
-    das_core::{
-        DownloadMetadata, DownloadMetadataInfo,
-        DownloadMetadataNotifier,
-    },
+    das_core::{DownloadMetadata, DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::{sea_orm_active_enums::TaskStatus, tasks},
     futures::{
         future::{pending, BoxFuture, FusedFuture, FutureExt},
@@ -55,6 +52,11 @@ use {
 enum IngestJob {
     SaveMessage(RedisStreamMessageInfo),
     FlushRedisPipe(Arc<Mutex<TrackedPipeline>>, MultiplexedConnection),
+}
+
+enum ReportJob {
+    Redis(Vec<String>, MultiplexedConnection),
+    Postgres(PgPool),
 }
 
 fn download_metadata_notifier_v2(
@@ -97,16 +99,29 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
 
     let pipe = Arc::new(Mutex::new(TrackedPipeline::default()));
     let (mut redis_messages, redis_tasks_fut) =
-        RedisStream::new(config.redis, connection.clone()).await?;
+        RedisStream::new(config.redis.clone(), connection.clone()).await?;
     tokio::pin!(redis_tasks_fut);
 
-    let stream = config.download_metadata.stream.clone();
-    let stream_maxlen = config.download_metadata.stream_maxlen;
+    let streams = config
+        .redis
+        .streams
+        .iter()
+        .map(|config| config.stream.to_string())
+        .collect::<Vec<String>>();
 
-    let accounts_download_metadata_notifier =
-        download_metadata_notifier_v2(Arc::clone(&pipe), stream.clone(), stream_maxlen)?;
-    let transactions_download_metadata_notifier =
-        download_metadata_notifier_v2(Arc::clone(&pipe), stream.clone(), stream_maxlen)?;
+    let download_metadata_stream = config.download_metadata.stream.clone();
+    let download_metadata_stream_maxlen = config.download_metadata.stream_maxlen;
+
+    let accounts_download_metadata_notifier = download_metadata_notifier_v2(
+        Arc::clone(&pipe),
+        download_metadata_stream.clone(),
+        download_metadata_stream_maxlen,
+    )?;
+    let transactions_download_metadata_notifier = download_metadata_notifier_v2(
+        Arc::clone(&pipe),
+        download_metadata_stream.clone(),
+        download_metadata_stream_maxlen,
+    )?;
 
     let pt_accounts = Arc::new(ProgramTransformer::new(
         pool.clone(),
@@ -121,99 +136,120 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
         .build()?;
     let download_metadata = Arc::new(DownloadMetadata::new(http_client, pool.clone()));
 
-    let exec =
-        Executor::builder(Nonblock(Tokio))
-            .num_threads(None)
-            .build(move |update, _handle| {
-                let pt_accounts = Arc::clone(&pt_accounts);
-                let pt_transactions = Arc::clone(&pt_transactions);
-                let download_metadata = Arc::clone(&download_metadata);
+    let exec = Executor::builder(Nonblock(Tokio))
+        .num_threads(Some(config.topograph.num_threads))
+        .build(move |update, _handle| {
+            let pt_accounts = Arc::clone(&pt_accounts);
+            let pt_transactions = Arc::clone(&pt_transactions);
+            let download_metadata = Arc::clone(&download_metadata);
 
-                async move {
-                    match update {
-                        IngestJob::FlushRedisPipe(pipe, connection) => {
-                            let mut pipe = pipe.lock().await;
-                            let mut connection = connection;
+            async move {
+                match update {
+                    IngestJob::FlushRedisPipe(pipe, connection) => {
+                        let mut pipe = pipe.lock().await;
+                        let mut connection = connection;
 
-                            let flush = pipe.flush(&mut connection).await;
+                        let flush = pipe.flush(&mut connection).await;
 
-                            let status = flush.as_ref().map(|_| ()).map_err(|_| ());
-                            let counts = flush.as_ref().unwrap_or_else(|counts| counts);
+                        let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                        let counts = flush.as_ref().unwrap_or_else(|counts| counts);
 
-                            for (stream, count) in counts.iter() {
-                                redis_xadd_status_inc(stream, status, *count);
-                            }
-
-                            debug!(message = "Redis pipe flushed", ?status, ?counts);
+                        for (stream, count) in counts.iter() {
+                            redis_xadd_status_inc(stream, status, *count);
                         }
-                        IngestJob::SaveMessage(msg) => {
-                            let result = match &msg.get_data() {
-                                ProgramTransformerInfo::Account(account) => {
-                                    pt_accounts.handle_account_update(account).await
-                                }
-                                ProgramTransformerInfo::Transaction(transaction) => {
-                                    pt_transactions.handle_transaction(transaction).await
-                                }
-                                ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
-                                    download_metadata
-                                        .handle_download(download_metadata_info)
-                                        .await
-                                        .map_err(|e| {
-                                            ProgramTransformerError::AssetIndexError(e.to_string())
-                                        })
-                                }
-                            };
-                            match result {
-                                Ok(()) => program_transformer_task_status_inc(
-                                    ProgramTransformerTaskStatusKind::Success,
-                                ),
-                                Err(ProgramTransformerError::NotImplemented) => {
-                                    program_transformer_task_status_inc(
-                                        ProgramTransformerTaskStatusKind::NotImplemented,
-                                    );
-                                    error!("not implemented")
-                                }
-                                Err(ProgramTransformerError::DeserializationError(error)) => {
-                                    program_transformer_task_status_inc(
-                                        ProgramTransformerTaskStatusKind::DeserializationError,
-                                    );
 
-                                    error!("failed to deserialize {:?}", error)
-                                }
-                                Err(ProgramTransformerError::ParsingError(error)) => {
-                                    program_transformer_task_status_inc(
-                                        ProgramTransformerTaskStatusKind::ParsingError,
-                                    );
-
-                                    error!("failed to parse {:?}", error)
-                                }
-                                Err(ProgramTransformerError::DatabaseError(error)) => {
-                                    error!("database error for {:?}", error)
-                                }
-                                Err(ProgramTransformerError::AssetIndexError(error)) => {
-                                    error!("indexing error for {:?}", error)
-                                }
-                                Err(error) => {
-                                    error!("failed to handle {:?}", error)
-                                }
+                        debug!(message = "Redis pipe flushed", ?status, ?counts);
+                    }
+                    IngestJob::SaveMessage(msg) => {
+                        let result = match &msg.get_data() {
+                            ProgramTransformerInfo::Account(account) => {
+                                pt_accounts.handle_account_update(account).await
                             }
-
-                            if let Err(e) = msg.ack() {
-                                error!("Failed to acknowledge message: {:?}", e);
-                            } else {
-                                debug!("Message acknowledged successfully");
+                            ProgramTransformerInfo::Transaction(transaction) => {
+                                pt_transactions.handle_transaction(transaction).await
                             }
+                            ProgramTransformerInfo::MetadataJson(download_metadata_info) => {
+                                download_metadata
+                                    .handle_download(download_metadata_info)
+                                    .await
+                                    .map_err(|e| {
+                                        ProgramTransformerError::AssetIndexError(e.to_string())
+                                    })
+                            }
+                        };
+                        match result {
+                            Ok(()) => program_transformer_task_status_inc(
+                                ProgramTransformerTaskStatusKind::Success,
+                            ),
+                            Err(ProgramTransformerError::NotImplemented) => {
+                                program_transformer_task_status_inc(
+                                    ProgramTransformerTaskStatusKind::NotImplemented,
+                                );
+                                error!("not implemented")
+                            }
+                            Err(ProgramTransformerError::DeserializationError(error)) => {
+                                program_transformer_task_status_inc(
+                                    ProgramTransformerTaskStatusKind::DeserializationError,
+                                );
 
-                            
+                                error!("failed to deserialize {:?}", error)
+                            }
+                            Err(ProgramTransformerError::ParsingError(error)) => {
+                                program_transformer_task_status_inc(
+                                    ProgramTransformerTaskStatusKind::ParsingError,
+                                );
+
+                                error!("failed to parse {:?}", error)
+                            }
+                            Err(ProgramTransformerError::DatabaseError(error)) => {
+                                error!("database error for {:?}", error)
+                            }
+                            Err(ProgramTransformerError::AssetIndexError(error)) => {
+                                error!("indexing error for {:?}", error)
+                            }
+                            Err(error) => {
+                                error!("failed to handle {:?}", error)
+                            }
+                        }
+
+                        if let Err(e) = msg.ack() {
+                            error!("Failed to acknowledge message: {:?}", e);
+                        } else {
+                            debug!("Message acknowledged successfully");
                         }
                     }
                 }
-            })?;
+            }
+        })?;
+
+    let reporting_exec = Executor::builder(Nonblock(Tokio))
+        .num_threads(Some(1))
+        .build(move |update, _handle| async move {
+            match update {
+                ReportJob::Postgres(pool) => {
+                    report_pgpool(pool);
+
+                    debug!("Successfully reported Postgres pool metrics");
+                }
+                ReportJob::Redis(streams, connection) => {
+                    match report_xlen(connection, streams).await {
+                        Ok(_) => debug!("Successfully reported Redis stream length"),
+                        Err(e) => error!("Failed to report Redis stream length: {:?}", e),
+                    }
+                }
+            }
+        })?;
 
     let mut shutdown = create_shutdown()?;
 
     loop {
         tokio::select! {
+            _ = sleep(Duration::from_millis(100)) => {
+                reporting_exec.push(ReportJob::Postgres(pool.clone()));
+            }
+            _ = sleep(Duration::from_millis(100)) => {
+                reporting_exec.push(ReportJob::Redis(streams.clone(), connection.clone()));
+            }
             _ = sleep(config.download_metadata.pipeline_max_idle) => {
                 exec.push(IngestJob::FlushRedisPipe(Arc::clone(&pipe), connection.clone()));
             }
@@ -222,7 +258,6 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
             }
             Some(signal) = shutdown.next() => {
                 warn!("{signal} received, waiting spawned tasks...");
-                exec.push(IngestJob::FlushRedisPipe(Arc::clone(&pipe), connection.clone()));
                 break;
             }
             result = &mut redis_tasks_fut => {
@@ -234,9 +269,15 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
         }
     }
 
+    exec.push(IngestJob::FlushRedisPipe(
+        Arc::clone(&pipe),
+        connection.clone(),
+    ));
+
     redis_messages.shutdown();
 
     exec.join_async().await;
+    reporting_exec.join_async().await;
 
     pool.close().await;
 
