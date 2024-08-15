@@ -1,150 +1,28 @@
-use anchor_lang::AnchorSerialize;
 use async_channel::Receiver;
-use bubblegum_batch_sdk::batch_mint_builder::{verify_signature, MetadataArgsHash};
-use solana_sdk::signature::Signature;
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::batch_minting::merkle_tree_wrapper;
 use crate::bubblegum;
 use crate::error::{BatchMintValidationError, ProgramTransformerError, ProgramTransformerResult};
 use async_trait::async_trait;
 use blockbuster::instruction::InstructionBundle;
-use blockbuster::programs::bubblegum::{BubblegumInstruction, Payload};
+use bubblegum_batch_sdk::{batch_mint_validations::validate_batch_mint, model::BatchMint};
 use cadence_macros::{statsd_count, statsd_histogram};
 use digital_asset_types::dao::sea_orm_active_enums::{
     BatchMintFailStatus, BatchMintPersistingState,
 };
 use digital_asset_types::dao::{batch_mint, batch_mint_to_verify};
 use mockall::automock;
-use mpl_bubblegum::types::{LeafSchema, MetadataArgs, Version};
-use mpl_bubblegum::utils::get_asset_id;
-use mpl_bubblegum::{InstructionName, LeafSchemaEvent};
 use sea_orm::sea_query::{LockType, OnConflict};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, TransactionTrait,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::value::RawValue;
-use serde_with::DisplayFromStr;
-use solana_sdk::keccak;
-use solana_sdk::keccak::Hash;
 use solana_sdk::pubkey::Pubkey;
 use tokio::time::Instant;
 use tracing::{error, info};
 
 pub const MAX_BATCH_MINT_DOWNLOAD_ATTEMPTS: u8 = 5;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct BatchMint {
-    #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
-    pub tree_id: Pubkey,
-    pub batch_mints: Vec<BatchedMintInstruction>,
-    pub raw_metadata_map: HashMap<String, Box<RawValue>>, // map by uri
-    pub max_depth: u32,
-    pub max_buffer_size: u32,
-
-    // derived data
-    pub merkle_root: [u8; 32],
-    pub last_leaf_hash: [u8; 32],
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct BatchedMintInstruction {
-    pub tree_update: ChangeLogEventV1,
-    pub leaf_update: LeafSchema,
-    pub mint_args: MetadataArgs,
-    #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
-    pub authority: Pubkey,
-    #[serde(with = "serde_with::As::<Option<HashMap<DisplayFromStr, DisplayFromStr>>>")]
-    pub creator_signature: Option<HashMap<Pubkey, Signature>>, // signatures of the asset with the creator pubkey to ensure verified creator
-}
-
-#[derive(Default, Clone)]
-pub struct BatchMintInstruction {
-    pub max_depth: u32,
-    pub max_buffer_size: u32,
-    pub num_minted: u64,
-    pub root: [u8; 32],
-    pub leaf: [u8; 32],
-    pub index: u32,
-    pub metadata_url: String,
-    pub file_checksum: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct ChangeLogEventV1 {
-    #[serde(with = "serde_with::As::<serde_with::DisplayFromStr>")]
-    pub id: Pubkey,
-    pub path: Vec<PathNode>,
-    pub seq: u64,
-    pub index: u32,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Copy, Clone)]
-pub struct PathNode {
-    pub node: [u8; 32],
-    pub index: u32,
-}
-
-impl From<&PathNode> for spl_account_compression::state::PathNode {
-    fn from(value: &PathNode) -> Self {
-        Self {
-            node: value.node,
-            index: value.index,
-        }
-    }
-}
-impl From<spl_account_compression::state::PathNode> for PathNode {
-    fn from(value: spl_account_compression::state::PathNode) -> Self {
-        Self {
-            node: value.node,
-            index: value.index,
-        }
-    }
-}
-impl From<&ChangeLogEventV1> for blockbuster::programs::bubblegum::ChangeLogEventV1 {
-    fn from(value: &ChangeLogEventV1) -> Self {
-        Self {
-            id: value.id,
-            path: value.path.iter().map(Into::into).collect::<Vec<_>>(),
-            seq: value.seq,
-            index: value.index,
-        }
-    }
-}
-impl From<blockbuster::programs::bubblegum::ChangeLogEventV1> for ChangeLogEventV1 {
-    fn from(value: blockbuster::programs::bubblegum::ChangeLogEventV1) -> Self {
-        Self {
-            id: value.id,
-            path: value.path.into_iter().map(Into::into).collect::<Vec<_>>(),
-            seq: value.seq,
-            index: value.index,
-        }
-    }
-}
-
-impl From<&BatchedMintInstruction> for BubblegumInstruction {
-    fn from(value: &BatchedMintInstruction) -> Self {
-        let hash = value.leaf_update.hash();
-        Self {
-            instruction: InstructionName::MintV1,
-            tree_update: Some((&value.tree_update).into()),
-            leaf_update: Some(LeafSchemaEvent::new(
-                Version::V1,
-                value.leaf_update.clone(),
-                hash,
-            )),
-            payload: Some(Payload::MintV1 {
-                args: value.mint_args.clone(),
-                authority: value.authority,
-                tree_id: value.tree_update.id,
-            }),
-        }
-    }
-}
 
 #[automock]
 #[async_trait]
@@ -375,8 +253,12 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             Ok(r) => {
                 let query = batch_mint::Entity::insert(batch_mint::ActiveModel {
                     file_hash: Set(batch_mint_to_verify.file_hash.clone()),
-                    batch_mint_binary_bincode: Set(bincode::serialize(batch_mint)
-                        .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?),
+                    batch_mint_binary_bincode: Set(
+                        bincode::serialize(&r) 
+                            .map_err(|e| {
+                                ProgramTransformerError::SerializatonError(e.to_string())
+                            })?,
+                    ),
                 })
                 .on_conflict(
                     OnConflict::columns([batch_mint::Column::FileHash])
@@ -465,28 +347,47 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
         batch_mint_to_verify: &mut batch_mint_to_verify::Model,
         batch_mint: &BatchMint,
     ) {
+        let collection_raw_key: Option<[u8; 32]> =
+            if let Some(key) = batch_mint_to_verify.collection.clone() {
+                match key.try_into() {
+                    Ok(key_as_array) => Some(key_as_array),
+                    Err(e) => {
+                        error!("Could not convert collection key received from DB: {:?}", e);
+
+                        self.mark_persisting_failed(batch_mint_to_verify).await;
+                        return;
+                    }
+                }
+            } else {
+                None
+            };
+
         if let Err(e) =
-            validate_batch_mint(batch_mint, batch_mint_to_verify.collection.clone()).await
+            validate_batch_mint(batch_mint, collection_raw_key.map(|key| Pubkey::from(key))).await
         {
             error!("Error while validating batch mint: {}", e.to_string());
 
-            statsd_count!("batch_mint.validating_fail", 1);
-            batch_mint_to_verify.batch_mint_persisting_state =
-                BatchMintPersistingState::FailedToPersist;
-            if let Err(err) = self
-                .save_batch_mint_as_failed(
-                    BatchMintFailStatus::BatchMintVerifyFailed,
-                    batch_mint_to_verify,
-                )
-                .await
-            {
-                error!("Save batch mint as failed: {}", err);
-            };
+            self.mark_persisting_failed(batch_mint_to_verify).await;
             return;
         }
         statsd_count!("batch_mint.validating_success", 1);
         batch_mint_to_verify.batch_mint_persisting_state =
             BatchMintPersistingState::SuccessfullyValidate;
+    }
+
+    async fn mark_persisting_failed(&self, batch_mint_to_verify: &mut batch_mint_to_verify::Model) {
+        statsd_count!("batch_mint.validating_fail", 1);
+        batch_mint_to_verify.batch_mint_persisting_state =
+            BatchMintPersistingState::FailedToPersist;
+        if let Err(err) = self
+            .save_batch_mint_as_failed(
+                BatchMintFailStatus::BatchMintVerifyFailed,
+                batch_mint_to_verify,
+            )
+            .await
+        {
+            error!("Save batch mint as failed: {}", err);
+        }
     }
 
     async fn store_batch_mint_update(
@@ -553,137 +454,6 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
 
         Ok(())
     }
-}
-
-pub async fn validate_batch_mint(
-    batch_mint: &BatchMint,
-    collection_mint: Option<Vec<u8>>,
-) -> Result<(), BatchMintValidationError> {
-    let mut leaf_hashes = Vec::new();
-    for asset in batch_mint.batch_mints.iter() {
-        verify_creators_signatures(
-            &batch_mint.tree_id,
-            asset,
-            asset.creator_signature.clone().unwrap_or_default(),
-        )?;
-
-        if let Some(ref collection) = asset.mint_args.collection {
-            match &collection_mint {
-                None => {
-                    if collection.verified {
-                        return Err(BatchMintValidationError::WrongCollectionVerified(
-                            collection.key.to_string(),
-                        ));
-                    }
-                }
-                Some(collection_mint) => {
-                    if collection.verified && collection_mint != collection.key.to_bytes().as_ref()
-                    {
-                        return Err(BatchMintValidationError::VerifiedCollectionMismatch(
-                            bs58::encode(collection_mint.clone()).into_string(),
-                            collection.key.to_string(),
-                        ));
-                    }
-                }
-            }
-        }
-
-        let leaf_hash = match get_leaf_hash(asset, &batch_mint.tree_id) {
-            Ok(leaf_hash) => leaf_hash,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-        leaf_hashes.push(leaf_hash);
-    }
-
-    merkle_tree_wrapper::validate_change_logs(
-        batch_mint.max_depth,
-        batch_mint.max_buffer_size,
-        &leaf_hashes,
-        batch_mint,
-    )
-}
-
-// TODO: move this func to SDK once this crate will import data types from SDK
-fn verify_creators_signatures(
-    tree_key: &Pubkey,
-    rolled_mint: &BatchedMintInstruction,
-    creator_signatures: HashMap<Pubkey, Signature>,
-) -> Result<(), BatchMintValidationError> {
-    let metadata_hash =
-        MetadataArgsHash::new(&rolled_mint.leaf_update, tree_key, &rolled_mint.mint_args);
-
-    for creator in &rolled_mint.mint_args.creators {
-        if creator.verified {
-            if let Some(signature) = creator_signatures.get(&creator.address) {
-                if !verify_signature(&creator.address, &metadata_hash.get_message(), signature) {
-                    return Err(BatchMintValidationError::FailedCreatorVerification(
-                        creator.address.to_string(),
-                    ));
-                }
-            } else {
-                return Err(BatchMintValidationError::MissingCreatorSignature(
-                    creator.address.to_string(),
-                ));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn get_leaf_hash(
-    asset: &BatchedMintInstruction,
-    tree_id: &Pubkey,
-) -> Result<[u8; 32], BatchMintValidationError> {
-    let asset_id = get_asset_id(tree_id, asset.leaf_update.nonce());
-    if asset_id != asset.leaf_update.id() {
-        return Err(BatchMintValidationError::PDACheckFail(
-            asset_id.to_string(),
-            asset.leaf_update.id().to_string(),
-        ));
-    }
-
-    // @dev: seller_fee_basis points is encoded twice so that it can be passed to marketplace
-    // instructions, without passing the entire, un-hashed MetadataArgs struct
-    let metadata_args_hash = keccak::hashv(&[asset.mint_args.try_to_vec()?.as_slice()]);
-    let data_hash = keccak::hashv(&[
-        &metadata_args_hash.to_bytes(),
-        &asset.mint_args.seller_fee_basis_points.to_le_bytes(),
-    ]);
-    if asset.leaf_update.data_hash() != data_hash.to_bytes() {
-        return Err(BatchMintValidationError::InvalidDataHash(
-            data_hash.to_string(),
-            Hash::new(asset.leaf_update.data_hash().as_slice()).to_string(),
-        ));
-    }
-
-    // Use the metadata auth to check whether we can allow `verified` to be set to true in the
-    // creator Vec.
-    let creator_data = asset
-        .mint_args
-        .creators
-        .iter()
-        .map(|c| [c.address.as_ref(), &[c.verified as u8], &[c.share]].concat())
-        .collect::<Vec<_>>();
-
-    // Calculate creator hash.
-    let creator_hash = keccak::hashv(
-        creator_data
-            .iter()
-            .map(|c| c.as_slice())
-            .collect::<Vec<&[u8]>>()
-            .as_ref(),
-    );
-    if asset.leaf_update.creator_hash() != creator_hash.to_bytes() {
-        return Err(BatchMintValidationError::InvalidCreatorsHash(
-            creator_hash.to_string(),
-            Hash::new(asset.leaf_update.creator_hash().as_slice()).to_string(),
-        ));
-    }
-
-    Ok(asset.leaf_update.hash())
 }
 
 pub async fn store_batch_mint_update<T>(
