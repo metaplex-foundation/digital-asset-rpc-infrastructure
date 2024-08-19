@@ -5,6 +5,7 @@ use crate::{
     programs::ProgramParseResult,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
+use bubblegum_batch_sdk::model::BatchMintInstruction;
 use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
@@ -13,7 +14,7 @@ use mpl_bubblegum::{
         UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs,
         VerifyCreatorInstructionArgs,
     },
-    types::{BubblegumEventType, MetadataArgs, UpdateArgs},
+    types::{BubblegumEventType, MetadataArgs, UpdateArgs, Version},
 };
 pub use mpl_bubblegum::{
     types::{LeafSchema, UseMethod},
@@ -95,6 +96,26 @@ pub struct BubblegumInstruction {
     pub tree_update: Option<ChangeLogEventV1>,
     pub leaf_update: Option<LeafSchemaEvent>,
     pub payload: Option<Payload>,
+}
+
+impl From<&BatchMintInstruction> for BubblegumInstruction {
+    fn from(value: &BatchMintInstruction) -> Self {
+        let hash = value.leaf_update.hash();
+        Self {
+            instruction: InstructionName::MintV1,
+            tree_update: Some((&value.tree_update).into()),
+            leaf_update: Some(LeafSchemaEvent::new(
+                Version::V1,
+                value.leaf_update.clone(),
+                hash,
+            )),
+            payload: Some(Payload::MintV1 {
+                args: value.mint_args.clone(),
+                authority: value.authority,
+                tree_id: value.tree_update.id,
+            }),
+        }
+    }
 }
 
 impl BubblegumInstruction {

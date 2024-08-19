@@ -1,6 +1,8 @@
 use crate::common::TestSetup;
 use borsh::BorshSerialize;
 use bubblegum_batch_sdk::batch_mint_client::BatchMintClient;
+use bubblegum_batch_sdk::batch_mint_validations::generate_batch_mint;
+use bubblegum_batch_sdk::model::BatchMint;
 use bubblegum_batch_sdk::model::CollectionConfig;
 use cadence::{NopMetricSink, StatsdClient};
 use cadence_macros::set_global_default;
@@ -19,9 +21,8 @@ use nft_ingester::plerkle::PlerkleTransactionInfo;
 use plerkle_serialization::root_as_transaction_info;
 use plerkle_serialization::serializer::serialize_transaction;
 use program_transformers::batch_minting::batch_mint_persister::{
-    BatchMint, BatchMintPersister, MockBatchMintDownloader,
+    BatchMintPersister, MockBatchMintDownloader,
 };
-use program_transformers::batch_minting::tests::generate_batch_mint;
 use program_transformers::error::BatchMintValidationError;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbBackend, IntoActiveModel, QueryTrait, Set};
@@ -193,7 +194,7 @@ async fn batch_mint_persister_test() {
     set_global_default(client);
 
     let setup = TestSetup::new("batch_mint_persister_test".to_string()).await;
-    let test_batch_mint = generate_batch_mint(10, false);
+    let test_batch_mint = generate_batch_mint(10);
     let tmp_dir = tempfile::TempDir::new().unwrap();
 
     let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
@@ -321,7 +322,7 @@ async fn batch_mint_persister_download_fail_test() {
     set_global_default(client);
 
     let setup = TestSetup::new("batch_mint_persister_download_fail_test".to_string()).await;
-    let test_batch_mint = generate_batch_mint(10, false);
+    let test_batch_mint = generate_batch_mint(10);
     let tmp_dir = tempfile::TempDir::new().unwrap();
     let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
     serde_json::to_writer(tmp_file, &test_batch_mint).unwrap();
@@ -552,7 +553,15 @@ async fn batch_mint_with_unverified_creators_test() {
     // generate batch mint with creators verified value set to true
     // but signatures will not be attached
     // batch should not be saved
-    let test_batch_mint = generate_batch_mint(10, true);
+    let mut test_batch_mint = generate_batch_mint(10);
+
+    // set creators verified to true for this test case
+    for b_mint in test_batch_mint.batch_mints.iter_mut() {
+        for creator in b_mint.mint_args.creators.iter_mut() {
+            creator.verified = true;
+        }
+    }
+
     let tmp_dir = tempfile::TempDir::new().unwrap();
 
     let tmp_file = File::create(tmp_dir.path().join("batch-mint-10.json")).unwrap();
