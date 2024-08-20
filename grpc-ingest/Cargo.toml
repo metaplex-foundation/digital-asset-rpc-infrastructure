@@ -19,6 +19,7 @@ sqlx = { workspace = true, features = [
 ] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo", "derive"] }
+thiserror = { workspace = true }
 das-core = { workspace = true }
 digital_asset_types = { workspace = true }
 futures = { workspace = true }

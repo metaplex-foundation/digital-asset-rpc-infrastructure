@@ -1883,6 +1883,7 @@ dependencies = [
  "serde_yaml",
  "solana-sdk",
  "sqlx",
+ "thiserror",
  "tokio",
  "topograph",
  "tracing",
@@ -7806,7 +7807,7 @@ dependencies = [
 [[package]]
 name = "topograph"
 version = "0.4.0"
-source = "git+https://github.com/ray-kast/topograph?branch=v0.4-wip#f56fe34a5614507c50721e9555b412f18db0c51e"
+source = "git+https://github.com/ray-kast/topograph?branch=v0.4-wip#c91c01c25f605c4bc4461e9b9cbf95d8e4038972"
 dependencies = [
  "crossbeam",
  "dispose",

@@ -18,6 +18,7 @@ use {
     topograph::{
         executor::{Executor, Nonblock, Tokio},
         prelude::*,
+        AsyncHandler,
     },
     tracing::{debug, warn},
     yellowstone_grpc_client::GeyserGrpcClient,
@@ -32,6 +33,89 @@ use {
 enum GrpcJob {
     FlushRedisPipe,
     ProcessSubscribeUpdate(Box<SubscribeUpdate>),
+}
+
+#[derive(Clone)]
+pub struct GrpcJobHandler {
+    connection: redis::aio::MultiplexedConnection,
+    config: Arc<ConfigGrpc>,
+    pipe: Arc<Mutex<TrackedPipeline>>,
+}
+
+impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock<Tokio>>>
+    for GrpcJobHandler
+{
+    type Output = ();
+
+    fn handle(
+        &self,
+        job: GrpcJob,
+        handle: topograph::executor::Handle<'a, GrpcJob, Nonblock<Tokio>>,
+    ) -> impl futures::Future<Output = Self::Output> + Send + 'a {
+        let config = Arc::clone(&self.config);
+        let connection = self.connection.clone();
+        let pipe = Arc::clone(&self.pipe);
+
+        async move {
+            match job {
+                GrpcJob::FlushRedisPipe => {
+                    let mut pipe = pipe.lock().await;
+                    let mut connection = connection;
+
+                    let flush = pipe.flush(&mut connection).await;
+
+                    let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                    let counts = flush.as_ref().unwrap_or_else(|counts| counts);
+
+                    for (stream, count) in counts.iter() {
+                        redis_xadd_status_inc(stream, status, *count);
+                    }
+
+                    debug!(message = "Redis pipe flushed", ?status, ?counts);
+                }
+                GrpcJob::ProcessSubscribeUpdate(update) => {
+                    let accounts_stream = config.accounts.stream.clone();
+                    let accounts_stream_maxlen = config.accounts.stream_maxlen;
+                    let transactions_stream = config.transactions.stream.clone();
+                    let transactions_stream_maxlen = config.transactions.stream_maxlen;
+
+                    let SubscribeUpdate { update_oneof, .. } = *update;
+
+                    let mut pipe = pipe.lock().await;
+
+                    if let Some(update) = update_oneof {
+                        match update {
+                            UpdateOneof::Account(account) => {
+                                pipe.xadd_maxlen(
+                                    &accounts_stream,
+                                    StreamMaxlen::Approx(accounts_stream_maxlen),
+                                    "*",
+                                    account.encode_to_vec(),
+                                );
+
+                                debug!(message = "Account update", ?account,);
+                            }
+                            UpdateOneof::Transaction(transaction) => {
+                                pipe.xadd_maxlen(
+                                    &transactions_stream,
+                                    StreamMaxlen::Approx(transactions_stream_maxlen),
+                                    "*",
+                                    transaction.encode_to_vec(),
+                                );
+
+                                debug!(message = "Transaction update", ?transaction);
+                            }
+                            var => warn!(message = "Unknown update variant", ?var),
+                        }
+                    }
+
+                    if pipe.size() >= config.redis.pipeline_max_size {
+                        handle.push(GrpcJob::FlushRedisPipe);
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
@@ -72,76 +156,12 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
         .await?;
     tokio::pin!(stream);
 
-    let pool_config = Arc::clone(&config);
-    let pool_connection = connection.clone();
-    let pool_pipe = Arc::clone(&pipe);
-
     let exec = Executor::builder(Nonblock(Tokio))
-        .num_threads(Some(config.topograph.num_threads))
-        .build(move |update, _handle| {
-            let config = Arc::clone(&pool_config);
-            let connection = pool_connection.clone();
-            let pipe = Arc::clone(&pool_pipe);
-
-            async move {
-                match update {
-                    GrpcJob::FlushRedisPipe => {
-                        let mut pipe = pipe.lock().await;
-                        let mut connection = connection;
-
-                        let flush = pipe.flush(&mut connection).await;
-
-                        let status = flush.as_ref().map(|_| ()).map_err(|_| ());
-                        let counts = flush.as_ref().unwrap_or_else(|counts| counts);
-
-                        for (stream, count) in counts.iter() {
-                            redis_xadd_status_inc(stream, status, *count);
-                        }
-
-                        debug!(message = "Redis pipe flushed", ?status, ?counts);
-                    }
-                    GrpcJob::ProcessSubscribeUpdate(update) => {
-                        let accounts_stream = config.accounts.stream.clone();
-                        let accounts_stream_maxlen = config.accounts.stream_maxlen;
-                        let transactions_stream = config.transactions.stream.clone();
-                        let transactions_stream_maxlen = config.transactions.stream_maxlen;
-
-                        let SubscribeUpdate { update_oneof, .. } = *update;
-
-                        let mut pipe = pipe.lock().await;
-
-                        if let Some(update) = update_oneof {
-                            match update {
-                                UpdateOneof::Account(account) => {
-                                    pipe.xadd_maxlen(
-                                        &accounts_stream,
-                                        StreamMaxlen::Approx(accounts_stream_maxlen),
-                                        "*",
-                                        account.encode_to_vec(),
-                                    );
-
-                                    debug!(message = "Account update", ?account,);
-                                }
-                                UpdateOneof::Transaction(transaction) => {
-                                    pipe.xadd_maxlen(
-                                        &transactions_stream,
-                                        StreamMaxlen::Approx(transactions_stream_maxlen),
-                                        "*",
-                                        transaction.encode_to_vec(),
-                                    );
-
-                                    debug!(message = "Transaction update", ?transaction);
-                                }
-                                var => warn!(message = "Unknown update variant", ?var),
-                            }
-                        }
-
-                        if pipe.size() >= config.redis.pipeline_max_size {
-                            // handle.push(GrpcJob::FlushRedisPipe);
-                        }
-                    }
-                }
-            }
+        .max_concurrency(Some(config.max_concurrency))
+        .build_async(GrpcJobHandler {
+            config: Arc::clone(&config),
+            connection: connection.clone(),
+            pipe: Arc::clone(&pipe),
         })?;
 
     let deadline_config = Arc::clone(&config);
