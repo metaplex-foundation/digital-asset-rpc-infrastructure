@@ -2,8 +2,7 @@ prometheus: 127.0.0.1:8873
 geyser_endpoint: http://127.0.0.1:10000
 x_token: null
 commitment: finalized
-topograph:
-  num_threads: 5
+max_concurrency: 5
 accounts:
   stream: ACCOUNTS
   stream_maxlen: 100_000_000

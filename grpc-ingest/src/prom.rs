@@ -1,10 +1,12 @@
 use {
-    crate::version::VERSION as VERSION_INFO,
+    crate::{redis::RedisStreamMessageError, version::VERSION as VERSION_INFO},
+    das_core::MetadataJsonTaskError,
     hyper::{
         server::conn::AddrStream,
         service::{make_service_fn, service_fn},
         Body, Request, Response, Server, StatusCode,
     },
+    program_transformers::error::ProgramTransformerError,
     prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry, TextEncoder},
     std::{net::SocketAddr, sync::Once},
     tracing::{error, info},
@@ -164,16 +166,107 @@ pub enum ProgramTransformerTaskStatusKind {
     NotImplemented,
     DeserializationError,
     ParsingError,
+    ChangeLogEventMalformed,
+    StorageWriteError,
+    SerializatonError,
+    DatabaseError,
+    AssetIndexError,
+    DownloadMetadataNotify,
+    DownloadMetadataSeaOrmError,
+    DownloadMetadataFetchError,
+    DownloadMetadataAssetNotFound,
+    RedisMessageDeserializeError,
 }
 
-pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKind) {
-    PROGRAM_TRANSFORMER_TASK_STATUS
-        .with_label_values(&[match kind {
+impl From<ProgramTransformerError> for ProgramTransformerTaskStatusKind {
+    fn from(error: ProgramTransformerError) -> Self {
+        match error {
+            ProgramTransformerError::ChangeLogEventMalformed => {
+                ProgramTransformerTaskStatusKind::ChangeLogEventMalformed
+            }
+            ProgramTransformerError::StorageWriteError(_) => {
+                ProgramTransformerTaskStatusKind::StorageWriteError
+            }
+            ProgramTransformerError::NotImplemented => {
+                ProgramTransformerTaskStatusKind::NotImplemented
+            }
+            ProgramTransformerError::DeserializationError(_) => {
+                ProgramTransformerTaskStatusKind::DeserializationError
+            }
+            ProgramTransformerError::SerializatonError(_) => {
+                ProgramTransformerTaskStatusKind::SerializatonError
+            }
+            ProgramTransformerError::ParsingError(_) => {
+                ProgramTransformerTaskStatusKind::ParsingError
+            }
+            ProgramTransformerError::DatabaseError(_) => {
+                ProgramTransformerTaskStatusKind::DatabaseError
+            }
+            ProgramTransformerError::AssetIndexError(_) => {
+                ProgramTransformerTaskStatusKind::AssetIndexError
+            }
+            ProgramTransformerError::DownloadMetadataNotify(_) => {
+                ProgramTransformerTaskStatusKind::DownloadMetadataNotify
+            }
+        }
+    }
+}
+
+impl From<MetadataJsonTaskError> for ProgramTransformerTaskStatusKind {
+    fn from(error: MetadataJsonTaskError) -> Self {
+        match error {
+            MetadataJsonTaskError::SeaOrm(_) => {
+                ProgramTransformerTaskStatusKind::DownloadMetadataSeaOrmError
+            }
+            MetadataJsonTaskError::Fetch(_) => {
+                ProgramTransformerTaskStatusKind::DownloadMetadataFetchError
+            }
+            MetadataJsonTaskError::AssetNotFound => {
+                ProgramTransformerTaskStatusKind::DownloadMetadataAssetNotFound
+            }
+        }
+    }
+}
+
+impl From<RedisStreamMessageError> for ProgramTransformerTaskStatusKind {
+    fn from(_: RedisStreamMessageError) -> Self {
+        ProgramTransformerTaskStatusKind::RedisMessageDeserializeError
+    }
+}
+impl ProgramTransformerTaskStatusKind {
+    pub const fn to_str(self) -> &'static str {
+        match self {
             ProgramTransformerTaskStatusKind::Success => "success",
             ProgramTransformerTaskStatusKind::NotImplemented => "not_implemented",
             ProgramTransformerTaskStatusKind::DeserializationError => "deserialization_error",
             ProgramTransformerTaskStatusKind::ParsingError => "parsing_error",
-        }])
+            ProgramTransformerTaskStatusKind::ChangeLogEventMalformed => {
+                "changelog_event_malformed"
+            }
+            ProgramTransformerTaskStatusKind::StorageWriteError => "storage_write_error",
+            ProgramTransformerTaskStatusKind::SerializatonError => "serialization_error",
+            ProgramTransformerTaskStatusKind::DatabaseError => "database_error",
+            ProgramTransformerTaskStatusKind::AssetIndexError => "asset_index_error",
+            ProgramTransformerTaskStatusKind::DownloadMetadataNotify => "download_metadata_notify",
+            ProgramTransformerTaskStatusKind::DownloadMetadataSeaOrmError => {
+                "download_metadata_sea_orm_error"
+            }
+            ProgramTransformerTaskStatusKind::DownloadMetadataFetchError => {
+                "download_metadata_fetch_error"
+            }
+            ProgramTransformerTaskStatusKind::DownloadMetadataAssetNotFound => {
+                "download_metadata_asset_not_found"
+            }
+            ProgramTransformerTaskStatusKind::RedisMessageDeserializeError => {
+                "redis_message_deserialize_error"
+            }
+        }
+    }
+}
+
+pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKind) {
+    PROGRAM_TRANSFORMER_TASK_STATUS
+        .with_label_values(&[kind.to_str()])
         .inc()
 }
 

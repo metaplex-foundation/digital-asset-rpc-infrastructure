@@ -124,7 +124,7 @@ tokio = "1.30.0"
 tokio-stream = "0.1.14"
 topograph = { version = "0.4.0", features = [
   "tokio",
-], git = "https://github.com/ray-kast/topograph", branch = "v0.4-wip" }
+], git = "https://github.com/ray-kast/topograph", sha = "5449d34ff726c2ab9f4d3a59a7070ae7bdc76027", branch = "v0.4-wip" }
 tower = "0.4.13"
 tower-http = "0.3.5"
 tracing = "0.1.35"
