@@ -1,22 +1,11 @@
-prometheus: 127.0.0.1:8874
-topograph:
-  num_threads: 1
+prometheus: 127.0.0.1:8875
 redis:
   url: redis://localhost:6379
   group: ingester
   consumer: consumer # every new ingester instance should have uniq name
-  streams:
-    - type: account
-      stream: ACCOUNTS
-    - type: transaction
-      stream: TRANSACTIONS
-      xack_batch_max_size: 100
-      xack_batch_max_idle_ms: 10
-      xack_max_in_process: 100
-    - type: metadatajson
-      stream: METADATA_JSON
-  prefetch_queue_size: 1_000 # max number of messages available in the read queue for processing
-  xpending_max: 250 # used for reading pending messages
+  streams: []
+  prefetch_queue_size: 5_000 # max number of messages available in the read queue for processing
+  xpending_max: 1_000 # used for reading pending messages
   xpending_only: false # exit once all pending messages consumed (should be applied if you want downscale number of ingesters)
   xreadgroup_max: 1_000 # applied per each stream in one request
 postgres:
@@ -25,5 +14,11 @@ postgres:
   max_connections: 50 # `max_connection` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible
 program_transformer:
   max_tasks_in_process: 100
+accounts:
+  name: ACCOUNTS
+transactions:
+  name: TRANSACTIONS
 download_metadata:
   max_attempts: 3
+  stream_config:
+    name: METADATA_JSON

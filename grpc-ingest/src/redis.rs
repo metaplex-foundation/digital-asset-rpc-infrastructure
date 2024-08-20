@@ -1,7 +1,13 @@
 use {
     crate::{
-        config::{ConfigIngesterRedis, ConfigIngesterRedisStreamType, REDIS_STREAM_DATA_KEY},
-        prom::{redis_xack_inc, redis_xlen_set},
+        config::{
+            ConfigIngestStream, ConfigIngesterRedis, ConfigIngesterRedisStreamType,
+            REDIS_STREAM_DATA_KEY,
+        },
+        prom::{
+            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set,
+            ProgramTransformerTaskStatusKind,
+        },
     },
     das_core::DownloadMetadataInfo,
     futures::future::{BoxFuture, Fuse, FutureExt},
@@ -9,8 +15,8 @@ use {
     redis::{
         aio::MultiplexedConnection,
         streams::{
-            StreamClaimReply, StreamId, StreamKey, StreamMaxlen, StreamPendingCountReply,
-            StreamReadOptions, StreamReadReply,
+            StreamClaimOptions, StreamClaimReply, StreamId, StreamKey, StreamMaxlen,
+            StreamPendingCountReply, StreamReadOptions, StreamReadReply,
         },
         AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
@@ -28,6 +34,12 @@ use {
         task::JoinSet,
         time::{sleep, Duration, Instant},
     },
+    topograph::{
+        executor::{Executor, Nonblock, Tokio},
+        prelude::*,
+        AsyncHandler,
+    },
+    tracing::{debug, error, info},
     yellowstone_grpc_proto::{
         convert_from::{
             create_message_instructions, create_meta_inner_instructions, create_pubkey_vec,
@@ -36,6 +48,497 @@ use {
         prost::Message,
     },
 };
+
+pub enum IngestStreamJob {
+    Process((String, HashMap<String, RedisValue>)),
+}
+
+pub struct IngestStreamStop {
+    shutdown_tx: tokio::sync::oneshot::Sender<()>,
+    control: tokio::task::JoinHandle<()>,
+}
+
+impl IngestStreamStop {
+    pub async fn stop(self) -> anyhow::Result<()> {
+        let _ = self.shutdown_tx.send(());
+
+        self.control.await?;
+        // self.executor.join_async().await;
+
+        Ok(())
+    }
+}
+
+type HandlerFn = dyn Fn(HashMap<String, RedisValue>) -> BoxFuture<'static, Result<(), IngestMessageError>>
+    + Send
+    + Sync;
+
+#[derive(Clone)]
+pub struct IngestStreamHandler {
+    handler: Arc<HandlerFn>,
+    ack_sender: tokio::sync::mpsc::Sender<String>,
+}
+
+impl<'a>
+    AsyncHandler<IngestStreamJob, topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>>
+    for IngestStreamHandler
+{
+    type Output = ();
+
+    fn handle(
+        &self,
+        job: IngestStreamJob,
+        _handle: topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>,
+    ) -> impl futures::Future<Output = Self::Output> + Send {
+        let handler = Arc::clone(&self.handler);
+        let ack_sender = self.ack_sender.clone();
+
+        async move {
+            match job {
+                IngestStreamJob::Process((id, msg)) => {
+                    match handler(msg).await {
+                        Ok(()) => program_transformer_task_status_inc(
+                            ProgramTransformerTaskStatusKind::Success,
+                        ),
+                        Err(IngestMessageError::RedisStreamMessage(e)) => {
+                            error!("Failed to process message: {:?}", e);
+
+                            program_transformer_task_status_inc(e.into());
+                        }
+                        Err(IngestMessageError::DownloadMetadataJson(e)) => {
+                            program_transformer_task_status_inc(e.into());
+                        }
+                        Err(IngestMessageError::ProgramTransformer(e)) => {
+                            error!("Failed to process message: {:?}", e);
+
+                            program_transformer_task_status_inc(e.into());
+                        }
+                    }
+
+                    if let Err(e) = ack_sender.send(id).await {
+                        error!("Failed to send ack id to channel: {:?}", e);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum RedisStreamMessageError {
+    #[error("failed to get data (key: {0}) from stream")]
+    MissingData(String),
+    #[error("invalid data (key: {0}) from stream")]
+    InvalidData(String),
+    #[error("failed to decode message")]
+    Decode(#[from] yellowstone_grpc_proto::prost::DecodeError),
+    #[error("received invalid SubscribeUpdateAccount")]
+    InvalidSubscribeUpdateAccount,
+    #[error("failed to convert pubkey")]
+    PubkeyConversion(#[from] std::array::TryFromSliceError),
+    #[error("JSON deserialization error: {0}")]
+    JsonDeserialization(#[from] serde_json::Error),
+}
+
+pub trait RedisStreamMessage<M> {
+    fn try_parse_msg(msg: HashMap<String, RedisValue>) -> Result<M, RedisStreamMessageError>;
+
+    fn get_data_as_vec(
+        msg: &HashMap<String, RedisValue>,
+    ) -> Result<&Vec<u8>, RedisStreamMessageError> {
+        let data = msg.get(REDIS_STREAM_DATA_KEY).ok_or_else(|| {
+            RedisStreamMessageError::MissingData(REDIS_STREAM_DATA_KEY.to_string())
+        })?;
+
+        match data {
+            RedisValue::Data(data) => Ok(data),
+            _ => Err(RedisStreamMessageError::InvalidData(
+                REDIS_STREAM_DATA_KEY.to_string(),
+            )),
+        }
+    }
+}
+
+impl RedisStreamMessage<Self> for AccountInfo {
+    fn try_parse_msg(msg: HashMap<String, RedisValue>) -> Result<Self, RedisStreamMessageError> {
+        let account_data = Self::get_data_as_vec(&msg)?;
+
+        let SubscribeUpdateAccount { account, slot, .. } = Message::decode(account_data.as_ref())?;
+
+        let account =
+            account.ok_or_else(|| RedisStreamMessageError::InvalidSubscribeUpdateAccount)?;
+
+        Ok(Self {
+            slot,
+            pubkey: Pubkey::try_from(account.pubkey.as_slice())?,
+            owner: Pubkey::try_from(account.owner.as_slice())?,
+            data: account.data,
+        })
+    }
+}
+
+impl RedisStreamMessage<Self> for TransactionInfo {
+    fn try_parse_msg(msg: HashMap<String, RedisValue>) -> Result<Self, RedisStreamMessageError> {
+        let transaction_data = Self::get_data_as_vec(&msg)?;
+
+        let SubscribeUpdateTransaction { transaction, slot } =
+            Message::decode(transaction_data.as_ref())?;
+
+        let transaction = transaction.ok_or_else(|| {
+            RedisStreamMessageError::InvalidData(
+                "received invalid SubscribeUpdateTransaction".to_string(),
+            )
+        })?;
+        let tx = transaction.transaction.ok_or_else(|| {
+            RedisStreamMessageError::InvalidData(
+                "received invalid transaction in SubscribeUpdateTransaction".to_string(),
+            )
+        })?;
+        let message = tx.message.ok_or_else(|| {
+            RedisStreamMessageError::InvalidData(
+                "received invalid message in SubscribeUpdateTransaction".to_string(),
+            )
+        })?;
+        let meta = transaction.meta.ok_or_else(|| {
+            RedisStreamMessageError::InvalidData(
+                "received invalid meta in SubscribeUpdateTransaction".to_string(),
+            )
+        })?;
+
+        let mut account_keys = create_pubkey_vec(message.account_keys).map_err(|e| {
+            RedisStreamMessageError::Decode(yellowstone_grpc_proto::prost::DecodeError::new(e))
+        })?;
+        for pubkey in create_pubkey_vec(meta.loaded_writable_addresses).map_err(|e| {
+            RedisStreamMessageError::Decode(yellowstone_grpc_proto::prost::DecodeError::new(e))
+        })? {
+            account_keys.push(pubkey);
+        }
+        for pubkey in create_pubkey_vec(meta.loaded_readonly_addresses).map_err(|e| {
+            RedisStreamMessageError::Decode(yellowstone_grpc_proto::prost::DecodeError::new(e))
+        })? {
+            account_keys.push(pubkey);
+        }
+
+        Ok(Self {
+            slot,
+            signature: Signature::try_from(transaction.signature.as_slice())?,
+            account_keys,
+            message_instructions: create_message_instructions(message.instructions).map_err(
+                |e| {
+                    RedisStreamMessageError::Decode(
+                        yellowstone_grpc_proto::prost::DecodeError::new(e),
+                    )
+                },
+            )?,
+            meta_inner_instructions: create_meta_inner_instructions(meta.inner_instructions)
+                .map_err(|e| {
+                    RedisStreamMessageError::Decode(
+                        yellowstone_grpc_proto::prost::DecodeError::new(e),
+                    )
+                })?,
+        })
+    }
+}
+
+impl RedisStreamMessage<Self> for DownloadMetadataInfo {
+    fn try_parse_msg(msg: HashMap<String, RedisValue>) -> Result<Self, RedisStreamMessageError> {
+        let metadata_data = Self::get_data_as_vec(&msg)?;
+
+        let info: DownloadMetadataInfo = serde_json::from_slice(metadata_data.as_ref())?;
+
+        Ok(info)
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum IngestMessageError {
+    #[error("Redis stream message parse error: {0}")]
+    RedisStreamMessage(#[from] RedisStreamMessageError),
+    #[error("Program transformer error: {0}")]
+    ProgramTransformer(#[from] program_transformers::error::ProgramTransformerError),
+    #[error("Download metadata JSON task error: {0}")]
+    DownloadMetadataJson(#[from] das_core::MetadataJsonTaskError),
+}
+
+pub struct IngestStream {
+    config: ConfigIngestStream,
+    connection: Option<MultiplexedConnection>,
+    handler: Option<Arc<HandlerFn>>,
+}
+
+impl IngestStream {
+    pub fn build() -> Self {
+        Self {
+            config: ConfigIngestStream::default(),
+            connection: None,
+            handler: None,
+        }
+    }
+
+    pub fn config(mut self, config: ConfigIngestStream) -> Self {
+        self.config = config;
+        self
+    }
+
+    pub fn connection(mut self, connection: MultiplexedConnection) -> Self {
+        self.connection = Some(connection);
+        self
+    }
+
+    pub fn handler<F>(mut self, handler: F) -> Self
+    where
+        F: Fn(HashMap<String, RedisValue>) -> BoxFuture<'static, Result<(), IngestMessageError>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.handler = Some(Arc::new(handler));
+        self
+    }
+
+    pub fn start(mut self) -> anyhow::Result<IngestStreamStop> {
+        let config = Arc::new(self.config);
+
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+        let connection = self.connection.take().expect("Connection is required");
+
+        let group_create_connection = connection.clone();
+        let config_group_create = Arc::clone(&config);
+
+        tokio::task::spawn_blocking(move || {
+            let mut connection = group_create_connection.clone();
+            let config = Arc::clone(&config_group_create);
+
+            let rt = tokio::runtime::Runtime::new()?;
+
+            rt.block_on(async {
+                if let Err(e) = xgroup_create(
+                    &mut connection,
+                    &config.name,
+                    &config.group,
+                    &config.consumer,
+                )
+                .await
+                {
+                    error!("Failed to create group: {:?}", e);
+                } else {
+                    debug!(
+                        "Group created successfully: name={}, group={}, consumer={}",
+                        config.name, config.group, config.consumer
+                    );
+                }
+            });
+
+            Ok::<(), anyhow::Error>(())
+        });
+
+        let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
+        let (ack_shutdown_tx, ack_shutdown_rx) = tokio::sync::oneshot::channel();
+
+        tokio::spawn({
+            let config = Arc::clone(&config);
+            let mut connection = connection.clone();
+            let mut pending_ids = Vec::new();
+
+            async move {
+                let mut shutdown_rx = ack_shutdown_rx;
+                let deadline = tokio::time::sleep(config.xack_batch_max_idle);
+                tokio::pin!(deadline);
+
+                loop {
+                    tokio::select! {
+                        Some(id) = ack_rx.recv() => {
+                            pending_ids.push(id);
+                            if pending_ids.len() >= config.xack_batch_max_size {
+                                let ids = std::mem::take(&mut pending_ids);
+                                match redis::pipe()
+                                    .atomic()
+                                    .xack(&config.name, &config.group, &ids)
+                                    .xdel(&config.name, &ids)
+                                    .query_async::<_, redis::Value>(&mut connection)
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        redis_xack_inc(&config.name, ids.len());
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to acknowledge messages: {:?}", e);
+                                    }
+                                }
+                                deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
+                            }
+                        },
+                        _ = &mut deadline => {
+                            if !pending_ids.is_empty() {
+                                let ids = std::mem::take(&mut pending_ids);
+                                match redis::pipe()
+                                    .atomic()
+                                    .xack(&config.name, &config.group, &ids)
+                                    .xdel(&config.name, &ids)
+                                    .query_async::<_, redis::Value>(&mut connection)
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        redis_xack_inc(&config.name, ids.len());
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to acknowledge messages: {:?}", e);
+                                    }
+                                }
+                            }
+                            deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
+                        },
+                        _ = &mut shutdown_rx => {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        let handler = self.handler.take().expect("Handler is required");
+
+        let executor = Executor::builder(Nonblock(Tokio))
+            .max_concurrency(Some(config.max_concurrency))
+            .build_async(IngestStreamHandler {
+                handler,
+                ack_sender: ack_tx.clone(),
+            })?;
+
+        let connection_report = connection.clone();
+        let streams_report = vec![config.name.clone()];
+
+        tokio::spawn(async move {
+            loop {
+                let connection = connection_report.clone();
+                let streams = streams_report.clone();
+
+                if let Err(e) = report_xlen(connection, streams).await {
+                    error!("Failed to report xlen: {:?}", e);
+                }
+
+                sleep(Duration::from_millis(100)).await;
+            }
+        });
+
+        let config_read = Arc::clone(&config);
+        let mut connection_read = connection.clone();
+
+        let (read_shutdown_tx, read_shutdown_rx) = tokio::sync::oneshot::channel();
+
+        tokio::spawn(async move {
+            debug!("Starting read stream task name={}", config_read.name);
+
+            let mut shutdown_rx = read_shutdown_rx;
+
+            loop {
+                if shutdown_rx.try_recv().is_ok() {
+                    debug!(
+                        "Shutdown signal received, exiting prefetch loop name={}",
+                        config_read.name
+                    );
+                    break;
+                }
+
+                if let Ok(pending) = redis::cmd("XPENDING")
+                    .arg(&config_read.name)
+                    .arg(&config_read.group)
+                    .arg("-")
+                    .arg("+")
+                    .arg(config_read.batch_size)
+                    .arg(&config_read.consumer)
+                    .query_async::<_, StreamPendingCountReply>(&mut connection_read)
+                    .await
+                {
+                    if pending.ids.is_empty() {
+                        debug!(
+                            "No pending messages stream={} consumer={} group={}",
+                            config_read.name, config_read.consumer, config_read.group
+                        );
+                        break;
+                    }
+
+                    let ids: Vec<&str> = pending.ids.iter().map(|info| info.id.as_str()).collect();
+                    let claim_opts = StreamClaimOptions::default();
+
+                    let claimed: RedisResult<StreamClaimReply> = connection_read
+                        .xclaim_options(
+                            &config_read.name,
+                            &config_read.group,
+                            &config_read.consumer,
+                            20,
+                            &ids,
+                            claim_opts,
+                        )
+                        .await;
+
+                    if let Ok(claimed) = claimed {
+                        for StreamId { id, map } in claimed.ids {
+                            executor.push(IngestStreamJob::Process((id, map)));
+                        }
+                    }
+                }
+            }
+
+            loop {
+                if shutdown_rx.try_recv().is_ok() {
+                    debug!(
+                        "Shutdown signal received, exiting read loop name={}",
+                        config_read.name
+                    );
+                    break;
+                }
+
+                let opts = StreamReadOptions::default()
+                    .group(&config_read.group, &config_read.consumer)
+                    .count(config_read.batch_size)
+                    .block(20);
+
+                let result: RedisResult<StreamReadReply> = connection_read
+                    .xread_options(&[&config_read.name], &[">"], &opts)
+                    .await;
+                info!(
+                    "Read from stream name={} result={:?}",
+                    config_read.name, result
+                );
+
+                match result {
+                    Ok(reply) => {
+                        for StreamKey { key: _, ids } in reply.keys {
+                            for StreamId { id, map } in ids {
+                                debug!("Reading and processing: id={} msg={:?}", id, map);
+                                executor.push(IngestStreamJob::Process((id, map)));
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!("Error reading from stream: {:?}", err);
+                    }
+                }
+            }
+        });
+
+        let control = tokio::spawn(async move {
+            let mut shutdown_rx: tokio::sync::oneshot::Receiver<()> = shutdown_rx;
+            debug!("Starting ingest stream name={}", config.name);
+
+            tokio::select! {
+                _ = &mut shutdown_rx => {
+                    info!("Shut down ingest stream name={}", config.name);
+
+                    let _ = read_shutdown_tx.send(());
+                    let _ = ack_shutdown_tx.send(());
+                }
+            }
+        });
+
+        Ok(IngestStreamStop {
+            control,
+            shutdown_tx,
+        })
+    }
+}
 
 pub async fn report_xlen<C: AsyncCommands>(
     mut connection: C,
@@ -231,6 +734,70 @@ pub struct RedisStream {
     messages_rx: mpsc::Receiver<RedisStreamMessageInfo>,
 }
 
+#[allow(dead_code)]
+async fn run_ack(
+    stream: Arc<RedisStreamInfo>,
+    connection: MultiplexedConnection,
+    mut ack_rx: mpsc::UnboundedReceiver<String>,
+) -> anyhow::Result<()> {
+    let mut ids = vec![];
+    let deadline = sleep(stream.xack_batch_max_idle);
+    tokio::pin!(deadline);
+    let mut tasks = JoinSet::new();
+
+    let result = loop {
+        let terminated = tokio::select! {
+            msg = ack_rx.recv() => match msg {
+                Some(msg) => {
+                    ids.push(msg);
+                    if ids.len() < stream.xack_batch_max_size {
+                        continue;
+                    }
+                    false
+                }
+                None => true,
+            },
+            _ = &mut deadline => false,
+        };
+
+        let ids = std::mem::take(&mut ids);
+        deadline
+            .as_mut()
+            .reset(Instant::now() + stream.xack_batch_max_idle);
+        if !ids.is_empty() {
+            tasks.spawn({
+                let stream = Arc::clone(&stream);
+                let mut connection = connection.clone();
+                async move {
+                    redis::pipe()
+                        .atomic()
+                        .xack(&stream.stream_name, &stream.group, &ids)
+                        .xdel(&stream.stream_name, &ids)
+                        .query_async(&mut connection)
+                        .await?;
+                    redis_xack_inc(&stream.stream_name, ids.len());
+                    Ok::<(), anyhow::Error>(())
+                }
+            });
+            while tasks.len() >= stream.xack_max_in_process {
+                if let Some(result) = tasks.join_next().await {
+                    result??;
+                }
+            }
+        }
+
+        if terminated {
+            break Ok(());
+        }
+    };
+
+    while let Some(result) = tasks.join_next().await {
+        result??;
+    }
+
+    result
+}
+
 impl RedisStream {
     pub async fn new(
         config: ConfigIngesterRedis,
@@ -380,6 +947,7 @@ impl RedisStream {
 
         let streams_keys = streams.keys().collect::<Vec<_>>();
         let streams_ids = (0..streams_keys.len()).map(|_| ">").collect::<Vec<_>>();
+
         while !shutdown.load(Ordering::Relaxed) {
             let opts = StreamReadOptions::default()
                 .count(config.xreadgroup_max)
@@ -387,6 +955,7 @@ impl RedisStream {
             let results: StreamReadReply = connection
                 .xread_options(&streams_keys, &streams_ids, &opts)
                 .await?;
+
             if results.keys.is_empty() {
                 sleep(Duration::from_millis(5)).await;
                 continue;

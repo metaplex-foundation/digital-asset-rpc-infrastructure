@@ -20,6 +20,7 @@ use {
         entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
         SqlxPostgresConnector, TransactionTrait,
     },
+    serde::Deserialize,
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
@@ -35,7 +36,7 @@ mod mpl_core_program;
 mod token;
 mod token_metadata;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct AccountInfo {
     pub slot: u64,
     pub pubkey: Pubkey,
@@ -43,7 +44,7 @@ pub struct AccountInfo {
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TransactionInfo {
     pub slot: u64,
     pub signature: Signature,

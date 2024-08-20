@@ -33,6 +33,64 @@ where
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfigIngestStream {
+    pub name: String,
+    #[serde(default = "ConfigIngestStream::default_group")]
+    pub group: String,
+    #[serde(default = "ConfigIngestStream::default_consumer")]
+    pub consumer: String,
+    #[serde(default = "ConfigIngestStream::default_xack_batch_max_size")]
+    pub xack_batch_max_size: usize,
+    #[serde(
+        default = "ConfigIngestStream::default_xack_batch_max_idle",
+        deserialize_with = "deserialize_duration_str",
+        rename = "xack_batch_max_idle_ms"
+    )]
+    pub xack_batch_max_idle: Duration,
+    #[serde(default = "ConfigIngestStream::default_batch_size")]
+    pub batch_size: usize,
+    #[serde(
+        default = "ConfigIngestStream::default_max_concurrency",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_concurrency: usize,
+    #[serde(
+        default = "ConfigIngestStream::default_xack_buffer_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub xack_buffer_size: usize,
+}
+
+impl ConfigIngestStream {
+    pub const fn default_xack_buffer_size() -> usize {
+        1_000
+    }
+    pub const fn default_max_concurrency() -> usize {
+        2
+    }
+
+    pub const fn default_xack_batch_max_idle() -> Duration {
+        Duration::from_millis(100)
+    }
+
+    pub fn default_group() -> String {
+        "ingester".to_owned()
+    }
+
+    pub fn default_consumer() -> String {
+        "consumer".to_owned()
+    }
+
+    pub const fn default_xack_batch_max_size() -> usize {
+        100
+    }
+
+    pub const fn default_batch_size() -> usize {
+        100
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct ConfigTopograph {
     #[serde(default = "ConfigTopograph::default_num_threads")]
@@ -75,10 +133,18 @@ pub struct ConfigGrpc {
 
     pub redis: ConfigGrpcRedis,
 
-    pub topograph: ConfigTopograph,
+    #[serde(
+        default = "ConfigGrpc::default_max_concurrency",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_concurrency: usize,
 }
 
 impl ConfigGrpc {
+    pub const fn default_max_concurrency() -> usize {
+        10
+    }
+
     pub const fn default_geyser_update_message_buffer_size() -> usize {
         100_000
     }
@@ -183,16 +249,21 @@ pub struct ConfigIngester {
     pub redis: ConfigIngesterRedis,
     pub postgres: ConfigIngesterPostgres,
     pub download_metadata: ConfigIngesterDownloadMetadata,
-    pub topograph: ConfigTopograph,
     pub program_transformer: ConfigIngesterProgramTransformer,
+    pub accounts: ConfigIngestStream,
+    pub transactions: ConfigIngestStream,
 }
 
 impl ConfigIngester {
     pub fn check(&self) {
-        if self.postgres.max_connections < self.topograph.num_threads {
+        let total_threads = self.program_transformer.account_num_threads
+            + self.program_transformer.transaction_num_threads
+            + self.program_transformer.metadata_json_num_threads;
+
+        if self.postgres.max_connections < total_threads {
             warn!(
                 "postgres.max_connections ({}) should be more than the number of threads ({})",
-                self.postgres.max_connections, self.topograph.num_threads
+                self.postgres.max_connections, total_threads
             );
         }
     }
@@ -355,16 +426,49 @@ pub struct ConfigIngesterProgramTransformer {
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_tasks_in_process: usize,
+    #[serde(
+        default = "ConfigIngesterProgramTransformer::default_account_num_threads",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub account_num_threads: usize,
+    #[serde(
+        default = "ConfigIngesterProgramTransformer::default_transaction_num_threads",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub transaction_num_threads: usize,
+    #[serde(
+        default = "ConfigIngesterProgramTransformer::default_metadata_json_num_threads",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub metadata_json_num_threads: usize,
 }
 
 impl ConfigIngesterProgramTransformer {
+    pub const fn default_account_num_threads() -> usize {
+        5
+    }
+
+    pub const fn default_transaction_num_threads() -> usize {
+        1
+    }
+
+    pub const fn default_metadata_json_num_threads() -> usize {
+        1
+    }
+
     pub const fn default_max_tasks_in_process() -> usize {
         40
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ConfigIngesterDownloadMetadata {
+    pub stream_config: ConfigIngestStream,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_num_threads",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub num_threads: usize,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
@@ -397,6 +501,10 @@ pub struct ConfigIngesterDownloadMetadata {
 }
 
 impl ConfigIngesterDownloadMetadata {
+    pub const fn default_num_threads() -> usize {
+        2
+    }
+
     pub const fn default_pipeline_max_idle() -> Duration {
         Duration::from_millis(10)
     }
