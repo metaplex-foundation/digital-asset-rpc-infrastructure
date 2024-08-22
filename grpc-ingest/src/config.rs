@@ -3,7 +3,6 @@ use {
     serde::{de, Deserialize},
     std::{net::SocketAddr, path::Path, time::Duration},
     tokio::fs,
-    tracing::warn,
     yellowstone_grpc_tools::config::{
         deserialize_usize_str, ConfigGrpcRequestAccounts, ConfigGrpcRequestCommitment,
         ConfigGrpcRequestTransactions,
@@ -258,21 +257,6 @@ pub struct ConfigIngester {
     pub program_transformer: ConfigIngesterProgramTransformer,
     pub accounts: ConfigIngestStream,
     pub transactions: ConfigIngestStream,
-}
-
-impl ConfigIngester {
-    pub fn check(&self) {
-        let total_threads = self.accounts.max_concurrency
-            + self.transactions.max_concurrency
-            + self.download_metadata.stream_config.max_concurrency;
-
-        if self.postgres.max_connections < total_threads {
-            warn!(
-                "postgres.max_connections ({}) should be more than the number of threads ({})",
-                self.postgres.max_connections, total_threads
-            );
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

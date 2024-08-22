@@ -428,7 +428,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
 
     // Otherwise return with info for background downloading.
-    Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
+    Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri, slot_i)))
 }
 
 // Modify the JSON structure to remove the `Plugin`` name and just display its data.

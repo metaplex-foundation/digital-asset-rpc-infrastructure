@@ -190,7 +190,11 @@ where
                     return Ok(None);
                 }
 
-                Ok(Some(DownloadMetadataInfo::new(id_bytes.to_vec(), uri)))
+                Ok(Some(DownloadMetadataInfo::new(
+                    id_bytes.to_vec(),
+                    uri,
+                    slot_i,
+                )))
             }
             _ => Err(ProgramTransformerError::NotImplemented),
         };
