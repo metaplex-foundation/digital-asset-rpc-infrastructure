@@ -39,7 +39,10 @@ pub struct ConfigIngestStream {
     pub group: String,
     #[serde(default = "ConfigIngestStream::default_consumer")]
     pub consumer: String,
-    #[serde(default = "ConfigIngestStream::default_xack_batch_max_size")]
+    #[serde(
+        default = "ConfigIngestStream::default_xack_batch_max_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
     pub xack_batch_max_size: usize,
     #[serde(
         default = "ConfigIngestStream::default_xack_batch_max_idle",
@@ -47,7 +50,10 @@ pub struct ConfigIngestStream {
         rename = "xack_batch_max_idle_ms"
     )]
     pub xack_batch_max_idle: Duration,
-    #[serde(default = "ConfigIngestStream::default_batch_size")]
+    #[serde(
+        default = "ConfigIngestStream::default_batch_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
     pub batch_size: usize,
     #[serde(
         default = "ConfigIngestStream::default_max_concurrency",
@@ -70,7 +76,7 @@ impl ConfigIngestStream {
     }
 
     pub const fn default_xack_batch_max_idle() -> Duration {
-        Duration::from_millis(100)
+        Duration::from_millis(10_000)
     }
 
     pub fn default_group() -> String {
@@ -82,11 +88,11 @@ impl ConfigIngestStream {
     }
 
     pub const fn default_xack_batch_max_size() -> usize {
-        100
+        5
     }
 
     pub const fn default_batch_size() -> usize {
-        100
+        5
     }
 }
 
@@ -256,9 +262,9 @@ pub struct ConfigIngester {
 
 impl ConfigIngester {
     pub fn check(&self) {
-        let total_threads = self.program_transformer.account_num_threads
-            + self.program_transformer.transaction_num_threads
-            + self.program_transformer.metadata_json_num_threads;
+        let total_threads = self.accounts.max_concurrency
+            + self.transactions.max_concurrency
+            + self.download_metadata.stream_config.max_concurrency;
 
         if self.postgres.max_connections < total_threads {
             warn!(

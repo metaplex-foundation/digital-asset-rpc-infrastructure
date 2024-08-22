@@ -94,11 +94,11 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
         Ok(Some(token))
     } else {
-        warn!(
-            target: "Mint not found",
-            "Mint not found in 'tokens' table for mint {}",
-            bs58::encode(&mint_pubkey_vec).into_string()
-        );
+        // warn!(
+        //     target: "Mint not found",
+        //     "Mint not found in 'tokens' table for mint {}",
+        //     bs58::encode(&mint_pubkey_vec).into_string()
+        // );
         Ok(None)
     }
 }
@@ -133,11 +133,11 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     } else {
-        warn!(
-            target: "Account not found",
-            "Token acc not found in 'owners' table for mint {}",
-            bs58::encode(&mint_pubkey_vec).into_string()
-        );
+        // warn!(
+        //     target: "Account not found",
+        //     "Token acc not found in 'owners' table for mint {}",
+        //     bs58::encode(&mint_pubkey_vec).into_string()
+        // );
     }
 
     Ok(())

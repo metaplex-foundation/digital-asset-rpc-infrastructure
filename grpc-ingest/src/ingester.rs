@@ -291,9 +291,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     ProgramTransformerInfo::Transaction(transaction) => {
                         pt_transactions.handle_transaction(transaction).await
                     }
-                    ProgramTransformerInfo::MetadataJson(_download_metadata_info) => {
-                        todo!()
-                    }
+                    ProgramTransformerInfo::MetadataJson(_download_metadata_info) => Ok(()),
                 };
 
                 macro_rules! log_or_bail {
