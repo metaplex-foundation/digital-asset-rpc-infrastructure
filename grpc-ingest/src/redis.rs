@@ -15,8 +15,8 @@ use {
     redis::{
         aio::MultiplexedConnection,
         streams::{
-            StreamClaimOptions, StreamClaimReply, StreamId, StreamKey, StreamMaxlen,
-            StreamPendingCountReply, StreamReadOptions, StreamReadReply,
+            StreamClaimReply, StreamId, StreamKey, StreamMaxlen, StreamPendingCountReply,
+            StreamReadOptions, StreamReadReply,
         },
         AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
@@ -465,54 +465,54 @@ impl IngestStream {
 
             let mut shutdown_rx = read_shutdown_rx;
 
-            loop {
-                if shutdown_rx.try_recv().is_ok() {
-                    debug!(
-                        "Shutdown signal received, exiting prefetch loop name={}",
-                        config_read.name
-                    );
-                    break;
-                }
+            // loop {
+            //     if shutdown_rx.try_recv().is_ok() {
+            //         debug!(
+            //             "Shutdown signal received, exiting prefetch loop name={}",
+            //             config_read.name
+            //         );
+            //         break;
+            //     }
 
-                if let Ok(pending) = redis::cmd("XPENDING")
-                    .arg(&config_read.name)
-                    .arg(&config_read.group)
-                    .arg("-")
-                    .arg("+")
-                    .arg(config_read.batch_size)
-                    .arg(&config_read.consumer)
-                    .query_async::<_, StreamPendingCountReply>(&mut connection_read)
-                    .await
-                {
-                    if pending.ids.is_empty() {
-                        debug!(
-                            "No pending messages stream={} consumer={} group={}",
-                            config_read.name, config_read.consumer, config_read.group
-                        );
-                        break;
-                    }
+            //     if let Ok(pending) = redis::cmd("XPENDING")
+            //         .arg(&config_read.name)
+            //         .arg(&config_read.group)
+            //         .arg("-")
+            //         .arg("+")
+            //         .arg(config_read.batch_size)
+            //         .arg(&config_read.consumer)
+            //         .query_async::<_, StreamPendingCountReply>(&mut connection_read)
+            //         .await
+            //     {
+            //         if pending.ids.is_empty() {
+            //             debug!(
+            //                 "No pending messages stream={} consumer={} group={}",
+            //                 config_read.name, config_read.consumer, config_read.group
+            //             );
+            //             break;
+            //         }
 
-                    let ids: Vec<&str> = pending.ids.iter().map(|info| info.id.as_str()).collect();
-                    let claim_opts = StreamClaimOptions::default();
+            //         let ids: Vec<&str> = pending.ids.iter().map(|info| info.id.as_str()).collect();
+            //         let claim_opts = StreamClaimOptions::default();
 
-                    let claimed: RedisResult<StreamClaimReply> = connection_read
-                        .xclaim_options(
-                            &config_read.name,
-                            &config_read.group,
-                            &config_read.consumer,
-                            20,
-                            &ids,
-                            claim_opts,
-                        )
-                        .await;
+            //         let claimed: RedisResult<StreamClaimReply> = connection_read
+            //             .xclaim_options(
+            //                 &config_read.name,
+            //                 &config_read.group,
+            //                 &config_read.consumer,
+            //                 20,
+            //                 &ids,
+            //                 claim_opts,
+            //             )
+            //             .await;
 
-                    if let Ok(claimed) = claimed {
-                        for StreamId { id, map } in claimed.ids {
-                            executor.push(IngestStreamJob::Process((id, map)));
-                        }
-                    }
-                }
-            }
+            //         if let Ok(claimed) = claimed {
+            //             for StreamId { id, map } in claimed.ids {
+            //                 executor.push(IngestStreamJob::Process((id, map)));
+            //             }
+            //         }
+            //     }
+            // }
 
             loop {
                 if shutdown_rx.try_recv().is_ok() {
