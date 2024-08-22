@@ -409,5 +409,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         return Ok(None);
     }
 
-    Ok(Some(DownloadMetadataInfo::new(mint_pubkey_vec, uri)))
+    Ok(Some(DownloadMetadataInfo::new(
+        mint_pubkey_vec,
+        uri,
+        slot_i,
+    )))
 }

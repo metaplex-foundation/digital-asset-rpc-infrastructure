@@ -19,18 +19,20 @@ use {
 pub struct DownloadMetadataInfo {
     asset_data_id: Vec<u8>,
     uri: String,
+    slot: i64,
 }
 
 impl DownloadMetadataInfo {
-    pub fn new(asset_data_id: Vec<u8>, uri: String) -> Self {
+    pub fn new(asset_data_id: Vec<u8>, uri: String, slot: i64) -> Self {
         Self {
             asset_data_id,
             uri: uri.trim().replace('\0', ""),
+            slot,
         }
     }
 
-    pub fn into_inner(self) -> (Vec<u8>, String) {
-        (self.asset_data_id, self.uri)
+    pub fn into_inner(self) -> (Vec<u8>, String, i64) {
+        (self.asset_data_id, self.uri, self.slot)
     }
 }
 
@@ -237,6 +239,20 @@ impl DownloadMetadata {
         &self,
         download_metadata_info: &DownloadMetadataInfo,
     ) -> Result<(), MetadataJsonTaskError> {
+        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.pool.clone());
+
+        if let Some(asset_data) =
+            asset_data::Entity::find_by_id(download_metadata_info.asset_data_id.clone())
+                .one(&conn)
+                .await?
+        {
+            if asset_data.slot_updated == download_metadata_info.slot
+                && asset_data.reindex == Some(false)
+            {
+                return Ok(());
+            }
+        }
+
         perform_metadata_json_task(
             self.client.clone(),
             self.pool.clone(),

@@ -221,7 +221,7 @@ async fn download_metadata(
     data: serde_json::Value,
     timeout: Duration,
 ) -> anyhow::Result<(Vec<u8>, serde_json::Value)> {
-    let (id, uri) = serde_json::from_value::<DownloadMetadataInfo>(data)?.into_inner();
+    let (id, uri, _slot) = serde_json::from_value::<DownloadMetadataInfo>(data)?.into_inner();
 
     // Need to check for malicious sites ?
     let client = ClientBuilder::new().timeout(timeout).build()?;
