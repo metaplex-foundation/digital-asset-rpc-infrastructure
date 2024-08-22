@@ -33,6 +33,7 @@ impl TryFrom<PubkeyString> for Pubkey {
     }
 }
 
+#[derive(Debug)]
 pub struct FetchedEncodedTransactionWithStatusMeta(pub EncodedConfirmedTransactionWithStatusMeta);
 
 impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
@@ -41,6 +42,7 @@ impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
     fn try_from(
         fetched_transaction: FetchedEncodedTransactionWithStatusMeta,
     ) -> Result<Self, Self::Error> {
+        tracing::info!("fetched transaction: {:?}", fetched_transaction);
         let mut account_keys = Vec::new();
         let encoded_transaction_with_status_meta = fetched_transaction.0;
 

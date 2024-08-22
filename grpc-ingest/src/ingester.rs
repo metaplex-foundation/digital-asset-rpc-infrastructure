@@ -5,7 +5,7 @@ use {
         postgres::{create_pool as pg_create_pool, metrics_pgpool, report_pgpool},
         prom::{
             download_metadata_inserted_total_inc, program_transformer_task_status_inc,
-            program_transformer_tasks_total_set, ProgramTransformerTaskStatusKind,
+            program_transformer_tasks_total_set, redis_xack_inc, ProgramTransformerTaskStatusKind,
         },
         redis::{
             metrics_xlen, IngestStream, ProgramTransformerInfo, RedisStream, RedisStreamMessage,
@@ -58,7 +58,6 @@ fn download_metadata_notifier_v2(
                 let mut connection = connection.clone();
                 let stream = stream.clone();
                 Box::pin(async move {
-                    download_metadata_inserted_total_inc();
 
                     let info_bytes = serde_json::to_vec(&info)?;
 
@@ -72,6 +71,8 @@ fn download_metadata_notifier_v2(
                         .arg(info_bytes)
                         .query_async(&mut connection)
                         .await?;
+
+                    redis_xack_inc(&stream, 1);
 
                     Ok(())
                 })
