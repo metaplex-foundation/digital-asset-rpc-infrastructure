@@ -260,6 +260,56 @@ pub enum IngestMessageError {
     DownloadMetadataJson(#[from] das_core::MetadataJsonTaskError),
 }
 
+#[derive(Clone, Debug)]
+enum AcknowledgeJob {
+    Submit(Vec<String>),
+}
+
+#[derive(Clone)]
+pub struct AcknowledgeHandler {
+    config: Arc<ConfigIngestStream>,
+    connection: MultiplexedConnection,
+}
+
+impl<'a>
+    AsyncHandler<AcknowledgeJob, topograph::executor::Handle<'a, AcknowledgeJob, Nonblock<Tokio>>>
+    for AcknowledgeHandler
+{
+    type Output = ();
+
+    fn handle(
+        &self,
+        job: AcknowledgeJob,
+        _handle: topograph::executor::Handle<'a, AcknowledgeJob, Nonblock<Tokio>>,
+    ) -> impl futures::Future<Output = Self::Output> + Send {
+        let mut connection = self.connection.clone();
+        let config = Arc::clone(&self.config);
+
+        let AcknowledgeJob::Submit(ids) = job;
+
+        let count = ids.len();
+
+        async move {
+            match redis::pipe()
+                .atomic()
+                .xack(&config.name, &config.group, &ids)
+                .xdel(&config.name, &ids)
+                .query_async::<_, redis::Value>(&mut connection)
+                .await
+            {
+                Ok(response) => {
+                    info!("Acknowledged and deleted message: response={:?}", response);
+
+                    redis_xack_inc(&config.name, count);
+                }
+                Err(e) => {
+                    error!("Failed to acknowledge or delete message: error={:?}", e);
+                }
+            }
+        }
+    }
+}
+
 pub struct IngestStream {
     config: ConfigIngestStream,
     connection: Option<MultiplexedConnection>,
@@ -336,10 +386,16 @@ impl IngestStream {
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
         let (ack_shutdown_tx, ack_shutdown_rx) = tokio::sync::oneshot::channel();
 
+        let xack_executor = Executor::builder(Nonblock(Tokio))
+            .max_concurrency(Some(10))
+            .build_async(AcknowledgeHandler {
+                config: Arc::clone(&config),
+                connection: connection.clone(),
+            })?;
+
         tokio::spawn({
             let config = Arc::clone(&config);
-            let mut connection = connection.clone();
-            let mut pending_ids = Vec::new();
+            let mut pending = Vec::new();
 
             async move {
                 let mut shutdown_rx = ack_shutdown_rx;
@@ -349,47 +405,24 @@ impl IngestStream {
                 loop {
                     tokio::select! {
                         Some(id) = ack_rx.recv() => {
-                            pending_ids.push(id);
-                            if pending_ids.len() >= config.xack_batch_max_size {
-                                let ids = std::mem::take(&mut pending_ids);
-                                match redis::pipe()
-                                    .atomic()
-                                    .xack(&config.name, &config.group, &ids)
-                                    .xdel(&config.name, &ids)
-                                    .query_async::<_, redis::Value>(&mut connection)
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        redis_xack_inc(&config.name, ids.len());
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to acknowledge messages: {:?}", e);
-                                    }
-                                }
+                            pending.push(id);
+                            let count = pending.len();
+                            if count >= config.xack_batch_max_size {
+
+                                let ids = std::mem::take(&mut pending);
+                                xack_executor.push(AcknowledgeJob::Submit(ids));
                                 deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                             }
                         },
-                        _ = &mut deadline => {
-                            if !pending_ids.is_empty() {
-                                let ids = std::mem::take(&mut pending_ids);
-                                match redis::pipe()
-                                    .atomic()
-                                    .xack(&config.name, &config.group, &ids)
-                                    .xdel(&config.name, &ids)
-                                    .query_async::<_, redis::Value>(&mut connection)
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        redis_xack_inc(&config.name, ids.len());
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to acknowledge messages: {:?}", e);
-                                    }
-                                }
-                            }
+                        _ = &mut deadline, if !pending.is_empty() => {
+                            let ids = std::mem::take(&mut pending);
+
+                            xack_executor.push(AcknowledgeJob::Submit(ids));
+
                             deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                         },
                         _ = &mut shutdown_rx => {
+                            xack_executor.join_async().await;
                             break;
                         }
                     }
@@ -493,21 +526,19 @@ impl IngestStream {
                 let opts = StreamReadOptions::default()
                     .group(&config_read.group, &config_read.consumer)
                     .count(config_read.batch_size)
-                    .block(20);
+                    .block(100);
 
                 let result: RedisResult<StreamReadReply> = connection_read
                     .xread_options(&[&config_read.name], &[">"], &opts)
                     .await;
-                info!(
-                    "Read from stream name={} result={:?}",
-                    config_read.name, result
-                );
 
                 match result {
                     Ok(reply) => {
+                        let count = reply.keys.len();
+                        info!("Reading and processing: count={:?}", count);
+
                         for StreamKey { key: _, ids } in reply.keys {
                             for StreamId { id, map } in ids {
-                                debug!("Reading and processing: id={} msg={:?}", id, map);
                                 executor.push(IngestStreamJob::Process((id, map)));
                             }
                         }
@@ -769,12 +800,21 @@ async fn run_ack(
                 let stream = Arc::clone(&stream);
                 let mut connection = connection.clone();
                 async move {
-                    redis::pipe()
+                    match redis::pipe()
                         .atomic()
                         .xack(&stream.stream_name, &stream.group, &ids)
                         .xdel(&stream.stream_name, &ids)
-                        .query_async(&mut connection)
-                        .await?;
+                        .query_async::<_, redis::Value>(&mut connection)
+                        .await
+                    {
+                        Ok(_) => {
+                            info!("Acknowledged and deleted idle messages: {:?}", ids);
+                            redis_xack_inc(&stream.stream_name, ids.len());
+                        }
+                        Err(e) => {
+                            error!("Failed to acknowledge or delete idle messages: {:?}", e);
+                        }
+                    }
                     redis_xack_inc(&stream.stream_name, ids.len());
                     Ok::<(), anyhow::Error>(())
                 }
@@ -921,7 +961,6 @@ impl RedisStream {
                     None => break,
                 }
 
-                // read pending keys
                 let StreamClaimReply { ids: pendings } = connection
                     .xclaim(
                         &stream.stream_name,
@@ -1013,12 +1052,21 @@ impl RedisStream {
                     let stream = Arc::clone(&stream);
                     let mut connection = connection.clone();
                     async move {
-                        redis::pipe()
+                        match redis::pipe()
                             .atomic()
                             .xack(&stream.stream_name, &stream.group, &ids)
                             .xdel(&stream.stream_name, &ids)
-                            .query_async(&mut connection)
-                            .await?;
+                            .query_async::<_, redis::Value>(&mut connection)
+                            .await
+                        {
+                            Ok(info) => {
+                                info!("Acknowledged and deleted idle messages: {:?}", info);
+                                redis_xack_inc(&stream.stream_name, ids.len());
+                            }
+                            Err(e) => {
+                                error!("Failed to acknowledge or delete idle messages: {:?}", e);
+                            }
+                        }
                         redis_xack_inc(&stream.stream_name, ids.len());
                         Ok::<(), anyhow::Error>(())
                     }
