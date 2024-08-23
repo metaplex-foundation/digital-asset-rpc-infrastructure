@@ -52,6 +52,11 @@ lazy_static::lazy_static! {
     static ref DOWNLOAD_METADATA_INSERTED_TOTAL: IntCounter = IntCounter::new(
         "download_metadata_inserted_total", "Total number of inserted tasks for download metadata"
     ).unwrap();
+
+    static ref INGEST_TASKS_TOTAL: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("ingest_tasks_total", "Number of tasks spawned for ingest"),
+        &["stream"]
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -72,6 +77,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(PROGRAM_TRANSFORMER_TASKS_TOTAL);
         register!(PROGRAM_TRANSFORMER_TASK_STATUS);
         register!(DOWNLOAD_METADATA_INSERTED_TOTAL);
+        register!(INGEST_TASKS_TOTAL);
 
         VERSION
             .with_label_values(&[
@@ -158,6 +164,18 @@ pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
 
 pub fn program_transformer_tasks_total_set(size: usize) {
     PROGRAM_TRANSFORMER_TASKS_TOTAL.set(size as i64)
+}
+
+pub fn ingest_tasks_total_inc(stream: &str) {
+    INGEST_TASKS_TOTAL.with_label_values(&[stream]).inc()
+}
+
+pub fn ingest_tasks_total_dec(stream: &str) {
+    INGEST_TASKS_TOTAL.with_label_values(&[stream]).dec()
+}
+
+pub fn ingest_tasks_reset(stream: &str) {
+    INGEST_TASKS_TOTAL.with_label_values(&[stream]).set(0)
 }
 
 #[derive(Debug, Clone, Copy)]

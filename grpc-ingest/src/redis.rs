@@ -5,6 +5,7 @@ use {
             REDIS_STREAM_DATA_KEY,
         },
         prom::{
+            ingest_tasks_reset, ingest_tasks_total_dec, ingest_tasks_total_inc,
             program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set,
             ProgramTransformerTaskStatusKind,
         },
@@ -76,6 +77,7 @@ type HandlerFn = dyn Fn(HashMap<String, RedisValue>) -> BoxFuture<'static, Resul
 pub struct IngestStreamHandler {
     handler: Arc<HandlerFn>,
     ack_sender: tokio::sync::mpsc::Sender<String>,
+    config: Arc<ConfigIngestStream>,
 }
 
 impl<'a>
@@ -91,7 +93,9 @@ impl<'a>
     ) -> impl futures::Future<Output = Self::Output> + Send {
         let handler = Arc::clone(&self.handler);
         let ack_sender = self.ack_sender.clone();
+        let config = Arc::clone(&self.config);
 
+        ingest_tasks_total_inc(&config.name);
         async move {
             match job {
                 IngestStreamJob::Process((id, msg)) => {
@@ -117,6 +121,8 @@ impl<'a>
                     if let Err(e) = ack_sender.send(id).await {
                         error!("Failed to send ack id to channel: {:?}", e);
                     }
+
+                    ingest_tasks_total_dec(&config.name);
                 }
             }
         }
@@ -484,14 +490,49 @@ impl IngestStream {
 
         let handler = self.handler.take().expect("Handler is required");
 
+        ingest_tasks_reset(&config.name);
+
         let executor = Executor::builder(Nonblock(Tokio))
             .max_concurrency(Some(config.max_concurrency))
             .build_async(IngestStreamHandler {
                 handler,
                 ack_sender: ack_tx.clone(),
+                config: Arc::clone(&config),
             })?;
 
-        let report = vec![config.name.clone()];
+        let labels = vec![config.name.clone()];
+        let (report_shutdown_tx, report_shutdown_rx) = tokio::sync::oneshot::channel();
+        let report_thread = tokio::spawn({
+            let mut shutdown_rx: tokio::sync::oneshot::Receiver<()> = report_shutdown_rx;
+            let connection = connection.clone();
+            let config = Arc::clone(&config);
+
+            async move {
+                let config = Arc::clone(&config);
+
+                loop {
+                    tokio::select! {
+                        _ = &mut shutdown_rx => {
+                            debug!(
+                                "redis=report_thread stream={} Shutdown signal received, exiting report loop",
+                                config.name
+                            );
+                            break;
+                        },
+                        _ = sleep(Duration::from_millis(100)) => {
+                            if let Err(e) = report_xlen(connection.clone(), labels.clone()).await {
+                                error!("redis=report_xlen err={:?}", e);
+                            }
+
+                            debug!(
+                                "redis=report_thread stream={} msg=waiting for pending messages",
+                                config.name
+                            );
+                        },
+                    }
+                }
+            }
+        });
 
         let control = tokio::spawn({
             let mut connection = connection.clone();
@@ -509,7 +550,6 @@ impl IngestStream {
 
                 loop {
                     tokio::select! {
-
                         _ = &mut shutdown_rx => {
                             debug!(
                                 "redis=read_stream stream={} Shutdown signal received, exiting loops",
@@ -517,19 +557,8 @@ impl IngestStream {
                             );
                             break;
                         },
-                        _ = sleep(Duration::from_millis(100)) => {
-                            let connection = connection.clone();
-
-                            if let Err(e) = report_xlen(connection, report.clone()).await {
-                                error!("redis=report_xlen err={:?}", e);
-                            }
-
-                            debug!(
-                                "redis=read_stream stream={} msg=waiting for pending messages",
-                                config.name
-                            );
-                        },
                         claimed = self.pending(&mut connection, &start) => {
+                            info!("redis=claimed stream={} claimed={:?}", config.name, claimed);
                             if let Ok(Some(claimed)) = claimed {
                                 let ids = claimed.ids.clone();
                                 let ids: Vec<&str> = ids.iter().map(|info| info.id.as_str()).collect();
@@ -558,18 +587,6 @@ impl IngestStream {
                             );
                             break;
                         },
-                        _ = sleep(Duration::from_millis(100)) => {
-                            let connection = connection.clone();
-
-                            if let Err(e) = report_xlen(connection, report.clone()).await {
-                                error!("redis=report_xlen err={:?}", e);
-                            }
-
-                            debug!(
-                                "redis=read_stream stream={} msg=waiting for pending messages",
-                                config.name
-                            );
-                        },
                         result = self.read(&mut connection) => {
                             match result {
                                 Ok(reply) => {
@@ -597,17 +614,23 @@ impl IngestStream {
 
                 executor.join_async().await;
 
-                debug!("stream={} msg=shut down executor", config.name);
+                if let Err(e) = report_shutdown_tx.send(()) {
+                    error!("Failed to send report shutdown signal: {:?}", e);
+                }
 
                 if let Err(e) = ack_shutdown_tx.send(()) {
-                    error!("Failed to send shutdown signal: {:?}", e);
+                    error!("Failed to send ack shutdown signal: {:?}", e);
                 }
 
                 if let Err(e) = ack.await {
-                    error!("Error during shutdown: {:?}", e);
+                    error!("Error during ack shutdown: {:?}", e);
                 }
 
-                debug!("stream={} msg=shut down ack", config.name);
+                if let Err(e) = report_thread.await {
+                    error!("Error during report thread shutdown: {:?}", e);
+                }
+
+                debug!("stream={} msg=shut down stream", config.name);
             }
         });
 

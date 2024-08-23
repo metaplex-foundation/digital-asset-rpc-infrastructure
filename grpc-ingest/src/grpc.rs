@@ -20,7 +20,7 @@ use {
         prelude::*,
         AsyncHandler,
     },
-    tracing::{debug, warn},
+    tracing::{debug, info, warn},
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
         geyser::{SubscribeRequest, SubscribeUpdate},
@@ -141,6 +141,11 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
         transactions,
         ..Default::default()
     };
+
+    info!(
+        "cmd=grpc2redis request_snapshot={:?}",
+        config.request_snapshot
+    );
 
     let mut dragon_mouth_client =
         GeyserGrpcClient::build_from_shared(config.geyser_endpoint.clone())?
