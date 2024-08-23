@@ -124,6 +124,9 @@ pub struct ConfigGrpc {
 
     pub geyser_endpoint: String,
 
+    #[serde(default = "ConfigGrpc::default_request_snapshot")]
+    pub request_snapshot: bool,
+
     #[serde(
         default = "ConfigGrpc::default_geyser_update_message_buffer_size",
         deserialize_with = "deserialize_usize_str"
@@ -146,6 +149,10 @@ pub struct ConfigGrpc {
 }
 
 impl ConfigGrpc {
+    pub const fn default_request_snapshot() -> bool {
+        false
+    }
+
     pub const fn default_max_concurrency() -> usize {
         10
     }
