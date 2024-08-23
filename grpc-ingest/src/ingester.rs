@@ -163,19 +163,15 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
 
     let mut shutdown = create_shutdown()?;
 
-    let reporting_pool = pool.clone();
-
-    tokio::spawn(async move {
-        loop {
-            report_pgpool(reporting_pool.clone());
-
-            sleep(Duration::from_millis(100)).await;
-        }
-    });
-
-    tokio::select! {
-        Some(signal) = shutdown.next() => {
-            warn!("{signal} received, waiting spawned tasks...");
+    loop {
+        tokio::select! {
+            _ = sleep(Duration::from_millis(100)) => {
+                report_pgpool(pool.clone());
+            }
+            Some(signal) = shutdown.next() => {
+                warn!("{signal} received, waiting spawned tasks...");
+                break;
+            }
         }
     }
 

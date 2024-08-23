@@ -147,6 +147,7 @@ pub async fn run_v2(config: ConfigGrpc) -> anyhow::Result<()> {
             .x_token(config.x_token.clone())?
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(10))
+            .set_x_request_snapshot(config.request_snapshot)?
             .connect()
             .await
             .context("failed to connect to gRPC")?;
