@@ -1,5 +1,6 @@
 use {
     crate::error::{ProgramTransformerError, ProgramTransformerResult},
+    das_core::DownloadMetadataInfo,
     digital_asset_types::dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
         cl_audits_v2, cl_items,
@@ -406,13 +407,11 @@ pub async fn upsert_asset_data<T>(
     chain_data: JsonValue,
     metadata_url: String,
     metadata_mutability: Mutability,
-    metadata: JsonValue,
     slot_updated: i64,
-    reindex: Option<bool>,
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
     seq: i64,
-) -> ProgramTransformerResult<()>
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -420,11 +419,11 @@ where
         id: ActiveValue::Set(id.clone()),
         chain_data_mutability: ActiveValue::Set(chain_data_mutability),
         chain_data: ActiveValue::Set(chain_data),
-        metadata_url: ActiveValue::Set(metadata_url),
+        metadata_url: ActiveValue::Set(metadata_url.clone()),
         metadata_mutability: ActiveValue::Set(metadata_mutability),
-        metadata: ActiveValue::Set(metadata),
+        metadata: ActiveValue::Set(JsonValue::String("processing".to_string())),
         slot_updated: ActiveValue::Set(slot_updated),
-        reindex: ActiveValue::Set(reindex),
+        reindex: ActiveValue::Set(Some(true)),
         raw_name: ActiveValue::Set(Some(raw_name)),
         raw_symbol: ActiveValue::Set(Some(raw_symbol)),
         base_info_seq: ActiveValue::Set(Some(seq)),
@@ -438,9 +437,7 @@ where
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::MetadataMutability,
-                    // Don't update asset_data::Column::Metadata if it already exists.  Even if we
-                    // are indexing `update_metadata`` and there's a new URI, the new background
-                    // task will overwrite it.
+                    asset_data::Column::Metadata,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,
@@ -453,15 +450,27 @@ where
 
     // Do not overwrite changes that happened after decompression (asset_data.base_info_seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
+    // Do not update the record if the incoming slot is larger than the current or if it's null.
+    // Update if the current slot on the record is null.
     query.sql = format!(
-        "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL",
+        "{} WHERE ((asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL) AND (excluded.slot_updated <= asset_data.slot_updated OR asset_data.slot_updated IS NULL)",
         query.sql
     );
-    txn.execute(query)
+
+    let result = txn
+        .execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
-    Ok(())
+    if result.rows_affected() > 0 {
+        Ok(Some(DownloadMetadataInfo::new(
+            id,
+            metadata_url,
+            slot_updated,
+        )))
+    } else {
+        Ok(None)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
