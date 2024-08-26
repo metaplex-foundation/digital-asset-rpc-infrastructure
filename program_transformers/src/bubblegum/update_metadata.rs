@@ -22,7 +22,7 @@ use {
         },
         json::ChainDataV1,
     },
-    sea_orm::{query::*, ConnectionTrait, JsonValue},
+    sea_orm::{query::*, ConnectionTrait},
     tracing::warn,
 };
 
@@ -114,16 +114,14 @@ where
                 // automatically rolled back.
                 let multi_txn = txn.begin().await?;
 
-                upsert_asset_data(
+                let download_metadata_info = upsert_asset_data(
                     &multi_txn,
                     id_bytes.to_vec(),
                     chain_mutability,
                     chain_data_json,
                     uri.clone(),
                     Mutability::Mutable,
-                    JsonValue::String("processing".to_string()),
                     slot_i,
-                    Some(true),
                     name.into_bytes().to_vec(),
                     symbol.into_bytes().to_vec(),
                     seq as i64,
@@ -188,11 +186,7 @@ where
                     return Ok(None);
                 }
 
-                Ok(Some(DownloadMetadataInfo::new(
-                    id_bytes.to_vec(),
-                    uri,
-                    slot_i,
-                )))
+                Ok(download_metadata_info)
             }
             _ => Err(ProgramTransformerError::NotImplemented),
         };

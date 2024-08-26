@@ -42,7 +42,6 @@ impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
     fn try_from(
         fetched_transaction: FetchedEncodedTransactionWithStatusMeta,
     ) -> Result<Self, Self::Error> {
-        tracing::info!("fetched transaction: {:?}", fetched_transaction);
         let mut account_keys = Vec::new();
         let encoded_transaction_with_status_meta = fetched_transaction.0;
 
@@ -62,49 +61,41 @@ impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
             .transaction
             .meta
             .ok_or(ErrorKind::Generic(
-                "unable to get meta from transaction".to_string(),
+                "transaction metadata is missing".to_string(),
             ))?;
 
         for address in msg.static_account_keys().iter().copied() {
             account_keys.push(address);
         }
-        let ui_loaded_addresses = meta.loaded_addresses;
 
-        let message_address_table_lookup = msg.address_table_lookups();
+        let ui_loaded_addresses = match meta.loaded_addresses {
+            OptionSerializer::Some(addresses) => addresses,
+            OptionSerializer::None => {
+                return Err(ErrorKind::Generic(
+                    "loaded addresses data is missing".to_string(),
+                ))
+            }
+            OptionSerializer::Skip => {
+                return Err(ErrorKind::Generic(
+                    "loaded addresses are skipped".to_string(),
+                ));
+            }
+        };
 
-        if message_address_table_lookup.is_some() {
-            if let OptionSerializer::Some(ui_lookup_table) = ui_loaded_addresses {
-                for address in ui_lookup_table.writable {
-                    account_keys.push(PubkeyString(address).try_into()?);
-                }
+        let writtable_loaded_addresses = ui_loaded_addresses.writable;
+        let readable_loaded_addresses = ui_loaded_addresses.readonly;
 
-                for address in ui_lookup_table.readonly {
-                    account_keys.push(PubkeyString(address).try_into()?);
-                }
+        if msg.address_table_lookups().is_some() {
+            for address in writtable_loaded_addresses {
+                account_keys.push(PubkeyString(address).try_into()?);
+            }
+
+            for address in readable_loaded_addresses {
+                account_keys.push(PubkeyString(address).try_into()?);
             }
         }
 
         let mut meta_inner_instructions = Vec::new();
-
-        let compiled_instruction = msg.instructions().to_vec();
-
-        let mut instructions = Vec::new();
-
-        for inner in compiled_instruction {
-            instructions.push(InnerInstruction {
-                stack_height: Some(0),
-                instruction: CompiledInstruction {
-                    program_id_index: inner.program_id_index,
-                    accounts: inner.accounts,
-                    data: inner.data,
-                },
-            });
-        }
-
-        meta_inner_instructions.push(InnerInstructions {
-            index: 0,
-            instructions,
-        });
 
         if let OptionSerializer::Some(inner_instructions) = meta.inner_instructions {
             for ix in inner_instructions {
@@ -117,9 +108,9 @@ impl TryFrom<FetchedEncodedTransactionWithStatusMeta> for TransactionInfo {
                             instruction: CompiledInstruction {
                                 program_id_index: compiled.program_id_index,
                                 accounts: compiled.accounts,
-                                data: bs58::decode(compiled.data)
-                                    .into_vec()
-                                    .map_err(|e| ErrorKind::Generic(e.to_string()))?,
+                                data: bs58::decode(compiled.data).into_vec().map_err(|e| {
+                                    ErrorKind::Generic(format!("Error decoding data: {}", e))
+                                })?,
                             },
                         });
                     }

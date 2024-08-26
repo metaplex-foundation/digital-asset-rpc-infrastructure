@@ -150,6 +150,7 @@ pub async fn run_v2(config: ConfigIngester) -> anyhow::Result<()> {
         .connection(connection.clone())
         .handler(move |info| {
             let pt_transactions = Arc::clone(&pt_transactions);
+
             Box::pin(async move {
                 let info = TransactionInfo::try_parse_msg(info)?;
 
