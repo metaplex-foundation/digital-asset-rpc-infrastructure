@@ -239,20 +239,6 @@ impl DownloadMetadata {
         &self,
         download_metadata_info: &DownloadMetadataInfo,
     ) -> Result<(), MetadataJsonTaskError> {
-        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.pool.clone());
-
-        if let Some(asset_data) =
-            asset_data::Entity::find_by_id(download_metadata_info.asset_data_id.clone())
-                .one(&conn)
-                .await?
-        {
-            if asset_data.slot_updated == download_metadata_info.slot
-                && asset_data.reindex == Some(false)
-            {
-                return Ok(());
-            }
-        }
-
         perform_metadata_json_task(
             self.client.clone(),
             self.pool.clone(),

@@ -558,10 +558,13 @@ impl IngestStream {
                             break;
                         },
                         claimed = self.pending(&mut connection, &start) => {
-                            info!("redis=claimed stream={} claimed={:?}", config.name, claimed);
                             if let Ok(Some(claimed)) = claimed {
+
                                 let ids = claimed.ids.clone();
                                 let ids: Vec<&str> = ids.iter().map(|info| info.id.as_str()).collect();
+
+                                info!("redis=claimed stream={} claimed={:?}", config.name, ids.len());
+
 
                                     for StreamId { id, map } in claimed.ids.into_iter() {
                                         executor.push(IngestStreamJob::Process((id, map)));
