@@ -85,7 +85,8 @@ impl TestSetup {
 
         let pool = setup_pg_pool(database_test_url.clone()).await;
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
-        let transformer = load_ingest_program_transformer(pool.clone()).await;
+        let transformer =
+            load_ingest_program_transformer(pool.clone(), opts.skip_batch_minted_trees).await;
 
         let rpc_url = match opts.network.unwrap_or_default() {
             Network::Mainnet => std::env::var("MAINNET_RPC_URL").unwrap(),
@@ -115,6 +116,7 @@ impl TestSetup {
 #[derive(Clone, Copy, Default)]
 pub struct TestSetupOptions {
     pub network: Option<Network>,
+    pub skip_batch_minted_trees: bool,
 }
 
 pub async fn setup_pg_pool(database_url: String) -> PgPool {
@@ -163,8 +165,17 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
         .unwrap();
 }
 
-async fn load_ingest_program_transformer(pool: sqlx::Pool<sqlx::Postgres>) -> ProgramTransformer {
-    ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), false)
+async fn load_ingest_program_transformer(
+    pool: sqlx::Pool<sqlx::Postgres>,
+    skip_batch_minted_trees: bool,
+) -> ProgramTransformer {
+    ProgramTransformer::new(
+        pool,
+        Box::new(|_info| ready(Ok(())).boxed()),
+        false,
+        skip_batch_minted_trees,
+    )
+    .await
 }
 
 pub async fn get_transaction(

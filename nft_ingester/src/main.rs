@@ -104,7 +104,7 @@ pub async fn main() -> Result<(), IngesterError> {
     let mut rollup_persister: Option<
         Arc<BatchMintPersister<DatabaseConnection, BatchMintDownloaderForPersister>>,
     > = None;
-    if !config.skip_rollup_indexing {
+    if !config.skip_batch_mint_indexing {
         let r = batch_mint_updates::create_batch_mint_notification_channel(
             &config.get_database_url(),
             &mut tasks,
@@ -170,6 +170,7 @@ pub async fn main() -> Result<(), IngesterError> {
                             },
                             config.cl_audits.unwrap_or(false),
                             stream_name,
+                            config.skip_batch_mint_indexing,
                         );
                     }
                     WorkerType::Rollup => {

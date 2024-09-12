@@ -28,15 +28,20 @@ pub fn transaction_worker<T: Messenger>(
     consumption_type: ConsumptionType,
     cl_audits: bool,
     stream_key: &'static str,
+    skip_batch_minted_trees: bool,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(
-                pool,
-                create_download_metadata_notifier(bg_task_sender),
-                cl_audits,
-            ));
+            let manager = Arc::new(
+                ProgramTransformer::new(
+                    pool,
+                    create_download_metadata_notifier(bg_task_sender),
+                    cl_audits,
+                    skip_batch_minted_trees,
+                )
+                .await,
+            );
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();

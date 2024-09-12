@@ -11,6 +11,9 @@ use {
         token_metadata::types::UseMethod as TokenMetadataUseMethod,
     },
     sea_orm::{ConnectionTrait, TransactionTrait},
+    solana_sdk::pubkey::Pubkey,
+    std::collections::HashSet,
+    tokio::sync::RwLock,
     tracing::{debug, info},
 };
 
@@ -32,6 +35,7 @@ pub async fn handle_bubblegum_instruction<'c, T>(
     txn: &T,
     download_metadata_notifier: &DownloadMetadataNotifier,
     cl_audits: bool,
+    batched_trees: &Option<RwLock<HashSet<Pubkey>>>,
 ) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -116,7 +120,13 @@ where
         }
         InstructionName::FinalizeTreeWithRoot
         | InstructionName::FinalizeTreeWithRootAndCollection => {
-            finalize_tree_with_root::finalize_tree_with_root(parsing_result, bundle, txn).await?
+            finalize_tree_with_root::finalize_tree_with_root(
+                parsing_result,
+                bundle,
+                txn,
+                batched_trees,
+            )
+            .await?
         }
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }

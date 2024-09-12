@@ -35,6 +35,7 @@ pub fn account_worker<T: Messenger>(
                 pool,
                 create_download_metadata_notifier(bg_task_sender),
                 false,
+                false,
             ));
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;

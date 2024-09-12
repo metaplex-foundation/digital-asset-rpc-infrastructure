@@ -218,6 +218,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                 url: Set(r.url.clone()),
                 created_at_slot: Set(r.created_at_slot),
                 signature: Set(r.signature.clone()),
+                merkle_tree: Set(r.merkle_tree.clone()),
                 staker: Set(r.staker.clone()),
                 download_attempts: Set(r.download_attempts),
                 batch_mint_persisting_state: Set(BatchMintPersistingState::StartProcessing),
@@ -253,12 +254,8 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             Ok(r) => {
                 let query = batch_mint::Entity::insert(batch_mint::ActiveModel {
                     file_hash: Set(batch_mint_to_verify.file_hash.clone()),
-                    batch_mint_binary_bincode: Set(
-                        bincode::serialize(&r) 
-                            .map_err(|e| {
-                                ProgramTransformerError::SerializatonError(e.to_string())
-                            })?,
-                    ),
+                    batch_mint_binary_bincode: Set(bincode::serialize(&r)
+                        .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?),
                 })
                 .on_conflict(
                     OnConflict::columns([batch_mint::Column::FileHash])
@@ -320,6 +317,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
                         url: Set(batch_mint_to_verify.url.clone()),
                         created_at_slot: Set(batch_mint_to_verify.created_at_slot),
                         signature: Set(batch_mint_to_verify.signature.clone()),
+                        merkle_tree: Set(batch_mint_to_verify.merkle_tree.clone()),
                         staker: Set(batch_mint_to_verify.staker.clone()),
                         download_attempts: Set(batch_mint_to_verify.download_attempts + 1),
                         batch_mint_persisting_state: Set(batch_mint_to_verify
@@ -424,6 +422,7 @@ impl<T: ConnectionTrait + TransactionTrait, D: BatchMintDownloader> BatchMintPer
             url: Set(batch_mint.url.clone()),
             created_at_slot: Set(batch_mint.created_at_slot),
             signature: Set(batch_mint.signature.clone()),
+            merkle_tree: Set(batch_mint.merkle_tree.clone()),
             staker: Set(batch_mint.staker.clone()),
             download_attempts: Set(batch_mint.download_attempts),
             batch_mint_persisting_state: Set(batch_mint.batch_mint_persisting_state.clone()),
@@ -468,13 +467,11 @@ where
     for batched_mint in batch_mint.batch_mints.iter() {
         bubblegum::mint_v1::mint_v1(
             &batched_mint.into(),
+            // only signature and slot will be used
             &InstructionBundle {
                 txn_id: &signature,
-                program: Default::default(),
-                instruction: None,
-                inner_ix: None,
-                keys: &[],
                 slot,
+                ..Default::default()
             },
             txn,
             "FinalizeTreeWithRoot",

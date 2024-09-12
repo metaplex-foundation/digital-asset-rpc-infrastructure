@@ -17,6 +17,7 @@ async fn test_mpl_core_get_asset() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -46,6 +47,7 @@ async fn test_mpl_core_get_collection() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -75,6 +77,7 @@ async fn test_mpl_core_get_assets_by_authority() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -117,6 +120,7 @@ async fn test_mpl_core_get_assets_by_group() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -158,6 +162,7 @@ async fn test_mpl_core_get_assets_by_owner() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -196,6 +201,7 @@ async fn test_mpl_core_get_asset_with_edition() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -225,6 +231,7 @@ async fn test_mpl_core_get_asset_with_pubkey_in_rule_set() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Mainnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -254,6 +261,7 @@ async fn test_mpl_core_get_asset_with_two_oracle_external_plugins() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -283,6 +291,7 @@ async fn test_mpl_core_get_asset_with_oracle_external_plugin_on_collection() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -312,6 +321,7 @@ async fn test_mpl_core_get_asset_with_oracle_multiple_lifecycle_events() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -341,6 +351,7 @@ async fn test_mpl_core_get_asset_with_oracle_custom_offset_and_base_address_conf
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -370,6 +381,7 @@ async fn test_mpl_core_get_asset_with_oracle_no_offset() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -399,6 +411,7 @@ async fn test_mpl_core_get_assets_by_group_with_oracle_and_custom_pda_all_seeds(
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -438,6 +451,7 @@ async fn test_mpl_core_get_asset_with_multiple_internal_and_external_plugins() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
