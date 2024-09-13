@@ -35,7 +35,7 @@ impl ProgramTransformerWorkerArgs {
                 transactions.push(gap);
             }
 
-            transactions.sort_by(|a, b| b.signature.cmp(&a.signature));
+            transactions.sort_by(|a, b| a.signature.cmp(&b.signature));
 
             for transaction in transactions {
                 if let Err(e) = program_transformer.handle_transaction(&transaction).await {
