@@ -27,6 +27,9 @@ pub struct TreeWorkerArgs {
 
     #[clap(flatten)]
     pub program_transformer_worker: ProgramTransformerWorkerArgs,
+
+    #[clap(long, env, default_value = "false")]
+    pub force: bool,
 }
 impl TreeWorkerArgs {
     pub fn start(
@@ -44,6 +47,7 @@ impl TreeWorkerArgs {
         let program_transformer_worker_args = self.program_transformer_worker.clone();
         let signature_worker_args = self.signature_worker.clone();
         let gap_worker_args = self.gap_worker.clone();
+        let force = self.force;
 
         tokio::spawn(async move {
             let (metadata_json_download_worker, metadata_json_download_sender) =
@@ -67,23 +71,31 @@ impl TreeWorkerArgs {
                     .map(TryInto::try_into)
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let upper_known_seq = cl_audits_v2::Entity::find()
-                    .filter(cl_audits_v2::Column::Tree.eq(tree.pubkey.as_ref().to_vec()))
-                    .order_by_desc(cl_audits_v2::Column::Seq)
-                    .one(&conn)
-                    .await?;
+                let upper_known_seq = if force {
+                    None
+                } else {
+                    cl_audits_v2::Entity::find()
+                        .filter(cl_audits_v2::Column::Tree.eq(tree.pubkey.as_ref().to_vec()))
+                        .order_by_desc(cl_audits_v2::Column::Seq)
+                        .one(&conn)
+                        .await?
+                };
 
-                let lower_known_seq = cl_audits_v2::Entity::find()
-                    .filter(cl_audits_v2::Column::Tree.eq(tree.pubkey.as_ref().to_vec()))
-                    .order_by_asc(cl_audits_v2::Column::Seq)
-                    .one(&conn)
-                    .await?;
+                let lower_known_seq = if force {
+                    None
+                } else {
+                    cl_audits_v2::Entity::find()
+                        .filter(cl_audits_v2::Column::Tree.eq(tree.pubkey.as_ref().to_vec()))
+                        .order_by_asc(cl_audits_v2::Column::Seq)
+                        .one(&conn)
+                        .await?
+                };
 
                 if let Some(upper_seq) = upper_known_seq {
                     let signature = Signature::try_from(upper_seq.tx.as_ref())?;
-
                     gaps.push(TreeGapFill::new(tree.pubkey, None, Some(signature)));
-                } else if tree.seq > 0 {
+                // Reprocess the entire tree if force is true or if the tree has a seq of 0 to keep the current behavior
+                } else if force || tree.seq > 0 {
                     gaps.push(TreeGapFill::new(tree.pubkey, None, None));
                 }
 
