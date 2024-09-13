@@ -19,9 +19,9 @@ impl ProgramTransformerWorkerArgs {
         &self,
         context: BubblegumBackfillContext,
         forwarder: UnboundedSender<DownloadMetadataInfo>,
-    ) -> Result<(JoinHandle<()>, Sender<TransactionInfo>)> {
+    ) -> Result<(JoinHandle<()>, Sender<(Option<i64>, TransactionInfo)>)> {
         let (sender, mut receiver) =
-            channel::<TransactionInfo>(self.program_transformer_channel_size);
+            channel::<(Option<i64>, TransactionInfo)>(self.program_transformer_channel_size);
 
         let handle = tokio::spawn(async move {
             let mut transactions = Vec::new();
@@ -35,9 +35,9 @@ impl ProgramTransformerWorkerArgs {
                 transactions.push(gap);
             }
 
-            transactions.sort_by(|a, b| a.signature.cmp(&b.signature));
+            transactions.sort_by(|(a, _), (b, _)| a.cmp(&b));
 
-            for transaction in transactions {
+            for (_, transaction) in transactions {
                 if let Err(e) = program_transformer.handle_transaction(&transaction).await {
                     error!("handle transaction: {:?}", e)
                 };

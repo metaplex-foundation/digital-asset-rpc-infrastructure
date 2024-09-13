@@ -147,7 +147,7 @@ impl SignatureWorkerArgs {
     pub fn start(
         &self,
         context: crate::BubblegumBackfillContext,
-        forwarder: Sender<TransactionInfo>,
+        forwarder: Sender<(Option<i64>, TransactionInfo)>,
     ) -> Result<(JoinHandle<()>, Sender<Signature>)> {
         let (sig_sender, mut sig_receiver) = channel::<Signature>(self.signature_channel_size);
         let worker_count = self.signature_worker_count;
@@ -177,13 +177,16 @@ impl SignatureWorkerArgs {
 
 async fn queue_transaction<'a>(
     client: Rpc,
-    sender: Sender<TransactionInfo>,
+    sender: Sender<(Option<i64>, TransactionInfo)>,
     signature: Signature,
 ) -> Result<(), ErrorKind> {
     let transaction = client.get_transaction(&signature).await?;
 
     sender
-        .send(FetchedEncodedTransactionWithStatusMeta(transaction).try_into()?)
+        .send((
+            transaction.block_time,
+            FetchedEncodedTransactionWithStatusMeta(transaction).try_into()?,
+        ))
         .await
         .map_err(|e| ErrorKind::Generic(e.to_string()))?;
 
@@ -192,7 +195,7 @@ async fn queue_transaction<'a>(
 
 fn spawn_transaction_worker(
     client: Rpc,
-    sender: Sender<TransactionInfo>,
+    sender: Sender<(Option<i64>, TransactionInfo)>,
     signature: Signature,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
