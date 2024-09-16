@@ -25,7 +25,6 @@ where
         if let Some(batched_trees) = batched_trees {
             let mut b_trees = batched_trees.write().await;
             b_trees.insert(tree_id.clone());
-            drop(b_trees);
         }
 
         let query = digital_asset_types::dao::batch_mint_to_verify::Entity::insert(

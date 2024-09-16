@@ -228,7 +228,6 @@ impl ProgramTransformer {
                                 let batched_trees = batched_trees.read().await;
 
                                 if let Some(_tree) = batched_trees.get(&change_log.id) {
-                                    drop(batched_trees);
                                     continue;
                                 }
                             }
