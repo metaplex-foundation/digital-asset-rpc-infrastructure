@@ -77,7 +77,7 @@ where
             ..Default::default()
         };
 
-        let mut query = cl_items::Entity::insert(item)
+        let query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
                     .update_columns([
@@ -89,7 +89,6 @@ where
                     .to_owned(),
             )
             .build(DbBackend::Postgres);
-        query.sql = format!("{} WHERE excluded.seq >= cl_items.seq", query.sql);
         txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
@@ -118,7 +117,7 @@ where
                 cl_audits_v2::Column::LeafIdx,
                 cl_audits_v2::Column::Seq,
             ])
-            .do_nothing()
+            .update_columns([cl_audits_v2::Column::Tx, cl_audits_v2::Column::Instruction])
             .to_owned(),
         )
         .build(DbBackend::Postgres);

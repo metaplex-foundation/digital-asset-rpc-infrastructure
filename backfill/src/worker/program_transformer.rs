@@ -35,7 +35,7 @@ impl ProgramTransformerWorkerArgs {
                 transactions.push(gap);
             }
 
-            transactions.sort_by(|(a, _), (b, _)| a.cmp(&b));
+            transactions.sort_by(|(a, _), (b, _)| a.cmp(b));
 
             for (_, transaction) in transactions {
                 if let Err(e) = program_transformer.handle_transaction(&transaction).await {
