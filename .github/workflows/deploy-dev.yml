@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: devnet
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.CROSSREPOTRIGGER }}
           script: |
