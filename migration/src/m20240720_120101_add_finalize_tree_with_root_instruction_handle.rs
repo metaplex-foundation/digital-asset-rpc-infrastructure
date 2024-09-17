@@ -64,6 +64,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
+                        ColumnDef::new(BatchMintToVerify::MerkleTree)
+                            .binary()
+                            .not_null(),
+                    )
+                    .col(
                         ColumnDef::new(BatchMintToVerify::Staker)
                             .binary()
                             .not_null(),
@@ -108,6 +113,24 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_batch_mint_tree")
+                    .table(BatchMintToVerify::Table)
+                    .col(BatchMintToVerify::MerkleTree)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+        .get_connection()
+        .execute(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "ALTER TABLE batch_mint_to_verify ADD CONSTRAINT unique_filehash_staker UNIQUE (file_hash, staker);".to_string(),
+        ))
+        .await?;
 
         manager
             .create_table(
@@ -175,6 +198,7 @@ enum BatchMintToVerify {
     FileHash,
     CreatedAtSlot,
     Signature,
+    MerkleTree,
     DownloadAttempts,
     BatchMintPersistingState,
     BatchMintFailStatus,

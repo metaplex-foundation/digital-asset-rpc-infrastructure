@@ -15,16 +15,20 @@ use {
             ProgramParseResult,
         },
     },
+    digital_asset_types::dao::batch_mint_to_verify,
     futures::future::BoxFuture,
     sea_orm::{
         entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
-        SqlxPostgresConnector, TransactionTrait,
+        QuerySelect, SqlxPostgresConnector, TransactionTrait,
     },
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
-    tokio::time::{sleep, Duration},
+    tokio::{
+        sync::RwLock,
+        time::{sleep, Duration},
+    },
     tracing::{debug, error, info},
 };
 
@@ -86,13 +90,15 @@ pub struct ProgramTransformer {
     parsers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
     cl_audits: bool,
+    batched_trees: Option<RwLock<HashSet<Pubkey>>>,
 }
 
 impl ProgramTransformer {
-    pub fn new(
+    pub async fn new(
         pool: PgPool,
         download_metadata_notifier: DownloadMetadataNotifier,
         cl_audits: bool,
+        skip_batch_minted_trees: bool,
     ) -> Self {
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
         let bgum = BubblegumParser {};
@@ -108,12 +114,47 @@ impl ProgramTransformer {
             acc
         });
         let pool: PgPool = pool;
+
+        let storage = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
+
+        let batched_trees = {
+            if !skip_batch_minted_trees {
+                None
+            } else {
+                match batch_mint_to_verify::Entity::find()
+                    .column(batch_mint_to_verify::Column::MerkleTree)
+                    .all(&storage)
+                    .await
+                {
+                    Ok(models) => {
+                        let trees_result: Result<HashSet<_>, _> = models
+                            .iter()
+                            .map(|m| Pubkey::try_from(m.merkle_tree.clone()))
+                            .collect();
+
+                        match trees_result {
+                            Ok(trees) => Some(RwLock::new(trees)),
+                            Err(e) => {
+                                error!("Failed to convert merkle_tree to Pubkey: {:?}", e);
+                                None
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to fetch batch_mint_to_verify models: {:?}", e);
+                        None
+                    }
+                }
+            }
+        };
+
         ProgramTransformer {
-            storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
+            storage,
             download_metadata_notifier,
             parsers,
             key_set: hs,
             cl_audits,
+            batched_trees,
         }
     }
 
@@ -182,12 +223,23 @@ impl ProgramTransformer {
                 let concrete = result.result_type();
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
+                        if let Some(batched_trees) = &self.batched_trees {
+                            if let Some(change_log) = &parsing_result.tree_update {
+                                let batched_trees = batched_trees.read().await;
+
+                                if let Some(_tree) = batched_trees.get(&change_log.id) {
+                                    continue;
+                                }
+                            }
+                        }
+
                         handle_bubblegum_instruction(
                             parsing_result,
                             &ix,
                             &self.storage,
                             &self.download_metadata_notifier,
                             self.cl_audits,
+                            &self.batched_trees,
                         )
                         .await
                         .map_err(|err| {

@@ -31,11 +31,17 @@ pub fn account_worker<T: Messenger>(
     tokio::spawn(async move {
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(
-                pool,
-                create_download_metadata_notifier(bg_task_sender),
-                false,
-            ));
+            let manager = Arc::new(
+                // here we hardcode cl_audits and skip_batch_minted_trees to false because that flags are not
+                // used during accounts processing and that values can be arbitrary
+                ProgramTransformer::new(
+                    pool,
+                    create_download_metadata_notifier(bg_task_sender),
+                    false,
+                    false,
+                )
+                .await,
+            );
             loop {
                 let e = msg.recv(stream_key, consumption_type.clone()).await;
                 let mut tasks = JoinSet::new();

@@ -70,6 +70,7 @@ async fn test_cnft_scenario_mint_update_metadata() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -95,6 +96,7 @@ async fn test_cnft_scenario_mint_update_metadata_remove_creators() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -180,6 +182,7 @@ async fn test_mint_delegate_transfer() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -204,6 +207,7 @@ async fn test_mint_redeem_cancel_redeem() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -246,6 +250,7 @@ async fn test_mint_transfer_burn() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -288,6 +293,7 @@ async fn test_mint_transfer_transfer() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -312,6 +318,7 @@ async fn test_mint_verify_creator() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
@@ -335,6 +342,7 @@ async fn test_mint_verify_collection() {
         name.clone(),
         TestSetupOptions {
             network: Some(Network::Devnet),
+            skip_batch_minted_trees: false,
         },
     )
     .await;
