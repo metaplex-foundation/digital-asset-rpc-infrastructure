@@ -98,7 +98,7 @@ impl ProgramTransformer {
         pool: PgPool,
         download_metadata_notifier: DownloadMetadataNotifier,
         cl_audits: bool,
-        skip_batch_mined_trees: bool,
+        skip_batch_minted_trees: bool,
     ) -> Self {
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
         let bgum = BubblegumParser {};
@@ -118,7 +118,7 @@ impl ProgramTransformer {
         let storage = SqlxPostgresConnector::from_sqlx_postgres_pool(pool);
 
         let batched_trees = {
-            if !skip_batch_mined_trees {
+            if !skip_batch_minted_trees {
                 None
             } else {
                 match batch_mint_to_verify::Entity::find()

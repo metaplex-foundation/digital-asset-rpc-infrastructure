@@ -32,6 +32,8 @@ pub fn account_worker<T: Messenger>(
         let source = T::new(config).await;
         if let Ok(mut msg) = source {
             let manager = Arc::new(
+                // here we hardcode cl_audits and skip_batch_minted_trees to false because that flags are not
+                // used during accounts processing and that values can be arbitrary
                 ProgramTransformer::new(
                     pool,
                     create_download_metadata_notifier(bg_task_sender),
