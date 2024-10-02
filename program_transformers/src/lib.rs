@@ -30,7 +30,7 @@ use {
 };
 
 mod asset_upserts;
-mod bubblegum;
+pub mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
