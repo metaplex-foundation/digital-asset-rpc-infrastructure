@@ -11,7 +11,7 @@ use {
         token_metadata::types::UseMethod as TokenMetadataUseMethod,
     },
     sea_orm::{ConnectionTrait, TransactionTrait},
-    tracing::{debug, info},
+    tracing::debug,
 };
 
 mod burn;
@@ -58,7 +58,7 @@ where
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
     };
-    info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
+    debug!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     match ix_type {
         InstructionName::Transfer => {
