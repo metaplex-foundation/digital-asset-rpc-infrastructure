@@ -53,10 +53,11 @@ where
     for (i, p) in (0_i64..).zip(change_log_event.path.iter()) {
         let node_idx = p.index as i64;
         debug!(
-            "seq {}, index {} level {}, node {:?}, txn: {:?}, instruction {}",
+            "ChangeLogEvent: seq={}, index={}, level={}, depth={}, node={}, txn={}, instruction={}",
             change_log_event.seq,
             p.index,
             i,
+            depth,
             bs58::encode(p.node).into_string(),
             txn_id,
             instruction
