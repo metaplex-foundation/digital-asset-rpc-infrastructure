@@ -162,10 +162,6 @@ pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
         .set(size as i64)
 }
 
-pub fn program_transformer_tasks_total_set(size: usize) {
-    PROGRAM_TRANSFORMER_TASKS_TOTAL.set(size as i64)
-}
-
 pub fn ingest_tasks_total_inc(stream: &str) {
     INGEST_TASKS_TOTAL.with_label_values(&[stream]).inc()
 }
@@ -286,8 +282,4 @@ pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKin
     PROGRAM_TRANSFORMER_TASK_STATUS
         .with_label_values(&[kind.to_str()])
         .inc()
-}
-
-pub fn download_metadata_inserted_total_inc() {
-    DOWNLOAD_METADATA_INSERTED_TOTAL.inc()
 }
