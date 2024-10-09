@@ -9,9 +9,6 @@ use {
     },
 };
 
-pub const REDIS_STREAM_ACCOUNTS: &str = "ACCOUNTS";
-pub const REDIS_STREAM_TRANSACTIONS: &str = "TRANSACTIONS";
-pub const REDIS_STREAM_METADATA_JSON: &str = "METADATA_JSON";
 pub const REDIS_STREAM_DATA_KEY: &str = "data";
 
 pub async fn load<T>(path: impl AsRef<Path> + Copy) -> anyhow::Result<T>
@@ -124,21 +121,6 @@ pub struct ConfigGrpc {
 
     pub geyser_endpoint: String,
 
-    #[serde(default = "ConfigGrpc::default_request_snapshot")]
-    pub request_snapshot: bool,
-
-    #[serde(
-        default = "ConfigGrpc::default_geyser_update_message_buffer_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub geyser_update_message_buffer_size: usize,
-
-    #[serde(
-        default = "ConfigGrpc::solana_seen_event_cache_max_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub solana_seen_event_cache_max_size: usize,
-
     pub redis: ConfigGrpcRedis,
 
     #[serde(
@@ -149,26 +131,13 @@ pub struct ConfigGrpc {
 }
 
 impl ConfigGrpc {
-    pub const fn default_request_snapshot() -> bool {
-        false
-    }
-
     pub const fn default_max_concurrency() -> usize {
         10
-    }
-
-    pub const fn default_geyser_update_message_buffer_size() -> usize {
-        100_000
-    }
-
-    pub const fn solana_seen_event_cache_max_size() -> usize {
-        10_000
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConfigGrpcAccounts {
-    #[serde(default = "ConfigGrpcAccounts::default_stream")]
     pub stream: String,
     #[serde(
         default = "ConfigGrpcAccounts::default_stream_maxlen",
@@ -182,10 +151,6 @@ pub struct ConfigGrpcAccounts {
 }
 
 impl ConfigGrpcAccounts {
-    pub fn default_stream() -> String {
-        REDIS_STREAM_ACCOUNTS.to_owned()
-    }
-
     pub const fn default_stream_maxlen() -> usize {
         100_000_000
     }
@@ -258,129 +223,12 @@ where
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngester {
-    pub redis: ConfigIngesterRedis,
+    pub redis: String,
     pub postgres: ConfigIngesterPostgres,
     pub download_metadata: ConfigIngesterDownloadMetadata,
-    pub program_transformer: ConfigIngesterProgramTransformer,
+    pub snapshots: ConfigIngestStream,
     pub accounts: ConfigIngestStream,
     pub transactions: ConfigIngestStream,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConfigIngesterRedis {
-    pub url: String,
-    #[serde(default = "ConfigIngesterRedis::default_group")]
-    pub group: String,
-    #[serde(default = "ConfigIngesterRedis::default_consumer")]
-    pub consumer: String,
-    pub streams: Vec<ConfigIngesterRedisStream>,
-    #[serde(
-        default = "ConfigIngesterRedis::default_prefetch_queue_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub prefetch_queue_size: usize,
-    #[serde(
-        default = "ConfigIngesterRedis::default_xpending_max",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub xpending_max: usize,
-    #[serde(default = "ConfigIngesterRedis::default_xpending_only")]
-    pub xpending_only: bool,
-    #[serde(
-        default = "ConfigIngesterRedis::default_xreadgroup_max",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub xreadgroup_max: usize,
-}
-
-impl ConfigIngesterRedis {
-    pub fn default_group() -> String {
-        "ingester".to_owned()
-    }
-
-    pub fn default_consumer() -> String {
-        "consumer".to_owned()
-    }
-
-    pub const fn default_prefetch_queue_size() -> usize {
-        1_000
-    }
-
-    pub const fn default_xpending_max() -> usize {
-        100
-    }
-
-    pub const fn default_xpending_only() -> bool {
-        false
-    }
-
-    pub const fn default_xreadgroup_max() -> usize {
-        1_000
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ConfigIngesterRedisStream {
-    pub stream_type: ConfigIngesterRedisStreamType,
-    pub stream: &'static str,
-    pub xack_batch_max_size: usize,
-    pub xack_batch_max_idle: Duration,
-    pub xack_max_in_process: usize,
-}
-
-impl<'de> Deserialize<'de> for ConfigIngesterRedisStream {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        #[derive(Debug, Clone, Copy, Deserialize)]
-        struct Raw {
-            #[serde(rename = "type")]
-            pub stream_type: ConfigIngesterRedisStreamType,
-            #[serde(
-                default = "default_xack_batch_max_size",
-                deserialize_with = "deserialize_usize_str"
-            )]
-            pub xack_batch_max_size: usize,
-            #[serde(
-                default = "default_xack_batch_max_idle",
-                deserialize_with = "deserialize_duration_str",
-                rename = "xack_batch_max_idle_ms"
-            )]
-            pub xack_batch_max_idle: Duration,
-            #[serde(
-                default = "default_xack_max_in_process",
-                deserialize_with = "deserialize_usize_str"
-            )]
-            pub xack_max_in_process: usize,
-        }
-
-        const fn default_xack_batch_max_size() -> usize {
-            100
-        }
-
-        const fn default_xack_batch_max_idle() -> Duration {
-            Duration::from_millis(10)
-        }
-
-        const fn default_xack_max_in_process() -> usize {
-            100
-        }
-
-        let raw = Raw::deserialize(deserializer)?;
-
-        Ok(Self {
-            stream_type: raw.stream_type,
-            stream: match raw.stream_type {
-                ConfigIngesterRedisStreamType::Account => REDIS_STREAM_ACCOUNTS,
-                ConfigIngesterRedisStreamType::Transaction => REDIS_STREAM_TRANSACTIONS,
-                ConfigIngesterRedisStreamType::MetadataJson => REDIS_STREAM_METADATA_JSON,
-            },
-            xack_batch_max_size: raw.xack_batch_max_size,
-            xack_batch_max_idle: raw.xack_batch_max_idle,
-            xack_max_in_process: raw.xack_max_in_process,
-        })
-    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -389,6 +237,7 @@ pub enum ConfigIngesterRedisStreamType {
     Account,
     Transaction,
     MetadataJson,
+    Snapshot,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -416,51 +265,9 @@ impl ConfigIngesterPostgres {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConfigIngesterProgramTransformer {
-    #[serde(
-        default = "ConfigIngesterProgramTransformer::default_max_tasks_in_process",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub max_tasks_in_process: usize,
-    #[serde(
-        default = "ConfigIngesterProgramTransformer::default_account_num_threads",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub account_num_threads: usize,
-    #[serde(
-        default = "ConfigIngesterProgramTransformer::default_transaction_num_threads",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub transaction_num_threads: usize,
-    #[serde(
-        default = "ConfigIngesterProgramTransformer::default_metadata_json_num_threads",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub metadata_json_num_threads: usize,
-}
-
-impl ConfigIngesterProgramTransformer {
-    pub const fn default_account_num_threads() -> usize {
-        5
-    }
-
-    pub const fn default_transaction_num_threads() -> usize {
-        1
-    }
-
-    pub const fn default_metadata_json_num_threads() -> usize {
-        1
-    }
-
-    pub const fn default_max_tasks_in_process() -> usize {
-        40
-    }
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ConfigIngesterDownloadMetadata {
-    pub stream_config: ConfigIngestStream,
+    pub stream: ConfigIngestStream,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_num_threads",
         deserialize_with = "deserialize_usize_str"
@@ -482,8 +289,6 @@ pub struct ConfigIngesterDownloadMetadata {
         deserialize_with = "deserialize_usize_str"
     )]
     pub stream_maxlen: usize,
-    #[serde(default = "ConfigIngesterDownloadMetadata::default_stream")]
-    pub stream: String,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_stream_max_size",
         deserialize_with = "deserialize_usize_str"
@@ -510,10 +315,6 @@ impl ConfigIngesterDownloadMetadata {
         10
     }
 
-    pub fn default_stream() -> String {
-        REDIS_STREAM_METADATA_JSON.to_owned()
-    }
-
     pub const fn default_stream_maxlen() -> usize {
         10_000_000
     }
@@ -524,66 +325,5 @@ impl ConfigIngesterDownloadMetadata {
 
     pub const fn default_request_timeout() -> Duration {
         Duration::from_millis(3_000)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConfigDownloadMetadata {
-    pub postgres: ConfigIngesterPostgres,
-    pub download_metadata: ConfigDownloadMetadataOpts,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-pub struct ConfigDownloadMetadataOpts {
-    #[serde(
-        default = "ConfigDownloadMetadataOpts::default_max_in_process",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub max_in_process: usize,
-    #[serde(
-        default = "ConfigDownloadMetadataOpts::default_prefetch_queue_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub prefetch_queue_size: usize,
-    #[serde(
-        default = "ConfigDownloadMetadataOpts::default_limit_to_fetch",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub limit_to_fetch: usize,
-    #[serde(
-        default = "ConfigDownloadMetadataOpts::default_wait_tasks_max_idle",
-        deserialize_with = "deserialize_duration_str",
-        rename = "wait_tasks_max_idle_ms"
-    )]
-    pub wait_tasks_max_idle: Duration,
-    #[serde(
-        default = "ConfigDownloadMetadataOpts::default_download_timeout",
-        deserialize_with = "deserialize_duration_str",
-        rename = "download_timeout_ms"
-    )]
-    pub download_timeout: Duration,
-
-    pub stream: ConfigIngesterRedisStream,
-}
-
-impl ConfigDownloadMetadataOpts {
-    pub const fn default_max_in_process() -> usize {
-        50
-    }
-
-    pub const fn default_prefetch_queue_size() -> usize {
-        100
-    }
-
-    pub const fn default_limit_to_fetch() -> usize {
-        200
-    }
-
-    pub const fn default_wait_tasks_max_idle() -> Duration {
-        Duration::from_millis(100)
-    }
-
-    pub const fn default_download_timeout() -> Duration {
-        Duration::from_millis(5_000)
     }
 }

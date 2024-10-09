@@ -7,7 +7,6 @@ use {
         postgres::{PgConnectOptions, PgPoolOptions},
         PgPool,
     },
-    tokio::time::{sleep, Duration},
 };
 
 pub async fn create_pool(config: ConfigIngesterPostgres) -> anyhow::Result<PgPool> {
@@ -23,11 +22,4 @@ pub async fn create_pool(config: ConfigIngesterPostgres) -> anyhow::Result<PgPoo
 pub fn report_pgpool(pgpool: PgPool) {
     pgpool_connections_set(PgpoolConnectionsKind::Total, pgpool.size() as usize);
     pgpool_connections_set(PgpoolConnectionsKind::Idle, pgpool.num_idle());
-}
-
-pub async fn metrics_pgpool(pgpool: PgPool) {
-    loop {
-        report_pgpool(pgpool.clone());
-        sleep(Duration::from_millis(100)).await;
-    }
 }

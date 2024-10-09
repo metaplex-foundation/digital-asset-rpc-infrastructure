@@ -1,9 +1,6 @@
 use {
     crate::{
-        config::{
-            load as config_load, ConfigDownloadMetadata, ConfigGrpc, ConfigIngester,
-            ConfigPrometheus,
-        },
+        config::{load as config_load, ConfigGrpc, ConfigIngester, ConfigPrometheus},
         prom::run_server as prometheus_run_server,
         tracing::init as tracing_init,
     },
@@ -13,7 +10,6 @@ use {
 };
 
 mod config;
-mod download_metadata;
 mod grpc;
 mod ingester;
 mod postgres;
@@ -46,9 +42,6 @@ enum ArgsAction {
     /// Run ingester process (process events from Redis)
     #[command(name = "ingester")]
     Ingester,
-    /// Run metadata downloader
-    #[command(name = "download-metadata")]
-    DownloadMetadata,
 }
 
 #[tokio::main]
@@ -71,19 +64,13 @@ async fn main() -> anyhow::Result<()> {
             let config = config_load::<ConfigGrpc>(&args.config)
                 .await
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
-            grpc::run_v2(config).await
+            grpc::run(config).await
         }
         ArgsAction::Ingester => {
             let config = config_load::<ConfigIngester>(&args.config)
                 .await
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
-            ingester::run_v2(config).await
-        }
-        ArgsAction::DownloadMetadata => {
-            let config = config_load::<ConfigDownloadMetadata>(&args.config)
-                .await
-                .with_context(|| format!("failed to parse config from: {}", args.config))?;
-            download_metadata::run(config).await
+            ingester::run(config).await
         }
     }
 }
