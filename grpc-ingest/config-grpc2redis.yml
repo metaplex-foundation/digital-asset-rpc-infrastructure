@@ -22,6 +22,5 @@ transactions:
       - BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY
 redis:
   url: redis://localhost:6379
-  pipeline_max_size: 10
-  pipeline_max_idle_ms: 10
-  max_xadd_in_process: 100
+  pipeline_max_size: 1_000
+  pipeline_max_idle_ms: 100_000

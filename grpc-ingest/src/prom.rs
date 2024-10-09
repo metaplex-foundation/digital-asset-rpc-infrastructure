@@ -15,46 +15,46 @@ use {
 lazy_static::lazy_static! {
     static ref REGISTRY: Registry = Registry::new();
 
-    static ref VERSION: IntCounterVec = IntCounterVec::new(
-        Opts::new("version", "Plugin version info"),
+    static ref VERSION_INFO_METRIC: IntCounterVec = IntCounterVec::new(
+        Opts::new("version_info", "Plugin version info"),
         &["buildts", "git", "package", "proto", "rustc", "solana", "version"]
     ).unwrap();
 
-    static ref REDIS_XLEN_TOTAL: IntGaugeVec = IntGaugeVec::new(
-        Opts::new("redis_xlen_total", "Length of stream in Redis"),
+    static ref REDIS_STREAM_LENGTH: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("redis_stream_length", "Length of stream in Redis"),
         &["stream"]
     ).unwrap();
 
-    static ref REDIS_XADD_STATUS: IntCounterVec = IntCounterVec::new(
-        Opts::new("redis_xadd_status", "Status of messages sent to Redis stream"),
+    static ref REDIS_XADD_STATUS_COUNT: IntCounterVec = IntCounterVec::new(
+        Opts::new("redis_xadd_status_count", "Status of messages sent to Redis stream"),
         &["stream", "status"]
     ).unwrap();
 
-    static ref REDIS_XACK_TOTAL: IntCounterVec = IntCounterVec::new(
-        Opts::new("redis_xack_total", "Total number of processed messages"),
+    static ref REDIS_XACK_COUNT: IntCounterVec = IntCounterVec::new(
+        Opts::new("redis_xack_count", "Total number of processed messages"),
         &["stream"]
     ).unwrap();
 
-    static ref PGPOOL_CONNECTIONS_TOTAL: IntGaugeVec = IntGaugeVec::new(
-        Opts::new("pgpool_connections_total", "Total number of connections in Postgres Pool"),
+    static ref PGPOOL_CONNECTIONS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("pgpool_connections", "Total number of connections in Postgres Pool"),
         &["kind"]
     ).unwrap();
 
-    static ref PROGRAM_TRANSFORMER_TASKS_TOTAL: IntGauge = IntGauge::new(
-        "program_transformer_tasks_total", "Number of tasks spawned for program transform"
+    static ref PROGRAM_TRANSFORMER_TASKS: IntGauge = IntGauge::new(
+        "program_transformer_tasks", "Number of tasks spawned for program transform"
     ).unwrap();
 
-    static ref PROGRAM_TRANSFORMER_TASK_STATUS: IntCounterVec = IntCounterVec::new(
-        Opts::new("program_transformer_task_status", "Status of processed messages"),
+    static ref PROGRAM_TRANSFORMER_TASK_STATUS_COUNT: IntCounterVec = IntCounterVec::new(
+        Opts::new("program_transformer_task_status_count", "Status of processed messages"),
         &["status"],
     ).unwrap();
 
-    static ref DOWNLOAD_METADATA_INSERTED_TOTAL: IntCounter = IntCounter::new(
-        "download_metadata_inserted_total", "Total number of inserted tasks for download metadata"
+    static ref DOWNLOAD_METADATA_INSERTED_COUNT: IntCounter = IntCounter::new(
+        "download_metadata_inserted_count", "Total number of inserted tasks for download metadata"
     ).unwrap();
 
-    static ref INGEST_TASKS_TOTAL: IntGaugeVec = IntGaugeVec::new(
-        Opts::new("ingest_tasks_total", "Number of tasks spawned for ingest"),
+    static ref INGEST_TASKS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("ingest_tasks", "Number of tasks spawned for ingest"),
         &["stream"]
     ).unwrap();
 }
@@ -69,17 +69,17 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
                     .expect("collector can't be registered");
             };
         }
-        register!(VERSION);
-        register!(REDIS_XLEN_TOTAL);
-        register!(REDIS_XADD_STATUS);
-        register!(REDIS_XACK_TOTAL);
-        register!(PGPOOL_CONNECTIONS_TOTAL);
-        register!(PROGRAM_TRANSFORMER_TASKS_TOTAL);
-        register!(PROGRAM_TRANSFORMER_TASK_STATUS);
-        register!(DOWNLOAD_METADATA_INSERTED_TOTAL);
-        register!(INGEST_TASKS_TOTAL);
+        register!(VERSION_INFO_METRIC);
+        register!(REDIS_STREAM_LENGTH);
+        register!(REDIS_XADD_STATUS_COUNT);
+        register!(REDIS_XACK_COUNT);
+        register!(PGPOOL_CONNECTIONS);
+        register!(PROGRAM_TRANSFORMER_TASKS);
+        register!(PROGRAM_TRANSFORMER_TASK_STATUS_COUNT);
+        register!(DOWNLOAD_METADATA_INSERTED_COUNT);
+        register!(INGEST_TASKS);
 
-        VERSION
+        VERSION_INFO_METRIC
             .with_label_values(&[
                 VERSION_INFO.buildts,
                 VERSION_INFO.git,
@@ -130,19 +130,19 @@ fn not_found_handler() -> Response<Body> {
 }
 
 pub fn redis_xlen_set(stream: &str, len: usize) {
-    REDIS_XLEN_TOTAL
+    REDIS_STREAM_LENGTH
         .with_label_values(&[stream])
         .set(len as i64);
 }
 
 pub fn redis_xadd_status_inc(stream: &str, status: Result<(), ()>, delta: usize) {
-    REDIS_XADD_STATUS
+    REDIS_XADD_STATUS_COUNT
         .with_label_values(&[stream, if status.is_ok() { "success" } else { "failed" }])
         .inc_by(delta as u64);
 }
 
 pub fn redis_xack_inc(stream: &str, delta: usize) {
-    REDIS_XACK_TOTAL
+    REDIS_XACK_COUNT
         .with_label_values(&[stream])
         .inc_by(delta as u64)
 }
@@ -154,7 +154,7 @@ pub enum PgpoolConnectionsKind {
 }
 
 pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
-    PGPOOL_CONNECTIONS_TOTAL
+    PGPOOL_CONNECTIONS
         .with_label_values(&[match kind {
             PgpoolConnectionsKind::Total => "total",
             PgpoolConnectionsKind::Idle => "idle",
@@ -163,15 +163,15 @@ pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
 }
 
 pub fn ingest_tasks_total_inc(stream: &str) {
-    INGEST_TASKS_TOTAL.with_label_values(&[stream]).inc()
+    INGEST_TASKS.with_label_values(&[stream]).inc()
 }
 
 pub fn ingest_tasks_total_dec(stream: &str) {
-    INGEST_TASKS_TOTAL.with_label_values(&[stream]).dec()
+    INGEST_TASKS.with_label_values(&[stream]).dec()
 }
 
 pub fn ingest_tasks_reset(stream: &str) {
-    INGEST_TASKS_TOTAL.with_label_values(&[stream]).set(0)
+    INGEST_TASKS.with_label_values(&[stream]).set(0)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -279,7 +279,7 @@ impl ProgramTransformerTaskStatusKind {
 }
 
 pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKind) {
-    PROGRAM_TRANSFORMER_TASK_STATUS
+    PROGRAM_TRANSFORMER_TASK_STATUS_COUNT
         .with_label_values(&[kind.to_str()])
         .inc()
 }
