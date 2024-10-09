@@ -182,34 +182,15 @@ impl ConfigGrpcTransactions {
 pub struct ConfigGrpcRedis {
     pub url: String,
     #[serde(
-        default = "ConfigGrpcRedis::default_pipeline_max_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub pipeline_max_size: usize,
-    #[serde(
         default = "ConfigGrpcRedis::default_pipeline_max_idle",
-        deserialize_with = "deserialize_duration_str",
-        rename = "pipeline_max_idle_ms"
+        deserialize_with = "deserialize_duration_str"
     )]
     pub pipeline_max_idle: Duration,
-    #[serde(
-        default = "ConfigGrpcRedis::default_max_xadd_in_process",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub max_xadd_in_process: usize,
 }
 
 impl ConfigGrpcRedis {
-    pub const fn default_pipeline_max_size() -> usize {
-        10
-    }
-
     pub const fn default_pipeline_max_idle() -> Duration {
         Duration::from_millis(10)
-    }
-
-    pub const fn default_max_xadd_in_process() -> usize {
-        100
     }
 }
 
