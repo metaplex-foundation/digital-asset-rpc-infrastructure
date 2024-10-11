@@ -108,7 +108,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     .map_err(Into::into)
             })
         })
-        .start()?;
+        .start()
+        .await?;
     let account_stream = IngestStream::build()
         .config(config.accounts.clone())
         .connection(connection.clone())
@@ -124,7 +125,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     .map_err(Into::into)
             })
         })
-        .start()?;
+        .start()
+        .await?;
     let transactions_stream = IngestStream::build()
         .config(config.transactions.clone())
         .connection(connection.clone())
@@ -140,7 +142,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     .map_err(Into::into)
             })
         })
-        .start()?;
+        .start()
+        .await?;
     let snapshot_stream = IngestStream::build()
         .config(config.snapshots.clone())
         .connection(connection.clone())
@@ -156,7 +159,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
                     .map_err(Into::into)
             })
         })
-        .start()?;
+        .start()
+        .await?;
 
     let mut shutdown = create_shutdown()?;
 
