@@ -12,10 +12,7 @@ use {
     program_transformers::{AccountInfo, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
-        streams::{
-            StreamClaimOptions, StreamClaimReply, StreamId, StreamKey, StreamMaxlen,
-            StreamPendingCountReply, StreamReadOptions, StreamReadReply,
-        },
+        streams::{StreamId, StreamKey, StreamMaxlen, StreamReadOptions, StreamReadReply},
         AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
     solana_sdk::{pubkey::Pubkey, signature::Signature},
@@ -26,7 +23,7 @@ use {
         prelude::*,
         AsyncHandler,
     },
-    tracing::{debug, error, info},
+    tracing::{debug, error, warn},
     yellowstone_grpc_proto::{
         convert_from::{
             create_message_instructions, create_meta_inner_instructions, create_pubkey_vec,
@@ -41,7 +38,7 @@ pub enum IngestStreamJob {
 }
 
 pub struct IngestStreamStop {
-    shutdown_tx: tokio::sync::oneshot::Sender<()>,
+    shutdown_tx: tokio::sync::broadcast::Sender<()>,
     control: tokio::task::JoinHandle<()>,
 }
 
@@ -340,43 +337,6 @@ impl IngestStream {
         self
     }
 
-    async fn pending(
-        &self,
-        connection: &mut MultiplexedConnection,
-        start: &str,
-    ) -> RedisResult<Option<StreamClaimReply>> {
-        let config = Arc::clone(&self.config);
-
-        let pending = redis::cmd("XPENDING")
-            .arg(&config.name)
-            .arg(&config.group)
-            .arg(start)
-            .arg("+")
-            .arg(config.batch_size)
-            .arg(&config.consumer)
-            .query_async::<_, StreamPendingCountReply>(connection)
-            .await?;
-        let ids: Vec<&str> = pending.ids.iter().map(|info| info.id.as_str()).collect();
-        let opts = StreamClaimOptions::default();
-
-        let claimed: StreamClaimReply = connection
-            .xclaim_options(
-                &config.name,
-                &config.group,
-                &config.consumer,
-                100,
-                &ids,
-                opts,
-            )
-            .await?;
-
-        if claimed.ids.is_empty() {
-            return Ok(None);
-        }
-
-        Ok(Some(claimed))
-    }
-
     async fn read(&self, connection: &mut MultiplexedConnection) -> RedisResult<StreamReadReply> {
         let config = &self.config;
 
@@ -390,45 +350,47 @@ impl IngestStream {
             .await
     }
 
-    pub fn start(mut self) -> anyhow::Result<IngestStreamStop> {
+    pub async fn start(mut self) -> anyhow::Result<IngestStreamStop> {
         let config = Arc::clone(&self.config);
 
-        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
 
         let connection = self.connection.take().expect("Connection is required");
 
         let group_create_connection = connection.clone();
         let config_group_create = Arc::clone(&config);
 
-        tokio::task::spawn_blocking(move || {
-            let mut connection = group_create_connection.clone();
-            let config = Arc::clone(&config_group_create);
+        let mut connection = group_create_connection.clone();
+        let config = Arc::clone(&config_group_create);
 
-            let rt = tokio::runtime::Runtime::new()?;
+        // Delete the existing group
+        if let Err(e) = xgroup_delete(&mut connection, &config.name, &config.group).await {
+            error!("redis=xgroup_delete stream={} err={:?}", config.name, e);
+        } else {
+            debug!(
+                "redis=xgroup_delete stream={} group={}",
+                config.name, config.group
+            );
+        }
 
-            rt.block_on(async {
-                if let Err(e) = xgroup_create(
-                    &mut connection,
-                    &config.name,
-                    &config.group,
-                    &config.consumer,
-                )
-                .await
-                {
-                    error!("redis=xgroup_create stream={} err={:?}", config.name, e);
-                } else {
-                    debug!(
-                        "redis=xgroup_create stream={} group={} consumer={}",
-                        config.name, config.group, config.consumer
-                    );
-                }
-            });
-
-            Ok::<(), anyhow::Error>(())
-        });
+        // Recreate the group
+        if let Err(e) = xgroup_create(
+            &mut connection,
+            &config.name,
+            &config.group,
+            &config.consumer,
+        )
+        .await
+        {
+            error!("redis=xgroup_create stream={} err={:?}", config.name, e);
+        } else {
+            debug!(
+                "redis=xgroup_create stream={} group={} consumer={}",
+                config.name, config.group, config.consumer
+            );
+        }
 
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
-        let (ack_shutdown_tx, ack_shutdown_rx) = tokio::sync::oneshot::channel();
 
         let xack_executor = Executor::builder(Nonblock(Tokio))
             .max_concurrency(Some(10))
@@ -440,9 +402,9 @@ impl IngestStream {
         let ack = tokio::spawn({
             let config = Arc::clone(&config);
             let mut pending = Vec::new();
+            let mut shutdown_rx = shutdown_tx.subscribe();
 
             async move {
-                let mut shutdown_rx = ack_shutdown_rx;
                 let deadline = tokio::time::sleep(config.xack_batch_max_idle);
                 tokio::pin!(deadline);
 
@@ -452,7 +414,6 @@ impl IngestStream {
                             pending.push(id);
                             let count = pending.len();
                             if count >= config.xack_batch_max_size {
-
                                 let ids = std::mem::take(&mut pending);
                                 xack_executor.push(AcknowledgeJob::Submit(ids));
                                 deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
@@ -460,13 +421,15 @@ impl IngestStream {
                         },
                         _ = &mut deadline, if !pending.is_empty() => {
                             let ids = std::mem::take(&mut pending);
-
                             xack_executor.push(AcknowledgeJob::Submit(ids));
-
                             deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                         },
-                        _ = &mut shutdown_rx => {
-                            xack_executor.join_async().await;
+                        _ = shutdown_rx.recv() => {
+                            if !pending.is_empty() {
+                                let ids = std::mem::take(&mut pending);
+                                xack_executor.push(AcknowledgeJob::Submit(ids));
+                            }
+
                             break;
                         }
                     }
@@ -487,9 +450,7 @@ impl IngestStream {
             })?;
 
         let labels = vec![config.name.clone()];
-        let (report_shutdown_tx, report_shutdown_rx) = tokio::sync::oneshot::channel();
-        let report_thread = tokio::spawn({
-            let mut shutdown_rx: tokio::sync::oneshot::Receiver<()> = report_shutdown_rx;
+        let report = tokio::spawn({
             let connection = connection.clone();
             let config = Arc::clone(&config);
 
@@ -497,31 +458,23 @@ impl IngestStream {
                 let config = Arc::clone(&config);
 
                 loop {
-                    tokio::select! {
-                        _ = &mut shutdown_rx => {
-                            debug!(
-                                "redis=report_thread stream={} Shutdown signal received, exiting report loop",
-                                config.name
-                            );
-                            break;
-                        },
-                        _ = sleep(Duration::from_millis(100)) => {
-                            if let Err(e) = report_xlen(connection.clone(), labels.clone()).await {
-                                error!("redis=report_xlen err={:?}", e);
-                            }
-
-                            debug!(
-                                "redis=report_thread stream={} msg=waiting for pending messages",
-                                config.name
-                            );
-                        },
+                    sleep(Duration::from_millis(100)).await;
+                    if let Err(e) = report_xlen(connection.clone(), labels.clone()).await {
+                        error!("redis=report_xlen err={:?}", e);
                     }
+
+                    debug!(
+                        "redis=report_thread stream={} msg=xlen metric updated",
+                        config.name
+                    );
                 }
             }
         });
 
         let control = tokio::spawn({
             let mut connection = connection.clone();
+            let mut shutdown_rx = shutdown_tx.subscribe();
+
             async move {
                 let config = Arc::clone(&config);
 
@@ -530,50 +483,20 @@ impl IngestStream {
                     config.name
                 );
 
-                let mut shutdown_rx: tokio::sync::oneshot::Receiver<()> = shutdown_rx;
-
-                let mut start = "-".to_owned();
+                debug!(
+                    "redis=read_stream stream={} msg=starting read stream",
+                    &config.name
+                );
 
                 loop {
                     tokio::select! {
-                        _ = &mut shutdown_rx => {
-                            debug!(
-                                "redis=read_stream stream={} Shutdown signal received, exiting loops",
-                                config.name
-                            );
-                            break;
-                        },
-                        claimed = self.pending(&mut connection, &start) => {
-                            if let Ok(Some(claimed)) = claimed {
+                        _ = shutdown_rx.recv() => {
+                            report.abort();
 
-                                let ids = claimed.ids.clone();
-                                let ids: Vec<&str> = ids.iter().map(|info| info.id.as_str()).collect();
-
-                                info!("redis=claimed stream={} claimed={:?}", config.name, ids.len());
-
-
-                                    for StreamId { id, map } in claimed.ids.into_iter() {
-                                        executor.push(IngestStreamJob::Process((id, map)));
-                                    }
-
-
-                                if let Some(last) = ids.last() {
-                                    start = last.to_string();
-                                }
-                            } else {
-                                break;
+                            if let Err(e) = ack.await {
+                                error!("Error during ack shutdown: {:?}", e);
                             }
-                        },
-                    }
-                }
 
-                loop {
-                    tokio::select! {
-                        _ = &mut shutdown_rx => {
-                            debug!(
-                                "redis=read_stream stream={} Shutdown signal received, exiting read loop",
-                                config.name
-                            );
                             break;
                         },
                         result = self.read(&mut connection) => {
@@ -599,27 +522,7 @@ impl IngestStream {
                     }
                 }
 
-                debug!("stream={} msg=start shut down ingest stream", config.name);
-
-                executor.join_async().await;
-
-                if let Err(e) = report_shutdown_tx.send(()) {
-                    error!("Failed to send report shutdown signal: {:?}", e);
-                }
-
-                if let Err(e) = ack_shutdown_tx.send(()) {
-                    error!("Failed to send ack shutdown signal: {:?}", e);
-                }
-
-                if let Err(e) = ack.await {
-                    error!("Error during ack shutdown: {:?}", e);
-                }
-
-                if let Err(e) = report_thread.await {
-                    error!("Error during report thread shutdown: {:?}", e);
-                }
-
-                debug!("stream={} msg=shut down stream", config.name);
+                warn!("stream={} msg=stream shutdown", config.name);
             }
         });
 
@@ -673,6 +576,24 @@ pub async fn xgroup_create<C: AsyncCommands>(
         .await?;
 
     Ok(())
+}
+
+pub async fn xgroup_delete<C: AsyncCommands>(
+    connection: &mut C,
+    name: &str,
+    group: &str,
+) -> anyhow::Result<()> {
+    let result: RedisResult<RedisValue> = redis::cmd("XGROUP")
+        .arg("DESTROY")
+        .arg(name)
+        .arg(group)
+        .query_async(connection)
+        .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 pub struct TrackedPipeline {
