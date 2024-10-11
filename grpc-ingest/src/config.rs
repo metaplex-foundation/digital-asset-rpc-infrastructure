@@ -57,6 +57,11 @@ pub struct ConfigIngestStream {
     )]
     pub max_concurrency: usize,
     #[serde(
+        default = "ConfigIngestStream::default_ack_concurrency",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub ack_concurrency: usize,
+    #[serde(
         default = "ConfigIngestStream::default_xack_buffer_size",
         deserialize_with = "deserialize_usize_str"
     )]
@@ -69,6 +74,10 @@ impl ConfigIngestStream {
     }
     pub const fn default_max_concurrency() -> usize {
         2
+    }
+
+    pub const fn default_ack_concurrency() -> usize {
+        5
     }
 
     pub const fn default_xack_batch_max_idle() -> Duration {
