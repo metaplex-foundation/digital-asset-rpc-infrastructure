@@ -3,20 +3,20 @@ use {
         config::{ConfigIngestStream, REDIS_STREAM_DATA_KEY},
         prom::{
             ingest_tasks_reset, ingest_tasks_total_dec, ingest_tasks_total_inc,
-            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set,
+            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set, redis_xread_inc,
             ProgramTransformerTaskStatusKind,
         },
     },
-    das_core::DownloadMetadataInfo,
+    das_core::{DownloadMetadata, DownloadMetadataInfo},
     futures::future::BoxFuture,
-    program_transformers::{AccountInfo, TransactionInfo},
+    program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
         streams::{StreamId, StreamKey, StreamMaxlen, StreamReadOptions, StreamReadReply},
         AsyncCommands, ErrorKind as RedisErrorKind, RedisResult, Value as RedisValue,
     },
     solana_sdk::{pubkey::Pubkey, signature::Signature},
-    std::{collections::HashMap, sync::Arc},
+    std::{collections::HashMap, marker::PhantomData, sync::Arc},
     tokio::time::{sleep, Duration},
     topograph::{
         executor::{Executor, Nonblock, Tokio},
@@ -32,85 +32,6 @@ use {
         prost::Message,
     },
 };
-
-pub enum IngestStreamJob {
-    Process((String, HashMap<String, RedisValue>)),
-}
-
-pub struct IngestStreamStop {
-    shutdown_tx: tokio::sync::broadcast::Sender<()>,
-    control: tokio::task::JoinHandle<()>,
-}
-
-impl IngestStreamStop {
-    pub async fn stop(self) -> anyhow::Result<()> {
-        let _ = self.shutdown_tx.send(());
-
-        self.control.await?;
-
-        Ok(())
-    }
-}
-
-type HandlerFn = dyn Fn(HashMap<String, RedisValue>) -> BoxFuture<'static, Result<(), IngestMessageError>>
-    + Send
-    + Sync;
-
-#[derive(Clone)]
-pub struct IngestStreamHandler {
-    handler: Arc<HandlerFn>,
-    ack_sender: tokio::sync::mpsc::Sender<String>,
-    config: Arc<ConfigIngestStream>,
-}
-
-impl<'a>
-    AsyncHandler<IngestStreamJob, topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>>
-    for IngestStreamHandler
-{
-    type Output = ();
-
-    fn handle(
-        &self,
-        job: IngestStreamJob,
-        _handle: topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>,
-    ) -> impl futures::Future<Output = Self::Output> + Send {
-        let handler = Arc::clone(&self.handler);
-        let ack_sender = self.ack_sender.clone();
-        let config = Arc::clone(&self.config);
-
-        ingest_tasks_total_inc(&config.name);
-        async move {
-            match job {
-                IngestStreamJob::Process((id, msg)) => {
-                    match handler(msg).await {
-                        Ok(()) => program_transformer_task_status_inc(
-                            ProgramTransformerTaskStatusKind::Success,
-                        ),
-                        Err(IngestMessageError::RedisStreamMessage(e)) => {
-                            error!("Failed to process message: {:?}", e);
-
-                            program_transformer_task_status_inc(e.into());
-                        }
-                        Err(IngestMessageError::DownloadMetadataJson(e)) => {
-                            program_transformer_task_status_inc(e.into());
-                        }
-                        Err(IngestMessageError::ProgramTransformer(e)) => {
-                            error!("Failed to process message: {:?}", e);
-
-                            program_transformer_task_status_inc(e.into());
-                        }
-                    }
-
-                    if let Err(e) = ack_sender.send(id).await {
-                        error!("Failed to send ack id to channel: {:?}", e);
-                    }
-
-                    ingest_tasks_total_dec(&config.name);
-                }
-            }
-        }
-    }
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum RedisStreamMessageError {
@@ -248,6 +169,208 @@ pub enum IngestMessageError {
     DownloadMetadataJson(#[from] das_core::MetadataJsonTaskError),
 }
 
+pub enum IngestStreamJob {
+    Process((String, HashMap<String, RedisValue>)),
+}
+
+pub struct IngestStreamStop {
+    shutdown_tx: tokio::sync::oneshot::Sender<()>,
+    control: tokio::task::JoinHandle<()>,
+}
+
+impl IngestStreamStop {
+    pub async fn stop(self) -> anyhow::Result<()> {
+        self.shutdown_tx
+            .send(())
+            .map_err(|_| anyhow::anyhow!("Failed to send shutdown signal"))?;
+
+        self.control.await?;
+
+        Ok(())
+    }
+}
+
+pub trait MessageHandler: Send + Sync + Clone + 'static {
+    fn handle(
+        &self,
+        input: HashMap<String, RedisValue>,
+    ) -> BoxFuture<'static, Result<(), IngestMessageError>>;
+}
+
+pub struct DownloadMetadataJsonHandle(Arc<DownloadMetadata>);
+
+impl MessageHandler for DownloadMetadataJsonHandle {
+    fn handle(
+        &self,
+        input: HashMap<String, RedisValue>,
+    ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
+        let download_metadata = Arc::clone(&self.0);
+
+        Box::pin(async move {
+            let info = DownloadMetadataInfo::try_parse_msg(input)?;
+            download_metadata
+                .handle_download(&info)
+                .await
+                .map_err(Into::into)
+        })
+    }
+}
+
+impl DownloadMetadataJsonHandle {
+    pub fn new(download_metadata: Arc<DownloadMetadata>) -> Self {
+        Self(download_metadata)
+    }
+}
+
+impl Clone for DownloadMetadataJsonHandle {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+pub struct AccountHandle(Arc<ProgramTransformer>);
+
+impl AccountHandle {
+    pub fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
+        Self(program_transformer)
+    }
+}
+
+impl MessageHandler for AccountHandle {
+    fn handle(
+        &self,
+        input: HashMap<String, RedisValue>,
+    ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
+        let program_transformer = Arc::clone(&self.0);
+        Box::pin(async move {
+            let account = AccountInfo::try_parse_msg(input)?;
+            program_transformer
+                .handle_account_update(&account)
+                .await
+                .map_err(IngestMessageError::ProgramTransformer)
+        })
+    }
+}
+
+impl Clone for AccountHandle {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+pub struct TransactionHandle(Arc<ProgramTransformer>);
+
+impl TransactionHandle {
+    pub fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
+        Self(program_transformer)
+    }
+}
+
+impl MessageHandler for TransactionHandle {
+    fn handle(
+        &self,
+        input: HashMap<String, RedisValue>,
+    ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
+        let program_transformer = Arc::clone(&self.0);
+
+        Box::pin(async move {
+            let transaction = TransactionInfo::try_parse_msg(input)?;
+            program_transformer
+                .handle_transaction(&transaction)
+                .await
+                .map_err(IngestMessageError::ProgramTransformer)
+        })
+    }
+}
+
+impl Clone for TransactionHandle {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+#[derive(Clone)]
+pub struct IngestStreamHandler<H>
+where
+    H: MessageHandler + Clone + 'static,
+{
+    ack_sender: tokio::sync::mpsc::Sender<String>,
+    config: Arc<ConfigIngestStream>,
+    handler: H,
+    _marker: PhantomData<H>,
+}
+
+impl<H> IngestStreamHandler<H>
+where
+    H: MessageHandler + Clone + 'static,
+{
+    pub fn new(
+        ack_sender: tokio::sync::mpsc::Sender<String>,
+        config: Arc<ConfigIngestStream>,
+        handler: H,
+    ) -> Self {
+        Self {
+            ack_sender,
+            config,
+            handler,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, T>
+    AsyncHandler<IngestStreamJob, topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>>
+    for IngestStreamHandler<T>
+where
+    T: MessageHandler + Clone,
+{
+    type Output = ();
+
+    fn handle(
+        &self,
+        job: IngestStreamJob,
+        _handle: topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>,
+    ) -> impl futures::Future<Output = Self::Output> + Send {
+        let handler = &self.handler;
+        let ack_sender = &self.ack_sender;
+        let config = &self.config;
+
+        ingest_tasks_total_inc(&config.name);
+        async move {
+            match job {
+                IngestStreamJob::Process((id, msg)) => {
+                    let result = handler.handle(msg).await.map_err(Into::into);
+
+                    match result {
+                        Ok(()) => program_transformer_task_status_inc(
+                            ProgramTransformerTaskStatusKind::Success,
+                        ),
+                        Err(IngestMessageError::RedisStreamMessage(e)) => {
+                            error!("Failed to process message: {:?}", e);
+
+                            program_transformer_task_status_inc(e.into());
+                        }
+                        Err(IngestMessageError::DownloadMetadataJson(e)) => {
+                            program_transformer_task_status_inc(e.into());
+                        }
+                        Err(IngestMessageError::ProgramTransformer(e)) => {
+                            error!("Failed to process message: {:?}", e);
+
+                            program_transformer_task_status_inc(e.into());
+                        }
+                    }
+
+                    if let Err(e) = ack_sender.send(id).await {
+                        error!("Failed to send ack id to channel: {:?}", e);
+                    }
+
+                    ingest_tasks_total_dec(&config.name);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 enum AcknowledgeJob {
     Submit(Vec<String>),
@@ -287,33 +410,45 @@ impl<'a>
             {
                 Ok(response) => {
                     debug!(
-                        "Acknowledged and deleted message: stream={:?} response={:?} expected={:?}",
-                        &config.name, response, count
+                        target: "acknowledge_handler",
+                        "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
+                        config.name, response, count
                     );
 
                     redis_xack_inc(&config.name, count);
                 }
                 Err(e) => {
-                    error!("Failed to acknowledge or delete message: error={:?}", e);
+                    error!(
+                        target: "acknowledge_handler",
+                        "action=acknowledge_and_delete_failed stream={} error={:?}",
+                        config.name, e
+                    );
                 }
             }
         }
     }
 }
 
-pub struct IngestStream {
+pub struct IngestStream<H: MessageHandler> {
     config: Arc<ConfigIngestStream>,
     connection: Option<MultiplexedConnection>,
-    handler: Option<Arc<HandlerFn>>,
+    handler: Option<H>,
+    _handler: PhantomData<H>,
 }
 
-impl IngestStream {
+impl<H: MessageHandler> IngestStream<H> {
     pub fn build() -> Self {
         Self {
             config: Arc::new(ConfigIngestStream::default()),
             connection: None,
             handler: None,
+            _handler: PhantomData,
         }
+    }
+
+    pub fn handler(mut self, handler: H) -> Self {
+        self.handler = Some(handler);
+        self
     }
 
     pub fn config(mut self, config: ConfigIngestStream) -> Self {
@@ -326,24 +461,13 @@ impl IngestStream {
         self
     }
 
-    pub fn handler<F>(mut self, handler: F) -> Self
-    where
-        F: Fn(HashMap<String, RedisValue>) -> BoxFuture<'static, Result<(), IngestMessageError>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.handler = Some(Arc::new(handler));
-        self
-    }
-
     async fn read(&self, connection: &mut MultiplexedConnection) -> RedisResult<StreamReadReply> {
         let config = &self.config;
 
         let opts = StreamReadOptions::default()
             .group(&config.group, &config.consumer)
             .count(config.batch_size)
-            .block(100);
+            .block(250);
 
         connection
             .xread_options(&[&config.name], &[">"], &opts)
@@ -353,27 +477,17 @@ impl IngestStream {
     pub async fn start(mut self) -> anyhow::Result<IngestStreamStop> {
         let config = Arc::clone(&self.config);
 
-        let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
 
-        let connection = self.connection.take().expect("Connection is required");
+        let mut connection = self.connection.take().expect("Connection is required");
+        let handler = self.handler.take().expect("Handler is required");
 
-        let group_create_connection = connection.clone();
-        let config_group_create = Arc::clone(&config);
-
-        let mut connection = group_create_connection.clone();
-        let config = Arc::clone(&config_group_create);
-
-        // Delete the existing group
         if let Err(e) = xgroup_delete(&mut connection, &config.name, &config.group).await {
-            error!("redis=xgroup_delete stream={} err={:?}", config.name, e);
+            error!(target: "ingest_stream", "action=xgroup_delete stream={} error={:?}", config.name, e);
         } else {
-            debug!(
-                "redis=xgroup_delete stream={} group={}",
-                config.name, config.group
-            );
+            debug!(target: "ingest_stream", "action=xgroup_delete stream={} group={}", config.name, config.group);
         }
 
-        // Recreate the group
         if let Err(e) = xgroup_create(
             &mut connection,
             &config.name,
@@ -382,27 +496,24 @@ impl IngestStream {
         )
         .await
         {
-            error!("redis=xgroup_create stream={} err={:?}", config.name, e);
+            error!(target: "ingest_stream", "action=xgroup_create stream={} error={:?}", config.name, e);
         } else {
-            debug!(
-                "redis=xgroup_create stream={} group={} consumer={}",
-                config.name, config.group, config.consumer
-            );
+            debug!(target: "ingest_stream", "action=xgroup_create stream={} group={} consumer={}", config.name, config.group, config.consumer);
         }
 
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
-
         let xack_executor = Executor::builder(Nonblock(Tokio))
-            .max_concurrency(Some(10))
+            .max_concurrency(Some(config.ack_concurrency))
             .build_async(AcknowledgeHandler {
                 config: Arc::clone(&config),
                 connection: connection.clone(),
             })?;
 
+        let (ack_shutdown_tx, mut ack_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
         let ack = tokio::spawn({
             let config = Arc::clone(&config);
             let mut pending = Vec::new();
-            let mut shutdown_rx = shutdown_tx.subscribe();
 
             async move {
                 let deadline = tokio::time::sleep(config.xack_batch_max_idle);
@@ -412,42 +523,40 @@ impl IngestStream {
                     tokio::select! {
                         Some(id) = ack_rx.recv() => {
                             pending.push(id);
-                            let count = pending.len();
-                            if count >= config.xack_batch_max_size {
+                            if pending.len() >= config.xack_batch_max_size {
                                 let ids = std::mem::take(&mut pending);
                                 xack_executor.push(AcknowledgeJob::Submit(ids));
                                 deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                             }
-                        },
+                        }
                         _ = &mut deadline, if !pending.is_empty() => {
                             let ids = std::mem::take(&mut pending);
                             xack_executor.push(AcknowledgeJob::Submit(ids));
                             deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
-                        },
-                        _ = shutdown_rx.recv() => {
-                            if !pending.is_empty() {
-                                let ids = std::mem::take(&mut pending);
-                                xack_executor.push(AcknowledgeJob::Submit(ids));
-                            }
-
+                        }
+                        _ = &mut ack_shutdown_rx => {
                             break;
                         }
                     }
                 }
+
+                if !pending.is_empty() {
+                    xack_executor.push(AcknowledgeJob::Submit(std::mem::take(&mut pending)));
+                }
+
+                xack_executor.join_async().await;
             }
         });
-
-        let handler = self.handler.take().expect("Handler is required");
 
         ingest_tasks_reset(&config.name);
 
         let executor = Executor::builder(Nonblock(Tokio))
             .max_concurrency(Some(config.max_concurrency))
-            .build_async(IngestStreamHandler {
+            .build_async(IngestStreamHandler::new(
+                ack_tx.clone(),
+                Arc::clone(&config),
                 handler,
-                ack_sender: ack_tx.clone(),
-                config: Arc::clone(&config),
-            })?;
+            ))?;
 
         let labels = vec![config.name.clone()];
         let report = tokio::spawn({
@@ -460,41 +569,35 @@ impl IngestStream {
                 loop {
                     sleep(Duration::from_millis(100)).await;
                     if let Err(e) = report_xlen(connection.clone(), labels.clone()).await {
-                        error!("redis=report_xlen err={:?}", e);
+                        error!(target: "ingest_stream", "action=report_xlen stream={} error={:?}", config.name, e);
                     }
 
-                    debug!(
-                        "redis=report_thread stream={} msg=xlen metric updated",
-                        config.name
-                    );
+                    debug!(target: "ingest_stream", "action=report_thread stream={} xlen metric updated", config.name);
                 }
             }
         });
 
         let control = tokio::spawn({
             let mut connection = connection.clone();
-            let mut shutdown_rx = shutdown_tx.subscribe();
 
             async move {
                 let config = Arc::clone(&config);
 
-                debug!(
-                    "redis=read_stream stream={} Starting read stream task",
-                    config.name
-                );
-
-                debug!(
-                    "redis=read_stream stream={} msg=starting read stream",
-                    &config.name
-                );
+                debug!(target: "ingest_stream", "action=read_stream_start stream={}", config.name);
 
                 loop {
                     tokio::select! {
-                        _ = shutdown_rx.recv() => {
+                        _ = &mut shutdown_rx => {
                             report.abort();
 
+                            executor.join_async().await;
+
+                            if let Err(e) = ack_shutdown_tx.send(()) {
+                                error!(target: "ingest_stream", "action=send_shutdown_signal stream={} error={:?}", config.name, e);
+                            }
+
                             if let Err(e) = ack.await {
-                                error!("Error during ack shutdown: {:?}", e);
+                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", config.name, e);
                             }
 
                             break;
@@ -502,27 +605,26 @@ impl IngestStream {
                         result = self.read(&mut connection) => {
                             match result {
                                 Ok(reply) => {
-                                    let count = reply.keys.len();
-                                    debug!(
-                                        "redis=xread stream={:?} count={:?}",
-                                        &config.name, count
-                                    );
-
                                     for StreamKey { key: _, ids } in reply.keys {
+                                        let count = ids.len();
+                                        debug!(target: "ingest_stream", "action=xread stream={} count={:?}", &config.name, count);
+
+                                        redis_xread_inc(&config.name, count);
+
                                         for StreamId { id, map } in ids {
                                             executor.push(IngestStreamJob::Process((id, map)));
                                         }
                                     }
                                 }
                                 Err(err) => {
-                                    error!("redis=xread stream={:?} err={:?}", &config.name, err);
+                                    error!(target: "ingest_stream", "action=xread stream={} error={:?}", &config.name, err);
                                 }
                             }
                         }
                     }
                 }
 
-                warn!("stream={} msg=stream shutdown", config.name);
+                warn!(target: "ingest_stream", "action=stream_shutdown stream={} stream shutdown", config.name);
             }
         });
 
@@ -530,6 +632,49 @@ impl IngestStream {
             control,
             shutdown_tx,
         })
+    }
+}
+
+pub struct TrackedPipeline {
+    pipeline: redis::Pipeline,
+    counts: HashMap<String, usize>,
+}
+
+impl Default for TrackedPipeline {
+    fn default() -> Self {
+        Self {
+            pipeline: redis::pipe(),
+            counts: HashMap::new(),
+        }
+    }
+}
+
+type TrackedStreamCounts = HashMap<String, usize>;
+
+impl TrackedPipeline {
+    pub fn xadd_maxlen<F, V>(&mut self, key: &str, maxlen: StreamMaxlen, id: F, field: V)
+    where
+        F: redis::ToRedisArgs,
+        V: redis::ToRedisArgs,
+    {
+        self.pipeline
+            .xadd_maxlen(key, maxlen, id, &[(REDIS_STREAM_DATA_KEY, field)]);
+        *self.counts.entry(key.to_string()).or_insert(0) += 1;
+    }
+
+    pub async fn flush(
+        &mut self,
+        connection: &mut MultiplexedConnection,
+    ) -> Result<TrackedStreamCounts, TrackedStreamCounts> {
+        let result: RedisResult<RedisValue> = self.pipeline.atomic().query_async(connection).await;
+        let counts = self.counts.clone();
+        self.counts.clear();
+        self.pipeline.clear();
+
+        match result {
+            Ok(_) => Ok(counts),
+            Err(_) => Err(counts),
+        }
     }
 }
 
@@ -593,48 +738,5 @@ pub async fn xgroup_delete<C: AsyncCommands>(
     match result {
         Ok(_) => Ok(()),
         Err(error) => Err(error.into()),
-    }
-}
-
-pub struct TrackedPipeline {
-    pipeline: redis::Pipeline,
-    counts: HashMap<String, usize>,
-}
-
-impl Default for TrackedPipeline {
-    fn default() -> Self {
-        Self {
-            pipeline: redis::pipe(),
-            counts: HashMap::new(),
-        }
-    }
-}
-
-type TrackedStreamCounts = HashMap<String, usize>;
-
-impl TrackedPipeline {
-    pub fn xadd_maxlen<F, V>(&mut self, key: &str, maxlen: StreamMaxlen, id: F, field: V)
-    where
-        F: redis::ToRedisArgs,
-        V: redis::ToRedisArgs,
-    {
-        self.pipeline
-            .xadd_maxlen(key, maxlen, id, &[(REDIS_STREAM_DATA_KEY, field)]);
-        *self.counts.entry(key.to_string()).or_insert(0) += 1;
-    }
-
-    pub async fn flush(
-        &mut self,
-        connection: &mut MultiplexedConnection,
-    ) -> Result<TrackedStreamCounts, TrackedStreamCounts> {
-        let result: RedisResult<RedisValue> = self.pipeline.atomic().query_async(connection).await;
-        let counts = self.counts.clone();
-        self.counts.clear();
-        self.pipeline.clear();
-
-        match result {
-            Ok(_) => Ok(counts),
-            Err(_) => Err(counts),
-        }
     }
 }
