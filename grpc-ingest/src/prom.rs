@@ -30,6 +30,11 @@ lazy_static::lazy_static! {
         &["stream", "status"]
     ).unwrap();
 
+        static ref REDIS_XREAD_COUNT: IntCounterVec = IntCounterVec::new(
+        Opts::new("redis_xread_count", "Count of messages seen"),
+        &["stream"]
+    ).unwrap();
+
     static ref REDIS_XACK_COUNT: IntCounterVec = IntCounterVec::new(
         Opts::new("redis_xack_count", "Total number of processed messages"),
         &["stream"]
@@ -72,6 +77,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(VERSION_INFO_METRIC);
         register!(REDIS_STREAM_LENGTH);
         register!(REDIS_XADD_STATUS_COUNT);
+        register!(REDIS_XREAD_COUNT);
         register!(REDIS_XACK_COUNT);
         register!(PGPOOL_CONNECTIONS);
         register!(PROGRAM_TRANSFORMER_TASKS);
@@ -139,6 +145,12 @@ pub fn redis_xadd_status_inc(stream: &str, status: Result<(), ()>, delta: usize)
     REDIS_XADD_STATUS_COUNT
         .with_label_values(&[stream, if status.is_ok() { "success" } else { "failed" }])
         .inc_by(delta as u64);
+}
+
+pub fn redis_xread_inc(stream: &str, delta: usize) {
+    REDIS_XREAD_COUNT
+        .with_label_values(&[stream])
+        .inc_by(delta as u64)
 }
 
 pub fn redis_xack_inc(stream: &str, delta: usize) {
