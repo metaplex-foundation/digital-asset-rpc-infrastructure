@@ -62,6 +62,16 @@ lazy_static::lazy_static! {
         Opts::new("ingest_tasks", "Number of tasks spawned for ingest"),
         &["stream"]
     ).unwrap();
+
+    static ref ACK_TASKS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("ack_tasks", "Number of tasks spawned for ack redis messages"),
+        &["stream"]
+    ).unwrap();
+
+    static ref GRPC_TASKS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("grpc_tasks", "Number of tasks spawned for writing grpc messages to redis "),
+        &[]
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -84,6 +94,8 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(PROGRAM_TRANSFORMER_TASK_STATUS_COUNT);
         register!(DOWNLOAD_METADATA_INSERTED_COUNT);
         register!(INGEST_TASKS);
+        register!(ACK_TASKS);
+        register!(GRPC_TASKS);
 
         VERSION_INFO_METRIC
             .with_label_values(&[
@@ -182,8 +194,20 @@ pub fn ingest_tasks_total_dec(stream: &str) {
     INGEST_TASKS.with_label_values(&[stream]).dec()
 }
 
-pub fn ingest_tasks_reset(stream: &str) {
-    INGEST_TASKS.with_label_values(&[stream]).set(0)
+pub fn ack_tasks_total_inc(stream: &str) {
+    ACK_TASKS.with_label_values(&[stream]).inc()
+}
+
+pub fn ack_tasks_total_dec(stream: &str) {
+    ACK_TASKS.with_label_values(&[stream]).dec()
+}
+
+pub fn grpc_tasks_total_inc() {
+    GRPC_TASKS.with_label_values(&[]).inc()
+}
+
+pub fn grpc_tasks_total_dec() {
+    GRPC_TASKS.with_label_values(&[]).dec()
 }
 
 #[derive(Debug, Clone, Copy)]

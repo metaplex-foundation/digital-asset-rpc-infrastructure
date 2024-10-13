@@ -2,9 +2,9 @@ use {
     crate::{
         config::{ConfigIngestStream, REDIS_STREAM_DATA_KEY},
         prom::{
-            ingest_tasks_reset, ingest_tasks_total_dec, ingest_tasks_total_inc,
-            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set, redis_xread_inc,
-            ProgramTransformerTaskStatusKind,
+            ack_tasks_total_dec, ack_tasks_total_inc, ingest_tasks_total_dec,
+            ingest_tasks_total_inc, program_transformer_task_status_inc, redis_xack_inc,
+            redis_xlen_set, redis_xread_inc, ProgramTransformerTaskStatusKind,
         },
     },
     das_core::{DownloadMetadata, DownloadMetadataInfo},
@@ -400,6 +400,7 @@ impl<'a>
 
         let count = ids.len();
 
+        ack_tasks_total_inc(&config.name);
         async move {
             match redis::pipe()
                 .atomic()
@@ -425,6 +426,8 @@ impl<'a>
                     );
                 }
             }
+
+            ack_tasks_total_dec(&config.name);
         }
     }
 }
@@ -548,8 +551,6 @@ impl<H: MessageHandler> IngestStream<H> {
             }
         });
 
-        ingest_tasks_reset(&config.name);
-
         let executor = Executor::builder(Nonblock(Tokio))
             .max_concurrency(Some(config.max_concurrency))
             .build_async(IngestStreamHandler::new(
@@ -602,7 +603,7 @@ impl<H: MessageHandler> IngestStream<H> {
 
                             break;
                         },
-                        result = self.read(&mut connection) => {
+                        result = self.read(&mut connection), if ack_tx.capacity() >= config.batch_size => {
                             match result {
                                 Ok(reply) => {
                                     for StreamKey { key: _, ids } in reply.keys {
