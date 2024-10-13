@@ -1,6 +1,8 @@
 use {
     crate::{
-        config::ConfigGrpc, prom::redis_xadd_status_inc, redis::TrackedPipeline,
+        config::ConfigGrpc,
+        prom::{grpc_tasks_total_dec, grpc_tasks_total_inc, redis_xadd_status_inc},
+        redis::TrackedPipeline,
         util::create_shutdown,
     },
     anyhow::Context,
@@ -56,6 +58,8 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
 
         let subscribe_tx = Arc::clone(&self.subscribe_tx);
 
+        grpc_tasks_total_inc();
+
         async move {
             match job {
                 GrpcJob::FlushRedisPipe => {
@@ -68,7 +72,7 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
                     let counts = flush.as_ref().unwrap_or_else(|counts| counts);
 
                     for (stream, count) in counts.iter() {
-                        debug!(message = "Redis pipe flushed", ?stream, ?status, ?count);
+                        debug!(target: "grpc2redis", action = "flush_redis_pipe", stream = ?stream, status = ?status, count = ?count);
                         redis_xadd_status_inc(stream, status, *count);
                     }
                 }
@@ -91,6 +95,7 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
                                     "*",
                                     account.encode_to_vec(),
                                 );
+                                debug!(target: "grpc2redis", action = "process_account_update", stream = ?accounts_stream, maxlen = ?accounts_stream_maxlen);
                             }
                             UpdateOneof::Transaction(transaction) => {
                                 pipe.xadd_maxlen(
@@ -99,6 +104,7 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
                                     "*",
                                     transaction.encode_to_vec(),
                                 );
+                                debug!(target: "grpc2redis", action = "process_transaction_update", stream = ?transactions_stream, maxlen = ?transactions_stream_maxlen);
                             }
                             UpdateOneof::Ping(_) => {
                                 let ping = subscribe_tx
@@ -112,25 +118,29 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
 
                                 match ping {
                                     Ok(_) => {
-                                        debug!(message = "Ping sent successfully", id = PING_ID)
+                                        debug!(target: "grpc2redis", action = "send_ping", message = "Ping sent successfully", id = PING_ID)
                                     }
                                     Err(err) => {
-                                        warn!(message = "Failed to send ping", ?err, id = PING_ID)
+                                        warn!(target: "grpc2redis", action = "send_ping_failed", message = "Failed to send ping", ?err, id = PING_ID)
                                     }
                                 }
                             }
                             UpdateOneof::Pong(pong) => {
                                 if pong.id == PING_ID {
-                                    debug!(message = "Pong received", id = PING_ID);
+                                    debug!(target: "grpc2redis", action = "receive_pong", message = "Pong received", id = PING_ID);
                                 } else {
-                                    warn!(message = "Unknown pong id received", id = pong.id);
+                                    warn!(target: "grpc2redis", action = "receive_unknown_pong", message = "Unknown pong id received", id = pong.id);
                                 }
                             }
-                            var => warn!(message = "Unknown update variant", ?var),
+                            var => {
+                                warn!(target: "grpc2redis", action = "unknown_update_variant", message = "Unknown update variant", ?var)
+                            }
                         }
                     }
                 }
             }
+
+            grpc_tasks_total_dec();
         }
     }
 }

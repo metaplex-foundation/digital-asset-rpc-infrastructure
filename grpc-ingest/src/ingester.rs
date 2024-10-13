@@ -122,10 +122,11 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
 
     report.abort();
 
-    accounts.stop().await?;
-    transactions.stop().await?;
+    futures::future::join_all(vec![accounts.stop(), transactions.stop(), snapshots.stop()])
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
     download_metadatas.stop().await?;
-    snapshots.stop().await?;
 
     pool.close().await;
 

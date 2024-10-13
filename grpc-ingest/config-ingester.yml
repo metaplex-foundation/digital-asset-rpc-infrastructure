@@ -3,19 +3,21 @@ redis: redis://localhost:6379
 postgres:
   url: postgres://solana:solana@localhost/solana
   min_connections: 10
-  max_connections: 50 # `max_connection` should be bigger than `program_transformer.max_tasks_in_process` otherwise unresolved lock is possible
+  max_connections: 50
 snapshots:
   name: SNAPSHOTS
   max_concurrency: 10
   batch_size: 100
   xack_batch_max_idle_ms: 1_000
   xack_buffer_size: 10_000
+  xack_batch_max_size: 500
 accounts:
   name: ACCOUNTS
   max_concurrency: 10
   batch_size: 100
   xack_batch_max_idle_ms: 1_000
   xack_buffer_size: 10_000
+  xack_batch_max_size: 500
 transactions:
   name: TRANSACTIONS
 download_metadata:
