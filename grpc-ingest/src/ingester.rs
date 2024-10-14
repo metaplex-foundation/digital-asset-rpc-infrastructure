@@ -12,7 +12,7 @@ use {
     redis::aio::MultiplexedConnection,
     std::sync::Arc,
     tokio::time::{sleep, Duration},
-    tracing::warn,
+    tracing::{error, warn},
 };
 
 fn download_metadata_notifier_v2(
@@ -117,16 +117,36 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     });
 
     if let Some(signal) = shutdown.next().await {
-        warn!("{signal} received, waiting for spawned tasks...");
+        warn!(
+            target: "ingester",
+            action = "shutdown_signal_received",
+            message = "Shutdown signal received, waiting for spawned tasks to complete",
+            signal = ?signal
+        );
     }
 
     report.abort();
 
-    futures::future::join_all(vec![accounts.stop(), transactions.stop(), snapshots.stop()])
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()?;
-    download_metadatas.stop().await?;
+    let (accounts, transactions, snapshots, download_metadatas) = futures::future::join4(
+        accounts.stop(),
+        transactions.stop(),
+        snapshots.stop(),
+        download_metadatas.stop(),
+    )
+    .await;
+
+    if let Err(e) = accounts {
+        error!(target: "ingester", action = "stop_accounts", message = "Failed to stop accounts stream cleanly", error = ?e);
+    }
+    if let Err(e) = transactions {
+        error!(target: "ingester", action = "stop_transactions", message = "Failed to stop transactions stream cleanly", error = ?e);
+    }
+    if let Err(e) = snapshots {
+        error!(target: "ingester", action = "stop_snapshots", message = "Failed to stop snapshots stream cleanly", error = ?e);
+    }
+    if let Err(e) = download_metadatas {
+        error!(target: "ingester", action = "stop_download_metadatas", message = "Failed to stop download_metadatas stream cleanly", error = ?e);
+    }
 
     pool.close().await;
 

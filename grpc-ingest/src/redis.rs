@@ -17,7 +17,10 @@ use {
     },
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{collections::HashMap, marker::PhantomData, sync::Arc},
-    tokio::time::{sleep, Duration},
+    tokio::{
+        sync::{OwnedSemaphorePermit, Semaphore},
+        time::{sleep, Duration},
+    },
     topograph::{
         executor::{Executor, Nonblock, Tokio},
         prelude::*,
@@ -170,7 +173,7 @@ pub enum IngestMessageError {
 }
 
 pub enum IngestStreamJob {
-    Process((String, HashMap<String, RedisValue>)),
+    Process((String, HashMap<String, RedisValue>, OwnedSemaphorePermit)),
 }
 
 pub struct IngestStreamStop {
@@ -336,37 +339,37 @@ where
         let config = &self.config;
 
         ingest_tasks_total_inc(&config.name);
+
         async move {
-            match job {
-                IngestStreamJob::Process((id, msg)) => {
-                    let result = handler.handle(msg).await.map_err(Into::into);
+            let (id, msg, _permit) = match job {
+                IngestStreamJob::Process((id, msg, permit)) => (id, msg, permit),
+            };
+            let result = handler.handle(msg).await.map_err(Into::into);
 
-                    match result {
-                        Ok(()) => program_transformer_task_status_inc(
-                            ProgramTransformerTaskStatusKind::Success,
-                        ),
-                        Err(IngestMessageError::RedisStreamMessage(e)) => {
-                            error!("Failed to process message: {:?}", e);
+            match result {
+                Ok(()) => {
+                    program_transformer_task_status_inc(ProgramTransformerTaskStatusKind::Success)
+                }
+                Err(IngestMessageError::RedisStreamMessage(e)) => {
+                    error!("Failed to process message: {:?}", e);
 
-                            program_transformer_task_status_inc(e.into());
-                        }
-                        Err(IngestMessageError::DownloadMetadataJson(e)) => {
-                            program_transformer_task_status_inc(e.into());
-                        }
-                        Err(IngestMessageError::ProgramTransformer(e)) => {
-                            error!("Failed to process message: {:?}", e);
+                    program_transformer_task_status_inc(e.into());
+                }
+                Err(IngestMessageError::DownloadMetadataJson(e)) => {
+                    program_transformer_task_status_inc(e.into());
+                }
+                Err(IngestMessageError::ProgramTransformer(e)) => {
+                    error!("Failed to process message: {:?}", e);
 
-                            program_transformer_task_status_inc(e.into());
-                        }
-                    }
-
-                    if let Err(e) = ack_sender.send(id).await {
-                        error!("Failed to send ack id to channel: {:?}", e);
-                    }
-
-                    ingest_tasks_total_dec(&config.name);
+                    program_transformer_task_status_inc(e.into());
                 }
             }
+
+            if let Err(e) = ack_sender.send(id).await {
+                error!("Failed to send ack id to channel: {:?}", e);
+            }
+
+            ingest_tasks_total_dec(&config.name);
         }
     }
 }
@@ -479,6 +482,7 @@ impl<H: MessageHandler> IngestStream<H> {
 
     pub async fn start(mut self) -> anyhow::Result<IngestStreamStop> {
         let config = Arc::clone(&self.config);
+        let semaphore = Arc::new(Semaphore::new(config.max_concurrency));
 
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
 
@@ -613,7 +617,13 @@ impl<H: MessageHandler> IngestStream<H> {
                                         redis_xread_inc(&config.name, count);
 
                                         for StreamId { id, map } in ids {
-                                            executor.push(IngestStreamJob::Process((id, map)));
+                                            let semaphore = Arc::clone(&semaphore);
+
+                                            if let Ok(permit) = semaphore.acquire_owned().await {
+                                                executor.push(IngestStreamJob::Process((id, map, permit)));
+                                            } else {
+                                                error!(target: "ingest_stream", "action=acquire_semaphore stream={} error=failed to acquire semaphore", config.name);
+                                            }
                                         }
                                     }
                                 }
