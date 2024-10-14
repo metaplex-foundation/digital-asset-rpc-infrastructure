@@ -607,7 +607,7 @@ impl<H: MessageHandler> IngestStream<H> {
 
                             break;
                         },
-                        result = self.read(&mut connection), if ack_tx.capacity() >= config.batch_size => {
+                        result = self.read(&mut connection) => {
                             match result {
                                 Ok(reply) => {
                                     for StreamKey { key: _, ids } in reply.keys {
