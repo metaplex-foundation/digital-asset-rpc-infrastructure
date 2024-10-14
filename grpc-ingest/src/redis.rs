@@ -8,7 +8,7 @@ use {
         },
     },
     das_core::{DownloadMetadata, DownloadMetadataInfo},
-    futures::future::BoxFuture,
+    futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt},
     program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
@@ -17,15 +17,7 @@ use {
     },
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{collections::HashMap, marker::PhantomData, sync::Arc},
-    tokio::{
-        sync::{OwnedSemaphorePermit, Semaphore},
-        time::{sleep, Duration},
-    },
-    topograph::{
-        executor::{Executor, Nonblock, Tokio},
-        prelude::*,
-        AsyncHandler,
-    },
+    tokio::time::{sleep, Duration},
     tracing::{debug, error, warn},
     yellowstone_grpc_proto::{
         convert_from::{
@@ -172,10 +164,6 @@ pub enum IngestMessageError {
     DownloadMetadataJson(#[from] das_core::MetadataJsonTaskError),
 }
 
-pub enum IngestStreamJob {
-    Process((String, HashMap<String, RedisValue>, OwnedSemaphorePermit)),
-}
-
 pub struct IngestStreamStop {
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
     control: tokio::task::JoinHandle<()>,
@@ -293,145 +281,51 @@ impl Clone for TransactionHandle {
 }
 
 #[derive(Clone)]
-pub struct IngestStreamHandler<H>
-where
-    H: MessageHandler + Clone + 'static,
-{
-    ack_sender: tokio::sync::mpsc::Sender<String>,
-    config: Arc<ConfigIngestStream>,
-    handler: H,
-    _marker: PhantomData<H>,
-}
-
-impl<H> IngestStreamHandler<H>
-where
-    H: MessageHandler + Clone + 'static,
-{
-    pub fn new(
-        ack_sender: tokio::sync::mpsc::Sender<String>,
-        config: Arc<ConfigIngestStream>,
-        handler: H,
-    ) -> Self {
-        Self {
-            ack_sender,
-            config,
-            handler,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T>
-    AsyncHandler<IngestStreamJob, topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>>
-    for IngestStreamHandler<T>
-where
-    T: MessageHandler + Clone,
-{
-    type Output = ();
-
-    fn handle(
-        &self,
-        job: IngestStreamJob,
-        _handle: topograph::executor::Handle<'a, IngestStreamJob, Nonblock<Tokio>>,
-    ) -> impl futures::Future<Output = Self::Output> + Send {
-        let handler = &self.handler;
-        let ack_sender = &self.ack_sender;
-        let config = &self.config;
-
-        ingest_tasks_total_inc(&config.name);
-
-        async move {
-            let (id, msg, _permit) = match job {
-                IngestStreamJob::Process((id, msg, permit)) => (id, msg, permit),
-            };
-            let result = handler.handle(msg).await.map_err(Into::into);
-
-            match result {
-                Ok(()) => {
-                    program_transformer_task_status_inc(ProgramTransformerTaskStatusKind::Success)
-                }
-                Err(IngestMessageError::RedisStreamMessage(e)) => {
-                    error!("Failed to process message: {:?}", e);
-
-                    program_transformer_task_status_inc(e.into());
-                }
-                Err(IngestMessageError::DownloadMetadataJson(e)) => {
-                    program_transformer_task_status_inc(e.into());
-                }
-                Err(IngestMessageError::ProgramTransformer(e)) => {
-                    error!("Failed to process message: {:?}", e);
-
-                    program_transformer_task_status_inc(e.into());
-                }
-            }
-
-            if let Err(e) = ack_sender.send(id).await {
-                error!("Failed to send ack id to channel: {:?}", e);
-            }
-
-            ingest_tasks_total_dec(&config.name);
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-enum AcknowledgeJob {
-    Submit(Vec<String>),
-}
-
-#[derive(Clone)]
-pub struct AcknowledgeHandler {
+pub struct Acknowledge {
     config: Arc<ConfigIngestStream>,
     connection: MultiplexedConnection,
 }
 
-impl<'a>
-    AsyncHandler<AcknowledgeJob, topograph::executor::Handle<'a, AcknowledgeJob, Nonblock<Tokio>>>
-    for AcknowledgeHandler
-{
-    type Output = ();
+impl Acknowledge {
+    pub fn new(config: Arc<ConfigIngestStream>, connection: MultiplexedConnection) -> Self {
+        Self { config, connection }
+    }
+}
 
-    fn handle(
-        &self,
-        job: AcknowledgeJob,
-        _handle: topograph::executor::Handle<'a, AcknowledgeJob, Nonblock<Tokio>>,
-    ) -> impl futures::Future<Output = Self::Output> + Send {
+impl Acknowledge {
+    async fn handle(&self, ids: Vec<String>) {
         let mut connection = self.connection.clone();
-        let config = Arc::clone(&self.config);
-
-        let AcknowledgeJob::Submit(ids) = job;
+        let config = &self.config;
 
         let count = ids.len();
 
         ack_tasks_total_inc(&config.name);
-        async move {
-            match redis::pipe()
-                .atomic()
-                .xack(&config.name, &config.group, &ids)
-                .xdel(&config.name, &ids)
-                .query_async::<_, redis::Value>(&mut connection)
-                .await
-            {
-                Ok(response) => {
-                    debug!(
-                        target: "acknowledge_handler",
-                        "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
-                        config.name, response, count
-                    );
+        match redis::pipe()
+            .atomic()
+            .xack(&config.name, &config.group, &ids)
+            .xdel(&config.name, &ids)
+            .query_async::<_, redis::Value>(&mut connection)
+            .await
+        {
+            Ok(response) => {
+                debug!(
+                    target: "acknowledge_handler",
+                    "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
+                    config.name, response, count
+                );
 
-                    redis_xack_inc(&config.name, count);
-                }
-                Err(e) => {
-                    error!(
-                        target: "acknowledge_handler",
-                        "action=acknowledge_and_delete_failed stream={} error={:?}",
-                        config.name, e
-                    );
-                }
+                redis_xack_inc(&config.name, count);
             }
-
-            ack_tasks_total_dec(&config.name);
+            Err(e) => {
+                error!(
+                    target: "acknowledge_handler",
+                    "action=acknowledge_and_delete_failed stream={} error={:?}",
+                    config.name, e
+                );
+            }
         }
+
+        ack_tasks_total_dec(&config.name);
     }
 }
 
@@ -482,8 +376,6 @@ impl<H: MessageHandler> IngestStream<H> {
 
     pub async fn start(mut self) -> anyhow::Result<IngestStreamStop> {
         let config = Arc::clone(&self.config);
-        let semaphore = Arc::new(Semaphore::new(config.max_concurrency));
-
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
 
         let mut connection = self.connection.take().expect("Connection is required");
@@ -509,18 +401,13 @@ impl<H: MessageHandler> IngestStream<H> {
         }
 
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
-        let xack_executor = Executor::builder(Nonblock(Tokio))
-            .max_concurrency(Some(config.ack_concurrency))
-            .build_async(AcknowledgeHandler {
-                config: Arc::clone(&config),
-                connection: connection.clone(),
-            })?;
-
         let (ack_shutdown_tx, mut ack_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
         let ack = tokio::spawn({
             let config = Arc::clone(&config);
             let mut pending = Vec::new();
+            let mut tasks = FuturesUnordered::new();
+            let handler = Arc::new(Acknowledge::new(Arc::clone(&config), connection.clone()));
 
             async move {
                 let deadline = tokio::time::sleep(config.xack_batch_max_idle);
@@ -530,15 +417,32 @@ impl<H: MessageHandler> IngestStream<H> {
                     tokio::select! {
                         Some(id) = ack_rx.recv() => {
                             pending.push(id);
+
                             if pending.len() >= config.xack_batch_max_size {
+                                if tasks.len() >= config.ack_concurrency {
+                                    tasks.next().await;
+                                }
+
                                 let ids = std::mem::take(&mut pending);
-                                xack_executor.push(AcknowledgeJob::Submit(ids));
+                                let handler = Arc::clone(&handler);
+
+                                tasks.push(tokio::spawn(async move {
+                                    handler.handle(ids).await;
+                                }));
+
                                 deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                             }
                         }
                         _ = &mut deadline, if !pending.is_empty() => {
+                            if tasks.len() >= config.ack_concurrency {
+                                tasks.next().await;
+                            }
                             let ids = std::mem::take(&mut pending);
-                            xack_executor.push(AcknowledgeJob::Submit(ids));
+                            let handler = Arc::clone(&handler);
+                            tasks.push(tokio::spawn(async move {
+                                handler.handle(ids).await;
+                            }));
+
                             deadline.as_mut().reset(tokio::time::Instant::now() + config.xack_batch_max_idle);
                         }
                         _ = &mut ack_shutdown_rx => {
@@ -548,23 +452,16 @@ impl<H: MessageHandler> IngestStream<H> {
                 }
 
                 if !pending.is_empty() {
-                    xack_executor.push(AcknowledgeJob::Submit(std::mem::take(&mut pending)));
+                    let handler = Arc::clone(&handler);
+                    handler.handle(std::mem::take(&mut pending)).await;
                 }
 
-                xack_executor.join_async().await;
+                while (tasks.next().await).is_some() {}
             }
         });
 
-        let executor = Executor::builder(Nonblock(Tokio))
-            .max_concurrency(Some(config.max_concurrency))
-            .build_async(IngestStreamHandler::new(
-                ack_tx.clone(),
-                Arc::clone(&config),
-                handler,
-            ))?;
-
         let labels = vec![config.name.clone()];
-        let report = tokio::spawn({
+        tokio::spawn({
             let connection = connection.clone();
             let config = Arc::clone(&config);
 
@@ -573,36 +470,39 @@ impl<H: MessageHandler> IngestStream<H> {
 
                 loop {
                     sleep(Duration::from_millis(100)).await;
-                    if let Err(e) = report_xlen(connection.clone(), labels.clone()).await {
-                        error!(target: "ingest_stream", "action=report_xlen stream={} error={:?}", config.name, e);
-                    }
+                    let connection = connection.clone();
+                    let labels = labels.clone();
 
-                    debug!(target: "ingest_stream", "action=report_thread stream={} xlen metric updated", config.name);
+                    if let Err(e) = report_xlen(connection, labels).await {
+                        error!(target: "ingest_stream", "action=report_xlen stream={} error={:?}", &config.name, e);
+                    }
                 }
             }
         });
 
         let control = tokio::spawn({
             let mut connection = connection.clone();
+            let mut tasks = FuturesUnordered::new();
 
             async move {
                 let config = Arc::clone(&config);
+                let handler = handler.clone();
 
                 debug!(target: "ingest_stream", "action=read_stream_start stream={}", config.name);
 
                 loop {
+                    let config = Arc::clone(&config);
+
                     tokio::select! {
                         _ = &mut shutdown_rx => {
-                            report.abort();
-
-                            executor.join_async().await;
+                            while (tasks.next().await).is_some() {}
 
                             if let Err(e) = ack_shutdown_tx.send(()) {
-                                error!(target: "ingest_stream", "action=send_shutdown_signal stream={} error={:?}", config.name, e);
+                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", &config.name, e);
                             }
 
                             if let Err(e) = ack.await {
-                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", config.name, e);
+                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", &config.name, e);
                             }
 
                             break;
@@ -611,19 +511,51 @@ impl<H: MessageHandler> IngestStream<H> {
                             match result {
                                 Ok(reply) => {
                                     for StreamKey { key: _, ids } in reply.keys {
+                                        let config = Arc::clone(&config);
                                         let count = ids.len();
                                         debug!(target: "ingest_stream", "action=xread stream={} count={:?}", &config.name, count);
 
                                         redis_xread_inc(&config.name, count);
 
                                         for StreamId { id, map } in ids {
-                                            let semaphore = Arc::clone(&semaphore);
-
-                                            if let Ok(permit) = semaphore.acquire_owned().await {
-                                                executor.push(IngestStreamJob::Process((id, map, permit)));
-                                            } else {
-                                                error!(target: "ingest_stream", "action=acquire_semaphore stream={} error=failed to acquire semaphore", config.name);
+                                            if tasks.len() >= config.max_concurrency {
+                                                tasks.next().await;
                                             }
+
+                                            let handler = handler.clone();
+                                            let ack_tx = ack_tx.clone();
+                                            let config = Arc::clone(&config);
+
+                                            ingest_tasks_total_inc(&config.name);
+
+                                            tasks.push(tokio::spawn(async move {
+                                                let result = handler.handle(map).await.map_err(IngestMessageError::into);
+
+                                                match result {
+                                                    Ok(()) => {
+                                                        program_transformer_task_status_inc(ProgramTransformerTaskStatusKind::Success);
+                                                    }
+                                                    Err(IngestMessageError::RedisStreamMessage(e)) => {
+                                                        error!("Failed to process message: {:?}", e);
+
+                                                        program_transformer_task_status_inc(e.into());
+                                                    }
+                                                    Err(IngestMessageError::DownloadMetadataJson(e)) => {
+                                                        program_transformer_task_status_inc(e.into());
+                                                    }
+                                                    Err(IngestMessageError::ProgramTransformer(e)) => {
+                                                        error!("Failed to process message: {:?}", e);
+
+                                                        program_transformer_task_status_inc(e.into());
+                                                    }
+                                                }
+
+                                                ingest_tasks_total_dec(&config.name);
+
+                                                if let Err(e) = ack_tx.send(id).await {
+                                                    error!(target: "ingest_stream", "action=send_ack stream={} error={:?}", &config.name, e);
+                                                }
+                                            }));
                                         }
                                     }
                                 }
