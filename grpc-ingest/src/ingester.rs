@@ -2,7 +2,7 @@ use {
     crate::{
         config::{ConfigIngester, REDIS_STREAM_DATA_KEY},
         postgres::{create_pool as pg_create_pool, report_pgpool},
-        prom::{redis_xadd_status_inc},
+        prom::redis_xadd_status_inc,
         redis::{AccountHandle, DownloadMetadataJsonHandle, IngestStream, TransactionHandle},
         util::create_shutdown,
     },
@@ -12,7 +12,7 @@ use {
     redis::aio::MultiplexedConnection,
     std::sync::Arc,
     tokio::time::{sleep, Duration},
-    tracing::{warn},
+    tracing::warn,
 };
 
 fn download_metadata_notifier_v2(
@@ -127,8 +127,6 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         );
     }
 
-    report.abort();
-
     futures::future::join_all(vec![
         accounts.stop(),
         transactions.stop(),
@@ -136,6 +134,8 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         download_metadatas.stop(),
     ])
     .await;
+
+    report.abort();
 
     pool.close().await;
 
