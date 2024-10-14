@@ -6,9 +6,9 @@ use {
         util::create_shutdown,
     },
     anyhow::Context,
-    futures::{channel::mpsc::SendError, stream::StreamExt, Sink, SinkExt},
+    futures::{stream::StreamExt, SinkExt},
     redis::streams::StreamMaxlen,
-    std::{collections::HashMap, pin::Pin, sync::Arc, time::Duration},
+    std::{collections::HashMap, sync::Arc, time::Duration},
     tokio::{sync::Mutex, time::sleep},
     topograph::{
         executor::{Executor, Nonblock, Tokio},
@@ -32,14 +32,11 @@ enum GrpcJob {
     ProcessSubscribeUpdate(Box<SubscribeUpdate>),
 }
 
-type SubscribeTx = Pin<Box<dyn Sink<SubscribeRequest, Error = SendError> + Send + Sync>>;
-
 #[derive(Clone)]
 pub struct GrpcJobHandler {
     connection: redis::aio::MultiplexedConnection,
     config: Arc<ConfigGrpc>,
     pipe: Arc<Mutex<TrackedPipeline>>,
-    subscribe_tx: Arc<Mutex<SubscribeTx>>,
 }
 
 impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock<Tokio>>>
@@ -55,8 +52,6 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
         let config = Arc::clone(&self.config);
         let connection = self.connection.clone();
         let pipe = Arc::clone(&self.pipe);
-
-        let subscribe_tx = Arc::clone(&self.subscribe_tx);
 
         grpc_tasks_total_inc();
 
@@ -106,34 +101,8 @@ impl<'a> AsyncHandler<GrpcJob, topograph::executor::Handle<'a, GrpcJob, Nonblock
                                 );
                                 debug!(target: "grpc2redis", action = "process_transaction_update", stream = ?transactions_stream, maxlen = ?transactions_stream_maxlen);
                             }
-                            UpdateOneof::Ping(_) => {
-                                let ping = subscribe_tx
-                                    .lock()
-                                    .await
-                                    .send(SubscribeRequest {
-                                        ping: Some(SubscribeRequestPing { id: PING_ID }),
-                                        ..Default::default()
-                                    })
-                                    .await;
-
-                                match ping {
-                                    Ok(_) => {
-                                        debug!(target: "grpc2redis", action = "send_ping", message = "Ping sent successfully", id = PING_ID)
-                                    }
-                                    Err(err) => {
-                                        warn!(target: "grpc2redis", action = "send_ping_failed", message = "Failed to send ping", ?err, id = PING_ID)
-                                    }
-                                }
-                            }
-                            UpdateOneof::Pong(pong) => {
-                                if pong.id == PING_ID {
-                                    debug!(target: "grpc2redis", action = "receive_pong", message = "Pong received", id = PING_ID);
-                                } else {
-                                    warn!(target: "grpc2redis", action = "receive_unknown_pong", message = "Unknown pong id received", id = pong.id);
-                                }
-                            }
-                            var => {
-                                warn!(target: "grpc2redis", action = "unknown_update_variant", message = "Unknown update variant", ?var)
+                            _ => {
+                                warn!(target: "grpc2redis", action = "unknown_update_variant", message = "Unknown update variant")
                             }
                         }
                     }
@@ -178,7 +147,7 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
             .await
             .context("failed to connect to gRPC")?;
 
-    let (subscribe_tx, stream) = dragon_mouth_client
+    let (mut subscribe_tx, stream) = dragon_mouth_client
         .subscribe_with_request(Some(request))
         .await?;
 
@@ -190,7 +159,6 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
             config: Arc::clone(&config),
             connection: connection.clone(),
             pipe: Arc::clone(&pipe),
-            subscribe_tx: Arc::new(Mutex::new(Box::pin(subscribe_tx))),
         })?;
 
     let deadline_config = Arc::clone(&config);
@@ -201,7 +169,38 @@ pub async fn run(config: ConfigGrpc) -> anyhow::Result<()> {
                 exec.push(GrpcJob::FlushRedisPipe);
             }
             Some(Ok(msg)) = stream.next() => {
-                exec.push(GrpcJob::ProcessSubscribeUpdate(Box::new(msg)));
+                match msg.update_oneof {
+                    Some(UpdateOneof::Account(_)) | Some(UpdateOneof::Transaction(_)) => {
+                        exec.push(GrpcJob::ProcessSubscribeUpdate(Box::new(msg)));
+                    }
+                    Some(UpdateOneof::Ping(_)) => {
+                        let ping = subscribe_tx
+                            .send(SubscribeRequest {
+                                ping: Some(SubscribeRequestPing { id: PING_ID }),
+                                ..Default::default()
+                            })
+                            .await;
+
+                        match ping {
+                            Ok(_) => {
+                                debug!(target: "grpc2redis", action = "send_ping", message = "Ping sent successfully", id = PING_ID)
+                            }
+                            Err(err) => {
+                                warn!(target: "grpc2redis", action = "send_ping_failed", message = "Failed to send ping", ?err, id = PING_ID)
+                            }
+                        }
+                    }
+                    Some(UpdateOneof::Pong(pong)) => {
+                        if pong.id == PING_ID {
+                            debug!(target: "grpc2redis", action = "receive_pong", message = "Pong received", id = PING_ID);
+                        } else {
+                            warn!(target: "grpc2redis", action = "receive_unknown_pong", message = "Unknown pong id received", id = pong.id);
+                        }
+                    }
+                    _ => {
+                        warn!(target: "grpc2redis", action = "unknown_update_variant", message = "Unknown update variant", ?msg.update_oneof)
+                    }
+                }
             }
             _ = shutdown.next() => {
                 exec.push(GrpcJob::FlushRedisPipe);

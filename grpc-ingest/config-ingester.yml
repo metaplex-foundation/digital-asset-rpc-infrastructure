@@ -21,6 +21,6 @@ accounts:
 transactions:
   name: TRANSACTIONS
 download_metadata:
-  max_attempts: 3
+  max_attempts: 1
   stream:
     name: METADATA_JSON
