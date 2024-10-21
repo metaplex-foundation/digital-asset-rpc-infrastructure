@@ -14,6 +14,8 @@ pub async fn create_pool(config: ConfigIngesterPostgres) -> anyhow::Result<PgPoo
     PgPoolOptions::new()
         .min_connections(config.min_connections.try_into()?)
         .max_connections(config.max_connections.try_into()?)
+        .idle_timeout(config.idle_timeout)
+        .max_lifetime(config.max_lifetime)
         .connect_with(options)
         .await
         .map_err(Into::into)

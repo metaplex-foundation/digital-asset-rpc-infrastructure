@@ -243,6 +243,16 @@ pub struct ConfigIngesterPostgres {
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_connections: usize,
+    #[serde(
+        default = "ConfigIngesterPostgres::default_idle_timeout",
+        deserialize_with = "deserialize_duration_str"
+    )]
+    pub idle_timeout: Duration,
+    #[serde(
+        default = "ConfigIngesterPostgres::default_max_lifetime",
+        deserialize_with = "deserialize_duration_str"
+    )]
+    pub max_lifetime: Duration,
 }
 
 impl ConfigIngesterPostgres {
@@ -252,6 +262,14 @@ impl ConfigIngesterPostgres {
 
     pub const fn default_max_connections() -> usize {
         50
+    }
+
+    pub const fn default_idle_timeout() -> Duration {
+        Duration::from_millis(75)
+    }
+
+    pub const fn default_max_lifetime() -> Duration {
+        Duration::from_millis(125)
     }
 }
 
