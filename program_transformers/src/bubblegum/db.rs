@@ -1,8 +1,8 @@
 use {
     crate::error::{ProgramTransformerError, ProgramTransformerResult},
+    das_core::DownloadMetadataInfo,
     digital_asset_types::dao::{
-        asset, asset_authority, asset_creators, asset_data, asset_grouping, backfill_items,
-        cl_audits_v2, cl_items,
+        asset, asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2, cl_items,
         sea_orm_active_enums::{
             ChainMutability, Instruction, Mutability, OwnerType, RoyaltyTargetType,
             SpecificationAssetClass, SpecificationVersions,
@@ -10,14 +10,14 @@ use {
     },
     mpl_bubblegum::types::{Collection, Creator},
     sea_orm::{
-        entity::{ActiveValue, ColumnTrait, EntityTrait},
+        entity::{ActiveValue, EntityTrait},
         prelude::*,
-        query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
+        query::{JsonValue, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
     spl_account_compression::events::ChangeLogEventV1,
-    tracing::{debug, error, info},
+    tracing::{debug, error},
 };
 
 pub async fn save_changelog_event<'c, T>(
@@ -40,7 +40,7 @@ const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
 
 pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
-    slot: u64,
+    _slot: u64,
     txn_id: &str,
     txn: &T,
     instruction: &str,
@@ -48,10 +48,9 @@ pub async fn insert_change_log<'c, T>(
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    let mut i: i64 = 0;
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();
-    for p in change_log_event.path.iter() {
+    for (i, p) in (0_i64..).zip(change_log_event.path.iter()) {
         let node_idx = p.index as i64;
         debug!(
             "seq {}, index {} level {}, node {:?}, txn: {:?}, instruction {}",
@@ -78,7 +77,6 @@ where
             ..Default::default()
         };
 
-        i += 1;
         let mut query = cl_items::Entity::insert(item)
             .on_conflict(
                 OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
@@ -129,37 +127,6 @@ where
         Err(e) => {
             error!("Error while inserting into cl_audits_v2: {:?}", e);
         }
-    }
-
-    // If and only if the entire path of nodes was inserted into the `cl_items` table, then insert
-    // a single row into the `backfill_items` table.  This way if an incomplete path was inserted
-    // into `cl_items` due to an error, a gap will be created for the tree and the backfiller will
-    // fix it.
-    if i - 1 == depth as i64 {
-        // See if the tree already exists in the `backfill_items` table.
-        let rows = backfill_items::Entity::find()
-            .filter(backfill_items::Column::Tree.eq(tree_id))
-            .limit(1)
-            .all(txn)
-            .await?;
-
-        // If the tree does not exist in `backfill_items` and the sequence number is greater than 1,
-        // then we know we will need to backfill the tree from sequence number 1 up to the current
-        // sequence number.  So in this case we set at flag to force checking the tree.
-        let force_chk = rows.is_empty() && change_log_event.seq > 1;
-
-        info!("Adding to backfill_items table at level {}", i - 1);
-        let item = backfill_items::ActiveModel {
-            tree: ActiveValue::Set(tree_id.to_vec()),
-            seq: ActiveValue::Set(change_log_event.seq as i64),
-            slot: ActiveValue::Set(slot as i64),
-            force_chk: ActiveValue::Set(force_chk),
-            backfilled: ActiveValue::Set(false),
-            failed: ActiveValue::Set(false),
-            ..Default::default()
-        };
-
-        backfill_items::Entity::insert(item).exec(txn).await?;
     }
 
     Ok(())
@@ -403,13 +370,11 @@ pub async fn upsert_asset_data<T>(
     chain_data: JsonValue,
     metadata_url: String,
     metadata_mutability: Mutability,
-    metadata: JsonValue,
     slot_updated: i64,
-    reindex: Option<bool>,
     raw_name: Vec<u8>,
     raw_symbol: Vec<u8>,
     seq: i64,
-) -> ProgramTransformerResult<()>
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -417,11 +382,11 @@ where
         id: ActiveValue::Set(id.clone()),
         chain_data_mutability: ActiveValue::Set(chain_data_mutability),
         chain_data: ActiveValue::Set(chain_data),
-        metadata_url: ActiveValue::Set(metadata_url),
+        metadata_url: ActiveValue::Set(metadata_url.clone()),
         metadata_mutability: ActiveValue::Set(metadata_mutability),
-        metadata: ActiveValue::Set(metadata),
+        metadata: ActiveValue::Set(JsonValue::String("processing".to_string())),
         slot_updated: ActiveValue::Set(slot_updated),
-        reindex: ActiveValue::Set(reindex),
+        reindex: ActiveValue::Set(Some(true)),
         raw_name: ActiveValue::Set(Some(raw_name)),
         raw_symbol: ActiveValue::Set(Some(raw_symbol)),
         base_info_seq: ActiveValue::Set(Some(seq)),
@@ -435,9 +400,7 @@ where
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::MetadataMutability,
-                    // Don't update asset_data::Column::Metadata if it already exists.  Even if we
-                    // are indexing `update_metadata`` and there's a new URI, the new background
-                    // task will overwrite it.
+                    asset_data::Column::Metadata,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,
@@ -450,15 +413,27 @@ where
 
     // Do not overwrite changes that happened after decompression (asset_data.base_info_seq = 0).
     // Do not overwrite changes from a later Bubblegum instruction.
+    // Do not update the record if the incoming slot is larger than the current or if it's null.
+    // Update if the current slot on the record is null.
     query.sql = format!(
-        "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL",
+        "{} WHERE ((asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL) AND (excluded.slot_updated <= asset_data.slot_updated OR asset_data.slot_updated IS NULL)",
         query.sql
     );
-    txn.execute(query)
+
+    let result = txn
+        .execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
-    Ok(())
+    if result.rows_affected() > 0 {
+        Ok(Some(DownloadMetadataInfo::new(
+            id,
+            metadata_url,
+            slot_updated,
+        )))
+    } else {
+        Ok(None)
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

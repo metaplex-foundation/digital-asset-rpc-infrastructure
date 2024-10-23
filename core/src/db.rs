@@ -27,7 +27,7 @@ pub struct PoolArgs {
 ///// # Returns
 /////
 ///// * `Result<DatabaseConnection, DbErr>` - On success, returns a `DatabaseConnection`. On failure, returns a `DbErr`.
-pub async fn connect_db(config: PoolArgs) -> Result<PgPool, sqlx::Error> {
+pub async fn connect_db(config: &PoolArgs) -> Result<PgPool, sqlx::Error> {
     let options: PgConnectOptions = config.database_url.parse()?;
 
     PgPoolOptions::new()
