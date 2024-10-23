@@ -28,7 +28,7 @@ use {
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         query::{JsonValue, Order, QueryFilter, QueryOrder, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, DbErr, TransactionTrait,
+        ConnectionTrait, DbBackend, DbErr, Statement, TransactionTrait,
     },
     solana_sdk::pubkey,
     sqlx::types::Decimal,
@@ -235,6 +235,17 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         base_info_seq: ActiveValue::Set(Some(0)),
     };
     let txn = conn.begin().await?;
+
+    let set_lock_timeout = "SET LOCAL lock_timeout = '1ms';";
+    let set_local_app_name =
+        "SET LOCAL application_name = 'das::program_transformers::token_metadata::v1_asset';";
+    let set_lock_timeout_stmt =
+        Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
+    let set_local_app_name_stmt =
+        Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
+    txn.execute(set_lock_timeout_stmt).await?;
+    txn.execute(set_local_app_name_stmt).await?;
+
     let mut query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])

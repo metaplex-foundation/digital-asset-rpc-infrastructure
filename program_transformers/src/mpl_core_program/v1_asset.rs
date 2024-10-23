@@ -28,7 +28,7 @@ use {
         query::{JsonValue, QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
         sea_query::Expr,
-        ConnectionTrait, CursorTrait, DbBackend, TransactionTrait,
+        ConnectionTrait, CursorTrait, DbBackend, Statement, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -107,6 +107,16 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let slot_i = slot as i64;
 
     let txn = conn.begin().await?;
+
+    let set_lock_timeout = "SET LOCAL lock_timeout = '5s';";
+    let set_local_app_name =
+        "SET LOCAL application_name = 'das::program_transformers::mpl_core_program::v1_asset';";
+    let set_lock_timeout_stmt =
+        Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
+    let set_local_app_name_stmt =
+        Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
+    txn.execute(set_lock_timeout_stmt).await?;
+    txn.execute(set_local_app_name_stmt).await?;
 
     let model = asset_authority::ActiveModel {
         asset_id: ActiveValue::Set(id_vec.clone()),
