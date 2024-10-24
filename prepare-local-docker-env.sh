@@ -10,7 +10,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $(dirname $(dirname $SCRIPT_DIR))
 
 EXTERNAL_ID_MAINNET=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
-"BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
 "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK" \
 "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV" \
 "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" \
@@ -18,7 +17,8 @@ EXTERNAL_ID_MAINNET=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
 "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" \
 )
 
-EXTERNAL_ID_DEVNET=("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
+EXTERNAL_ID_DEVNET=("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
+"mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
 "mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3" \
 )
 
