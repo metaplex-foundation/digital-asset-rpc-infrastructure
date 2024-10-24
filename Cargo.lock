@@ -1030,8 +1030,10 @@ dependencies = [
  "flatbuffers",
  "lazy_static",
  "log",
+ "mpl-account-compression",
  "mpl-bubblegum",
  "mpl-core",
+ "mpl-noop",
  "mpl-token-metadata",
  "plerkle_serialization",
  "rand 0.8.5",
@@ -1269,9 +1271,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.15.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d68c57235a3a081186990eca2867354726650f42f7516ca50c28d6281fd15"
+checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -3488,6 +3490,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mpl-account-compression"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2ad6a6ba15b2e880d43b94f40510f1b64f2981a843cfc7b8877919467d2ab1a"
+dependencies = [
+ "anchor-lang",
+ "bytemuck",
+ "mpl-noop",
+ "solana-program",
+ "spl-concurrent-merkle-tree",
+]
+
+[[package]]
 name = "mpl-bubblegum"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3518,6 +3533,15 @@ dependencies = [
  "serde_with 3.6.1",
  "solana-program",
  "thiserror",
+]
+
+[[package]]
+name = "mpl-noop"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "179556a9254920ca8b150b18728d2f3106879f710c1ef5a049a8f0d5b03eede5"
+dependencies = [
+ "solana-program",
 ]
 
 [[package]]
@@ -3782,7 +3806,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.66",
@@ -6430,12 +6454,13 @@ dependencies = [
 
 [[package]]
 name = "spl-account-compression"
-version = "0.3.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c43bd4455d9fb29b9e4f83c087ccffa2f6f41fecfc0549932ae391d00f3378"
+checksum = "2785042005954aec5d5db7fcb99a78754b222be906a89d10a3d66ebdbc8e9548"
 dependencies = [
  "anchor-lang",
  "bytemuck",
+ "solana-program",
  "spl-concurrent-merkle-tree",
  "spl-noop",
 ]
@@ -6458,9 +6483,9 @@ dependencies = [
 
 [[package]]
 name = "spl-concurrent-merkle-tree"
-version = "0.2.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "141eaea58588beae81b71d101373a53f096737739873de42d6b1368bc2b8fc30"
+checksum = "a14033366e14117679851c7759c3d66c6430a495f0523bd88076d3a275828931"
 dependencies = [
  "bytemuck",
  "solana-program",

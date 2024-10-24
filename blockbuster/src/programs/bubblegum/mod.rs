@@ -18,12 +18,6 @@ pub use mpl_bubblegum::{
     InstructionName, LeafSchemaEvent, ID,
 };
 use solana_sdk::pubkey::Pubkey;
-pub use spl_account_compression::events::{
-    AccountCompressionEvent::{self, ApplicationData, ChangeLog},
-    ApplicationDataEvent, ChangeLogEvent, ChangeLogEventV1,
-};
-
-use spl_noop;
 
 #[derive(Eq, PartialEq)]
 pub enum Payload {
@@ -57,7 +51,7 @@ pub enum Payload {
 //TODO add more of the parsing here to minimize program transformer code
 pub struct BubblegumInstruction {
     pub instruction: InstructionName,
-    pub tree_update: Option<ChangeLogEventV1>,
+    pub tree_update: Option<spl_account_compression::events::ChangeLogEventV1>,
     pub leaf_update: Option<LeafSchemaEvent>,
     pub payload: Option<Payload>,
 }
@@ -129,11 +123,75 @@ impl ProgramParser for BubblegumParser {
         if let Some(ixs) = inner_ix {
             for (pid, cix) in ixs.iter() {
                 if pid == &spl_noop::id() && !cix.data.is_empty() {
+                    use spl_account_compression::events::{
+                        AccountCompressionEvent::{self, ApplicationData, ChangeLog},
+                        ApplicationDataEvent, ChangeLogEvent,
+                    };
+
                     match AccountCompressionEvent::try_from_slice(&cix.data) {
                         Ok(result) => match result {
                             ChangeLog(changelog_event) => {
                                 let ChangeLogEvent::V1(changelog_event) = changelog_event;
                                 b_inst.tree_update = Some(changelog_event);
+                            }
+                            ApplicationData(app_data) => {
+                                let ApplicationDataEvent::V1(app_data) = app_data;
+                                let app_data = app_data.application_data;
+
+                                let event_type_byte = if !app_data.is_empty() {
+                                    &app_data[0..1]
+                                } else {
+                                    return Err(BlockbusterError::DeserializationError);
+                                };
+
+                                match BubblegumEventType::try_from_slice(event_type_byte)? {
+                                    BubblegumEventType::Uninitialized => {
+                                        return Err(BlockbusterError::MissingBubblegumEventData);
+                                    }
+                                    BubblegumEventType::LeafSchemaEvent => {
+                                        b_inst.leaf_update =
+                                            Some(LeafSchemaEvent::try_from_slice(&app_data)?);
+                                    }
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            warn!(
+                                "Error while deserializing txn {:?} with noop data: {:?}",
+                                txn_id, e
+                            );
+                        }
+                    }
+                } else if pid == &mpl_noop::id() && !cix.data.is_empty() {
+                    use mpl_account_compression::events::{
+                        AccountCompressionEvent::{self, ApplicationData, ChangeLog},
+                        ApplicationDataEvent, ChangeLogEvent,
+                    };
+
+                    match AccountCompressionEvent::try_from_slice(&cix.data) {
+                        Ok(result) => match result {
+                            ChangeLog(mpl_changelog_event) => {
+                                let ChangeLogEvent::V1(mpl_changelog_event) = mpl_changelog_event;
+
+                                // Convert from mpl-account-compression `ChangeLogEventV1` to
+                                // spl-account-compression `ChangeLogEventV1`.
+                                let spl_change_log_event =
+                                    spl_account_compression::events::ChangeLogEventV1 {
+                                        id: mpl_changelog_event.id,
+                                        path: mpl_changelog_event
+                                            .path
+                                            .iter()
+                                            .map(|path_node| {
+                                                spl_account_compression::state::PathNode {
+                                                    node: path_node.node,
+                                                    index: path_node.index,
+                                                }
+                                            })
+                                            .collect(),
+                                        seq: mpl_changelog_event.seq,
+                                        index: mpl_changelog_event.index,
+                                    };
+                                b_inst.tree_update = Some(spl_change_log_event);
                             }
                             ApplicationData(app_data) => {
                                 let ApplicationDataEvent::V1(app_data) = app_data;
