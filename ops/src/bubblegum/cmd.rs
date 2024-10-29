@@ -1,4 +1,4 @@
-use super::{backfiller, replay};
+use super::{backfiller, replay, verify};
 use anyhow::Result;
 use clap::{Args, Subcommand};
 
@@ -10,6 +10,8 @@ pub enum Commands {
     Backfill(backfiller::Args),
     #[clap(name = "replay")]
     Replay(replay::Args),
+    /// The 'verify' command is used to verify the integrity of the bubblegum index.
+    Verify(verify::Args),
 }
 
 #[derive(Debug, Clone, Args)]
@@ -25,6 +27,9 @@ pub async fn subcommand(subcommand: BubblegumCommand) -> Result<()> {
         }
         Commands::Replay(args) => {
             replay::run(args).await?;
+        }
+        Commands::Verify(args) => {
+            verify::run(args).await?;
         }
     }
 

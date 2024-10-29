@@ -1,4 +1,4 @@
-use super::ErrorKind;
+use super::error::ErrorKind;
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use das_core::Rpc;
@@ -10,7 +10,7 @@ use spl_account_compression::state::{
 };
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TreeHeaderResponse {
     pub max_depth: u32,
     pub max_buffer_size: u32,
@@ -33,7 +33,6 @@ impl TryFrom<ConcurrentMerkleTreeHeader> for TreeHeaderResponse {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct TreeResponse {
     pub pubkey: Pubkey,
     pub tree_header: TreeHeaderResponse,
