@@ -6,7 +6,7 @@ use program_transformers::{ProgramTransformer, TransactionInfo};
 use tokio::sync::mpsc::{channel, Sender, UnboundedSender};
 use tokio::task::JoinHandle;
 
-use crate::BubblegumBackfillContext;
+use crate::BubblegumContext;
 
 #[derive(Parser, Debug, Clone)]
 pub struct ProgramTransformerWorkerArgs {
@@ -17,7 +17,7 @@ pub struct ProgramTransformerWorkerArgs {
 impl ProgramTransformerWorkerArgs {
     pub fn start(
         &self,
-        context: BubblegumBackfillContext,
+        context: BubblegumContext,
         forwarder: UnboundedSender<DownloadMetadataInfo>,
     ) -> Result<(JoinHandle<()>, Sender<TransactionInfo>)> {
         let (sender, mut receiver) =

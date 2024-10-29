@@ -214,7 +214,7 @@ where
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConfigIngester {
     pub redis: String,
-    pub postgres: ConfigIngesterPostgres,
+    pub postgres: ConfigPostgres,
     pub download_metadata: ConfigIngesterDownloadMetadata,
     pub snapshots: ConfigIngestStream,
     pub accounts: ConfigIngestStream,
@@ -231,31 +231,31 @@ pub enum ConfigIngesterRedisStreamType {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConfigIngesterPostgres {
+pub struct ConfigPostgres {
     pub url: String,
     #[serde(
-        default = "ConfigIngesterPostgres::default_min_connections",
+        default = "ConfigPostgres::default_min_connections",
         deserialize_with = "deserialize_usize_str"
     )]
     pub min_connections: usize,
     #[serde(
-        default = "ConfigIngesterPostgres::default_max_connections",
+        default = "ConfigPostgres::default_max_connections",
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_connections: usize,
     #[serde(
-        default = "ConfigIngesterPostgres::default_idle_timeout",
+        default = "ConfigPostgres::default_idle_timeout",
         deserialize_with = "deserialize_duration_str"
     )]
     pub idle_timeout: Duration,
     #[serde(
-        default = "ConfigIngesterPostgres::default_max_lifetime",
+        default = "ConfigPostgres::default_max_lifetime",
         deserialize_with = "deserialize_duration_str"
     )]
     pub max_lifetime: Duration,
 }
 
-impl ConfigIngesterPostgres {
+impl ConfigPostgres {
     pub const fn default_min_connections() -> usize {
         10
     }
@@ -333,5 +333,37 @@ impl ConfigIngesterDownloadMetadata {
 
     pub const fn default_request_timeout() -> Duration {
         Duration::from_millis(3_000)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConfigMonitor {
+    pub postgres: ConfigPostgres,
+    pub rpc: String,
+    pub bubblegum: ConfigBubblegumVerify,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConfigBubblegumVerify {
+    #[serde(
+        default = "ConfigBubblegumVerify::default_report_interval",
+        deserialize_with = "deserialize_duration_str"
+    )]
+    pub report_interval: Duration,
+    #[serde(default)]
+    pub only_trees: Option<Vec<String>>,
+    #[serde(
+        default = "ConfigBubblegumVerify::default_max_concurrency",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_concurrency: usize,
+}
+
+impl ConfigBubblegumVerify {
+    pub const fn default_report_interval() -> Duration {
+        Duration::from_millis(5 * 60 * 1000)
+    }
+    pub const fn default_max_concurrency() -> usize {
+        20
     }
 }

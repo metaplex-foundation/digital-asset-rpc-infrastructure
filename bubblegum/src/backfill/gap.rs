@@ -1,5 +1,4 @@
-use super::ErrorKind;
-use crate::Rpc;
+use crate::{error::ErrorKind, Rpc};
 use anyhow::Result;
 use clap::Args;
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};

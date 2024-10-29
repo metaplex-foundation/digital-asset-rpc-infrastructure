@@ -1,5 +1,6 @@
 use {
     crate::{redis::RedisStreamMessageError, version::VERSION as VERSION_INFO},
+    das_bubblegum::ProofReport,
     das_core::MetadataJsonTaskError,
     hyper::{
         server::conn::AddrStream,
@@ -72,6 +73,31 @@ lazy_static::lazy_static! {
         Opts::new("grpc_tasks", "Number of tasks spawned for writing grpc messages to redis "),
         &[]
     ).unwrap();
+
+    static ref BUBBLEGUM_TREE_TOTAL_LEAVES: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("bubblegum_tree_total_leaves", "Total number of leaves in the bubblegum tree"),
+        &["tree"]
+    ).unwrap();
+
+    static ref BUBBLEGUM_TREE_INCORRECT_PROOFS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("bubblegum_tree_incorrect_proofs", "Number of incorrect proofs in the bubblegum tree"),
+        &["tree"]
+    ).unwrap();
+
+    static ref BUBBLEGUM_TREE_NOT_FOUND_PROOFS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("bubblegum_tree_not_found_proofs", "Number of not found proofs in the bubblegum tree"),
+        &["tree"]
+    ).unwrap();
+
+    static ref BUBBLEGUM_TREE_CORRECT_PROOFS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("bubblegum_tree_correct_proofs", "Number of correct proofs in the bubblegum tree"),
+        &["tree"]
+    ).unwrap();
+
+    static ref BUBBLEGUM_TREE_CORRUPT_PROOFS: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("bubblegum_tree_corrupt_proofs", "Number of corrupt proofs in the bubblegum tree"),
+        &["tree"]
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -96,6 +122,11 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(INGEST_TASKS);
         register!(ACK_TASKS);
         register!(GRPC_TASKS);
+        register!(BUBBLEGUM_TREE_TOTAL_LEAVES);
+        register!(BUBBLEGUM_TREE_INCORRECT_PROOFS);
+        register!(BUBBLEGUM_TREE_NOT_FOUND_PROOFS);
+        register!(BUBBLEGUM_TREE_CORRECT_PROOFS);
+        register!(BUBBLEGUM_TREE_CORRUPT_PROOFS);
 
         VERSION_INFO_METRIC
             .with_label_values(&[
@@ -318,4 +349,26 @@ pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKin
     PROGRAM_TRANSFORMER_TASK_STATUS_COUNT
         .with_label_values(&[kind.to_str()])
         .inc()
+}
+
+pub fn update_tree_proof_report(report: &ProofReport) {
+    BUBBLEGUM_TREE_TOTAL_LEAVES
+        .with_label_values(&[&report.tree_pubkey.to_string()])
+        .set(report.total_leaves as i64);
+
+    BUBBLEGUM_TREE_INCORRECT_PROOFS
+        .with_label_values(&[&report.tree_pubkey.to_string()])
+        .set(report.incorrect_proofs as i64);
+
+    BUBBLEGUM_TREE_NOT_FOUND_PROOFS
+        .with_label_values(&[&report.tree_pubkey.to_string()])
+        .set(report.not_found_proofs as i64);
+
+    BUBBLEGUM_TREE_CORRECT_PROOFS
+        .with_label_values(&[&report.tree_pubkey.to_string()])
+        .set(report.correct_proofs as i64);
+
+    BUBBLEGUM_TREE_CORRUPT_PROOFS
+        .with_label_values(&[&report.tree_pubkey.to_string()])
+        .set(report.corrupt_proofs as i64);
 }

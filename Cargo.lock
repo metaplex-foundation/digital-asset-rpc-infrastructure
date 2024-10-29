@@ -290,6 +290,7 @@ dependencies = [
  "anchor-derive-accounts",
  "anchor-derive-serde",
  "anchor-derive-space",
+ "anchor-syn",
  "arrayref",
  "base64 0.13.1",
  "bincode",
@@ -1099,6 +1100,7 @@ dependencies = [
  "solana-transaction-status",
  "solana-zk-token-sdk",
  "spl-account-compression",
+ "spl-concurrent-merkle-tree 0.2.0",
  "spl-noop",
  "spl-pod",
  "spl-token",
@@ -1324,9 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.15.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d68c57235a3a081186990eca2867354726650f42f7516ca50c28d6281fd15"
+checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -1817,7 +1819,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "das-backfill"
+name = "das-bubblegum"
 version = "0.7.2"
 dependencies = [
  "anchor-client",
@@ -1836,6 +1838,7 @@ dependencies = [
  "program_transformers",
  "sea-orm",
  "serde_json",
+ "sha3 0.10.8",
  "solana-client",
  "solana-program",
  "solana-sdk",
@@ -1890,7 +1893,8 @@ dependencies = [
  "atty",
  "cargo-lock",
  "chrono",
- "clap 4.5.9",
+ "clap 4.4.8",
+ "das-bubblegum",
  "das-core",
  "digital_asset_types",
  "futures",
@@ -1936,8 +1940,8 @@ dependencies = [
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
- "clap 4.5.9",
- "das-backfill",
+ "clap 4.4.8",
+ "das-bubblegum",
  "das-core",
  "digital_asset_types",
  "env_logger 0.10.2",
@@ -1957,6 +1961,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2138,7 +2143,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-sdk",
- "spl-concurrent-merkle-tree",
+ "spl-concurrent-merkle-tree 0.2.0",
  "thiserror",
  "tokio",
  "url",
@@ -3750,9 +3755,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-bubblegum"
-version = "1.2.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3cbca5deb859e66a1a21ada94f2eaab3eb5caa4584c0c8ade0efac29a5414b8"
+checksum = "a9eff5ae5cafd1acdf7e7c93359da1eec91dcaede318470d9f68b78e8b7469f4"
 dependencies = [
  "borsh 0.10.3",
  "kaigan",
@@ -6929,13 +6934,14 @@ dependencies = [
 
 [[package]]
 name = "spl-account-compression"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c43bd4455d9fb29b9e4f83c087ccffa2f6f41fecfc0549932ae391d00f3378"
+checksum = "8ce8314ec6ae26084ec7c6c0802c3dc173ee86aee5f5d5026a3f82c52cfe1c07"
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "spl-concurrent-merkle-tree",
+ "solana-program",
+ "spl-concurrent-merkle-tree 0.4.0",
  "spl-noop",
 ]
 
@@ -6960,6 +6966,17 @@ name = "spl-concurrent-merkle-tree"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "141eaea58588beae81b71d101373a53f096737739873de42d6b1368bc2b8fc30"
+dependencies = [
+ "bytemuck",
+ "solana-program",
+ "thiserror",
+]
+
+[[package]]
+name = "spl-concurrent-merkle-tree"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85d1bbb97252d8a1b90d3d56425038928382a306b71dbba4c836973c94b33f96"
 dependencies = [
  "bytemuck",
  "solana-program",

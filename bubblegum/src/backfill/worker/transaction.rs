@@ -1,4 +1,4 @@
-use crate::error::ErrorKind;
+use crate::{error::ErrorKind, BubblegumContext};
 use anyhow::Result;
 use clap::Parser;
 use das_core::Rpc;
@@ -143,11 +143,13 @@ pub struct SignatureWorkerArgs {
     pub signature_worker_count: usize,
 }
 
+type TransactionSender = Sender<TransactionInfo>;
+
 impl SignatureWorkerArgs {
     pub fn start(
         &self,
-        context: crate::BubblegumBackfillContext,
-        forwarder: Sender<TransactionInfo>,
+        context: BubblegumContext,
+        forwarder: TransactionSender,
     ) -> Result<(JoinHandle<()>, Sender<Signature>)> {
         let (sig_sender, mut sig_receiver) = channel::<Signature>(self.signature_channel_size);
         let worker_count = self.signature_worker_count;

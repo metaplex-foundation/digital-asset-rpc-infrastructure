@@ -9,8 +9,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::gap::TreeGapFill;
-use crate::BubblegumBackfillContext;
+use crate::{backfill::gap::TreeGapFill, BubblegumContext};
 
 #[derive(Parser, Debug, Clone)]
 pub struct GapWorkerArgs {
@@ -26,7 +25,7 @@ pub struct GapWorkerArgs {
 impl GapWorkerArgs {
     pub fn start(
         &self,
-        context: BubblegumBackfillContext,
+        context: BubblegumContext,
         forward: Sender<Signature>,
     ) -> Result<(JoinHandle<()>, Sender<TreeGapFill>)> {
         let (gap_sender, mut gap_receiver) = channel::<TreeGapFill>(self.gap_channel_size);

@@ -1,7 +1,7 @@
 use crate::{
-    gap::{TreeGapFill, TreeGapModel},
+    backfill::gap::{TreeGapFill, TreeGapModel},
     tree::TreeResponse,
-    BubblegumBackfillContext,
+    BubblegumContext,
 };
 use anyhow::Result;
 use clap::Parser;
@@ -29,11 +29,7 @@ pub struct TreeWorkerArgs {
     pub program_transformer_worker: ProgramTransformerWorkerArgs,
 }
 impl TreeWorkerArgs {
-    pub fn start(
-        &self,
-        context: BubblegumBackfillContext,
-        tree: TreeResponse,
-    ) -> JoinHandle<Result<()>> {
+    pub fn start(&self, context: BubblegumContext, tree: TreeResponse) -> JoinHandle<Result<()>> {
         let db_pool = context.database_pool.clone();
         let metadata_json_download_db_pool = context.database_pool.clone();
 
