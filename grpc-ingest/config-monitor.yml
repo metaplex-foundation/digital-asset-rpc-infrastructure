@@ -1,0 +1,8 @@
+prometheus: 127.0.0.1:8876
+rpc: http://127.0.0.1:8899
+postgres:
+  url: postgres://solana:solana@localhost/solana
+  min_connections: 10
+  max_connections: 50
+bubblegum:
+  only_trees: null

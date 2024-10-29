@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::ConfigIngesterPostgres,
+        config::ConfigPostgres,
         prom::{pgpool_connections_set, PgpoolConnectionsKind},
     },
     sqlx::{
@@ -9,7 +9,7 @@ use {
     },
 };
 
-pub async fn create_pool(config: ConfigIngesterPostgres) -> anyhow::Result<PgPool> {
+pub async fn create_pool(config: ConfigPostgres) -> anyhow::Result<PgPool> {
     let options: PgConnectOptions = config.url.parse()?;
     PgPoolOptions::new()
         .min_connections(config.min_connections.try_into()?)

@@ -1,13 +1,13 @@
 use anyhow::Result;
 use clap::Parser;
-use das_backfill::{start_bubblegum_backfill, BubblegumBackfillArgs, BubblegumBackfillContext};
+use das_bubblegum::{start_backfill, BackfillArgs, BubblegumContext};
 use das_core::{connect_db, PoolArgs, Rpc, SolanaRpcArgs};
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
     /// Backfill Bubblegum Args
     #[clap(flatten)]
-    pub backfill_bubblegum: BubblegumBackfillArgs,
+    pub backfill_bubblegum: BackfillArgs,
 
     /// Database configuration
     #[clap(flatten)]
@@ -47,7 +47,7 @@ pub async fn run(config: Args) -> Result<()> {
     let database_pool = connect_db(&config.database).await?;
 
     let solana_rpc = Rpc::from_config(&config.solana);
-    let context = BubblegumBackfillContext::new(database_pool, solana_rpc);
+    let context = BubblegumContext::new(database_pool, solana_rpc);
 
-    start_bubblegum_backfill(context, config.backfill_bubblegum).await
+    start_backfill(context, config.backfill_bubblegum).await
 }
