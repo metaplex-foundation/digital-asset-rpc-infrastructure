@@ -16,8 +16,10 @@ bs58 = {workspace = true}
 bytemuck = {workspace = true}
 lazy_static = {workspace = true}
 log = {workspace = true}
+mpl-account-compression = {workspace = true, features = ["no-entrypoint"]}
 mpl-bubblegum = {workspace = true}
 mpl-core = {workspace = true, features = ["serde"]}
+mpl-noop = {workspace = true, features = ["no-entrypoint"]}
 mpl-token-metadata = {workspace = true, features = ["serde"]}
 serde = {workspace = true}
 solana-sdk = {workspace = true}
