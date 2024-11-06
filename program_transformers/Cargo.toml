@@ -30,6 +30,6 @@ sqlx = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
-
+spl-token-2022 = { workspace = true }
 [lints]
 workspace = true

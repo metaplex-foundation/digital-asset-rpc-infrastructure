@@ -56,12 +56,41 @@ pub struct MintAccountExtensions {
     pub token_group_member: Option<ShadowTokenGroupMember>,
 }
 
+impl MintAccountExtensions {
+    pub fn is_some(&self) -> bool {
+        self.default_account_state.is_some()
+            || self.confidential_transfer_mint.is_some()
+            || self.confidential_transfer_account.is_some()
+            || self.confidential_transfer_fee_config.is_some()
+            || self.interest_bearing_config.is_some()
+            || self.transfer_fee_config.is_some()
+            || self.mint_close_authority.is_some()
+            || self.permanent_delegate.is_some()
+            || self.metadata_pointer.is_some()
+            || self.metadata.is_some()
+            || self.transfer_hook.is_some()
+            || self.group_pointer.is_some()
+            || self.token_group.is_some()
+            || self.group_member_pointer.is_some()
+            || self.token_group_member.is_some()
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct TokenAccountExtensions {
     pub confidential_transfer: Option<ShadowConfidentialTransferAccount>,
     pub cpi_guard: Option<ShadowCpiGuard>,
     pub memo_transfer: Option<ShadowMemoTransfer>,
     pub transfer_fee_amount: Option<ShadowTransferFeeAmount>,
+}
+
+impl TokenAccountExtensions {
+    pub fn is_some(&self) -> bool {
+        self.confidential_transfer.is_some()
+            || self.cpi_guard.is_some()
+            || self.memo_transfer.is_some()
+            || self.transfer_fee_amount.is_some()
+    }
 }
 #[derive(Debug, PartialEq)]
 pub struct TokenAccount {

@@ -13,14 +13,14 @@ use {
         entity::{ActiveValue, ColumnTrait},
         query::{QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, Set, TransactionTrait,
+        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
     },
     solana_sdk::program_option::COption,
     spl_token::state::AccountState,
 };
 
 pub async fn handle_token_program_account<'a, 'b, 'c>(
-    account_info: &'a AccountInfo<'a>,
+    account_info: &'a AccountInfo,
     parsing_result: &'b TokenProgramAccount,
     db: &'c DatabaseConnection,
     _download_metadata_notifier: &DownloadMetadataNotifier,
@@ -47,6 +47,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
                 slot_updated: ActiveValue::Set(account_info.slot as i64),
                 amount: ActiveValue::Set(ta.amount as i64),
                 close_authority: ActiveValue::Set(None),
+                extensions: ActiveValue::Set(None),
             };
 
             let mut query = token_accounts::Entity::insert(model)
@@ -73,7 +74,7 @@ pub async fn handle_token_program_account<'a, 'b, 'c>(
             db.execute(query).await?;
             let txn = db.begin().await?;
             let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint.clone())
-                .filter(asset::Column::OwnerType.eq("single"))
+                .filter(asset::Column::OwnerType.eq(OwnerType::Single))
                 .one(&txn)
                 .await?;
             if let Some(_asset) = asset_update {
