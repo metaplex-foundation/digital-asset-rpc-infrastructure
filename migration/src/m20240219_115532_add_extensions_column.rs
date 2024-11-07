@@ -29,6 +29,7 @@ impl MigrationTrait for Migration {
                 "ALTER TABLE token_accounts ADD COLUMN extensions jsonb;".to_string(),
             ))
             .await?;
+
         Ok(())
     }
 
