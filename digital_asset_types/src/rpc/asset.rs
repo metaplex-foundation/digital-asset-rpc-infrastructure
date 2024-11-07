@@ -21,22 +21,22 @@ pub struct AssetProof {
     pub tree_id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema, Default)]
 pub enum Interface {
     #[serde(rename = "V1_NFT")]
     V1NFT,
     #[serde(rename = "V1_PRINT")]
     V1PRINT,
-    #[serde(rename = "LEGACY_NFT")]
-    // TODO: change on version bump
-    #[allow(non_camel_case_types)]
-    LEGACY_NFT,
     #[serde(rename = "V2_NFT")]
     Nft,
+    // TODO: change on version bump\
+    #[serde(rename = "LEGACY_NFT")]
+    #[allow(non_camel_case_types)]
+    LEGACY_NFT,
     #[serde(rename = "FungibleAsset")]
     FungibleAsset,
-    #[serde(rename = "Custom")]
-    Custom,
+    #[serde(rename = "FungibleToken")]
+    FungibleToken,
     #[serde(rename = "Identity")]
     Identity,
     #[serde(rename = "Executable")]
@@ -47,6 +47,9 @@ pub enum Interface {
     MplCoreAsset,
     #[serde(rename = "MplCoreCollection")]
     MplCoreCollection,
+    #[default]
+    #[serde(rename = "Custom")]
+    Custom,
 }
 
 impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
@@ -60,6 +63,8 @@ impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
             }
             (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
             (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
+            (_, SpecificationAssetClass::FungibleAsset) => Interface::FungibleAsset,
+            (_, SpecificationAssetClass::FungibleToken) => Interface::FungibleToken,
             _ => Interface::Custom,
         }
     }
@@ -86,6 +91,10 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
             Interface::MplCoreCollection => (
                 SpecificationVersions::V1,
                 SpecificationAssetClass::MplCoreCollection,
+            ),
+            Interface::FungibleToken => (
+                SpecificationVersions::V0,
+                SpecificationAssetClass::FungibleToken,
             ),
             _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
         }
@@ -366,7 +375,7 @@ pub struct MplCoreInfo {
     pub plugins_json_version: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,
@@ -382,9 +391,11 @@ pub struct Asset {
     pub royalty: Option<Royalty>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
-    pub ownership: Ownership,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ownership: Option<Ownership>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub supply: Option<Supply>,
     pub mutable: bool,
     pub burnt: bool,

@@ -4286,6 +4286,7 @@ dependencies = [
  "solana-transaction-status",
  "spl-account-compression",
  "spl-token",
+ "spl-token-2022",
  "sqlx",
  "thiserror",
  "tokio",

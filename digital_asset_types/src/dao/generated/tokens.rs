@@ -80,3 +80,13 @@ impl RelationTrait for Relation {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+pub trait IsNonFungible {
+    fn is_non_fungible(&self) -> bool;
+}
+
+impl IsNonFungible for Model {
+    fn is_non_fungible(&self) -> bool {
+        self.decimals == 0 && self.mint_authority.is_none()
+    }
+}

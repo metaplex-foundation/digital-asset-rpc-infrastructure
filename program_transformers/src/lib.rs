@@ -20,10 +20,12 @@ use {
         entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
         SqlxPostgresConnector, TransactionTrait,
     },
+    serde_json::{Map, Value},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
+    token_extensions::handle_token_extensions_program_account,
     tokio::time::{sleep, Duration},
     tracing::{debug, error, info},
 };
@@ -35,7 +37,6 @@ mod mpl_core_program;
 mod token;
 mod token_extensions;
 mod token_metadata;
-mod utils;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
@@ -89,11 +90,7 @@ pub struct ProgramTransformer {
 }
 
 impl ProgramTransformer {
-    pub fn new(
-        pool: PgPool,
-        download_metadata_notifier: DownloadMetadataNotifier,
-        cl_audits: bool,
-    ) -> Self {
+    pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
         info!("Initializing Program Transformer");
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(5);
         let bgum = BubblegumParser {};
@@ -248,7 +245,6 @@ impl ProgramTransformer {
                         account_info,
                         parsing_result,
                         &self.storage,
-                        &self.download_metadata_notifier,
                     )
                     .await
                 }
@@ -298,5 +294,29 @@ fn record_metric(metric_name: &str, success: bool, retries: u32) {
     let success = if success { "true" } else { "false" };
     if cadence_macros::is_global_default_set() {
         cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    }
+}
+
+pub fn filter_non_null_fields(value: Value) -> Option<Value> {
+    match value {
+        Value::Null => None,
+        Value::Object(map) => {
+            if map.values().all(|v| matches!(v, Value::Null)) {
+                None
+            } else {
+                let filtered_map: Map<String, Value> = map
+                    .into_iter()
+                    .filter(|(_k, v)| !matches!(v, Value::Null))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                if filtered_map.is_empty() {
+                    None
+                } else {
+                    Some(Value::Object(filtered_map))
+                }
+            }
+        }
+        _ => Some(value),
     }
 }

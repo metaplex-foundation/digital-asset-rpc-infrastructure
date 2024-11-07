@@ -20,7 +20,8 @@ use {
                 ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
                 SpecificationVersions, V1AccountAttachments,
             },
-            token_accounts, tokens,
+            token_accounts,
+            tokens::{self, IsNonFungible},
         },
         json::ChainDataV1,
     },
@@ -80,14 +81,17 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
     )
     .await?;
 
+    let is_non_fungible = token.as_ref().map(|t| t.is_non_fungible()).unwrap_or(false);
+
     if let Some(token) = token {
         upsert_assets_mint_account_columns(
             AssetMintAccountColumns {
                 mint: mint_pubkey_vec.clone(),
-                supply_mint: Some(token.mint.clone()),
                 supply: token.supply,
-                slot_updated_mint_account: token.slot_updated as u64,
+                slot_updated_mint_account: token.slot_updated,
+                extensions: token.extensions.clone(),
             },
+            is_non_fungible,
             conn,
         )
         .await
