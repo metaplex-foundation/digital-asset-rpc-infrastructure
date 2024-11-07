@@ -2,7 +2,7 @@ use crate::error::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
 use digital_asset_types::rpc::options::Options;
-use digital_asset_types::rpc::response::{AssetList, TransactionSignatureList};
+use digital_asset_types::rpc::response::{AssetList, TokenAccountList, TransactionSignatureList};
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
 use open_rpc_derive::{document_rpc, rpc};
@@ -163,6 +163,21 @@ pub struct GetAssetSignatures {
     pub sort_direction: Option<AssetSortDirection>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetTokenAccounts {
+    pub owner_address: Option<String>,
+    pub mint_address: Option<String>,
+    pub limit: Option<u32>,
+    pub page: Option<u32>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -251,4 +266,14 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get a list of assets grouped by a specific authority"
     )]
     async fn get_grouping(&self, payload: GetGrouping) -> Result<GetGroupingResponse, DasApiError>;
+
+    #[rpc(
+        name = "getTokenAccounts",
+        params = "named",
+        summary = "Get a list of token accounts by owner or mint"
+    )]
+    async fn get_token_accounts(
+        &self,
+        payload: GetTokenAccounts,
+    ) -> Result<TokenAccountList, DasApiError>;
 }

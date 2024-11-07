@@ -118,6 +118,19 @@ impl RpcApiBuilder {
             Ok(rpc_context.schema())
         })?;
 
+        module.register_async_method(
+            "get_token_accounts",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetTokenAccounts>()?;
+                rpc_context
+                    .get_token_accounts(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+
+        module.register_alias("getTokenAccounts", "get_token_accounts")?;
+
         Ok(module)
     }
 }
