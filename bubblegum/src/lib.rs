@@ -156,20 +156,24 @@ pub struct VerifyArgs {
 pub async fn verify_bubblegum(
     context: BubblegumContext,
     args: VerifyArgs,
-) -> Result<Vec<verify::ProofReport>> {
+) -> Result<tokio::sync::mpsc::Receiver<verify::ProofReport>> {
     let trees = if let Some(ref only_trees) = args.only_trees {
         TreeResponse::find(&context.solana_rpc, only_trees.clone()).await?
     } else {
         TreeResponse::all(&context.solana_rpc).await?
     };
 
-    let mut reports = Vec::new();
+    let (sender, receiver) = tokio::sync::mpsc::channel(trees.len());
 
-    for tree in trees {
-        let report = verify::check(context.clone(), tree, args.max_concurrency).await?;
+    tokio::spawn(async move {
+        for tree in trees {
+            if let Ok(report) = verify::check(context.clone(), tree, args.max_concurrency).await {
+                if sender.send(report).await.is_err() {
+                    error!("Failed to send report");
+                }
+            }
+        }
+    });
 
-        reports.push(report);
-    }
-
-    Ok(reports)
+    Ok(receiver)
 }
