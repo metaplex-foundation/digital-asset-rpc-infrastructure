@@ -25,9 +25,9 @@ pub async fn run(config: Args) -> Result<()> {
     let solana_rpc = Rpc::from_config(&config.solana);
     let context = BubblegumContext::new(database_pool, solana_rpc);
 
-    let reports = verify_bubblegum(context, config.verify_bubblegum).await?;
+    let mut reports = verify_bubblegum(context, config.verify_bubblegum).await?;
 
-    for report in reports {
+    while let Some(report) = reports.recv().await {
         info!(
             "Tree: {}, Total Leaves: {}, Incorrect Proofs: {}, Not Found Proofs: {}, Correct Proofs: {}",
             report.tree_pubkey,
