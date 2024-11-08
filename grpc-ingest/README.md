@@ -1,33 +1,46 @@
-## Dev process
+## Dev setup
 
-### geyser gRPC source
+> **Note:** Run these commands from the root of the project
 
-Use [Triton One](https://triton.one/) provided endpoint or run own node with geyser plugin: https://github.com/rpcpool/yellowstone-grpc
+### Run redis, postgres and prometheus docker containers
 
-### Redis server
-
-```
-redis-server
+```bash
+docker compose up db redis prometheus
 ```
 
-### PostgreSQL server
+### Seed the database and run migrations
 
-Run:
-
-```
-docker run -it --rm -e POSTGRES_PASSWORD=solana -e POSTGRES_USER=solana -e POSTGRES_DB=solana -p 5432:5432 postgres
+```bash
+INIT_FILE_PATH=./init.sql sea migrate up --database-url=postgres://solana:solana@localhost:5432/solana
 ```
 
-Schema:
+### Config for grpc2redis [./config-grpc2redis.yml](./config-grpc2redis.yml)
 
-> Also note: The migration `m20230224_093722_performance_improvements` needs to be commented out of the migration lib.rs in order for the Sea ORM `Relations` to generate correctly.
+### Run grpc2redis service
 
-```
-DATABASE_URL=postgres://solana:solana@localhost/solana INIT_FILE_PATH=init.sql cargo run -p migration --bin migration -- up
+This service will listen to geyser gRPC account and transaction updates. It makes multiple subscriptions to the gRPC stream and filter the data based on the config. The data (vec of bytes) is pushed to a pipeline and then flushed to redis at regular intervals.
+
+> **Note:** Log level can be set to `info`, `debug`, `warn`, `error`
+
+```bash
+RUST_LOG=info cargo run --bin das-grpc-ingest  -- --config grpc-ingest/config-grpc2redis.yml grpc2redis
 ```
 
-psql:
+### Config for Ingester [./config-ingester.yml](./config-ingester.yml)
 
+### Run the Ingester service
+
+This service performs many concurrent tasks
+
+- Fetch account updates from redis and process them using using program_transformer
+- Fetch transaction updates from redis and processe them
+- Fetch snapshots from redis and process them
+- download token metedata json and store them in postgres db
+
+```bash
+ RUST_LOG=debug,sqlx=warn cargo run --bin das-grpc-ingest  -- --config grpc-ingest/config-ingester.yml ingester
 ```
-PGPASSWORD=solana psql -h localhost -U solana -d solana
-```
+
+### Metrics
+
+Both grpc2redis and ingester services expose prometheus metrics and can be accessed at `http://localhost:9090/metrics`
