@@ -1,16 +1,36 @@
-prometheus: 127.0.0.1:8875
+# This file is used to configure the ingester service.
+
+# prometheus metrics are pushed to this endpoint
+prometheus: 0.0.0.0:8875
+
+# redis connection url
 redis: redis://localhost:6379
+
+# postgres configuration
 postgres:
+  # connection url
   url: postgres://solana:solana@localhost/solana
+  # min connections
   min_connections: 10
+  # max connections
   max_connections: 50
+
+# snapshots configuration for the ingester
 snapshots:
+  # stream name
   name: SNAPSHOTS
+  # maximum number of concurrent tasks for processing.
   max_concurrency: 10
+  # maximum number of elements to return per redis stream
   batch_size: 100
+  # maximum idle time (in milliseconds) before processing a batch
   xack_batch_max_idle_ms: 1_000
+  # buffer size for redis acknowledgment messages
   xack_buffer_size: 10_000
+  # maximum size of a batch for redis acknowledgment processing.
   xack_batch_max_size: 500
+
+# accounts configuration for the ingester
 accounts:
   name: ACCOUNTS
   max_concurrency: 10
@@ -18,9 +38,15 @@ accounts:
   xack_batch_max_idle_ms: 1_000
   xack_buffer_size: 10_000
   xack_batch_max_size: 500
+
+# transactions configuration for the ingester
 transactions:
   name: TRANSACTIONS
+
+# download metadata configuration for the ingester
 download_metadata:
+  # maximum number of attempts for downloading metadata JSON.
   max_attempts: 1
   stream:
+    # stream name
     name: METADATA_JSON
