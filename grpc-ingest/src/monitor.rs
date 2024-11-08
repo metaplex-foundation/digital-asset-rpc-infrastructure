@@ -4,7 +4,7 @@ use crate::{config::ConfigMonitor, prom::update_tree_proof_report};
 use das_bubblegum::{verify_bubblegum, BubblegumContext, VerifyArgs};
 use das_core::{Rpc, SolanaRpcArgs};
 use futures::stream::StreamExt;
-use tracing::error;
+use tracing::{error, info};
 
 pub async fn run(config: ConfigMonitor) -> anyhow::Result<()> {
     let mut shutdown = create_shutdown()?;
@@ -22,20 +22,23 @@ pub async fn run(config: ConfigMonitor) -> anyhow::Result<()> {
             };
 
             match verify_bubblegum(bubblegum_context, verify_args).await {
-                Ok(reports) => {
-                    for report in reports {
+                Ok(mut reports_receiver) => {
+                    while let Some(report) = reports_receiver.recv().await {
+                        info!(
+                            report = ?report,
+                        );
                         update_tree_proof_report(&report);
                     }
+
+                    tokio::time::sleep(tokio::time::Duration::from_secs(600)).await;
                 }
                 Err(e) => {
                     error!(
-                        message = "Error verifying bubblegum",
+                        message = "Error proof report recv",
                         error = ?e
                     );
                 }
             }
-
-            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
         }
     });
 

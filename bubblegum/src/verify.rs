@@ -13,7 +13,7 @@ use spl_account_compression::concurrent_tree_wrapper::ProveLeafArgs;
 use std::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::error;
+use tracing::debug;
 
 trait TryFromAssetProof {
     fn try_from_asset_proof(proof: AssetProof) -> Result<Self, anyhow::Error>
@@ -89,6 +89,7 @@ pub struct ProofReport {
     pub corrupt_proofs: usize,
 }
 
+#[derive(Debug)]
 enum ProofResult {
     Correct,
     Incorrect,
@@ -152,17 +153,21 @@ pub async fn check(
 
             if let Ok(proof_result) = proof_lookup {
                 let mut report = report.lock().await;
+
                 match proof_result {
                     ProofResult::Correct => report.correct_proofs += 1,
                     ProofResult::Incorrect => report.incorrect_proofs += 1,
                     ProofResult::NotFound => report.not_found_proofs += 1,
                     ProofResult::Corrupt => report.corrupt_proofs += 1,
                 }
-                if let ProofResult::Incorrect | ProofResult::NotFound | ProofResult::Corrupt =
-                    proof_result
-                {
-                    error!(tree = %tree_pubkey, leaf_index = i, asset = %asset, "{}", proof_result);
-                }
+
+                debug!(
+                    tree = %tree_pubkey,
+                    leaf_index = i,
+                    asset = %asset,
+                    result = ?proof_result,
+                    "Proof result for asset"
+                );
             }
         }));
     }
