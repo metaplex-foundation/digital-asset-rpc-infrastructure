@@ -578,21 +578,20 @@ impl<H: MessageHandler> IngestStream<H> {
     }
 }
 
+#[derive(Clone)]
 pub struct TrackedPipeline {
     pipeline: redis::Pipeline,
-    counts: HashMap<String, usize>,
+    count: usize,
 }
 
 impl Default for TrackedPipeline {
     fn default() -> Self {
         Self {
             pipeline: redis::pipe(),
-            counts: HashMap::new(),
+            count: 0,
         }
     }
 }
-
-type TrackedStreamCounts = HashMap<String, usize>;
 
 impl TrackedPipeline {
     pub fn xadd_maxlen<F, V>(&mut self, key: &str, maxlen: StreamMaxlen, id: F, field: V)
@@ -602,21 +601,18 @@ impl TrackedPipeline {
     {
         self.pipeline
             .xadd_maxlen(key, maxlen, id, &[(REDIS_STREAM_DATA_KEY, field)]);
-        *self.counts.entry(key.to_string()).or_insert(0) += 1;
+        self.count += 1;
     }
 
-    pub async fn flush(
-        &mut self,
-        connection: &mut MultiplexedConnection,
-    ) -> Result<TrackedStreamCounts, TrackedStreamCounts> {
+    pub async fn flush(&mut self, connection: &mut MultiplexedConnection) -> Result<usize, usize> {
         let result: RedisResult<RedisValue> = self.pipeline.atomic().query_async(connection).await;
-        let counts = self.counts.clone();
-        self.counts.clear();
+        let count = self.count;
+        self.count = 0;
         self.pipeline.clear();
 
         match result {
-            Ok(_) => Ok(counts),
-            Err(_) => Err(counts),
+            Ok(_) => Ok(count),
+            Err(_) => Err(count),
         }
     }
 }

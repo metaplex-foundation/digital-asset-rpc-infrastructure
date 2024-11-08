@@ -87,8 +87,17 @@ services:
     ports:
       - "6379:6379"
   db:
-    image: 'postgres:14'
-    command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200" ]
+    image: "postgres:14"
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_statement=all",
+        "-c",
+        "log_destination=stderr",
+        "-c",
+        "max_connections=200",
+      ]
     ports:
       - 5432:5432
     environment:
@@ -119,9 +128,9 @@ services:
       - ./prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
     command: ["--config.file=/etc/prometheus/prometheus-config.yaml"]
     ports:
-      - "9091:9090"
+      - "9090:9090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 volumes:
-  grafana_data: { }
-  graphite_data: { }
+  grafana_data: {}
+  graphite_data: {}

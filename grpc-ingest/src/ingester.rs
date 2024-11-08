@@ -45,7 +45,7 @@ fn download_metadata_notifier_v2(
 
                     let status = xadd.map(|_| ()).map_err(|_| ());
 
-                    redis_xadd_status_inc(&stream, status, 1);
+                    redis_xadd_status_inc(&stream, "metadata_notifier",status, 1);
 
                     Ok(())
                 })
@@ -133,7 +133,9 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         snapshots.stop(),
         download_metadatas.stop(),
     ])
-    .await;
+    .await
+    .into_iter()
+    .collect::<anyhow::Result<()>>()?;
 
     report.abort();
 

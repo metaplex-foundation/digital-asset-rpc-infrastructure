@@ -1677,19 +1677,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-epoch",
- "crossbeam-queue",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1918,7 +1905,6 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
- "topograph",
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
@@ -2177,27 +2163,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.66",
-]
-
-[[package]]
-name = "dispose"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a73c22432c5657d246abd8b3490c0678ed59549c474d96402367be7bd18700d1"
-dependencies = [
- "dispose-derive",
-]
-
-[[package]]
-name = "dispose-derive"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b62e5546deabd472871fc4de055f8d75c0a97c492f1889cc19623e98d20ba294"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -7873,22 +7838,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
-]
-
-[[package]]
-name = "topograph"
-version = "0.4.0"
-source = "git+https://github.com/ray-kast/topograph?branch=v0.4-wip#c91c01c25f605c4bc4461e9b9cbf95d8e4038972"
-dependencies = [
- "crossbeam",
- "dispose",
- "futures-util",
- "log",
- "num_cpus",
- "parking_lot 0.11.2",
- "pin-project",
- "thiserror",
- "tokio",
 ]
 
 [[package]]
