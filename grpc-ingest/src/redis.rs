@@ -312,8 +312,6 @@ impl Acknowledge {
                     "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
                     config.name, response, count
                 );
-
-                redis_xack_inc(&config.name, count);
             }
             Err(e) => {
                 error!(
@@ -488,6 +486,8 @@ impl<H: MessageHandler> IngestStream<H> {
                                 let handler = Arc::clone(&handler);
 
 
+                                ack_tasks_total_inc(&config.name);
+
                                 tasks.push(tokio::spawn(async move {
                                     handler.handle(ids).await;
                                 }));
@@ -534,13 +534,14 @@ impl<H: MessageHandler> IngestStream<H> {
                 let config = Arc::clone(&config);
 
                 loop {
-                    sleep(Duration::from_millis(100)).await;
                     let connection = connection.clone();
                     let labels = labels.clone();
 
                     if let Err(e) = report_xlen(connection, labels).await {
                         error!(target: "ingest_stream", "action=report_xlen stream={} error={:?}", &config.name, e);
                     }
+
+                    sleep(Duration::from_millis(100)).await;
                 }
             }
         });
