@@ -91,6 +91,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                     asset::Column::SlotUpdatedMintAccount,
                     asset::Column::MintExtensions,
                     asset::Column::SlotUpdated,
+                    asset::Column::AssetData,
                 ])
                 .to_owned(),
         )

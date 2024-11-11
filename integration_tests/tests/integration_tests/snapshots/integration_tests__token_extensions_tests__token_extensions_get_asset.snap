@@ -1,9 +1,10 @@
 ---
 source: integration_tests/tests/integration_tests/token_extensions_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
-  "interface": "V1_NFT",
+  "interface": "FungibleToken",
   "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
@@ -15,14 +16,7 @@ expression: response
     },
     "links": {}
   },
-  "authorities": [
-    {
-      "address": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL",
-      "scopes": [
-        "full"
-      ]
-    }
-  ],
+  "authorities": [],
   "compression": {
     "eligible": false,
     "compressed": false,
@@ -48,12 +42,7 @@ expression: response
     "delegated": false,
     "delegate": null,
     "ownership_model": "single",
-    "owner": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL"
-  },
-  "supply": {
-    "print_max_supply": 0,
-    "print_current_supply": 0,
-    "edition_nonce": null
+    "owner": ""
   },
   "mutable": true,
   "burnt": false,

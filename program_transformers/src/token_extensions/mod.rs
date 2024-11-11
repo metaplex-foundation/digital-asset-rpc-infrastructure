@@ -12,14 +12,15 @@ use {
         TokenExtensionsProgramAccount,
     },
     digital_asset_types::dao::{
-        asset_data,
-        sea_orm_active_enums::ChainMutability,
+        asset, asset_data,
+        sea_orm_active_enums::{ChainMutability, SpecificationAssetClass, SpecificationVersions},
         token_accounts,
         tokens::{self, IsNonFungible as IsNonFungibleModel},
     },
     sea_orm::{
         entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
-        DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
+        DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, Set,
+        TransactionTrait,
     },
     serde_json::Value,
     solana_sdk::program_option::COption,
@@ -121,15 +122,17 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             Ok(())
         }
         TokenExtensionsProgramAccount::MintAccount(m) => {
-            println!("Mint account extensions: {:#?}", m.extensions);
             let MintAccount {
                 account,
                 extensions,
             } = m;
 
+            let is_non_fungible = m.account.is_non_fungible();
+
             let extensions: Option<Value> = if extensions.is_some() {
                 if let Some(metadata) = &m.extensions.metadata {
-                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?;
+                    upsert_asset_data(metadata, account_key.clone(), slot, db, is_non_fungible)
+                        .await?;
                 }
 
                 filter_non_null_fields(
@@ -193,7 +196,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                     slot_updated_mint_account: slot,
                     extensions: extensions.clone(),
                 },
-                m.is_non_fungible(),
+                is_non_fungible,
                 &txn,
             )
             .await?;
@@ -211,6 +214,7 @@ async fn upsert_asset_data(
     key_bytes: Vec<u8>,
     slot: i64,
     db: &DatabaseConnection,
+    is_non_fungible: bool,
 ) -> ProgramTransformerResult<()> {
     let metadata_json = serde_json::to_value(metadata.clone())
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
@@ -244,5 +248,59 @@ async fn upsert_asset_data(
         asset_data_query.sql
     );
     db.execute(asset_data_query).await?;
+
+    if !is_non_fungible {
+        let txn = db.begin().await?;
+        upsert_assets_metadata_cols(
+            AssetMetadataAccountCols {
+                mint: key_bytes.clone(),
+                slot_updated_metadata_account: slot,
+            },
+            &txn,
+        )
+        .await?;
+
+        txn.commit().await?;
+    }
+
+    Ok(())
+}
+
+struct AssetMetadataAccountCols {
+    mint: Vec<u8>,
+    slot_updated_metadata_account: i64,
+}
+
+async fn upsert_assets_metadata_cols(
+    metadata: AssetMetadataAccountCols,
+    db: &DatabaseTransaction,
+) -> Result<(), DbErr> {
+    let asset = asset::ActiveModel {
+        id: ActiveValue::Set(metadata.mint.clone()),
+        specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
+        specification_version: Set(Some(SpecificationVersions::V0)),
+        slot_updated_metadata_account: Set(Some(metadata.slot_updated_metadata_account)),
+        ..Default::default()
+    };
+
+    let mut asset_query = asset::Entity::insert(asset)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SlotUpdatedMetadataAccount,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    asset_query.sql = format!(
+        "{} WHERE excluded.slot_updated_metadata_account >= asset.slot_updated_metadata_account OR asset.slot_updated_metadata_account IS NULL",
+        asset_query.sql
+    );
+
+    db.execute(asset_query).await?;
+
     Ok(())
 }

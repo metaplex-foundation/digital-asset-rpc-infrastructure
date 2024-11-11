@@ -381,16 +381,6 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         _ => None,
     };
 
-    if interface == Interface::FungibleToken {
-        return Ok(RpcAsset {
-            interface: interface.clone(),
-            id: bs58::encode(asset.id).into_string(),
-            content: Some(content),
-            mint_extensions: asset.mint_extensions,
-            ..Default::default()
-        });
-    }
-
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
