@@ -68,8 +68,8 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     let specification_asset_class = if is_non_fungible {
         None
     } else {
-        // If its not non-fungible then
-        // by default, we assume that the asset is fungibleToken and later update based on token metadata
+        // If token is not fungible then
+        // we assume that the asset is fungibleToken and later update based on token metadata
         Some(SpecificationAssetClass::FungibleToken)
     };
 
