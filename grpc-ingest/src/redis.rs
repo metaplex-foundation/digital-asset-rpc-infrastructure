@@ -312,6 +312,8 @@ impl Acknowledge {
                     "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
                     config.name, response, count
                 );
+
+                redis_xack_inc(&config.name, count);
             }
             Err(e) => {
                 error!(
