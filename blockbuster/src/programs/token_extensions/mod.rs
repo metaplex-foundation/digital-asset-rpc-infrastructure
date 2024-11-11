@@ -244,6 +244,6 @@ pub trait IsNonFungible {
 
 impl IsNonFungible for Mint {
     fn is_non_fungible(&self) -> bool {
-        self.decimals == 0 && self.mint_authority.is_none()
+        self.decimals == 0 && self.mint_authority.is_none() && self.supply == 1
     }
 }
