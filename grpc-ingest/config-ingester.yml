@@ -29,6 +29,8 @@ snapshots:
   xack_buffer_size: 10_000
   # maximum size of a batch for redis acknowledgment processing.
   xack_batch_max_size: 500
+  # maximum number of redis messages to keep to buffer.
+  messages_buffer_size: 200
 
 # accounts configuration for the ingester
 accounts:
