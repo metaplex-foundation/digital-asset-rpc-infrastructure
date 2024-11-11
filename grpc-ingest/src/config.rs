@@ -66,12 +66,22 @@ pub struct ConfigIngestStream {
         deserialize_with = "deserialize_usize_str"
     )]
     pub xack_buffer_size: usize,
+    #[serde(
+        default = "ConfigIngestStream::default_message_buffer_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub message_buffer_size: usize,
 }
 
 impl ConfigIngestStream {
     pub const fn default_xack_buffer_size() -> usize {
         1_000
     }
+
+    pub const fn default_message_buffer_size() -> usize {
+        100
+    }
+
     pub const fn default_max_concurrency() -> usize {
         2
     }
