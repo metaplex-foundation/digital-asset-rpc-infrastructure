@@ -6,4 +6,9 @@ scrape_configs:
   - job_name: "prometheus"
     honor_labels: true
     static_configs:
-      - targets: ["host.docker.internal:8873", "host.docker.internal:8875"]
+      - targets:
+          [
+            "host.docker.internal:8873",
+            "host.docker.internal:8875",
+            "host.docker.internal:8876",
+          ]
