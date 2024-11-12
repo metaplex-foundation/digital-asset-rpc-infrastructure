@@ -8,8 +8,7 @@ use {
         filter_non_null_fields, AccountInfo,
     },
     blockbuster::programs::token_extensions::{
-        extension::ShadowMetadata, IsNonFungible, MintAccount, TokenAccount,
-        TokenExtensionsProgramAccount,
+        extension::ShadowMetadata, MintAccount, TokenAccount, TokenExtensionsProgramAccount,
     },
     digital_asset_types::dao::{
         asset, asset_data,
@@ -127,12 +126,9 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                 extensions,
             } = m;
 
-            let is_non_fungible = m.account.is_non_fungible();
-
             let extensions: Option<Value> = if extensions.is_some() {
                 if let Some(metadata) = &m.extensions.metadata {
-                    upsert_asset_data(metadata, account_key.clone(), slot, db, is_non_fungible)
-                        .await?;
+                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?;
                 }
 
                 filter_non_null_fields(
@@ -196,7 +192,6 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                     slot_updated_mint_account: slot,
                     extensions: extensions.clone(),
                 },
-                is_non_fungible,
                 &txn,
             )
             .await?;
@@ -214,7 +209,6 @@ async fn upsert_asset_data(
     key_bytes: Vec<u8>,
     slot: i64,
     db: &DatabaseConnection,
-    is_non_fungible: bool,
 ) -> ProgramTransformerResult<()> {
     let metadata_json = serde_json::to_value(metadata.clone())
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
@@ -249,19 +243,17 @@ async fn upsert_asset_data(
     );
     db.execute(asset_data_query).await?;
 
-    if !is_non_fungible {
-        let txn = db.begin().await?;
-        upsert_assets_metadata_cols(
-            AssetMetadataAccountCols {
-                mint: key_bytes.clone(),
-                slot_updated_metadata_account: slot,
-            },
-            &txn,
-        )
-        .await?;
+    let txn = db.begin().await?;
+    upsert_assets_metadata_cols(
+        AssetMetadataAccountCols {
+            mint: key_bytes.clone(),
+            slot_updated_metadata_account: slot,
+        },
+        &txn,
+    )
+    .await?;
 
-        txn.commit().await?;
-    }
+    txn.commit().await?;
 
     Ok(())
 }

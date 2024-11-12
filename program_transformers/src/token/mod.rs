@@ -7,10 +7,10 @@ use {
         error::ProgramTransformerResult,
         AccountInfo, DownloadMetadataNotifier,
     },
-    blockbuster::programs::token_account::{IsNonFungible, TokenProgramAccount},
+    blockbuster::programs::token_account::TokenProgramAccount,
     digital_asset_types::dao::{
         token_accounts,
-        tokens::{self, IsNonFungible as IsNonFungibleModel},
+        tokens::{self, IsNonFungible},
     },
     sea_orm::{
         entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
@@ -152,7 +152,6 @@ pub async fn handle_token_program_account<'a, 'b>(
                     slot_updated_mint_account: slot,
                     extensions: None,
                 },
-                m.is_non_fungible(),
                 &txn,
             )
             .await?;

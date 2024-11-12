@@ -75,13 +75,3 @@ impl ProgramParser for TokenAccountParser {
         Ok(Box::new(account_type))
     }
 }
-
-pub trait IsNonFungible {
-    fn is_non_fungible(&self) -> bool;
-}
-
-impl IsNonFungible for Mint {
-    fn is_non_fungible(&self) -> bool {
-        self.decimals == 0 && self.supply == 1
-    }
-}
