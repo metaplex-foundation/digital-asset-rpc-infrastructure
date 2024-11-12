@@ -380,24 +380,23 @@ impl<H: MessageHandler> IngestStream<H> {
         let mut connection = self.connection.take().expect("Connection is required");
         let handler = self.handler.take().expect("Handler is required");
 
-        if let Err(e) = xgroup_delete(&mut connection, &config.name, &config.group).await {
-            error!(target: "ingest_stream", "action=xgroup_delete stream={} error={:?}", config.name, e);
-        } else {
-            debug!(target: "ingest_stream", "action=xgroup_delete stream={} group={}", config.name, config.group);
-        }
+        xgroup_create(&mut connection, &config.name, &config.group).await?;
 
-        if let Err(e) = xgroup_create(
+        xgroup_delete_consumer(
             &mut connection,
             &config.name,
             &config.group,
             &config.consumer,
         )
-        .await
-        {
-            error!(target: "ingest_stream", "action=xgroup_create stream={} error={:?}", config.name, e);
-        } else {
-            debug!(target: "ingest_stream", "action=xgroup_create stream={} group={} consumer={}", config.name, config.group, config.consumer);
-        }
+        .await?;
+
+        xgroup_create_consumer(
+            &mut connection,
+            &config.name,
+            &config.group,
+            &config.consumer,
+        )
+        .await?;
 
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
         let (ack_shutdown_tx, mut ack_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
@@ -673,7 +672,6 @@ pub async fn xgroup_create<C: AsyncCommands>(
     connection: &mut C,
     name: &str,
     group: &str,
-    consumer: &str,
 ) -> anyhow::Result<()> {
     let result: RedisResult<RedisValue> = connection.xgroup_create_mkstream(name, group, "0").await;
     if let Err(error) = result {
@@ -685,27 +683,40 @@ pub async fn xgroup_create<C: AsyncCommands>(
         }
     }
 
-    // XGROUP CREATECONSUMER key group consumer
-    redis::cmd("XGROUP")
+    Ok(())
+}
+
+pub async fn xgroup_create_consumer<C: AsyncCommands>(
+    connection: &mut C,
+    name: &str,
+    group: &str,
+    consumer: &str,
+) -> anyhow::Result<()> {
+    let result: RedisResult<RedisValue> = redis::cmd("XGROUP")
         .arg("CREATECONSUMER")
         .arg(name)
         .arg(group)
         .arg(consumer)
         .query_async(connection)
-        .await?;
+        .await;
 
-    Ok(())
+    match result {
+        Ok(_) => Ok(()),
+        Err(error) => Err(error.into()),
+    }
 }
 
-pub async fn xgroup_delete<C: AsyncCommands>(
+pub async fn xgroup_delete_consumer<C: AsyncCommands>(
     connection: &mut C,
     name: &str,
     group: &str,
+    consumer: &str,
 ) -> anyhow::Result<()> {
     let result: RedisResult<RedisValue> = redis::cmd("XGROUP")
-        .arg("DESTROY")
+        .arg("DELCONSUMER")
         .arg(name)
         .arg(group)
+        .arg(consumer)
         .query_async(connection)
         .await;
 
