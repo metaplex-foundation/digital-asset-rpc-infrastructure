@@ -27,11 +27,11 @@ jobs:
 
     steps:
       - name: checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       # This step can be omited, to save storage space on the organization account
       # Build process will take longer
       - name: set build cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
             path: |
                 ~/.cargo/bin/
@@ -58,56 +58,56 @@ jobs:
       # Omiting this will save on storage consumption on the account
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: nft_ingester22
           path: target/release/nft_ingester22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: das_api22
           path: target/release/das_api22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: migration22
           path: target/release/migration22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: fetch-trees22
           path: target/release/fetch_trees22
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: nft_ingester
           path: target/release/nft_ingester
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: das_api
           path: target/release/das_api
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: migration
           path: target/release/migration
 
       - name: Publish artifact
         if: matrix.os == 'ubuntu-20.04'
-        uses: actions/upload-artifact@v3.1.1
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: fetch-trees
           path: target/release/fetch_trees
