@@ -22,10 +22,7 @@ async fn test_get_token_accounts() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "jKLTJu7nE1zLmC2J2xjVVBm4G7vJcKGCGQX36Jrsba2",
-        "wKocBVvHQoVaiwWoCs9JYSVye4YZRrv5Cucf7fDqnz1",
-    ]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["jKLTJu7nE1zLmC2J2xjVVBm4G7vJcKGCGQX36Jrsba2"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
@@ -37,7 +34,6 @@ async fn test_get_token_accounts() {
     "#;
 
     let request: api::GetTokenAccounts = serde_json::from_str(request).unwrap();
-    println!("-----------_REq{:?}", request);
     let response = setup.das_api.get_token_accounts(request).await.unwrap();
 
     insta::assert_json_snapshot!(name, response);
