@@ -320,7 +320,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             slot_updated_mint_account: slot as i64,
             extensions: None,
         },
-        true,
         &txn,
     )
     .await?;

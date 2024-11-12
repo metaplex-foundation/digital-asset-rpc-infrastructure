@@ -91,7 +91,6 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
                 slot_updated_mint_account: token.slot_updated,
                 extensions: token.extensions.clone(),
             },
-            is_non_fungible,
             conn,
         )
         .await

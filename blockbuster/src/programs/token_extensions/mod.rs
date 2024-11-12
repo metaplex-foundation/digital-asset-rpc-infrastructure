@@ -237,13 +237,3 @@ impl ProgramParser for Token2022AccountParser {
         Ok(Box::new(result))
     }
 }
-
-pub trait IsNonFungible {
-    fn is_non_fungible(&self) -> bool;
-}
-
-impl IsNonFungible for Mint {
-    fn is_non_fungible(&self) -> bool {
-        self.decimals == 0 && self.supply == 1
-    }
-}

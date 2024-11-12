@@ -62,25 +62,18 @@ pub struct AssetMintAccountColumns {
 
 pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + TransactionTrait>(
     columns: AssetMintAccountColumns,
-    is_non_fungible: bool,
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
-    let specification_asset_class = if is_non_fungible {
-        None
-    } else {
-        // If token is not fungible then
-        // we assume that the asset is fungibleToken and later update based on token metadata
-        Some(SpecificationAssetClass::FungibleToken)
-    };
-
     let active_model = asset::ActiveModel {
         id: Set(columns.mint.clone()),
         supply: Set(columns.supply),
         supply_mint: Set(Some(columns.mint.clone())),
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account)),
+        slot_updated: Set(Some(columns.slot_updated_mint_account)),
         mint_extensions: Set(columns.extensions),
         asset_data: Set(Some(columns.mint)),
-        specification_asset_class: Set(specification_asset_class),
+        // assume every token is a fungible token when mint account is created
+        specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
