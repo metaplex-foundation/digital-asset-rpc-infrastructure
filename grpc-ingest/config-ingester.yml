@@ -31,6 +31,8 @@ snapshots:
   xack_batch_max_size: 500
   # maximum number of redis messages to keep to buffer.
   messages_buffer_size: 200
+  # redis stream consumer name must be unique per ingester process
+  consumer: consumer
 
 # accounts configuration for the ingester
 accounts:
@@ -50,5 +52,4 @@ download_metadata:
   # maximum number of attempts for downloading metadata JSON.
   max_attempts: 1
   stream:
-    # stream name
     name: METADATA_JSON
