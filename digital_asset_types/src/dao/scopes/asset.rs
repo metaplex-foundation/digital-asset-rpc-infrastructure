@@ -1,15 +1,22 @@
 use crate::{
     dao::{
         asset::{self},
-        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
-        extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::Instruction,
+        asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
+        cl_audits_v2,
+        extensions::{self, asset_v1_account_attachment, instruction::PascalCase},
+        sea_orm_active_enums::{Instruction, V1AccountAttachments},
         Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{
+        filter::AssetSortDirection,
+        response::{NftEdition, NftEditions},
+    },
 };
 use indexmap::IndexMap;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
+use mpl_token_metadata::accounts::{Edition, MasterEdition};
+use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
+use serde_json::Value;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 pub fn paginate<T, C>(
@@ -552,4 +559,93 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+fn derive_master_edition_pda_from_mint(mint: Pubkey) -> Pubkey {
+    let (pda, _bump_seed) = Pubkey::find_program_address(
+        &[
+            b"metadata",
+            mpl_token_metadata::programs::MPL_TOKEN_METADATA_ID.as_ref(),
+            b"edition",
+            mint.as_ref(),
+        ],
+        &mint,
+    );
+    pda
+}
+
+pub fn get_edition_data_from_json(data: Value) -> Result<Edition, DbErr> {
+    serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
+}
+
+pub fn get_master_edition_data_from_json(data: Value) -> Result<MasterEdition, DbErr> {
+    serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
+}
+
+pub async fn get_nft_editions(
+    conn: &impl ConnectionTrait,
+    mint_address: Pubkey,
+    limit: Option<u32>,
+    page: Option<u32>,
+) -> Result<NftEditions, DbErr> {
+    let master_edition_pubkey = derive_master_edition_pda_from_mint(mint_address);
+
+    let master_edition =
+        asset_v1_account_attachments::Entity::find_by_id(master_edition_pubkey.to_bytes().to_vec())
+            .one(conn)
+            .await?
+            .ok_or(DbErr::RecordNotFound(
+                "Master Edition not found".to_string(),
+            ))?;
+
+    let limit = limit.unwrap_or(10);
+
+    let master_edition_data = master_edition
+        .data
+        .clone()
+        .ok_or(DbErr::RecordNotFound(
+            "Master Edition data not found".to_string(),
+        ))
+        .map(|data| get_master_edition_data_from_json(data))??;
+
+    let nft_editions = asset_v1_account_attachments::Entity::find()
+        .filter(
+            asset_v1_account_attachments::Column::AttachmentType
+                .eq(V1AccountAttachments::Edition)
+                .and(asset_v1_account_attachments::Column::Data.is_not_null())
+                .and(Expr::cust(&format!(
+                    "data->>parent = '{:?}'",
+                    master_edition.id
+                ))),
+        )
+        .order_by_asc(asset_v1_account_attachments::Column::SlotUpdated)
+        .all(conn)
+        .await?;
+
+    let nft_editions = nft_editions
+        .iter()
+        .map(|e| -> Result<NftEdition, DbErr> {
+            let data = e
+                .data
+                .clone()
+                .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
+                .map(|data| get_edition_data_from_json(data))??;
+
+            Ok(NftEdition {
+                mint_address: mint_address.to_string(),
+                edition_number: data.edition,
+                edition_address: bs58::encode(e.id.clone()).into_string(),
+            })
+        })
+        .collect::<Result<Vec<NftEdition>, _>>()?;
+
+    return Ok(NftEditions {
+        total: nft_editions.len() as u32,
+        limit,
+        page,
+        master_edition_address: master_edition_pubkey.to_string(),
+        supply: master_edition_data.supply,
+        max_supply: master_edition_data.max_supply,
+        editions: nft_editions,
+    });
 }

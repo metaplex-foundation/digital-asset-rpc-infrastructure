@@ -8,6 +8,7 @@ use {
         AccountInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
+    master_edition::save_edition,
     sea_orm::{DatabaseConnection, TransactionTrait},
 };
 
@@ -45,6 +46,13 @@ pub async fn handle_token_metadata_account<'a, 'b>(
             txn.commit().await?;
             Ok(())
         }
+        TokenMetadataAccountData::EditionV1(e) => {
+            let txn = db.begin().await?;
+            save_edition(account_info.pubkey, account_info.slot, e, &txn).await?;
+            txn.commit().await?;
+            Ok(())
+        }
+
         // TokenMetadataAccountData::EditionMarker(_) => {}
         // TokenMetadataAccountData::UseAuthorityRecord(_) => {}
         // TokenMetadataAccountData::CollectionAuthorityRecord(_) => {}

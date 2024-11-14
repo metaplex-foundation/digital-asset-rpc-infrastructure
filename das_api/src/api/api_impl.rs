@@ -1,6 +1,6 @@
 use digital_asset_types::{
     dao::{
-        scopes::asset::get_grouping,
+        scopes::asset::{get_grouping, get_nft_editions},
         sea_orm_active_enums::{
             OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
         },
@@ -14,8 +14,8 @@ use digital_asset_types::{
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
         response::GetGroupingResponse,
+        OwnershipModel, RoyaltyModel,
     },
-    rpc::{OwnershipModel, RoyaltyModel},
 };
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
@@ -501,6 +501,7 @@ impl ApiContract for DasApi {
         .await
         .map_err(Into::into)
     }
+
     async fn get_grouping(
         self: &DasApi,
         payload: GetGrouping,
@@ -515,5 +516,22 @@ impl ApiContract for DasApi {
             group_name: group_value,
             group_size: gs.size,
         })
+    }
+
+    async fn get_nft_editions(
+        self: &DasApi,
+        payload: GetNftEditions,
+    ) -> Result<NftEditions, DasApiError> {
+        let GetNftEditions {
+            mint_address,
+            page,
+            limit,
+        } = payload;
+
+        let mint_address = validate_pubkey(mint_address.clone())?;
+
+        get_nft_editions(&self.db_connection, mint_address, limit, page)
+            .await
+            .map_err(Into::into)
     }
 }
