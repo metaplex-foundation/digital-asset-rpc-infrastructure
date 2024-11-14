@@ -8,7 +8,10 @@ use {
         Body, Request, Response, Server, StatusCode,
     },
     program_transformers::error::ProgramTransformerError,
-    prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry, TextEncoder},
+    prometheus::{
+        HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGaugeVec, Opts, Registry,
+        TextEncoder,
+    },
     std::{net::SocketAddr, sync::Once},
     tracing::{error, info},
 };
@@ -31,14 +34,14 @@ lazy_static::lazy_static! {
         &["stream", "label", "status"]
     ).unwrap();
 
-        static ref REDIS_XREAD_COUNT: IntCounterVec = IntCounterVec::new(
+    static ref REDIS_XREAD_COUNT: IntCounterVec = IntCounterVec::new(
         Opts::new("redis_xread_count", "Count of messages seen"),
-        &["stream"]
+        &["stream", "consumer"]
     ).unwrap();
 
     static ref REDIS_XACK_COUNT: IntCounterVec = IntCounterVec::new(
         Opts::new("redis_xack_count", "Total number of processed messages"),
-        &["stream"]
+        &["stream", "consumer"]
     ).unwrap();
 
     static ref PGPOOL_CONNECTIONS: IntGaugeVec = IntGaugeVec::new(
@@ -46,13 +49,14 @@ lazy_static::lazy_static! {
         &["kind"]
     ).unwrap();
 
-    static ref PROGRAM_TRANSFORMER_TASKS: IntGauge = IntGauge::new(
-        "program_transformer_tasks", "Number of tasks spawned for program transform"
-    ).unwrap();
-
     static ref PROGRAM_TRANSFORMER_TASK_STATUS_COUNT: IntCounterVec = IntCounterVec::new(
         Opts::new("program_transformer_task_status_count", "Status of processed messages"),
-        &["status"],
+        &["stream", "consumer", "status"],
+    ).unwrap();
+
+    static ref INGEST_JOB_TIME: HistogramVec = HistogramVec::new(
+        HistogramOpts::new("ingest_job_time", "Time taken for ingest jobs"),
+        &["stream", "consumer"]
     ).unwrap();
 
     static ref DOWNLOAD_METADATA_INSERTED_COUNT: IntCounter = IntCounter::new(
@@ -61,19 +65,18 @@ lazy_static::lazy_static! {
 
     static ref INGEST_TASKS: IntGaugeVec = IntGaugeVec::new(
         Opts::new("ingest_tasks", "Number of tasks spawned for ingest"),
-        &["stream"]
+        &["stream", "consumer"]
     ).unwrap();
 
     static ref ACK_TASKS: IntGaugeVec = IntGaugeVec::new(
         Opts::new("ack_tasks", "Number of tasks spawned for ack redis messages"),
-        &["stream"]
+        &["stream", "consumer"]
     ).unwrap();
 
     static ref GRPC_TASKS: IntGaugeVec = IntGaugeVec::new(
         Opts::new("grpc_tasks", "Number of tasks spawned for writing grpc messages to redis "),
         &["label","stream"]
     ).unwrap();
-
 
     static ref BUBBLEGUM_TREE_TOTAL_LEAVES: IntGaugeVec = IntGaugeVec::new(
         Opts::new("bubblegum_tree_total_leaves", "Total number of leaves in the bubblegum tree"),
@@ -118,8 +121,8 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(REDIS_XREAD_COUNT);
         register!(REDIS_XACK_COUNT);
         register!(PGPOOL_CONNECTIONS);
-        register!(PROGRAM_TRANSFORMER_TASKS);
         register!(PROGRAM_TRANSFORMER_TASK_STATUS_COUNT);
+        register!(INGEST_JOB_TIME);
         register!(DOWNLOAD_METADATA_INSERTED_COUNT);
         register!(INGEST_TASKS);
         register!(ACK_TASKS);
@@ -188,6 +191,12 @@ pub fn redis_xlen_set(stream: &str, len: usize) {
         .set(len as i64);
 }
 
+pub fn ingest_job_time_set(stream: &str, consumer: &str, value: f64) {
+    INGEST_JOB_TIME
+        .with_label_values(&[stream, consumer])
+        .observe(value);
+}
+
 pub fn redis_xadd_status_inc(stream: &str, label: &str, status: Result<(), ()>, delta: usize) {
     REDIS_XADD_STATUS_COUNT
         .with_label_values(&[
@@ -198,15 +207,15 @@ pub fn redis_xadd_status_inc(stream: &str, label: &str, status: Result<(), ()>, 
         .inc_by(delta as u64);
 }
 
-pub fn redis_xread_inc(stream: &str, delta: usize) {
+pub fn redis_xread_inc(stream: &str, consumer: &str, delta: usize) {
     REDIS_XREAD_COUNT
-        .with_label_values(&[stream])
+        .with_label_values(&[stream, consumer])
         .inc_by(delta as u64)
 }
 
-pub fn redis_xack_inc(stream: &str, delta: usize) {
+pub fn redis_xack_inc(stream: &str, consumer: &str, delta: usize) {
     REDIS_XACK_COUNT
-        .with_label_values(&[stream])
+        .with_label_values(&[stream, consumer])
         .inc_by(delta as u64)
 }
 
@@ -225,20 +234,20 @@ pub fn pgpool_connections_set(kind: PgpoolConnectionsKind, size: usize) {
         .set(size as i64)
 }
 
-pub fn ingest_tasks_total_inc(stream: &str) {
-    INGEST_TASKS.with_label_values(&[stream]).inc()
+pub fn ingest_tasks_total_inc(stream: &str, consumer: &str) {
+    INGEST_TASKS.with_label_values(&[stream, consumer]).inc()
 }
 
-pub fn ingest_tasks_total_dec(stream: &str) {
-    INGEST_TASKS.with_label_values(&[stream]).dec()
+pub fn ingest_tasks_total_dec(stream: &str, consumer: &str) {
+    INGEST_TASKS.with_label_values(&[stream, consumer]).dec()
 }
 
-pub fn ack_tasks_total_inc(stream: &str) {
-    ACK_TASKS.with_label_values(&[stream]).inc()
+pub fn ack_tasks_total_inc(stream: &str, consumer: &str) {
+    ACK_TASKS.with_label_values(&[stream, consumer]).inc()
 }
 
-pub fn ack_tasks_total_dec(stream: &str) {
-    ACK_TASKS.with_label_values(&[stream]).dec()
+pub fn ack_tasks_total_dec(stream: &str, consumer: &str) {
+    ACK_TASKS.with_label_values(&[stream, consumer]).dec()
 }
 
 pub fn grpc_tasks_total_inc(label: &str, stream: &str) {
@@ -353,9 +362,13 @@ impl ProgramTransformerTaskStatusKind {
     }
 }
 
-pub fn program_transformer_task_status_inc(kind: ProgramTransformerTaskStatusKind) {
+pub fn program_transformer_task_status_inc(
+    stream: &str,
+    consumer: &str,
+    kind: ProgramTransformerTaskStatusKind,
+) {
     PROGRAM_TRANSFORMER_TASK_STATUS_COUNT
-        .with_label_values(&[kind.to_str()])
+        .with_label_values(&[stream, consumer, kind.to_str()])
         .inc()
 }
 
