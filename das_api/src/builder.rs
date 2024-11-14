@@ -118,6 +118,16 @@ impl RpcApiBuilder {
             Ok(rpc_context.schema())
         })?;
 
+        module.register_async_method("get_nft_editions", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<GetNftEditions>()?;
+            rpc_context
+                .get_nft_editions(payload)
+                .await
+                .map_err(Into::into)
+        })?;
+
+        module.register_alias("getNftEditions", "get_nft_editions")?;
+
         Ok(module)
     }
 }

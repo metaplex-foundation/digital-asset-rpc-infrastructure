@@ -566,10 +566,10 @@ fn derive_master_edition_pda_from_mint(mint: Pubkey) -> Pubkey {
         &[
             b"metadata",
             mpl_token_metadata::programs::MPL_TOKEN_METADATA_ID.as_ref(),
-            b"edition",
             mint.as_ref(),
+            b"edition",
         ],
-        &mint,
+        &mpl_token_metadata::programs::MPL_TOKEN_METADATA_ID,
     );
     pda
 }
@@ -614,8 +614,8 @@ pub async fn get_nft_editions(
                 .eq(V1AccountAttachments::Edition)
                 .and(asset_v1_account_attachments::Column::Data.is_not_null())
                 .and(Expr::cust(&format!(
-                    "data->>parent = '{:?}'",
-                    master_edition.id
+                    "data->>'parent' = '{}'",
+                    master_edition_pubkey.to_string()
                 ))),
         )
         .order_by_asc(asset_v1_account_attachments::Column::SlotUpdated)

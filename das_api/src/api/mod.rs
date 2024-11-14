@@ -263,7 +263,7 @@ pub trait ApiContract: Send + Sync + 'static {
     #[rpc(
         name = "getNftEditions",
         params = "named",
-        summary = "Get all printable editions for a master edition NFT"
+        summary = "Get all printable editions for a master edition NFT mint"
     )]
     async fn get_nft_editions(&self, payload: GetNftEditions) -> Result<NftEditions, DasApiError>;
 }
