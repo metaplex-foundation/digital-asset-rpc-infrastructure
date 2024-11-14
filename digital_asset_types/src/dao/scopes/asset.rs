@@ -3,10 +3,10 @@ use crate::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::Instruction,
+        sea_orm_active_enums::{Instruction, SpecificationAssetClass},
         Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -149,11 +149,21 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let cond = Condition::all()
+    let mut cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
         .add(asset::Column::Supply.gt(0));
+
+    if options.show_fungible {
+        cond = cond.add(
+            asset::Column::SpecificationAssetClass
+                .eq(SpecificationAssetClass::FungibleToken)
+                .or(asset::Column::SpecificationAssetClass
+                    .eq(SpecificationAssetClass::FungibleAsset)),
+        );
+    }
+
     get_assets_by_condition(
         conn,
         cond,
@@ -162,7 +172,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options.show_unverified_collections,
     )
     .await
 }
@@ -172,10 +182,21 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let cond = Condition::all()
+    let mut cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
+
+    if options.show_fungible {
+        cond = cond.add(
+            asset::Column::SpecificationAssetClass
+                .eq(SpecificationAssetClass::FungibleToken)
+                .or(asset::Column::SpecificationAssetClass
+                    .eq(SpecificationAssetClass::FungibleAsset)),
+        );
+    }
+
     get_assets_by_condition(
         conn,
         cond,
@@ -385,12 +406,23 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
     if !include_no_supply {
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
+
+    if options.show_fungible {
+        asset_data = asset_data.filter(
+            asset::Column::SpecificationAssetClass
+                .eq(SpecificationAssetClass::FungibleToken)
+                .or(asset::Column::SpecificationAssetClass
+                    .eq(SpecificationAssetClass::FungibleAsset)),
+        );
+    }
+
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
