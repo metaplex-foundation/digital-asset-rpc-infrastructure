@@ -2,7 +2,7 @@ use {
     crate::{
         config::{ConfigIngestStream, REDIS_STREAM_DATA_KEY},
         prom::{
-            ack_tasks_total_dec, ack_tasks_total_inc, ingest_tasks_total_dec,
+            ack_tasks_total_dec, ack_tasks_total_inc, ingest_job_time_set, ingest_tasks_total_dec,
             ingest_tasks_total_inc, program_transformer_task_status_inc, redis_xack_inc,
             redis_xlen_set, redis_xread_inc, ProgramTransformerTaskStatusKind,
         },
@@ -313,7 +313,7 @@ impl Acknowledge {
                     config.name, response, count
                 );
 
-                redis_xack_inc(&config.name, count);
+                redis_xack_inc(&config.name, &config.consumer, count);
             }
             Err(e) => {
                 error!(
@@ -324,7 +324,7 @@ impl Acknowledge {
             }
         }
 
-        ack_tasks_total_dec(&config.name);
+        ack_tasks_total_dec(&config.name, &config.consumer);
     }
 }
 
@@ -424,25 +424,29 @@ impl<H: MessageHandler> IngestStream<H> {
                             let ack_tx = ack_tx.clone();
                             let config = Arc::clone(&config);
 
-                            ingest_tasks_total_inc(&config.name);
+                            ingest_tasks_total_inc(&config.name, &config.consumer);
 
                             tasks.push(tokio::spawn(async move {
+                                let start_time = tokio::time::Instant::now();
                                 let result = handler.handle(map).await.map_err(IngestMessageError::into);
+                                let elapsed_time = start_time.elapsed().as_secs_f64();
+
+                                ingest_job_time_set(&config.name, &config.consumer, elapsed_time);
 
                                 match result {
                                     Ok(()) => {
-                                        program_transformer_task_status_inc(ProgramTransformerTaskStatusKind::Success);
+                                        program_transformer_task_status_inc(&config.name, &config.consumer, ProgramTransformerTaskStatusKind::Success);
                                     }
                                     Err(IngestMessageError::RedisStreamMessage(e)) => {
                                         error!("Failed to process message: {:?}", e);
-                                        program_transformer_task_status_inc(e.into());
+                                        program_transformer_task_status_inc(&config.name, &config.consumer, e.into());
                                     }
                                     Err(IngestMessageError::DownloadMetadataJson(e)) => {
-                                        program_transformer_task_status_inc(e.into());
+                                        program_transformer_task_status_inc(&config.name, &config.consumer, e.into());
                                     }
                                     Err(IngestMessageError::ProgramTransformer(e)) => {
                                         error!("Failed to process message: {:?}", e);
-                                        program_transformer_task_status_inc(e.into());
+                                        program_transformer_task_status_inc(&config.name, &config.consumer, e.into());
                                     }
                                 }
 
@@ -450,7 +454,7 @@ impl<H: MessageHandler> IngestStream<H> {
                                     error!(target: "ingest_stream", "action=send_ack stream={} error={:?}", &config.name, e);
                                 }
 
-                                ingest_tasks_total_dec(&config.name);
+                                ingest_tasks_total_dec(&config.name, &config.consumer);
                             }));
                         }
                     }
@@ -487,7 +491,7 @@ impl<H: MessageHandler> IngestStream<H> {
                                 let handler = Arc::clone(&handler);
 
 
-                                ack_tasks_total_inc(&config.name);
+                                ack_tasks_total_inc(&config.name, &config.consumer);
 
                                 tasks.push(tokio::spawn(async move {
                                     handler.handle(ids).await;
@@ -503,7 +507,7 @@ impl<H: MessageHandler> IngestStream<H> {
                             let ids = std::mem::take(&mut pending);
                             let handler = Arc::clone(&handler);
 
-                            ack_tasks_total_inc(&config.name);
+                            ack_tasks_total_inc(&config.name, &config.consumer);
 
                             tasks.push(tokio::spawn(async move {
                                 handler.handle(ids).await;
@@ -586,7 +590,7 @@ impl<H: MessageHandler> IngestStream<H> {
                                         let count = ids.len();
                                         debug!(target: "ingest_stream", "action=xread stream={} count={:?}", &config.name, count);
 
-                                        redis_xread_inc(&config.name, count);
+                                        redis_xread_inc(&config.name, &config.consumer, count);
 
                                         if let Err(e) = msg_tx.send(ids).await {
                                             error!(target: "ingest_stream", "action=send_ids stream={} error={:?}", &config.name, e);
