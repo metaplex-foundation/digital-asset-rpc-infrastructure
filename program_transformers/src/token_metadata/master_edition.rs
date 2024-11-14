@@ -5,13 +5,11 @@ use {
         types::Key,
     },
     digital_asset_types::dao::{
-        asset, asset_v1_account_attachments, extensions,
-        sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
+        asset_v1_account_attachments, sea_orm_active_enums::V1AccountAttachments,
     },
     sea_orm::{
-        entity::{ActiveModelTrait, ActiveValue, EntityTrait, RelationTrait},
-        prelude::*,
-        query::{JoinType, QuerySelect, QueryTrait},
+        entity::{ActiveValue, EntityTrait},
+        query::QueryTrait,
         sea_query::query::OnConflict,
         ConnectionTrait, DatabaseTransaction, DbBackend,
     },
@@ -65,14 +63,7 @@ pub async fn save_master_edition(
     txn: &DatabaseTransaction,
 ) -> ProgramTransformerResult<()> {
     let id_bytes = id.to_bytes().to_vec();
-    // let master_edition = asset_v1_account_attachments::Entity::find_by_id(id.to_bytes().to_vec())
-    //     // .find_also_related(asset::Entity)
-    //     // .join(
-    //     //     JoinType::InnerJoin,
-    //     //     extensions::asset::Relation::AssetData.def(),
-    //     // )
-    // .one(txn)
-    // .await?;
+
     let ser = serde_json::to_value(me_data)
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
 
@@ -83,13 +74,6 @@ pub async fn save_master_edition(
         slot_updated: ActiveValue::Set(slot as i64),
         ..Default::default()
     };
-
-    // if let Some((_me, Some(asset))) = master_edition {
-    //     let mut updatable: asset::ActiveModel = asset.into();
-    //     updatable.supply = ActiveValue::Set(Decimal::from(1));
-    //     updatable.specification_asset_class = ActiveValue::Set(Some(SpecificationAssetClass::Nft));
-    //     updatable.update(txn).await?;
-    // }
 
     let query = asset_v1_account_attachments::Entity::insert(model)
         .on_conflict(

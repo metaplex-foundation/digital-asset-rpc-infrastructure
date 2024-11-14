@@ -21,7 +21,7 @@ async fn test_get_nft_editions() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["Ey2Qb8kLctbchQsMnhZs5DjY32To2QtPuXNwWvk4NosL"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
