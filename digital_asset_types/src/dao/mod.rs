@@ -2,6 +2,8 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
+use crate::rpc::filter::TokenTypeClass;
+
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
@@ -54,6 +56,7 @@ pub struct SearchAssetsQuery {
     pub condition_type: Option<ConditionType>,
     pub specification_version: Option<SpecificationVersions>,
     pub specification_asset_class: Option<SpecificationAssetClass>,
+    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
     pub creator_address: Option<Vec<u8>>,
@@ -92,6 +95,22 @@ impl SearchAssetsQuery {
                 self.specification_asset_class
                     .clone()
                     .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
+            )
+            .add_option(
+                self.token_type.clone().map(|x| match x {
+                    TokenTypeClass::CompressedNft => {
+                        asset::Column::TreeId.is_not_null()
+                    }
+                    TokenTypeClass::Nft | TokenTypeClass::NonFungibleAsset => {
+                        asset::Column::SpecificationAssetClass.eq(TokenTypeClass::Nft)
+                    }
+                    TokenTypeClass::All => {
+                        asset::Column::SpecificationAssetClass.is_not_null()
+                    }
+                    _ => {
+                        asset::Column::SpecificationAssetClass.eq(x)
+                    }
+                })
             )
             .add_option(
                 self.owner_address
