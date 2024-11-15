@@ -6,7 +6,7 @@ use crate::{
         sea_orm_active_enums::Instruction,
         Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -60,7 +60,7 @@ pub async fn get_by_creator(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
         .add(asset_creators::Column::Creator.eq(creator.clone()))
@@ -76,7 +76,7 @@ pub async fn get_by_creator(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         Some(creator),
     )
     .await
@@ -112,13 +112,13 @@ pub async fn get_by_grouping(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = asset_grouping::Column::GroupKey
         .eq(group_key)
         .and(asset_grouping::Column::GroupValue.eq(group_value));
 
-    if !show_unverified_collections {
+    if !options.show_unverified_collections {
         condition = condition.and(
             asset_grouping::Column::Verified
                 .eq(true)
@@ -136,7 +136,7 @@ pub async fn get_by_grouping(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -149,7 +149,7 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
@@ -162,7 +162,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
     )
     .await
 }
@@ -172,6 +172,7 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options : &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
@@ -185,7 +186,7 @@ pub async fn get_assets(
         Order::Asc,
         pagination,
         limit,
-        false,
+        options,
     )
     .await
 }
@@ -197,7 +198,7 @@ pub async fn get_by_authority(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset_authority::Column::Authority.eq(authority))
@@ -210,7 +211,7 @@ pub async fn get_by_authority(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -225,7 +226,7 @@ async fn get_by_related_condition<E>(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
@@ -244,13 +245,13 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
+    get_related_for_assets(conn, assets, options, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
@@ -325,7 +326,7 @@ pub async fn get_related_for_assets(
         }
     }
 
-    let cond = if show_unverified_collections {
+    let cond = if options.show_unverified_collections {
         Condition::all()
     } else {
         Condition::any()
@@ -335,18 +336,34 @@ pub async fn get_related_for_assets(
             .add(asset_grouping::Column::Verified.is_null())
     };
 
-    let grouping = asset_grouping::Entity::find()
+    let grouping = if options.show_collection_metadata {
+        asset_grouping::Entity::find()
+        .find_also_related(asset_data::Entity)
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(cond)
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
-        .await?;
-    for g in grouping.into_iter() {
+        .await?
+    } else {
+        asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_grouping::Column::GroupValue.is_not_null())
+        .filter(cond)
+        .order_by_asc(asset_grouping::Column::AssetId)
+        .all(conn)
+        .await?
+        .into_iter()
+        .map(|g| (g, None))
+        .collect::<Vec<_>>()
+    };
+
+    for (g, a) in grouping.into_iter() {
         if let Some(asset) = assets_map.get_mut(&g.asset_id) {
-            asset.groups.push(g);
+            asset.groups.push((g, a));
         }
     }
+
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
@@ -360,7 +377,7 @@ pub async fn get_assets_by_condition(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find();
     for def in joins {
@@ -377,7 +394,7 @@ pub async fn get_assets_by_condition(
         .all(conn)
         .await?;
     let full_assets =
-        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
+        get_related_for_assets(conn, assets, options, None).await?;
     Ok(full_assets)
 }
 
@@ -385,6 +402,7 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
@@ -411,7 +429,7 @@ pub async fn get_by_id(
 
     filter_out_stale_creators(&mut creators);
 
-    let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
+    let grouping_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(
@@ -421,15 +439,28 @@ pub async fn get_by_id(
                 // Therefore if verified is null, we can assume that the group is verified.
                 .add(asset_grouping::Column::Verified.is_null()),
         )
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?;
+        .order_by_asc(asset_grouping::Column::AssetId);
+
+    let groups = if options.show_collection_metadata {
+        grouping_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?
+    } else {
+        grouping_query
+            .all(conn)
+            .await?
+            .into_iter()
+            .map(|g| (g, None))
+            .collect::<Vec<_>>()
+    };
+
     Ok(FullAsset {
         asset,
         data,
         authorities,
         creators,
-        groups: grouping,
+        groups,
     })
 }
 
