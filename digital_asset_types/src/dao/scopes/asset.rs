@@ -348,13 +348,11 @@ pub async fn get_related_for_assets(
             .add(asset_grouping::Column::Verified.is_null())
     };
 
-    let grouping = asset_grouping::Entity::find()
+    let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?;
+        .order_by_asc(asset_grouping::Column::AssetId);
 
     if options.show_inscription {
         let attachments = asset_v1_account_attachments::Entity::find()
@@ -369,11 +367,24 @@ pub async fn get_related_for_assets(
         }
     }
 
-    for g in grouping.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
-            asset.groups.push(g);
+    if options.show_collection_metadata {
+        let combined_group_query = grouping_base_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?;
+        for (g, a) in combined_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, a));
+            }
         }
-    }
+    } else {
+        let single_group_query = grouping_base_query.all(conn).await?;
+        for g in single_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, None));
+            }
+        }
+    };
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
@@ -445,7 +456,7 @@ pub async fn get_by_id(
 
     filter_out_stale_creators(&mut creators);
 
-    let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
+    let grouping_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(
@@ -455,16 +466,29 @@ pub async fn get_by_id(
                 // Therefore if verified is null, we can assume that the group is verified.
                 .add(asset_grouping::Column::Verified.is_null()),
         )
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?;
+        .order_by_asc(asset_grouping::Column::AssetId);
+
+    let groups = if options.show_collection_metadata {
+        grouping_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?
+    } else {
+        grouping_query
+            .all(conn)
+            .await?
+            .into_iter()
+            .map(|g| (g, None))
+            .collect::<Vec<_>>()
+    };
+
     Ok(FullAsset {
         asset,
         data,
         authorities,
         creators,
-        groups: grouping,
         inscription,
+        groups,
     })
 }
 
