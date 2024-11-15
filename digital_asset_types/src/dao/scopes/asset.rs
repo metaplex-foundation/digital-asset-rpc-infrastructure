@@ -3,7 +3,7 @@ use crate::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
         cl_audits_v2,
-        extensions::{self, asset_v1_account_attachment, instruction::PascalCase},
+        extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::{Instruction, V1AccountAttachments},
         Cursor, FullAsset, GroupingSize, Pagination,
     },
@@ -561,19 +561,6 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-fn derive_master_edition_pda_from_mint(mint: Pubkey) -> Pubkey {
-    let (pda, _bump_seed) = Pubkey::find_program_address(
-        &[
-            b"metadata",
-            mpl_token_metadata::programs::MPL_TOKEN_METADATA_ID.as_ref(),
-            mint.as_ref(),
-            b"edition",
-        ],
-        &mpl_token_metadata::programs::MPL_TOKEN_METADATA_ID,
-    );
-    pda
-}
-
 pub fn get_edition_data_from_json(data: Value) -> Result<Edition, DbErr> {
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
 }
@@ -588,7 +575,7 @@ pub async fn get_nft_editions(
     limit: Option<u32>,
     page: Option<u32>,
 ) -> Result<NftEditions, DbErr> {
-    let master_edition_pubkey = derive_master_edition_pda_from_mint(mint_address);
+    let master_edition_pubkey = MasterEdition::find_pda(&mint_address).0;
 
     let master_edition =
         asset_v1_account_attachments::Entity::find_by_id(master_edition_pubkey.to_bytes().to_vec())

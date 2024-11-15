@@ -31,6 +31,7 @@ use {
         ConnectionTrait, DbBackend, DbErr, TransactionTrait,
     },
     solana_sdk::pubkey,
+    solana_sdk::pubkey::Pubkey,
     sqlx::types::Decimal,
     tracing::warn,
 };
@@ -141,6 +142,16 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
     }
 
     Ok(())
+}
+
+fn check_is_non_fungible_from_token_standard(token_standard: &Option<TokenStandard>) -> bool {
+    match token_standard {
+        Some(TokenStandard::NonFungible)
+        | Some(TokenStandard::NonFungibleEdition)
+        | Some(TokenStandard::ProgrammableNonFungible)
+        | Some(TokenStandard::ProgrammableNonFungibleEdition) => true,
+        _ => false,
+    }
 }
 
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
@@ -401,6 +412,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
     txn.commit().await?;
 
+    // If the asset is a non-fungible token, then we need to insert to the asset_v1_account_attachments table
+    if check_is_non_fungible_from_token_standard(&metadata.token_standard) {
+        upsert_asset_v1_account_attachments(conn, &mint_pubkey, slot).await?;
+    }
+
     if uri.is_empty() {
         warn!(
             "URI is empty for mint {}. Skipping background task.",
@@ -410,4 +426,33 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
 
     Ok(Some(DownloadMetadataInfo::new(mint_pubkey_vec, uri)))
+}
+
+async fn upsert_asset_v1_account_attachments<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    mint_pubkey: &Pubkey,
+    slot: u64,
+) -> ProgramTransformerResult<()> {
+    let edition_pubkey = MasterEdition::find_pda(mint_pubkey).0;
+    let mint_pubkey_vec = mint_pubkey.to_bytes().to_vec();
+    let attachment = asset_v1_account_attachments::ActiveModel {
+        id: ActiveValue::Set(edition_pubkey.to_bytes().to_vec()),
+        asset_id: ActiveValue::Set(Some(mint_pubkey_vec.clone())),
+        slot_updated: ActiveValue::Set(slot as i64),
+        ..Default::default()
+    };
+    let query = asset_v1_account_attachments::Entity::insert(attachment)
+        .on_conflict(
+            OnConflict::columns([asset_v1_account_attachments::Column::Id])
+                .update_columns([
+                    asset_v1_account_attachments::Column::SlotUpdated,
+                    asset_v1_account_attachments::Column::AssetId,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    conn.execute(query).await?;
+
+    Ok(())
 }
