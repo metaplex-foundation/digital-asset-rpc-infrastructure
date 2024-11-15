@@ -144,14 +144,14 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
     Ok(())
 }
 
-fn check_is_non_fungible_from_token_standard(token_standard: &Option<TokenStandard>) -> bool {
-    match token_standard {
+const fn check_is_non_fungible_from_token_standard(token_standard: Option<TokenStandard>) -> bool {
+    matches!(
+        token_standard,
         Some(TokenStandard::NonFungible)
-        | Some(TokenStandard::NonFungibleEdition)
-        | Some(TokenStandard::ProgrammableNonFungible)
-        | Some(TokenStandard::ProgrammableNonFungibleEdition) => true,
-        _ => false,
-    }
+            | Some(TokenStandard::NonFungibleEdition)
+            | Some(TokenStandard::ProgrammableNonFungible)
+            | Some(TokenStandard::ProgrammableNonFungibleEdition)
+    )
 }
 
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
@@ -413,7 +413,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.commit().await?;
 
     // If the asset is a non-fungible token, then we need to insert to the asset_v1_account_attachments table
-    if check_is_non_fungible_from_token_standard(&metadata.token_standard) {
+    if check_is_non_fungible_from_token_standard(metadata.token_standard) {
         upsert_asset_v1_account_attachments(conn, &mint_pubkey, slot).await?;
     }
 
@@ -439,6 +439,8 @@ async fn upsert_asset_v1_account_attachments<T: ConnectionTrait + TransactionTra
         id: ActiveValue::Set(edition_pubkey.to_bytes().to_vec()),
         asset_id: ActiveValue::Set(Some(mint_pubkey_vec.clone())),
         slot_updated: ActiveValue::Set(slot as i64),
+        // by default, the attachment type is MasterEditionV1
+        attachment_type: ActiveValue::Set(V1AccountAttachments::MasterEditionV1),
         ..Default::default()
     };
     let query = asset_v1_account_attachments::Entity::insert(attachment)

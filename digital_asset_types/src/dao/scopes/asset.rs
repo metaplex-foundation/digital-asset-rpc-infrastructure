@@ -593,7 +593,7 @@ pub async fn get_nft_editions(
         .ok_or(DbErr::RecordNotFound(
             "Master Edition data not found".to_string(),
         ))
-        .map(|data| get_master_edition_data_from_json(data))??;
+        .map(get_master_edition_data_from_json)??;
 
     let nft_editions = asset_v1_account_attachments::Entity::find()
         .filter(
@@ -602,7 +602,7 @@ pub async fn get_nft_editions(
                 .and(asset_v1_account_attachments::Column::Data.is_not_null())
                 .and(Expr::cust(&format!(
                     "data->>'parent' = '{}'",
-                    master_edition_pubkey.to_string()
+                    master_edition_pubkey
                 ))),
         )
         .order_by_asc(asset_v1_account_attachments::Column::SlotUpdated)
@@ -616,17 +616,21 @@ pub async fn get_nft_editions(
                 .data
                 .clone()
                 .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
-                .map(|data| get_edition_data_from_json(data))??;
+                .map(get_edition_data_from_json)??;
 
             Ok(NftEdition {
-                mint_address: mint_address.to_string(),
+                mint_address: e
+                    .asset_id
+                    .clone()
+                    .map(|id| bs58::encode(id).into_string())
+                    .unwrap_or("".to_string()),
                 edition_number: data.edition,
                 edition_address: bs58::encode(e.id.clone()).into_string(),
             })
         })
         .collect::<Result<Vec<NftEdition>, _>>()?;
 
-    return Ok(NftEditions {
+    Ok(NftEditions {
         total: nft_editions.len() as u32,
         limit,
         page,
@@ -634,5 +638,5 @@ pub async fn get_nft_editions(
         supply: master_edition_data.supply,
         max_supply: master_edition_data.max_supply,
         editions: nft_editions,
-    });
+    })
 }
