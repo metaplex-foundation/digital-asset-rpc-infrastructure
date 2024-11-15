@@ -3,8 +3,8 @@ use crate::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::{Instruction, SpecificationAssetClass},
-        Cursor, FullAsset, GroupingSize, Pagination,
+        sea_orm_active_enums::Instruction,
+        tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{filter::AssetSortDirection, options::Options},
 };
@@ -151,18 +151,9 @@ pub async fn get_assets_by_owner(
     limit: u64,
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let mut cond = Condition::all()
+    let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
         .add(asset::Column::Supply.gt(0));
-
-    if options.show_fungible {
-        cond = cond.add(
-            asset::Column::SpecificationAssetClass
-                .eq(SpecificationAssetClass::FungibleToken)
-                .or(asset::Column::SpecificationAssetClass
-                    .eq(SpecificationAssetClass::FungibleAsset)),
-        );
-    }
 
     get_assets_by_condition(
         conn,
@@ -182,20 +173,10 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
-    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let mut cond = Condition::all()
+    let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
-
-    if options.show_fungible {
-        cond = cond.add(
-            asset::Column::SpecificationAssetClass
-                .eq(SpecificationAssetClass::FungibleToken)
-                .or(asset::Column::SpecificationAssetClass
-                    .eq(SpecificationAssetClass::FungibleAsset)),
-        );
-    }
 
     get_assets_by_condition(
         conn,
@@ -299,6 +280,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                token_info: None,
             };
             acc.insert(id, fa);
         };
@@ -414,15 +396,11 @@ pub async fn get_by_id(
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
 
-    if options.show_fungible {
-        asset_data = asset_data.filter(
-            asset::Column::SpecificationAssetClass
-                .eq(SpecificationAssetClass::FungibleToken)
-                .or(asset::Column::SpecificationAssetClass
-                    .eq(SpecificationAssetClass::FungibleAsset)),
-        );
-    }
-
+    let token_info = if options.show_fungible {
+        get_token_by_id(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
@@ -462,6 +440,7 @@ pub async fn get_by_id(
         authorities,
         creators,
         groups: grouping,
+        token_info,
     })
 }
 
@@ -584,4 +563,17 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+pub async fn get_token_by_id(
+    conn: &impl ConnectionTrait,
+    id: Vec<u8>,
+) -> Result<tokens::Model, DbErr> {
+    tokens::Entity::find_by_id(id)
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Token Not Found".to_string())),
+        })
 }
