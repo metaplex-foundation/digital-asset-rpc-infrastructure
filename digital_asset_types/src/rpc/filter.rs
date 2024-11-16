@@ -32,34 +32,13 @@ pub enum AssetSortBy {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq ,EnumIter, DeriveActiveEnum, Serialize, Deserialize,JsonSchema)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "specification_asset_class"
-)]
+#[derive(Debug, Clone, PartialEq, Eq ,EnumIter, Serialize, Deserialize,JsonSchema)]
 pub enum TokenTypeClass {
-    #[sea_orm(string_value = "FUNGIBLE_ASSET")]
-    FungibleAsset,
-    #[sea_orm(string_value = "FUNGIBLE_TOKEN")]
-    FungibleToken,
-    // #[sea_orm(ignore)]
-    #[sea_orm(string_value = "NON_FUNGIBLE_ASSET")]
-    NonFungibleAsset,
-    #[sea_orm(string_value = "MPL_CORE_ASSET")]
-    MplCoreAsset,
-    #[sea_orm(string_value = "MPL_CORE_COLLECTION")]
-    MplCoreCollection,
-    #[sea_orm(string_value = "NFT")]
+    Fungible,
+    NonFungible,
+    Compressed,
     Nft,
-    #[sea_orm(string_value = "PROGRAMMABLE_NFT")]
-    ProgrammableNft,
-    // #[sea_orm(ignore)]
-    #[sea_orm(string_value = "COMPRESSED_NFT")]
-    CompressedNft,
-    // #[sea_orm(ignore)]
-    #[sea_orm(string_value = "ALL")]
-    All,
+    All
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]

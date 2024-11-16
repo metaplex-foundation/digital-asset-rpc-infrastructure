@@ -98,17 +98,18 @@ impl SearchAssetsQuery {
             )
             .add_option(
                 self.token_type.clone().map(|x| match x {
-                    TokenTypeClass::CompressedNft => {
+                    TokenTypeClass::Compressed => {
                         asset::Column::TreeId.is_not_null()
                     }
-                    TokenTypeClass::Nft | TokenTypeClass::NonFungibleAsset => {
-                        asset::Column::SpecificationAssetClass.eq(TokenTypeClass::Nft)
+                    TokenTypeClass::Nft | TokenTypeClass::NonFungible => {
+                        asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                    }
+                    TokenTypeClass::Fungible => {
+                        asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleAsset)
+                        .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken))
                     }
                     TokenTypeClass::All => {
                         asset::Column::SpecificationAssetClass.is_not_null()
-                    }
-                    _ => {
-                        asset::Column::SpecificationAssetClass.eq(x)
                     }
                 })
             )
