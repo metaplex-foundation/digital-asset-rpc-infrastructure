@@ -399,3 +399,8 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct NativeBalance {
+    pub lamports: u64,
+}

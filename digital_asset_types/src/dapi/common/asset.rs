@@ -7,6 +7,7 @@ use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetError, AssetList};
+use crate::rpc::NativeBalance;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
@@ -17,10 +18,14 @@ use mime_guess::Mime;
 
 use sea_orm::DbErr;
 use serde_json::Value;
+use core::str;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::Path;
 use url::Url;
+use solana_sdk::pubkey::Pubkey;
+use solana_client::rpc_client::RpcClient;
+use std::str::FromStr;
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&uri).ok()
@@ -44,6 +49,24 @@ pub fn file_from_str(str: String) -> File {
         mime: Some(mime),
         quality: None,
         contexts: None,
+    }
+}
+
+pub fn get_native_balance(owner_address: Option<Vec<u8>>) -> Option<NativeBalance> {
+    let connection = RpcClient::new("https://index.rpcpool.com/fabdb952-49e8-486d-9b35-b7d63264ec93".to_string());
+    if let Some(owner_address) = owner_address {
+        let owner_pubkey = bs58::encode(owner_address).into_string();
+        let owner_pubkey_str = Pubkey::from_str(&owner_pubkey).unwrap();
+        match connection.get_balance(&owner_pubkey_str) {
+            Ok(balance) => {
+                Some(NativeBalance {
+                    lamports: balance,
+                })
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
     }
 }
 
@@ -71,7 +94,7 @@ pub fn build_asset_response(
         }
     };
 
-    let (items, errors) = asset_list_to_rpc(assets, options);
+    let (items, errors) = asset_list_to_rpc(assets.clone(), options);
     AssetList {
         total,
         limit: limit as u32,
@@ -79,6 +102,11 @@ pub fn build_asset_response(
         before,
         after,
         items,
+        show_native_balance: if options.show_native_balance {
+            get_native_balance(assets.first().and_then(|a| a.asset.owner.clone()))
+        } else {
+            None
+        },
         errors,
         cursor,
     }

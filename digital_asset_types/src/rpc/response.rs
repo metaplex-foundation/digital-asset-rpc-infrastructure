@@ -1,4 +1,6 @@
 use schemars::JsonSchema;
+use super::NativeBalance;
+
 use {
     crate::rpc::Asset,
     serde::{Deserialize, Serialize},
@@ -33,6 +35,8 @@ pub struct AssetList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub items: Vec<Asset>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_native_balance : Option<NativeBalance>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<AssetError>,
 }

@@ -1954,6 +1954,7 @@ dependencies = [
  "sea-query 0.28.5",
  "serde",
  "serde_json",
+ "solana-client",
  "solana-sdk",
  "spl-concurrent-merkle-tree",
  "thiserror",
