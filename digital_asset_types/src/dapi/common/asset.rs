@@ -53,7 +53,7 @@ pub fn file_from_str(str: String) -> File {
 }
 
 pub fn get_native_balance(owner_address: Option<Vec<u8>>) -> Option<NativeBalance> {
-    let connection = RpcClient::new("https://index.rpcpool.com/fabdb952-49e8-486d-9b35-b7d63264ec93".to_string());
+    let connection = RpcClient::new("rpc_url".to_string());
     if let Some(owner_address) = owner_address {
         let owner_pubkey = bs58::encode(owner_address).into_string();
         let owner_pubkey_str = Pubkey::from_str(&owner_pubkey).unwrap();
