@@ -11,7 +11,7 @@ pub async fn get_asset(
     id: Vec<u8>,
     options: &Options,
 ) -> Result<Asset, DbErr> {
-    let asset = scopes::asset::get_by_id(db, id, false).await?;
+    let asset = scopes::asset::get_by_id(db, id, false, options).await?;
     asset_to_rpc(asset, options)
 }
 
@@ -22,7 +22,7 @@ pub async fn get_assets(
     options: &Options,
 ) -> Result<HashMap<String, Asset>, DbErr> {
     let pagination = Pagination::Page { page: 1 };
-    let assets = scopes::asset::get_assets(db, ids, &pagination, limit).await?;
+    let assets = scopes::asset::get_assets(db, ids, &pagination, limit, options).await?;
     let asset_list = build_asset_response(assets, limit, &pagination, options);
     let asset_map = asset_list
         .items

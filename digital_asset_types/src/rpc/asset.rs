@@ -379,6 +379,18 @@ pub struct MplCoreInfo {
     pub plugins_json_version: Option<i32>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInscriptionInfo {
+    pub authority: String,
+    pub root: String,
+    pub inscription_data: String,
+    pub content: String,
+    pub encoding: String,
+    pub order: u64,
+    pub size: u32,
+    pub validation_hash: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Asset {
     pub interface: Interface,
@@ -405,6 +417,8 @@ pub struct Asset {
     pub burnt: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_extensions: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inscription: Option<TokenInscriptionInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
