@@ -21,6 +21,7 @@ use serde_json::Value;
 use core::str;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::env;
 use std::path::Path;
 use url::Url;
 use solana_sdk::pubkey::Pubkey;
@@ -53,7 +54,7 @@ pub fn file_from_str(str: String) -> File {
 }
 
 pub fn get_native_balance(owner_address: Option<Vec<u8>>) -> Option<NativeBalance> {
-    let connection = RpcClient::new("rpc_url".to_string());
+    let connection = RpcClient::new(env::var("RPC_URL").unwrap().to_string());
     if let Some(owner_address) = owner_address {
         let owner_pubkey = bs58::encode(owner_address).into_string();
         let owner_pubkey_str = Pubkey::from_str(&owner_pubkey).unwrap();
