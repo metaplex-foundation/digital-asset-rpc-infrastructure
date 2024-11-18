@@ -406,7 +406,6 @@ impl ApiContract for DasApi {
         let spec: Option<(SpecificationVersions, SpecificationAssetClass)> =
             interface.map(|x| x.into());
         let specification_version = spec.clone().map(|x| x.0);
-        let specification_asset_class = spec.map(|x| x.1);
         let condition_type = condition_type.map(|x| match x {
             SearchConditionType::Any => ConditionType::Any,
             SearchConditionType::All => ConditionType::All,
@@ -433,7 +432,6 @@ impl ApiContract for DasApi {
             negate,
             condition_type,
             specification_version,
-            specification_asset_class,
             token_type,
             owner_address,
             owner_type,

@@ -55,7 +55,6 @@ pub struct SearchAssetsQuery {
     /// Defaults to [ConditionType::All]
     pub condition_type: Option<ConditionType>,
     pub specification_version: Option<SpecificationVersions>,
-    pub specification_asset_class: Option<SpecificationAssetClass>,
     pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
@@ -90,11 +89,6 @@ impl SearchAssetsQuery {
                 self.specification_version
                     .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
-            )
-            .add_option(
-                self.specification_asset_class
-                    .clone()
-                    .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
             )
             .add_option(
                 self.token_type.clone().map(|x| match x {
