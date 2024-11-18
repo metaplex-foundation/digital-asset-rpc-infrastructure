@@ -15,6 +15,7 @@ borsh = {workspace = true}
 bs58 = {workspace = true}
 bytemuck = {workspace = true}
 lazy_static = {workspace = true}
+libreplex_inscriptions = "0.5.1"
 log = {workspace = true}
 mpl-account-compression = {workspace = true, features = ["no-entrypoint"]}
 mpl-bubblegum = {workspace = true}

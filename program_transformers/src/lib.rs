@@ -4,6 +4,7 @@ use {
         error::{ProgramTransformerError, ProgramTransformerResult},
         mpl_core_program::handle_mpl_core_account,
         token::handle_token_program_account,
+        token_inscription::handle_token_inscription_program_update,
         token_metadata::handle_token_metadata_account,
     },
     blockbuster::{
@@ -33,6 +34,7 @@ mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_inscription;
 mod token_metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,6 +240,14 @@ impl ProgramTransformer {
                         parsing_result,
                         &self.storage,
                         &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::TokenInscriptionAccount(parsing_result) => {
+                    handle_token_inscription_program_update(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
                     )
                     .await
                 }
