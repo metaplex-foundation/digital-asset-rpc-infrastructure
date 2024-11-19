@@ -25,6 +25,8 @@ sea-query = { workspace = true, features = ["postgres-array"] }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, features = ["preserve_order"], optional = true }
 solana-sdk = { workspace = true }
+spl-associated-token-account = { workspace = true }
+solana-client = { workspace = true }
 spl-concurrent-merkle-tree = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }

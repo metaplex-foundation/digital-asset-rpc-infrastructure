@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::dao::sea_orm_active_enums::ChainMutability;
 use schemars::JsonSchema;
+use sea_orm::prelude::Decimal;
 use serde_json::Value;
 use {
     serde::{Deserialize, Serialize},
@@ -358,6 +359,17 @@ pub struct Supply {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInfo {
+    pub supply: String,
+    pub balance: String,
+    pub decimals: String,
+    pub token_program : String,
+    pub associated_token_address : String,
+    pub mint_authority : String,
+    pub freeze_authority : String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct MplCoreInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub num_minted: Option<i32>,
@@ -388,6 +400,7 @@ pub struct Asset {
     pub supply: Option<Supply>,
     pub mutable: bool,
     pub burnt: bool,
+    pub token_info : TokenInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]

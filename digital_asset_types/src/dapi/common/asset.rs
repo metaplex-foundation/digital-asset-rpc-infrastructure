@@ -7,20 +7,28 @@ use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetError, AssetList};
+use crate::rpc::TokenInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
 };
+use blockbuster::token_metadata::instructions::Mint;
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
 
+use sea_orm::prelude::Decimal;
 use sea_orm::DbErr;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::env;
 use std::path::Path;
 use url::Url;
+use solana_sdk::pubkey::Pubkey;
+use spl_associated_token_account::get_associated_token_address;
+use std::str::FromStr;
+use solana_client::rpc_client::RpcClient;
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&uri).ok()
@@ -347,6 +355,31 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     )))
 }
 
+pub fn get_associated_token_account_and_balance(owner_address:Vec<u8>,mint: Vec<u8>,supply:Decimal) -> TokenInfo {
+    let owner_address = bs58::encode(owner_address).into_string();
+    let mint = bs58::encode(mint).into_string();
+    let owner_pubkey = Pubkey::from_str("2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g").unwrap();
+    let mint_pubkey = Pubkey::from_str("7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs").unwrap();
+    let associated_token_address = get_associated_token_address(&owner_pubkey, &mint_pubkey);
+
+    let associated_token_address = Pubkey::from_str(&associated_token_address.to_string()).unwrap();
+    let connection = RpcClient::new(env::var("RPC_URL").unwrap().to_string());
+    let account_data = connection.get_token_account_balance(&associated_token_address).unwrap();
+    println!("Token Balance (using Rust): {}", account_data.ui_amount_string);
+
+    println!("Associated Token Address: {}", associated_token_address);
+
+    TokenInfo {
+        balance : "account_data.amount.parse::<u64>().unwrap_or(0)".to_string(),
+        supply: "".to_string(),
+        decimals : "account_data.decimals".to_string(),
+        associated_token_address : associated_token_address.to_string(),
+        mint_authority : "auth".to_string(),
+        freeze_authority : "auth".to_string(),
+        token_program : "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+    }
+}
+
 //TODO -> impl custom error type
 pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbErr> {
     let FullAsset {
@@ -379,7 +412,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
 
     Ok(RpcAsset {
         interface: interface.clone(),
-        id: bs58::encode(asset.id).into_string(),
+        id: bs58::encode(asset.id.clone()).into_string(),
         content: Some(content),
         authorities: Some(rpc_authorities),
         mutable: data.chain_data_mutability.into(),
@@ -422,6 +455,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             ownership_model: asset.owner_type.into(),
             owner: asset
                 .owner
+                .clone()
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
         },
@@ -444,6 +478,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
+        token_info: get_associated_token_account_and_balance(asset.owner.clone().unwrap(), asset.id.clone(),asset.supply), // Clone asset.id here as well
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
