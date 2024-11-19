@@ -1,5 +1,3 @@
-use borsh::BorshDeserialize;
-use libreplex_inscriptions::{EncodingType, Inscription, MediaType};
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, pubkeys};
 
@@ -18,56 +16,77 @@ pubkeys!(
 pub struct TokenInscriptionParser;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum InscriptionMediaType {
-    None,
-    Audio { subtype: String },
-    Application { subtype: String },
-    Image { subtype: String },
-    Video { subtype: String },
-    Text { subtype: String },
-    Custom { media_type: String },
-    Erc721,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum InscriptionEncodingType {
-    None,
-    Base64,
-}
-
-impl From<EncodingType> for InscriptionEncodingType {
-    fn from(encoding_type: EncodingType) -> Self {
-        match encoding_type {
-            EncodingType::None => InscriptionEncodingType::None,
-            EncodingType::Base64 => InscriptionEncodingType::Base64,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct InscriptionData {
-    pub authority: Pubkey,
-    pub mint: Pubkey,
-    pub media_type: InscriptionMediaType,
-    pub encoding: InscriptionEncodingType,
-    pub inscription_data: Pubkey,
+    pub authority: String,
+    pub root: String,
+    pub content: String,
+    pub encoding: String,
+    pub inscription_data: String,
     pub order: u64,
     pub size: u32,
     pub validation_hash: Option<String>,
 }
 
-impl From<MediaType> for InscriptionMediaType {
-    fn from(media_type: MediaType) -> Self {
-        match media_type {
-            MediaType::None => InscriptionMediaType::None,
-            MediaType::Audio { subtype } => InscriptionMediaType::Audio { subtype },
-            MediaType::Application { subtype } => InscriptionMediaType::Application { subtype },
-            MediaType::Image { subtype } => InscriptionMediaType::Image { subtype },
-            MediaType::Video { subtype } => InscriptionMediaType::Video { subtype },
-            MediaType::Text { subtype } => InscriptionMediaType::Text { subtype },
-            MediaType::Custom { media_type } => InscriptionMediaType::Custom { media_type },
-            MediaType::Erc721 => InscriptionMediaType::Erc721,
+impl InscriptionData {
+    pub const BASE_SIZE: usize = 121;
+    pub fn try_unpack_data(data: &[u8]) -> Result<Self, BlockbusterError> {
+        if data.len() < Self::BASE_SIZE {
+            return Err(BlockbusterError::CustomDeserializationError(
+                "Inscription Data is too short".to_string(),
+            ));
         }
+        let authority = Pubkey::try_from(&data[8..40]).unwrap();
+        let mint = Pubkey::try_from(&data[40..72]).unwrap();
+        let inscription_data = Pubkey::try_from(&data[72..104]).unwrap();
+        let order = u64::from_le_bytes(data[104..112].try_into().unwrap());
+        let size = u32::from_le_bytes(data[112..116].try_into().unwrap());
+        let content_type_len = u32::from_le_bytes(data[116..120].try_into().unwrap()) as usize;
+        let content = String::from_utf8(data[120..120 + content_type_len].to_vec()).unwrap();
+        let encoding_len = u32::from_le_bytes(
+            data[120 + content_type_len..124 + content_type_len]
+                .try_into()
+                .unwrap(),
+        ) as usize;
+
+        let encoding = String::from_utf8(
+            data[124 + content_type_len..124 + content_type_len + encoding_len].to_vec(),
+        )
+        .unwrap();
+
+        let validation_exists = u8::from_le_bytes(
+            data[124 + content_type_len + encoding_len..124 + content_type_len + encoding_len + 1]
+                .try_into()
+                .unwrap(),
+        );
+
+        let validation_hash = if validation_exists == 1 {
+            let validation_hash_len = u32::from_le_bytes(
+                data[124 + content_type_len + encoding_len + 1
+                    ..128 + content_type_len + encoding_len + 1]
+                    .try_into()
+                    .unwrap(),
+            ) as usize;
+            Some(
+                String::from_utf8(
+                    data[128 + content_type_len + encoding_len + 1
+                        ..128 + content_type_len + encoding_len + 1 + validation_hash_len]
+                        .to_vec(),
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        };
+        Ok(InscriptionData {
+            authority: authority.to_string(),
+            root: mint.to_string(),
+            content,
+            encoding,
+            inscription_data: inscription_data.to_string(),
+            order,
+            size,
+            validation_hash,
+        })
     }
 }
 
@@ -107,21 +126,7 @@ impl ProgramParser for TokenInscriptionParser {
         &self,
         account_data: &[u8],
     ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
-        let inscription = Inscription::try_from_slice(account_data).map_err(|_| {
-            BlockbusterError::CustomDeserializationError("Inscription Unpack Failed".to_string())
-        })?;
-
-        let data = InscriptionData {
-            authority: inscription.authority,
-            mint: inscription.root,
-            media_type: inscription.media_type.into(),
-            encoding: inscription.encoding_type.into(),
-            inscription_data: inscription.inscription_data,
-            order: inscription.order,
-            size: inscription.size,
-            validation_hash: inscription.validation_hash,
-        };
-
+        let data = InscriptionData::try_unpack_data(account_data)?;
         Ok(Box::new(TokenInscriptionAccount { data }))
     }
 }

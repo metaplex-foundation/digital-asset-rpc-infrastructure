@@ -12,8 +12,8 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
-            ProgramParseResult,
+            token_account::TokenAccountParser, token_inscriptions::TokenInscriptionParser,
+            token_metadata::TokenMetadataParser, ProgramParseResult,
         },
     },
     futures::future::BoxFuture,
@@ -95,10 +95,12 @@ impl ProgramTransformer {
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
+        let token_inscription = TokenInscriptionParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
+        parsers.insert(token_inscription.key(), Box::new(token_inscription));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
