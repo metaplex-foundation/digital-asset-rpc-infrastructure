@@ -1,12 +1,13 @@
 use crate::{
     dao::{
         asset::{self},
-        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
+        cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
         Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -60,7 +61,7 @@ pub async fn get_by_creator(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
         .add(asset_creators::Column::Creator.eq(creator.clone()))
@@ -76,7 +77,7 @@ pub async fn get_by_creator(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         Some(creator),
     )
     .await
@@ -112,13 +113,13 @@ pub async fn get_by_grouping(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = asset_grouping::Column::GroupKey
         .eq(group_key)
         .and(asset_grouping::Column::GroupValue.eq(group_value));
 
-    if !show_unverified_collections {
+    if !options.show_unverified_collections {
         condition = condition.and(
             asset_grouping::Column::Verified
                 .eq(true)
@@ -136,7 +137,7 @@ pub async fn get_by_grouping(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -149,11 +150,12 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -162,7 +164,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
     )
     .await
 }
@@ -172,10 +174,12 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -185,7 +189,7 @@ pub async fn get_assets(
         Order::Asc,
         pagination,
         limit,
-        false,
+        options,
     )
     .await
 }
@@ -197,7 +201,7 @@ pub async fn get_by_authority(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset_authority::Column::Authority.eq(authority))
@@ -210,7 +214,7 @@ pub async fn get_by_authority(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -225,7 +229,7 @@ async fn get_by_related_condition<E>(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
@@ -244,19 +248,19 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
+    get_related_for_assets(conn, assets, options, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
     let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
-        .filter(asset_data::Column::Id.is_in(asset_ids))
+        .filter(asset_data::Column::Id.is_in(asset_ids.clone()))
         .all(conn)
         .await?;
     let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
@@ -278,6 +282,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                inscription: None,
             };
             acc.insert(id, fa);
         };
@@ -325,7 +330,7 @@ pub async fn get_related_for_assets(
         }
     }
 
-    let cond = if show_unverified_collections {
+    let cond = if options.show_unverified_collections {
         Condition::all()
     } else {
         Condition::any()
@@ -342,6 +347,20 @@ pub async fn get_related_for_assets(
         .order_by_asc(asset_grouping::Column::AssetId)
         .all(conn)
         .await?;
+
+    if options.show_inscription {
+        let attachments = asset_v1_account_attachments::Entity::find()
+            .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids.clone()))
+            .all(conn)
+            .await?;
+
+        for a in attachments.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&a.id) {
+                asset.inscription = Some(a);
+            }
+        }
+    }
+
     for g in grouping.into_iter() {
         if let Some(asset) = assets_map.get_mut(&g.asset_id) {
             asset.groups.push(g);
@@ -360,7 +379,7 @@ pub async fn get_assets_by_condition(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find();
     for def in joins {
@@ -376,8 +395,7 @@ pub async fn get_assets_by_condition(
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    let full_assets =
-        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
+    let full_assets = get_related_for_assets(conn, assets, options, None).await?;
     Ok(full_assets)
 }
 
@@ -385,12 +403,20 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
     if !include_no_supply {
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
+
+    let inscription = if options.show_inscription {
+        get_inscription_by_id(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
+
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
@@ -430,6 +456,7 @@ pub async fn get_by_id(
         authorities,
         creators,
         groups: grouping,
+        inscription,
     })
 }
 
@@ -552,4 +579,17 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+pub async fn get_inscription_by_id(
+    conn: &impl ConnectionTrait,
+    id: Vec<u8>,
+) -> Result<asset_v1_account_attachments::Model, DbErr> {
+    asset_v1_account_attachments::Entity::find_by_id(id)
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
+        })
 }
