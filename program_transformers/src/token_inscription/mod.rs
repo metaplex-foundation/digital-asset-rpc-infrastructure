@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::AccountInfo;
 use blockbuster::programs::token_inscriptions::TokenInscriptionAccount;
 use digital_asset_types::dao::asset_v1_account_attachments;
 use digital_asset_types::dao::sea_orm_active_enums::V1AccountAttachments;
@@ -8,8 +9,6 @@ use sea_orm::{
     ActiveValue, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, QueryTrait,
 };
 use solana_sdk::pubkey::Pubkey;
-
-use crate::AccountInfo;
 
 use crate::error::{ProgramTransformerError, ProgramTransformerResult};
 
