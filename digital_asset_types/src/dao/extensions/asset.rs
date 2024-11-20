@@ -76,7 +76,7 @@ impl Default for asset::Model {
             specification_version: None,
             specification_asset_class: None,
             owner: None,
-            owner_type: OwnerType::Single,
+            owner_type: OwnerType::Unknown,
             delegate: None,
             frozen: Default::default(),
             supply: Default::default(),

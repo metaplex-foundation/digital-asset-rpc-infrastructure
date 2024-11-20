@@ -27,7 +27,7 @@ use {
     std::collections::{HashMap, HashSet, VecDeque},
     token_extensions::handle_token_extensions_program_account,
     tokio::time::{sleep, Duration},
-    tracing::{debug, error, info},
+    tracing::{debug, error},
 };
 
 mod asset_upserts;
@@ -91,7 +91,6 @@ pub struct ProgramTransformer {
 
 impl ProgramTransformer {
     pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
-        info!("Initializing Program Transformer");
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(5);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
@@ -137,7 +136,6 @@ impl ProgramTransformer {
         &self,
         tx_info: &TransactionInfo,
     ) -> ProgramTransformerResult<()> {
-        info!("Handling Transaction: {:?}", tx_info.signature);
         let instructions = self.break_transaction(tx_info);
         let mut not_impl = 0;
         let ixlen = instructions.len();
@@ -217,7 +215,6 @@ impl ProgramTransformer {
         &self,
         account_info: &AccountInfo,
     ) -> ProgramTransformerResult<()> {
-        info!("Handling Account Update: {:?}", account_info.pubkey);
         if let Some(program) = self.match_program(&account_info.owner) {
             let result = program.handle_account(&account_info.data)?;
             match result.result_type() {
@@ -240,7 +237,6 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
-                    info!("Handling Token Extensions Program Account");
                     handle_token_extensions_program_account(
                         account_info,
                         parsing_result,

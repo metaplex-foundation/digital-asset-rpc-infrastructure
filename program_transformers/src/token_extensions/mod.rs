@@ -12,7 +12,7 @@ use {
     },
     digital_asset_types::dao::{
         asset, asset_data,
-        sea_orm_active_enums::{ChainMutability, SpecificationAssetClass, SpecificationVersions},
+        sea_orm_active_enums::ChainMutability,
         token_accounts,
         tokens::{self, IsNonFungible as IsNonFungibleModel},
     },
@@ -126,11 +126,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                 extensions,
             } = m;
 
-            let extensions: Option<Value> = if extensions.is_some() {
-                if let Some(metadata) = &m.extensions.metadata {
-                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?;
-                }
-
+            let mint_extensions: Option<Value> = if extensions.is_some() {
                 filter_non_null_fields(
                     serde_json::to_value(extensions.clone())
                         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?,
@@ -158,7 +154,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                 extension_data: ActiveValue::Set(None),
                 mint_authority: ActiveValue::Set(mint_auth),
                 freeze_authority: ActiveValue::Set(freeze_auth),
-                extensions: ActiveValue::Set(extensions.clone()),
+                extensions: ActiveValue::Set(mint_extensions.clone()),
             };
 
             let mut query = tokens::Entity::insert(model)
@@ -190,13 +186,17 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                     mint: account_key.clone(),
                     supply: m.supply.into(),
                     slot_updated_mint_account: slot,
-                    extensions: extensions.clone(),
+                    extensions: mint_extensions.clone(),
                 },
                 &txn,
             )
             .await?;
 
             txn.commit().await?;
+
+            if let Some(metadata) = &extensions.metadata {
+                upsert_asset_data(metadata, account_key.clone(), slot, db).await?;
+            }
 
             Ok(())
         }
@@ -269,8 +269,6 @@ async fn upsert_assets_metadata_cols(
 ) -> Result<(), DbErr> {
     let asset = asset::ActiveModel {
         id: ActiveValue::Set(metadata.mint.clone()),
-        specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
-        specification_version: Set(Some(SpecificationVersions::V0)),
         slot_updated_metadata_account: Set(Some(metadata.slot_updated_metadata_account)),
         ..Default::default()
     };
@@ -278,11 +276,7 @@ async fn upsert_assets_metadata_cols(
     let mut asset_query = asset::Entity::insert(asset)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
-                .update_columns([
-                    asset::Column::SpecificationAssetClass,
-                    asset::Column::SpecificationVersion,
-                    asset::Column::SlotUpdatedMetadataAccount,
-                ])
+                .update_columns([asset::Column::SlotUpdatedMetadataAccount])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);

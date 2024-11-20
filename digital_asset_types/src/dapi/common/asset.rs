@@ -281,13 +281,13 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
+pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Option<Content> {
     match asset.specification_version {
         Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
-            v1_content_from_json(data)
+            v1_content_from_json(data).ok()
         }
-        Some(_) => Err(DbErr::Custom("Version Not Implemented".to_string())),
-        None => Err(DbErr::Custom("Specification version not found".to_string())),
+        Some(_) => None,
+        None => None,
     }
 }
 
@@ -337,10 +337,7 @@ pub fn to_grouping(
 
 pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     Ok(Interface::from((
-        asset
-            .specification_version
-            .as_ref()
-            .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+        asset.specification_version.as_ref(),
         asset
             .specification_asset_class
             .as_ref()
@@ -363,7 +360,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
-    let content = get_content(&asset, &data)?;
+    let content = get_content(&asset, &data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
@@ -384,7 +381,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
-        content: Some(content),
+        content,
         authorities: Some(rpc_authorities),
         mutable: data.chain_data_mutability.into(),
         compression: Some(Compression {
