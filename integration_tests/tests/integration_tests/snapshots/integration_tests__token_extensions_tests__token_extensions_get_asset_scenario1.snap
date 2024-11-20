@@ -6,16 +6,6 @@ snapshot_kind: text
 {
   "interface": "FungibleToken",
   "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
-  "content": {
-    "$schema": "https://schema.metaplex.com/nft1.0.json",
-    "json_uri": "https://acme.com/demo.json",
-    "files": [],
-    "metadata": {
-      "name": "DAS Dev",
-      "symbol": "DAS"
-    },
-    "links": {}
-  },
   "authorities": [],
   "compression": {
     "eligible": false,
@@ -41,7 +31,7 @@ snapshot_kind: text
     "frozen": false,
     "delegated": false,
     "delegate": null,
-    "ownership_model": "single",
+    "ownership_model": "token",
     "owner": ""
   },
   "mutable": true,

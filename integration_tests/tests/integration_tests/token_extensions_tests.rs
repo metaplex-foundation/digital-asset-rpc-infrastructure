@@ -11,7 +11,7 @@ use super::common::*;
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_token_extensions_get_asset() {
+async fn test_token_extensions_get_asset_scenario1() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
         name.clone(),
@@ -21,10 +21,7 @@ async fn test_token_extensions_get_asset() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
-        "AXKwjfsx6qpiw3RkwUbQZgjm9t6cpf6gnvGmNJPunerx",
-    ]);
+    let seeds: Vec<SeedEvent> = seed_accounts(["BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
@@ -32,6 +29,36 @@ async fn test_token_extensions_get_asset() {
     let request = r#"        
     {
         "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"
+    }
+    "#;
+
+    let request: api::GetAsset = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_asset(request).await.unwrap();
+
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_token_extensions_get_asset_scenario2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Mainnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["HVbpJAQGNpkgBaYBZQBR1t7yFdvaYVp2vCQQfKKEN4tM"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"        
+    {
+        "id": "HVbpJAQGNpkgBaYBZQBR1t7yFdvaYVp2vCQQfKKEN4tM"
     }
     "#;
 

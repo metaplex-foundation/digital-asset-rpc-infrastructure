@@ -21,7 +21,7 @@ use {
                 SpecificationVersions, V1AccountAttachments,
             },
             token_accounts,
-            tokens::{self, IsNonFungible},
+            tokens::{self},
         },
         json::ChainDataV1,
     },
@@ -80,8 +80,6 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         RETRY_INTERVALS,
     )
     .await?;
-
-    let is_non_fungible = token.as_ref().map(|t| t.is_non_fungible()).unwrap_or(false);
 
     if let Some(token) = token {
         upsert_assets_mint_account_columns(
@@ -176,10 +174,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let mut ownership_type = match class {
         SpecificationAssetClass::FungibleAsset => OwnerType::Token,
         SpecificationAssetClass::FungibleToken => OwnerType::Token,
-        SpecificationAssetClass::Nft | SpecificationAssetClass::ProgrammableNft => {
-            OwnerType::Single
-        }
-        _ => OwnerType::Unknown,
+        SpecificationAssetClass::Unknown => OwnerType::Unknown,
+        _ => OwnerType::Single,
     };
 
     // Wrapped Solana is a special token that has supply 0 (infinite).

@@ -71,9 +71,11 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account)),
         slot_updated: Set(Some(columns.slot_updated_mint_account)),
         mint_extensions: Set(columns.extensions),
-        asset_data: Set(Some(columns.mint)),
+        asset_data: Set(Some(columns.mint.clone())),
         // assume every token is a fungible token when mint account is created
         specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
+        // // assume multiple ownership as we set asset class to fungible token
+        owner_type: Set(OwnerType::Token),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)

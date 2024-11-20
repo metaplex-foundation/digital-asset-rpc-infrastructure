@@ -52,13 +52,17 @@ pub enum Interface {
     Custom,
 }
 
-impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
-    fn from(i: (&SpecificationVersions, &SpecificationAssetClass)) -> Self {
+impl From<(Option<&SpecificationVersions>, &SpecificationAssetClass)> for Interface {
+    fn from(i: (Option<&SpecificationVersions>, &SpecificationAssetClass)) -> Self {
         match i {
-            (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
-            (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
-            (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
-            (SpecificationVersions::V1, SpecificationAssetClass::ProgrammableNft) => {
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::Nft) => Interface::V1NFT,
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::PrintableNft) => {
+                Interface::V1NFT
+            }
+            (Some(SpecificationVersions::V0), SpecificationAssetClass::Nft) => {
+                Interface::LEGACY_NFT
+            }
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::ProgrammableNft) => {
                 Interface::ProgrammableNFT
             }
             (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
