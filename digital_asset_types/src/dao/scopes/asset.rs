@@ -4,7 +4,7 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::filter::AssetSortDirection,
 };
@@ -278,6 +278,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                token_info: vec![],
             };
             acc.insert(id, fa);
         };
@@ -322,6 +323,19 @@ pub async fn get_related_for_assets(
     for a in authorities.into_iter() {
         if let Some(asset) = assets_map.get_mut(&a.asset_id) {
             asset.authorities.push(a);
+        }
+    }
+
+    let ids = assets_map.keys().cloned().collect::<Vec<_>>();
+    let token_info = tokens::Entity::find()
+        .find_also_related(token_accounts::Entity)
+        .filter(tokens::Column::Mint.is_in(ids.clone()))
+        .order_by_asc(tokens::Column::Mint)
+        .all(conn)
+        .await?;
+    for (t, ta) in token_info.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&t.mint) {
+            asset.token_info.push((t, ta));
         }
     }
 
@@ -403,6 +417,14 @@ pub async fn get_by_id(
         .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
+
+    let token_info = tokens::Entity::find()
+        .find_also_related(token_accounts::Entity)
+        .filter(tokens::Column::Mint.eq(asset.id.clone()))
+        .order_by_asc(tokens::Column::Mint)
+        .all(conn)
+        .await?;
+
     let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_creators::Column::Position)
@@ -430,6 +452,7 @@ pub async fn get_by_id(
         authorities,
         creators,
         groups: grouping,
+        token_info,
     })
 }
 

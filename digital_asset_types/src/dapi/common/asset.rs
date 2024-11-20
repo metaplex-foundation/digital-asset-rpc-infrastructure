@@ -1,8 +1,11 @@
 use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::tokens;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::{
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, token_accounts,
+};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
 use crate::rpc::response::TransactionSignatureList;
@@ -12,23 +15,15 @@ use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
 };
-use blockbuster::token_metadata::instructions::Mint;
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
-
-use sea_orm::prelude::Decimal;
 use sea_orm::DbErr;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::env;
 use std::path::Path;
 use url::Url;
-use solana_sdk::pubkey::Pubkey;
-use spl_associated_token_account::get_associated_token_address;
-use std::str::FromStr;
-use solana_client::rpc_client::RpcClient;
 
 pub fn to_uri(uri: String) -> Option<Url> {
     Url::parse(&uri).ok()
@@ -306,6 +301,35 @@ pub fn to_authority(authority: Vec<asset_authority::Model>) -> Vec<Authority> {
         .collect()
 }
 
+pub fn to_token_info(
+    token_info: Vec<(tokens::Model, Option<token_accounts::Model>)>,
+) -> Vec<TokenInfo> {
+    token_info
+        .iter()
+        .map(|(t, ta)| TokenInfo {
+            balance: ta.as_ref().map(|t| t.amount as u64).unwrap(),
+            supply: t.supply.to_string().parse::<u64>().unwrap(),
+            decimals: t.decimals.to_string().parse::<u8>().unwrap(),
+            freeze_authority: t
+                .freeze_authority
+                .as_ref()
+                .map(|fa| bs58::encode(fa).into_string())
+                .or_else(|| Some(String::new())),
+            mint_authority: t
+                .mint_authority
+                .as_ref()
+                .map(|fa| bs58::encode(fa).into_string())
+                .or_else(|| Some(String::new())),
+            associated_token_address: Some(
+                ta.as_ref()
+                    .map(|t| bs58::encode(&t.pubkey).into_string())
+                    .unwrap_or(String::new()),
+            ),
+            token_program: bs58::encode(&t.token_program).into_string(),
+        })
+        .collect()
+}
+
 pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
     creators
         .iter()
@@ -355,28 +379,19 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     )))
 }
 
-pub fn get_associated_token_account_and_balance(owner_address:Vec<u8>,mint: Vec<u8>,supply:Decimal) -> TokenInfo {
-    let owner_address = bs58::encode(owner_address).into_string();
-    let mint = bs58::encode(mint).into_string();
-    let owner_pubkey = Pubkey::from_str("2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g").unwrap();
-    let mint_pubkey = Pubkey::from_str("7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs").unwrap();
-    let associated_token_address = get_associated_token_address(&owner_pubkey, &mint_pubkey);
-
-    let associated_token_address = Pubkey::from_str(&associated_token_address.to_string()).unwrap();
-    let connection = RpcClient::new(env::var("RPC_URL").unwrap().to_string());
-    let account_data = connection.get_token_account_balance(&associated_token_address).unwrap();
-    println!("Token Balance (using Rust): {}", account_data.ui_amount_string);
-
-    println!("Associated Token Address: {}", associated_token_address);
-
-    TokenInfo {
-        balance : "account_data.amount.parse::<u64>().unwrap_or(0)".to_string(),
-        supply: "".to_string(),
-        decimals : "account_data.decimals".to_string(),
-        associated_token_address : associated_token_address.to_string(),
-        mint_authority : "auth".to_string(),
-        freeze_authority : "auth".to_string(),
-        token_program : "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+pub fn get_token_info_from_vec(token_info: Vec<TokenInfo>) -> Result<TokenInfo, DbErr> {
+    if let Some(first_token_info) = token_info.first() {
+        Ok(TokenInfo {
+            balance: first_token_info.balance,
+            supply: first_token_info.supply,
+            decimals: first_token_info.decimals,
+            associated_token_address: first_token_info.associated_token_address.clone(),
+            mint_authority: first_token_info.mint_authority.clone(),
+            freeze_authority: first_token_info.freeze_authority.clone(),
+            token_program: first_token_info.token_program.clone(),
+        })
+    } else {
+        Err(DbErr::Custom("Token info is empty".to_string()))
     }
 }
 
@@ -388,12 +403,14 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         authorities,
         creators,
         groups,
+        token_info,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
     let content = get_content(&asset, &data)?;
+    let token_info = to_token_info(token_info);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
@@ -478,7 +495,10 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
-        token_info: get_associated_token_account_and_balance(asset.owner.clone().unwrap(), asset.id.clone(),asset.supply), // Clone asset.id here as well
+        token_info: match get_token_info_from_vec(token_info) {
+            Ok(info) => Some(info),
+            Err(_) => None,
+        },
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
