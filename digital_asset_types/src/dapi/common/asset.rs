@@ -281,14 +281,8 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Option<Content> {
-    match asset.specification_version {
-        Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
-            v1_content_from_json(data).ok()
-        }
-        Some(_) => None,
-        None => None,
-    }
+pub fn get_content(data: &asset_data::Model) -> Option<Content> {
+    v1_content_from_json(data).ok()
 }
 
 pub fn to_authority(authority: Vec<asset_authority::Model>) -> Vec<Authority> {
@@ -360,14 +354,31 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
-    let content = get_content(&asset, &data);
-    let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
-    let chain_data_selector = &mut chain_data_selector_fn;
-    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let edition_nonce =
-        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+
+    let (content, edition_nonce, basis_points, mutable, uses) = if let Some(data) = &data {
+        let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
+        let chain_data_selector = &mut chain_data_selector_fn;
+        (
+            get_content(data),
+            safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64()),
+            safe_select(chain_data_selector, "$.primary_sale_happened")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            data.chain_data_mutability.clone().into(),
+            data.chain_data.get("uses").map(|u| Uses {
+                use_method: u
+                    .get("use_method")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("Single")
+                    .to_string()
+                    .into(),
+                total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+                remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+            }),
+        )
+    } else {
+        (None, None, false, false, None)
+    };
 
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
@@ -383,7 +394,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         id: bs58::encode(asset.id).into_string(),
         content,
         authorities: Some(rpc_authorities),
-        mutable: data.chain_data_mutability.into(),
+        mutable,
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
@@ -434,16 +445,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             }),
             _ => None,
         },
-        uses: data.chain_data.get("uses").map(|u| Uses {
-            use_method: u
-                .get("use_method")
-                .and_then(|s| s.as_str())
-                .unwrap_or("Single")
-                .to_string()
-                .into(),
-            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-        }),
+        uses,
         burnt: asset.burnt,
         mint_extensions: asset.mint_extensions,
         plugins: asset.mpl_core_plugins,
