@@ -8,4 +8,6 @@ pub struct Options {
     pub show_unverified_collections: bool,
     #[serde(default)]
     pub show_fungible: bool,
+    #[serde(default)]
+    pub show_zero_balance: bool,
 }

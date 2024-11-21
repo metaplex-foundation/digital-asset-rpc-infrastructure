@@ -2,6 +2,8 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
+use crate::rpc::options::Options;
+
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
@@ -75,7 +77,7 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-    pub fn conditions(&self) -> Result<(Condition, Vec<RelationDef>), DbErr> {
+    pub fn conditions(&self, options: &Options) -> Result<(Condition, Vec<RelationDef>), DbErr> {
         let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
             None | Some(ConditionType::All) => Condition::all(),
@@ -150,11 +152,19 @@ impl SearchAssetsQuery {
             // In theory, the owner_type=single check should be sufficient,
             // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
             // The supply check guarentees we do not include those.
-            conditions = conditions.add_option(Some(
-                asset::Column::OwnerType
-                    .eq(OwnerType::Single)
-                    .and(asset::Column::Supply.lte(1)),
-            ));
+            if options.show_zero_balance {
+                conditions = conditions.add(
+                    token_accounts::Column::Amount
+                        .eq(0)
+                        .or(token_accounts::Column::Amount.ne(0)),
+                );
+            } else {
+                conditions = conditions.add(
+                    tokens::Column::Supply
+                        .ne(0)
+                        .or(asset::Column::Burnt.eq(true)),
+                );
+            }
         }
 
         if let Some(c) = self.creator_address.to_owned() {
@@ -180,6 +190,26 @@ impl SearchAssetsQuery {
                 });
             joins.push(rel);
         }
+
+        let rel = extensions::tokens::Relation::Asset
+            .def()
+            .rev()
+            .on_condition(|left, right| {
+                Expr::tbl(right, tokens::Column::Mint)
+                    .eq(Expr::tbl(left, asset::Column::Id))
+                    .into_condition()
+            });
+        joins.push(rel);
+
+        let rel = extensions::token_accounts::Relation::Tokens
+            .def()
+            .rev()
+            .on_condition(|left, right| {
+                Expr::tbl(right, token_accounts::Column::Mint)
+                    .eq(Expr::tbl(left, tokens::Column::Mint))
+                    .into_condition()
+            });
+        joins.push(rel);
 
         if let Some(a) = self.authority_address.to_owned() {
             conditions = conditions.add(asset_authority::Column::Authority.eq(a));

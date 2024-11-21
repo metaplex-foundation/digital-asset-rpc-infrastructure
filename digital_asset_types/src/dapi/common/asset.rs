@@ -379,18 +379,24 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         _ => None,
     };
 
-    let token_info = if options.show_fungible && token_info.is_some() {
-        let token_info = token_info.unwrap();
+    let token_info = if let Some(token_info) = token_info {
         Some(TokenInfo {
-            supply: token_info.supply.try_into().unwrap_or(0),
-            decimals: token_info.decimals as u8,
+            balance: token_info
+                .1
+                .as_ref()
+                .map_or(0, |info| info.amount.try_into().unwrap_or(0)),
+            supply: token_info.0.supply.try_into().unwrap_or(0),
+            decimals: token_info.0.decimals as u8,
             mint_authority: token_info
+                .0
                 .mint_authority
                 .map(|s| bs58::encode(s).into_string()),
             freeze_authority: token_info
+                .0
                 .freeze_authority
                 .map(|s| bs58::encode(s).into_string()),
-            token_program: bs58::encode(token_info.token_program).into_string(),
+            token_program: bs58::encode(token_info.0.token_program).into_string(),
+            associated_token_address : token_info.1.as_ref().map(|info| bs58::encode(info.pubkey.clone()).into_string()),
         })
     } else {
         None

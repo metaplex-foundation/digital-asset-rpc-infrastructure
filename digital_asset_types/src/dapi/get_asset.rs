@@ -11,7 +11,7 @@ pub async fn get_asset(
     id: Vec<u8>,
     options: &Options,
 ) -> Result<Asset, DbErr> {
-    let asset = scopes::asset::get_by_id(db, id, false, options).await?;
+    let asset = scopes::asset::get_by_id(db, id, false).await?;
     asset_to_rpc(asset, options)
 }
 
