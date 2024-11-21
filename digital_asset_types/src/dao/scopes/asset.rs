@@ -15,6 +15,7 @@ use crate::{
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
 use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
@@ -561,11 +562,7 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-pub fn get_edition_data_from_json(data: Value) -> Result<Edition, DbErr> {
-    serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
-}
-
-pub fn get_master_edition_data_from_json(data: Value) -> Result<MasterEdition, DbErr> {
+pub fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
 }
 
@@ -587,13 +584,13 @@ pub async fn get_nft_editions(
 
     let limit = limit.unwrap_or(10);
 
-    let master_edition_data = master_edition
+    let master_edition_data: MasterEdition = master_edition
         .data
         .clone()
         .ok_or(DbErr::RecordNotFound(
             "Master Edition data not found".to_string(),
         ))
-        .map(get_master_edition_data_from_json)??;
+        .map(get_edition_data_from_json)??;
 
     let nft_editions = asset_v1_account_attachments::Entity::find()
         .filter(
@@ -612,7 +609,7 @@ pub async fn get_nft_editions(
     let nft_editions = nft_editions
         .iter()
         .map(|e| -> Result<NftEdition, DbErr> {
-            let data = e
+            let data: Edition = e
                 .data
                 .clone()
                 .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))

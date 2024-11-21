@@ -30,7 +30,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 url = { workspace = true }
 mpl-token-metadata = { workspace = true }
-hex = { workspace = true }
 
 [features]
 default = ["json_types", "sql_types"]

@@ -75,7 +75,7 @@ pub async fn save_master_edition(
         ..Default::default()
     };
 
-    let query = asset_v1_account_attachments::Entity::insert(model)
+    let mut query = asset_v1_account_attachments::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .update_columns([
@@ -86,6 +86,12 @@ pub async fn save_master_edition(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated >= asset_v1_account_attachments.slot_updated",
+        query.sql
+    );
+
     txn.execute(query).await?;
     Ok(())
 }
@@ -109,7 +115,7 @@ pub async fn save_edition(
         ..Default::default()
     };
 
-    let query = asset_v1_account_attachments::Entity::insert(model)
+    let mut query = asset_v1_account_attachments::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .update_columns([
@@ -120,7 +126,12 @@ pub async fn save_edition(
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    txn.execute(query).await?;
 
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated >= asset_v1_account_attachments.slot_updated",
+        query.sql
+    );
+
+    txn.execute(query).await?;
     Ok(())
 }

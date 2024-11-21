@@ -1942,7 +1942,6 @@ dependencies = [
  "borsh-derive 0.10.3",
  "bs58 0.4.0",
  "futures",
- "hex",
  "indexmap 1.9.3",
  "jsonpath_lib",
  "log",

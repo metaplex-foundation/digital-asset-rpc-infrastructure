@@ -1,4 +1,5 @@
 use {
+    super::IsNonFungibeFromTokenStandard,
     crate::{
         asset_upserts::{
             upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
@@ -142,16 +143,6 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
     }
 
     Ok(())
-}
-
-const fn check_is_non_fungible_from_token_standard(token_standard: Option<TokenStandard>) -> bool {
-    matches!(
-        token_standard,
-        Some(TokenStandard::NonFungible)
-            | Some(TokenStandard::NonFungibleEdition)
-            | Some(TokenStandard::ProgrammableNonFungible)
-            | Some(TokenStandard::ProgrammableNonFungibleEdition)
-    )
 }
 
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
@@ -413,7 +404,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.commit().await?;
 
     // If the asset is a non-fungible token, then we need to insert to the asset_v1_account_attachments table
-    if check_is_non_fungible_from_token_standard(metadata.token_standard) {
+    if let Some(true) = metadata.token_standard.map(|t| t.is_non_fungible()) {
         upsert_asset_v1_account_attachments(conn, &mint_pubkey, slot).await?;
     }
 
@@ -446,10 +437,7 @@ async fn upsert_asset_v1_account_attachments<T: ConnectionTrait + TransactionTra
     let query = asset_v1_account_attachments::Entity::insert(attachment)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
-                .update_columns([
-                    asset_v1_account_attachments::Column::SlotUpdated,
-                    asset_v1_account_attachments::Column::AssetId,
-                ])
+                .update_columns([asset_v1_account_attachments::Column::AssetId])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
