@@ -90,23 +90,30 @@ impl SearchAssetsQuery {
                     .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
-            .add_option(
-                self.token_type.clone().map(|x| match x {
-                    TokenTypeClass::Compressed => {
-                        asset::Column::TreeId.is_not_null()
-                    }
-                    TokenTypeClass::Nft | TokenTypeClass::NonFungible => {
-                        asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
-                    }
-                    TokenTypeClass::Fungible => {
-                        asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleAsset)
-                        .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken))
-                    }
-                    TokenTypeClass::All => {
-                        asset::Column::SpecificationAssetClass.is_not_null()
-                    }
-                })
-            )
+            .add_option(self.token_type.clone().map(|x| {
+                match x {
+                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                    TokenTypeClass::Nft => {
+                        asset::Column::TreeId.is_null()
+                        .and(
+                            asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft))
+                        )
+                    },
+                    TokenTypeClass::NonFungible => {
+                    asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                    .or(asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::ProgrammableNft))
+                        .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                        },
+                    TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::FungibleAsset)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::FungibleToken)),
+                    TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                }
+            }))
             .add_option(
                 self.owner_address
                     .to_owned()
