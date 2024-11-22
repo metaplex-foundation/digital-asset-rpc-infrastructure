@@ -9,7 +9,7 @@ use crate::{
 use super::ProgramParseResult;
 
 pubkeys!(
-    inscription_progran_id,
+    inscription_program_id,
     "inscokhJarcjaEs59QbQ7hYjrKz25LEPRfCbP8EmdUp"
 );
 
@@ -29,12 +29,21 @@ pub struct InscriptionData {
 
 impl InscriptionData {
     pub const BASE_SIZE: usize = 121;
+    pub const INSCRIPTION_ACC_DATA_DISC: [u8; 8] = [232, 120, 205, 47, 153, 239, 229, 224];
+
     pub fn try_unpack_data(data: &[u8]) -> Result<Self, BlockbusterError> {
+        let acc_disc = &data[0..8];
+
+        if acc_disc != Self::INSCRIPTION_ACC_DATA_DISC {
+            return Err(BlockbusterError::InvalidAccountType);
+        }
+
         if data.len() < Self::BASE_SIZE {
             return Err(BlockbusterError::CustomDeserializationError(
                 "Inscription Data is too short".to_string(),
             ));
         }
+
         let authority = Pubkey::try_from(&data[8..40]).unwrap();
         let mint = Pubkey::try_from(&data[40..72]).unwrap();
         let inscription_data = Pubkey::try_from(&data[72..104]).unwrap();
@@ -108,10 +117,10 @@ impl ParseResult for TokenInscriptionAccount {
 
 impl ProgramParser for TokenInscriptionParser {
     fn key(&self) -> Pubkey {
-        inscription_progran_id()
+        inscription_program_id()
     }
     fn key_match(&self, key: &Pubkey) -> bool {
-        key == &inscription_progran_id()
+        key == &inscription_program_id()
     }
 
     fn handles_account_updates(&self) -> bool {

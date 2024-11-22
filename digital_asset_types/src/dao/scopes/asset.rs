@@ -10,7 +10,7 @@ use crate::{
     rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
+use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
 use std::collections::HashMap;
 
 pub fn paginate<T, C>(
@@ -412,7 +412,7 @@ pub async fn get_by_id(
     }
 
     let inscription = if options.show_inscription {
-        get_inscription_by_id(conn, asset_id.clone()).await.ok()
+        get_inscription_by_mint(conn, asset_id.clone()).await.ok()
     } else {
         None
     };
@@ -581,11 +581,19 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-pub async fn get_inscription_by_id(
+pub async fn get_inscription_by_mint(
     conn: &impl ConnectionTrait,
-    id: Vec<u8>,
+    mint: Vec<u8>,
 ) -> Result<asset_v1_account_attachments::Model, DbErr> {
-    asset_v1_account_attachments::Entity::find_by_id(id)
+    asset_v1_account_attachments::Entity::find()
+        .filter(
+            asset_v1_account_attachments::Column::Data
+                .is_not_null()
+                .and(Expr::cust(&format!(
+                    "data->>'root' = '{}'",
+                    bs58::encode(mint).into_string()
+                ))),
+        )
         .one(conn)
         .await
         .and_then(|o| match o {
