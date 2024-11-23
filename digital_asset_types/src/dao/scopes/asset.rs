@@ -336,26 +336,25 @@ pub async fn get_related_for_assets(
             .add(asset_grouping::Column::Verified.is_null())
     };
 
+    
+    let grouping_base_query = asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_grouping::Column::GroupValue.is_not_null())
+        .filter(cond)
+        .order_by_asc(asset_grouping::Column::AssetId);
+
     let grouping = if options.show_collection_metadata {
-        asset_grouping::Entity::find()
-        .find_also_related(asset_data::Entity)
-        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?
+        grouping_base_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?
     } else {
-        asset_grouping::Entity::find()
-        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?
-        .into_iter()
-        .map(|g| (g, None))
-        .collect::<Vec<_>>()
+        grouping_base_query
+            .all(conn)
+            .await?
+            .into_iter()
+            .map(|g| (g, None))
+            .collect::<Vec<_>>()
     };
 
     for (g, a) in grouping.into_iter() {
