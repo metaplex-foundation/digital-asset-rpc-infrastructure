@@ -336,32 +336,32 @@ pub async fn get_related_for_assets(
             .add(asset_grouping::Column::Verified.is_null())
     };
 
-    
     let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(cond)
         .order_by_asc(asset_grouping::Column::AssetId);
 
-    let grouping = if options.show_collection_metadata {
-        grouping_base_query
+    if options.show_collection_metadata {
+        let combined_group_query = grouping_base_query
             .find_also_related(asset_data::Entity)
             .all(conn)
-            .await?
-    } else {
-        grouping_base_query
-            .all(conn)
-            .await?
-            .into_iter()
-            .map(|g| (g, None))
-            .collect::<Vec<_>>()
-    };
-
-    for (g, a) in grouping.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
-            asset.groups.push((g, a));
+            .await?;
+        for (g, a) in combined_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, a));
+            }
         }
-    }
+    } else {
+        let single_group_query =  grouping_base_query
+            .all(conn)
+            .await?;
+        for g in single_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, None));
+            }
+        }
+    };
 
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
