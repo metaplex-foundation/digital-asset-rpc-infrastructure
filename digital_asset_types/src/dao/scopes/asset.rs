@@ -4,7 +4,7 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
-        tokens, Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{filter::AssetSortDirection, options::Options},
 };
@@ -589,4 +589,32 @@ pub async fn get_token_by_id(
             Some(t) => Ok(t),
             _ => Err(DbErr::RecordNotFound("Token Not Found".to_string())),
         })
+}
+
+pub async fn get_token_accounts(
+    conn: &impl ConnectionTrait,
+    owner_address: Option<Vec<u8>>,
+    mint_address: Option<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+) -> Result<Vec<token_accounts::Model>, DbErr> {
+    let mut condition = Condition::all();
+    if let Some(owner) = owner_address {
+        condition = condition.add(token_accounts::Column::Owner.eq(owner));
+    }
+    if let Some(mint) = mint_address {
+        condition = condition.add(token_accounts::Column::Mint.eq(mint));
+    }
+
+    let token_accounts = paginate(
+        pagination,
+        limit,
+        token_accounts::Entity::find().filter(condition),
+        Order::Asc,
+        token_accounts::Column::Pubkey,
+    )
+    .all(conn)
+    .await?;
+
+    Ok(token_accounts)
 }

@@ -1,16 +1,19 @@
 use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
+use crate::rpc::response::TokenAccountList;
 use crate::rpc::response::TransactionSignatureList;
-use crate::rpc::response::{AssetError, AssetList};
+use crate::rpc::response::{AssetList, DasError};
 use crate::rpc::TokenInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
-    MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
+    MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, TokenAccount as RpcTokenAccount,
+    Uses,
 };
 use jsonpath_lib::JsonPathError;
 use log::warn;
@@ -475,18 +478,102 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
 pub fn asset_list_to_rpc(
     asset_list: Vec<FullAsset>,
     options: &Options,
-) -> (Vec<RpcAsset>, Vec<AssetError>) {
+) -> (Vec<RpcAsset>, Vec<DasError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
             let id = bs58::encode(asset.asset.id.clone()).into_string();
             match asset_to_rpc(asset, options) {
                 Ok(rpc_asset) => assets.push(rpc_asset),
-                Err(e) => errors.push(AssetError {
+                Err(e) => errors.push(DasError {
                     id,
                     error: e.to_string(),
                 }),
             }
             (assets, errors)
         })
+}
+
+pub fn token_account_to_rpc(
+    token_account: token_accounts::Model,
+    _options: &Options,
+) -> Result<RpcTokenAccount, DbErr> {
+    let address = bs58::encode(token_account.pubkey.clone()).into_string();
+    let mint = bs58::encode(token_account.mint.clone()).into_string();
+    let owner = bs58::encode(token_account.owner.clone()).into_string();
+    let delegate = token_account
+        .delegate
+        .map(|d| bs58::encode(d).into_string());
+    let close_authority = token_account
+        .close_authority
+        .map(|d| bs58::encode(d).into_string());
+
+    Ok(RpcTokenAccount {
+        address,
+        mint,
+        amount: token_account.amount as u64,
+        owner,
+        frozen: token_account.frozen,
+        delegate,
+        delegated_amount: token_account.delegated_amount as u64,
+        close_authority,
+        extensions: None,
+    })
+}
+
+pub fn token_account_list_to_rpc(
+    token_accounts: Vec<token_accounts::Model>,
+    options: &Options,
+) -> (Vec<RpcTokenAccount>, Vec<DasError>) {
+    token_accounts.into_iter().fold(
+        (vec![], vec![]),
+        |(mut accounts, mut errors), token_account| {
+            let id = bs58::encode(token_account.pubkey.clone()).into_string();
+            match token_account_to_rpc(token_account, options) {
+                Ok(rpc_token_account) => accounts.push(rpc_token_account),
+                Err(e) => errors.push(DasError {
+                    id,
+                    error: e.to_string(),
+                }),
+            }
+            (accounts, errors)
+        },
+    )
+}
+
+pub fn build_token_list_response(
+    token_accounts: Vec<token_accounts::Model>,
+    limit: u64,
+    pagination: &Pagination,
+    options: &Options,
+) -> TokenAccountList {
+    let total = token_accounts.len() as u32;
+    let (page, before, after, cursor) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            (None, bef, aft, None)
+        }
+        Pagination::Page { page } => (Some(*page as u32), None, None, None),
+        Pagination::Cursor(_) => {
+            if let Some(last_token_account) = token_accounts.last() {
+                let cursor_str = bs58::encode(&last_token_account.pubkey.clone()).into_string();
+                (None, None, None, Some(cursor_str))
+            } else {
+                (None, None, None, None)
+            }
+        }
+    };
+
+    let (items, errors) = token_account_list_to_rpc(token_accounts, options);
+    TokenAccountList {
+        total,
+        limit: limit as u32,
+        page,
+        before,
+        after,
+        token_accounts: items,
+        cursor,
+        errors,
+    }
 }

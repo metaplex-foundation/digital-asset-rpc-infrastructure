@@ -412,3 +412,17 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default)]
+pub struct TokenAccount {
+    pub address: String,
+    pub mint: String,
+    pub amount: u64,
+    pub owner: String,
+    pub frozen: bool,
+    pub delegate: Option<String>,
+    pub delegated_amount: u64,
+    pub close_authority: Option<String>,
+    pub extensions: Option<Value>,
+}
