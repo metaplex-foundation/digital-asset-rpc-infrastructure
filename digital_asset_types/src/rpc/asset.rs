@@ -368,12 +368,9 @@ pub struct MplCoreInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenInfo {
-    pub balance: u64,
     pub supply: u64,
     pub decimals: u8,
     pub token_program: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub associated_token_address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_authority: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -14,7 +14,7 @@ pub async fn search_assets(
 ) -> Result<AssetList, DbErr> {
     let pagination = create_pagination(page_options)?;
     let (sort_direction, sort_column) = create_sorting(sorting);
-    let (condition, joins) = search_assets_query.conditions(options)?;
+    let (condition, joins) = search_assets_query.conditions()?;
     let assets = scopes::asset::get_assets_by_condition(
         db,
         condition,
@@ -23,7 +23,7 @@ pub async fn search_assets(
         sort_direction,
         &pagination,
         page_options.limit,
-        options.show_unverified_collections,
+        options,
     )
     .await?;
     Ok(build_asset_response(
