@@ -22,6 +22,7 @@ pub async fn get_token_accounts(
         mint_address,
         &pagination,
         page_options.limit,
+        options
     )
     .await?;
 

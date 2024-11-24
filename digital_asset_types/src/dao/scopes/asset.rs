@@ -597,8 +597,17 @@ pub async fn get_token_accounts(
     mint_address: Option<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options
 ) -> Result<Vec<token_accounts::Model>, DbErr> {
     let mut condition = Condition::all();
+
+    if options.show_zero_balance{
+        condition = condition.add(token_accounts::Column::Amount.eq(0)
+            .or(token_accounts::Column::Amount.gt(0)));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.ne(0));
+    }
+
     if let Some(owner) = owner_address {
         condition = condition.add(token_accounts::Column::Owner.eq(owner));
     }
