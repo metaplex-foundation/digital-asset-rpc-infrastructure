@@ -1,0 +1,81 @@
+---
+source: integration_tests/tests/integration_tests/show_fungible_flag_tests.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "interface": "ProgrammableNFT",
+  "id": "Ca84nWhQu41DMRnjdhRrLZty1i9txepMhAhz5qLLGcBw",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://nftstorage.link/ipfs/bafkreibmdapcawep5fb77lvcuvoivft3w3wsnc4qworrntjbg6abc5vwti",
+    "files": [],
+    "metadata": {
+      "name": "Claynosaurz #1096",
+      "symbol": "DINO",
+      "token_standard": "ProgrammableNonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "B7B2g3WbdZMDV3YcDGRGhEt5KyWqDJZFwRR8zpWVEkUF",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "6mszaj17KSfVqADrQj3o4W3zoLMTykgmV37W4QadCczK"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.05,
+    "basis_points": 500,
+    "primary_sale_happened": true,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "AoebZtN5iKpVyUBc82aouWhugVknLzjUmEEUezxviYNo",
+      "share": 0,
+      "verified": true
+    },
+    {
+      "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
+      "share": 100,
+      "verified": false
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": ""
+  },
+  "supply": null,
+  "mutable": true,
+  "burnt": false,
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "EwSfdqoZPBW6JJN1SBkM2pPgpihDVbByuxKdmiXurxYF",
+    "freeze_authority": "EwSfdqoZPBW6JJN1SBkM2pPgpihDVbByuxKdmiXurxYF"
+  }
+}

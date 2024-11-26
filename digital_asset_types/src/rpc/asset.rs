@@ -367,6 +367,17 @@ pub struct MplCoreInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInfo {
+    pub supply: u64,
+    pub decimals: u8,
+    pub token_program: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_authority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_authority: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,
@@ -389,6 +400,8 @@ pub struct Asset {
     pub mutable: bool,
     pub burnt: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_info: Option<TokenInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_plugins: Option<Value>,
@@ -398,4 +411,18 @@ pub struct Asset {
     pub external_plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default)]
+pub struct TokenAccount {
+    pub address: String,
+    pub mint: String,
+    pub amount: u64,
+    pub owner: String,
+    pub frozen: bool,
+    pub delegate: Option<String>,
+    pub delegated_amount: u64,
+    pub close_authority: Option<String>,
+    pub extensions: Option<Value>,
 }

@@ -2,6 +2,8 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
+use crate::rpc::options::Options;
+
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
@@ -180,6 +182,7 @@ impl SearchAssetsQuery {
                 });
             joins.push(rel);
         }
+
 
         if let Some(a) = self.authority_address.to_owned() {
             conditions = conditions.add(asset_authority::Column::Authority.eq(a));

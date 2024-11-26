@@ -4,9 +4,9 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -60,7 +60,7 @@ pub async fn get_by_creator(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
         .add(asset_creators::Column::Creator.eq(creator.clone()))
@@ -76,7 +76,7 @@ pub async fn get_by_creator(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         Some(creator),
     )
     .await
@@ -112,13 +112,13 @@ pub async fn get_by_grouping(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = asset_grouping::Column::GroupKey
         .eq(group_key)
         .and(asset_grouping::Column::GroupValue.eq(group_value));
 
-    if !show_unverified_collections {
+    if !options.show_unverified_collections {
         condition = condition.and(
             asset_grouping::Column::Verified
                 .eq(true)
@@ -136,7 +136,7 @@ pub async fn get_by_grouping(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -149,11 +149,12 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -162,7 +163,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
     )
     .await
 }
@@ -172,10 +173,12 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -185,7 +188,7 @@ pub async fn get_assets(
         Order::Asc,
         pagination,
         limit,
-        false,
+        options,
     )
     .await
 }
@@ -197,7 +200,7 @@ pub async fn get_by_authority(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset_authority::Column::Authority.eq(authority))
@@ -210,7 +213,7 @@ pub async fn get_by_authority(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -225,7 +228,7 @@ async fn get_by_related_condition<E>(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
@@ -244,14 +247,14 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
+    get_related_for_assets(conn, assets, required_creator , options).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
-    show_unverified_collections: bool,
     required_creator: Option<Vec<u8>>,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
@@ -278,6 +281,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                token_info: None,
             };
             acc.insert(id, fa);
         };
@@ -325,7 +329,18 @@ pub async fn get_related_for_assets(
         }
     }
 
-    let cond = if show_unverified_collections {
+    for id in ids.clone() {
+        get_token_by_id(conn, id.clone())
+            .await
+            .ok()
+            .map(|t| {
+                assets_map.get_mut(&id).map(|asset| {
+                    asset.token_info = Some(t);
+                });
+            });
+    }
+
+    let cond = if options.show_unverified_collections {
         Condition::all()
     } else {
         Condition::any()
@@ -360,7 +375,7 @@ pub async fn get_assets_by_condition(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find();
     for def in joins {
@@ -377,7 +392,7 @@ pub async fn get_assets_by_condition(
         .all(conn)
         .await?;
     let full_assets =
-        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
+        get_related_for_assets(conn, assets, None,options).await?;
     Ok(full_assets)
 }
 
@@ -385,12 +400,20 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
     if !include_no_supply {
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
+
+    let token_info = if options.show_fungible {
+        get_token_by_id(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
+
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
@@ -430,6 +453,7 @@ pub async fn get_by_id(
         authorities,
         creators,
         groups: grouping,
+        token_info,
     })
 }
 
@@ -552,4 +576,53 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+pub async fn get_token_by_id(
+    conn: &impl ConnectionTrait,
+    id: Vec<u8>,
+) -> Result<tokens::Model, DbErr> {
+    tokens::Entity::find_by_id(id)
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Token Not Found".to_string())),
+        })
+}
+
+pub async fn get_token_accounts(
+    conn: &impl ConnectionTrait,
+    owner_address: Option<Vec<u8>>,
+    mint_address: Option<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+    options: &Options
+) -> Result<Vec<token_accounts::Model>, DbErr> {
+    let mut condition = Condition::all();
+
+    if options.show_zero_balance{
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
+    }
+
+    if let Some(owner) = owner_address {
+        condition = condition.add(token_accounts::Column::Owner.eq(owner));
+    }
+    if let Some(mint) = mint_address {
+        condition = condition.add(token_accounts::Column::Mint.eq(mint));
+    }
+
+    let token_accounts = paginate(
+        pagination,
+        limit,
+        token_accounts::Entity::find().filter(condition),
+        Order::Asc,
+        token_accounts::Column::Pubkey,
+    )
+    .all(conn)
+    .await?;
+
+    Ok(token_accounts)
 }
