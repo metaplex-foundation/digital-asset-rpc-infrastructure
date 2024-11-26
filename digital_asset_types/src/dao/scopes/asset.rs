@@ -329,15 +329,15 @@ pub async fn get_related_for_assets(
         }
     }
 
-    if options.show_fungible {
-        for id in ids.clone() {
-            let id_clone = id.clone();
-            if let Ok(token_info) = get_token_by_id(conn, id_clone).await {
-                if let Some(asset) = assets_map.get_mut(&id) {
-                    asset.token_info = Some(token_info);
-                }
-            }
-        }
+    for id in ids.clone() {
+        get_token_by_id(conn, id.clone())
+            .await
+            .ok()
+            .map(|t| {
+                assets_map.get_mut(&id).map(|asset| {
+                    asset.token_info = Some(t);
+                });
+            });
     }
 
     let cond = if options.show_unverified_collections {
@@ -602,10 +602,9 @@ pub async fn get_token_accounts(
     let mut condition = Condition::all();
 
     if options.show_zero_balance{
-        condition = condition.add(token_accounts::Column::Amount.eq(0)
-            .or(token_accounts::Column::Amount.gt(0)));
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
     } else {
-        condition = condition.add(token_accounts::Column::Amount.ne(0));
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
     }
 
     if let Some(owner) = owner_address {
