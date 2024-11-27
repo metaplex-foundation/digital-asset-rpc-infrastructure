@@ -380,22 +380,27 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         _ => None,
     };
 
-    let inscription = if options.show_inscription && inscription.is_some() {
-        let inscription = inscription.unwrap();
-
-        inscription.data.map(|d| {
-            let deserialized_data: InscriptionData = serde_json::from_value(d).unwrap();
-            TokenInscriptionInfo {
-                authority: deserialized_data.authority,
-                root: deserialized_data.root,
-                content: deserialized_data.content,
-                encoding: deserialized_data.encoding,
-                inscription_data: deserialized_data.inscription_data,
-                order: deserialized_data.order,
-                size: deserialized_data.size,
-                validation_hash: deserialized_data.validation_hash,
-            }
-        })
+    let inscription = if options.show_inscription {
+        inscription
+            .and_then(|i| {
+                i.data.map(|d| -> Result<TokenInscriptionInfo, DbErr> {
+                    let deserialized_data: InscriptionData =
+                        serde_json::from_value(d).map_err(|e| {
+                            DbErr::Custom(format!("Failed to deserialize inscription data: {}", e))
+                        })?;
+                    Ok(TokenInscriptionInfo {
+                        authority: deserialized_data.authority,
+                        root: deserialized_data.root,
+                        content: deserialized_data.content,
+                        encoding: deserialized_data.encoding,
+                        inscription_data: deserialized_data.inscription_data,
+                        order: deserialized_data.order,
+                        size: deserialized_data.size,
+                        validation_hash: deserialized_data.validation_hash,
+                    })
+                })
+            })
+            .and_then(|i| i.ok())
     } else {
         None
     };

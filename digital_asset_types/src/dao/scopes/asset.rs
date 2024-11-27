@@ -292,7 +292,7 @@ pub async fn get_related_for_assets(
 
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_creators::Column::AssetId.is_in(ids))
         .order_by_asc(asset_creators::Column::AssetId)
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
@@ -350,7 +350,7 @@ pub async fn get_related_for_assets(
 
     if options.show_inscription {
         let attachments = asset_v1_account_attachments::Entity::find()
-            .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids.clone()))
+            .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids))
             .all(conn)
             .await?;
 
