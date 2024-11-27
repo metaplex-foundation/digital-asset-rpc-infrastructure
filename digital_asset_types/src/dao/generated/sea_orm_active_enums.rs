@@ -66,6 +66,8 @@ pub enum V1AccountAttachments {
     MasterEditionV1,
     #[sea_orm(string_value = "master_edition_v2")]
     MasterEditionV2,
+    #[sea_orm(string_value = "token_inscription")]
+    TokenInscription,
     #[sea_orm(string_value = "unknown")]
     Unknown,
 }

@@ -43,6 +43,7 @@ mod m20240319_120101_add_mpl_core_enum_vals;
 mod m20240320_120101_add_mpl_core_info_items;
 mod m20240520_120101_add_mpl_core_external_plugins_columns;
 mod m20240718_161232_change_supply_columns_to_numeric;
+mod m20241119_060310_add_token_inscription_enum_variant;
 
 pub mod model;
 
@@ -95,6 +96,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240320_120101_add_mpl_core_info_items::Migration),
             Box::new(m20240520_120101_add_mpl_core_external_plugins_columns::Migration),
             Box::new(m20240718_161232_change_supply_columns_to_numeric::Migration),
+            Box::new(m20241119_060310_add_token_inscription_enum_variant::Migration),
         ]
     }
 }
