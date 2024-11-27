@@ -14,7 +14,15 @@ docker compose up db redis prometheus
 INIT_FILE_PATH=./init.sql sea migrate up --database-url=postgres://solana:solana@localhost:5432/solana
 ```
 
-### Config for grpc2redis [./config-grpc2redis.yml](./config-grpc2redis.yml)
+### Configs
+
+Example config files are available at
+- [./config-grpc2redis.example.yml](./config-grpc2redis.example.yml)
+- [./config-ingester.example.yml](./config-ingester.example.yml)
+- [./config-monitor.example.yml](./config-monitor.example.yml) 
+
+Copy these files and modify them as needed to setup the project. 
+
 
 ### Run grpc2redis service
 
