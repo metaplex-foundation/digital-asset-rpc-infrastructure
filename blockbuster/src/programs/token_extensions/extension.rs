@@ -13,7 +13,6 @@ use spl_token_2022::extension::{
     default_account_state::DefaultAccountState,
     group_member_pointer::GroupMemberPointer,
     group_pointer::GroupPointer,
-    immutable_owner::ImmutableOwner,
     interest_bearing_mint::{BasisPoints, InterestBearingConfig},
     memo_transfer::MemoTransfer,
     metadata_pointer::MetadataPointer,
@@ -78,9 +77,6 @@ pub struct ShadowDefaultAccountState {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
-pub struct ShadowImmutableOwner;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
 pub struct ShadowInterestBearingConfig {
     pub rate_authority: OptionalNonZeroPubkey,
     pub initialization_timestamp: UnixTimestamp,
@@ -97,20 +93,16 @@ pub struct ShadowMemoTransfer {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
 pub struct ShadowMetadataPointer {
-    pub authority: OptionalNonZeroPubkey,
     pub metadata_address: OptionalNonZeroPubkey,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
 pub struct ShadowGroupMemberPointer {
-    pub authority: OptionalNonZeroPubkey,
     pub member_address: OptionalNonZeroPubkey,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
 pub struct ShadowGroupPointer {
-    /// Authority that can set the group address
-    pub authority: OptionalNonZeroPubkey,
     /// Account address that holds the group
     pub group_address: OptionalNonZeroPubkey,
 }
@@ -348,12 +340,6 @@ impl From<DefaultAccountState> for ShadowDefaultAccountState {
     }
 }
 
-impl From<ImmutableOwner> for ShadowImmutableOwner {
-    fn from(_: ImmutableOwner) -> Self {
-        ShadowImmutableOwner
-    }
-}
-
 impl From<ConfidentialTransferFeeAmount> for ShadowConfidentialTransferFeeAmount {
     fn from(original: ConfidentialTransferFeeAmount) -> Self {
         ShadowConfidentialTransferFeeAmount {
@@ -381,7 +367,6 @@ impl From<MemoTransfer> for ShadowMemoTransfer {
 impl From<MetadataPointer> for ShadowMetadataPointer {
     fn from(original: MetadataPointer) -> Self {
         ShadowMetadataPointer {
-            authority: original.authority,
             metadata_address: original.metadata_address,
         }
     }
@@ -390,7 +375,6 @@ impl From<MetadataPointer> for ShadowMetadataPointer {
 impl From<GroupPointer> for ShadowGroupPointer {
     fn from(original: GroupPointer) -> Self {
         ShadowGroupPointer {
-            authority: original.authority,
             group_address: original.group_address,
         }
     }
@@ -420,7 +404,6 @@ impl From<TokenGroupMember> for ShadowTokenGroupMember {
 impl From<GroupMemberPointer> for ShadowGroupMemberPointer {
     fn from(original: GroupMemberPointer) -> Self {
         ShadowGroupMemberPointer {
-            authority: original.authority,
             member_address: original.member_address,
         }
     }
