@@ -6,4 +6,6 @@ use serde::{Deserialize, Serialize};
 pub struct Options {
     #[serde(default)]
     pub show_unverified_collections: bool,
+    #[serde(default)]
+    pub show_fungible: bool,
 }
