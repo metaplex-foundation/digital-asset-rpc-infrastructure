@@ -4,7 +4,7 @@ expression: response
 snapshot_kind: text
 ---
 {
-  "interface": "Custom",
+  "interface": "FungibleToken",
   "id": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",

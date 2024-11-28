@@ -199,6 +199,14 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         };
     };
 
+    //Map specification asset class based on the supply.
+    if class == SpecificationAssetClass::Unknown {
+        class = match supply {
+            s if s > Decimal::from(1) => SpecificationAssetClass::FungibleToken,
+            _ => SpecificationAssetClass::Unknown,
+        };
+    };
+
     if (ownership_type == OwnerType::Single) | (ownership_type == OwnerType::Unknown) {
         index_token_account_data(conn, mint_pubkey_vec.clone()).await?;
     }
