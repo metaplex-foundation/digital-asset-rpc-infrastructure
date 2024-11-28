@@ -7,7 +7,11 @@ use {
         },
         AccountInfo, DownloadMetadataNotifier,
     },
-    blockbuster::programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
+    blockbuster::{
+        programs::token_metadata::{TokenMetadataAccountData, TokenMetadataAccountState},
+        token_metadata::types::TokenStandard,
+    },
+    master_edition::save_edition,
     sea_orm::{DatabaseConnection, TransactionTrait},
 };
 
@@ -45,9 +49,32 @@ pub async fn handle_token_metadata_account<'a, 'b>(
             txn.commit().await?;
             Ok(())
         }
+        TokenMetadataAccountData::EditionV1(e) => {
+            let txn = db.begin().await?;
+            save_edition(account_info.pubkey, account_info.slot, e, &txn).await?;
+            txn.commit().await?;
+            Ok(())
+        }
+
         // TokenMetadataAccountData::EditionMarker(_) => {}
         // TokenMetadataAccountData::UseAuthorityRecord(_) => {}
         // TokenMetadataAccountData::CollectionAuthorityRecord(_) => {}
         _ => Err(ProgramTransformerError::NotImplemented),
+    }
+}
+
+pub trait IsNonFungibeFromTokenStandard {
+    fn is_non_fungible(&self) -> bool;
+}
+
+impl IsNonFungibeFromTokenStandard for TokenStandard {
+    fn is_non_fungible(&self) -> bool {
+        matches!(
+            self,
+            TokenStandard::NonFungible
+                | TokenStandard::NonFungibleEdition
+                | TokenStandard::ProgrammableNonFungible
+                | TokenStandard::ProgrammableNonFungibleEdition
+        )
     }
 }
