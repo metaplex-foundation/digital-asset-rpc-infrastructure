@@ -379,9 +379,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         _ => None,
     };
 
-    let token_info = if options.show_fungible && token_info.is_some() {
-        let token_info = token_info.unwrap();
-        Some(TokenInfo {
+    let token_info = if options.show_fungible {
+        token_info.map(|token_info| TokenInfo {
             supply: token_info.supply.try_into().unwrap_or(0),
             decimals: token_info.decimals as u8,
             mint_authority: token_info

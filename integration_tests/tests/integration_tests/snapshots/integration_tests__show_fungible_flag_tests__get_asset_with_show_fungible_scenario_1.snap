@@ -62,11 +62,11 @@ snapshot_kind: text
     }
   ],
   "ownership": {
-    "frozen": false,
+    "frozen": true,
     "delegated": false,
     "delegate": null,
     "ownership_model": "single",
-    "owner": ""
+    "owner": "J1ep1LizHMU3Bf1GKkWePGHU3Qwwzw6FvwW5ySFWdCkn"
   },
   "supply": null,
   "mutable": true,

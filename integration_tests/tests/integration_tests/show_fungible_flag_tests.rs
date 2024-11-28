@@ -24,6 +24,7 @@ async fn test_get_asset_with_show_fungible_scenario_1() {
     let seeds: Vec<SeedEvent> = seed_accounts([
         "Ca84nWhQu41DMRnjdhRrLZty1i9txepMhAhz5qLLGcBw",
         "7z6b5TE4WX4mgcQjuNBTDxK4SE75sbgEg5WWJwoUeie8",
+        "8myaCN6KcKVkMqroXuLJq6QsqRcPbvme4wV5Ubfr5mDC",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -61,6 +62,7 @@ async fn test_get_asset_with_show_fungible_scenario_2() {
     let seeds: Vec<SeedEvent> = seed_accounts([
         "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
         "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
+        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;

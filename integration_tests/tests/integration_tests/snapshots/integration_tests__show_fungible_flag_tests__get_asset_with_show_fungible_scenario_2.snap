@@ -62,11 +62,11 @@ snapshot_kind: text
     }
   ],
   "ownership": {
-    "frozen": false,
-    "delegated": false,
-    "delegate": null,
+    "frozen": true,
+    "delegated": true,
+    "delegate": "BPB5idZgbA1DG4XEmnKs62AADRZFf3jY7Kr9mpMGyKPi",
     "ownership_model": "single",
-    "owner": ""
+    "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
   },
   "supply": null,
   "mutable": true,
