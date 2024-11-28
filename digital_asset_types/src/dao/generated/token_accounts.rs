@@ -24,6 +24,7 @@ pub struct Model {
     pub delegated_amount: i64,
     pub slot_updated: i64,
     pub token_program: Vec<u8>,
+    pub extensions: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -38,6 +39,7 @@ pub enum Column {
     DelegatedAmount,
     SlotUpdated,
     TokenProgram,
+    Extensions,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -69,6 +71,7 @@ impl ColumnTrait for Column {
             Self::DelegatedAmount => ColumnType::BigInteger.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
             Self::TokenProgram => ColumnType::Binary.def(),
+            Self::Extensions => ColumnType::Json.def().null(),
         }
     }
 }

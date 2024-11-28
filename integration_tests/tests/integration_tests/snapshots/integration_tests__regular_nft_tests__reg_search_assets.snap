@@ -72,7 +72,6 @@ expression: response
         "ownership_model": "single",
         "owner": "6Cr66AabRYymhZgYQSfTCo6FVpH18wXrMZswAbcErpyX"
       },
-      "supply": null,
       "mutable": true,
       "burnt": false
     }

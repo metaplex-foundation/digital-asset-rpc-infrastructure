@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/account_update_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
@@ -62,7 +63,6 @@ expression: response
     "ownership_model": "single",
     "owner": "BzbdvwEkQKeghTY53aZxTYjUienhdbkNVkgrLV6cErke"
   },
-  "supply": null,
   "mutable": true,
   "burnt": false
 }

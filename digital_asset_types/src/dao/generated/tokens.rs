@@ -23,6 +23,7 @@ pub struct Model {
     pub close_authority: Option<Vec<u8>>,
     pub extension_data: Option<Vec<u8>>,
     pub slot_updated: i64,
+    pub extensions: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -36,6 +37,7 @@ pub enum Column {
     CloseAuthority,
     ExtensionData,
     SlotUpdated,
+    Extensions,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -66,6 +68,7 @@ impl ColumnTrait for Column {
             Self::CloseAuthority => ColumnType::Binary.def().null(),
             Self::ExtensionData => ColumnType::Binary.def().null(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
+            Self::Extensions => ColumnType::JsonBinary.def().null(),
         }
     }
 }
@@ -77,3 +80,13 @@ impl RelationTrait for Relation {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+pub trait IsNonFungible {
+    fn is_non_fungible(&self) -> bool;
+}
+
+impl IsNonFungible for Model {
+    fn is_non_fungible(&self) -> bool {
+        self.decimals == 0 && self.supply == 1.into()
+    }
+}
