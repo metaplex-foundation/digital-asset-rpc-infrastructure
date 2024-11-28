@@ -566,14 +566,35 @@ pub fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T,
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
 }
 
+pub fn attachment_to_nft_edition(
+    attachment: asset_v1_account_attachments::Model,
+) -> Result<NftEdition, DbErr> {
+    let data: Edition = attachment
+        .data
+        .clone()
+        .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
+        .map(get_edition_data_from_json)??;
+
+    Ok(NftEdition {
+        mint_address: attachment
+            .asset_id
+            .clone()
+            .map(|id| bs58::encode(id).into_string())
+            .unwrap_or("".to_string()),
+        edition_number: data.edition,
+        edition_address: bs58::encode(attachment.id.clone()).into_string(),
+    })
+}
+
 pub async fn get_nft_editions(
     conn: &impl ConnectionTrait,
     mint_address: Pubkey,
-    limit: Option<u32>,
-    page: Option<u32>,
+    pagination: &Pagination,
+    limit: u64,
 ) -> Result<NftEditions, DbErr> {
     let master_edition_pubkey = MasterEdition::find_pda(&mint_address).0;
 
+    // to fetch nft editions associated with a mint we need to fetch the master edition first
     let master_edition =
         asset_v1_account_attachments::Entity::find_by_id(master_edition_pubkey.to_bytes().to_vec())
             .one(conn)
@@ -581,8 +602,6 @@ pub async fn get_nft_editions(
             .ok_or(DbErr::RecordNotFound(
                 "Master Edition not found".to_string(),
             ))?;
-
-    let limit = limit.unwrap_or(10);
 
     let master_edition_data: MasterEdition = master_edition
         .data
@@ -592,48 +611,60 @@ pub async fn get_nft_editions(
         ))
         .map(get_edition_data_from_json)??;
 
-    let nft_editions = asset_v1_account_attachments::Entity::find()
-        .filter(
-            asset_v1_account_attachments::Column::AttachmentType
-                .eq(V1AccountAttachments::Edition)
-                .and(asset_v1_account_attachments::Column::Data.is_not_null())
-                .and(Expr::cust(&format!(
-                    "data->>'parent' = '{}'",
-                    master_edition_pubkey
-                ))),
-        )
-        .order_by_asc(asset_v1_account_attachments::Column::SlotUpdated)
-        .all(conn)
-        .await?;
+    let mut stmt = asset_v1_account_attachments::Entity::find();
 
-    let nft_editions = nft_editions
-        .iter()
-        .map(|e| -> Result<NftEdition, DbErr> {
-            let data: Edition = e
-                .data
-                .clone()
-                .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
-                .map(get_edition_data_from_json)??;
+    stmt = stmt.filter(
+        asset_v1_account_attachments::Column::AttachmentType
+            .eq(V1AccountAttachments::Edition)
+            // The data field is a JSON field that contains the edition data.
+            .and(asset_v1_account_attachments::Column::Data.is_not_null())
+            // The parent field is a string field that contains the master edition pubkey ( mapping edition to master edition )
+            .and(Expr::cust(&format!(
+                "data->>'parent' = '{}'",
+                master_edition_pubkey
+            ))),
+    );
 
-            Ok(NftEdition {
-                mint_address: e
-                    .asset_id
-                    .clone()
-                    .map(|id| bs58::encode(id).into_string())
-                    .unwrap_or("".to_string()),
-                edition_number: data.edition,
-                edition_address: bs58::encode(e.id.clone()).into_string(),
-            })
-        })
-        .collect::<Result<Vec<NftEdition>, _>>()?;
+    let nft_editions = paginate(
+        pagination,
+        limit,
+        stmt,
+        Order::Asc,
+        asset_v1_account_attachments::Column::Id,
+    )
+    .all(conn)
+    .await?
+    .into_iter()
+    .map(attachment_to_nft_edition)
+    .collect::<Result<Vec<NftEdition>, _>>()?;
+
+    let (page, before, after, cursor) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            (None, bef, aft, None)
+        }
+        Pagination::Page { page } => (Some(*page as u32), None, None, None),
+        Pagination::Cursor(_) => {
+            if let Some(last_asset) = nft_editions.last() {
+                let cursor_str = bs58::encode(last_asset.edition_address.clone()).into_string();
+                (None, None, None, Some(cursor_str))
+            } else {
+                (None, None, None, None)
+            }
+        }
+    };
 
     Ok(NftEditions {
         total: nft_editions.len() as u32,
-        limit,
-        page,
         master_edition_address: master_edition_pubkey.to_string(),
         supply: master_edition_data.supply,
         max_supply: master_edition_data.max_supply,
         editions: nft_editions,
+        limit: limit as u32,
+        page,
+        before,
+        after,
+        cursor,
     })
 }

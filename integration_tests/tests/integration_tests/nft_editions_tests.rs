@@ -38,7 +38,8 @@ async fn test_get_nft_editions() {
 
     let request = r#"        
     {
-        "mintAddress": "Ey2Qb8kLctbchQsMnhZs5DjY32To2QtPuXNwWvk4NosL"
+        "mintAddress": "Ey2Qb8kLctbchQsMnhZs5DjY32To2QtPuXNwWvk4NosL",
+        "limit":10
     }
     "#;
 

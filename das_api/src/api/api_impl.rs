@@ -7,9 +7,9 @@ use digital_asset_types::{
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
-        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
-        search_assets,
+        common::create_pagination, get_asset, get_asset_proofs, get_asset_signatures, get_assets,
+        get_assets_by_authority, get_assets_by_creator, get_assets_by_group, get_assets_by_owner,
+        get_proof_for_asset, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
@@ -526,12 +526,21 @@ impl ApiContract for DasApi {
             mint_address,
             page,
             limit,
+            before,
+            after,
+            cursor,
         } = payload;
 
+        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
         let mint_address = validate_pubkey(mint_address.clone())?;
-
-        get_nft_editions(&self.db_connection, mint_address, limit, page)
-            .await
-            .map_err(Into::into)
+        let pagination = create_pagination(&page_options)?;
+        get_nft_editions(
+            &self.db_connection,
+            mint_address,
+            &pagination,
+            page_options.limit,
+        )
+        .await
+        .map_err(Into::into)
     }
 }

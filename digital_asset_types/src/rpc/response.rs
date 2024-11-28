@@ -65,11 +65,17 @@ pub struct NftEdition {
 pub struct NftEditions {
     pub total: u32,
     pub limit: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub page: Option<u32>,
     pub master_edition_address: String,
     pub supply: u64,
     pub max_supply: Option<u64>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub editions: Vec<NftEdition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
 }
