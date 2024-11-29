@@ -23,6 +23,7 @@ use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use open_rpc_schema::document::OpenrpcDocument;
+use std::collections::HashSet;
 use {
     crate::api::*,
     crate::config::Config,
@@ -148,6 +149,16 @@ pub fn not_found(asset_id: &String) -> DbErr {
     DbErr::RecordNotFound(format!("Asset Proof for {} Not Found", asset_id))
 }
 
+pub fn remove_duplicates_asset_ids(id_bytes: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    let mut hash_set = HashSet::new();
+    id_bytes.into_iter().filter(|asset_id| hash_set.insert(asset_id.clone())).collect()
+}
+
+pub fn remove_duplicates_string_ids(id: Vec<String>) -> Vec<String> {
+    let mut hash_set = HashSet::new();
+    id.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
+}
+
 #[document_rpc]
 #[async_trait]
 impl ApiContract for DasApi {
@@ -230,9 +241,13 @@ impl ApiContract for DasApi {
 
         let options = options.unwrap_or_default();
 
-        let assets = get_assets(&self.db_connection, id_bytes, batch_size as u64, &options).await?;
+        let unique_asset_ids =  remove_duplicates_asset_ids(id_bytes);
 
-        let result: Vec<Option<Asset>> = ids.iter().map(|id| assets.get(id).cloned()).collect();
+        let assets = get_assets(&self.db_connection, unique_asset_ids, batch_size as u64, &options).await?;
+
+        let filtered_string_ids = remove_duplicates_string_ids(ids);
+
+        let result: Vec<Option<Asset>> = filtered_string_ids.iter().map(|id| assets.get(id).cloned()).collect();
         Ok(result)
     }
 
