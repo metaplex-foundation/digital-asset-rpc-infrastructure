@@ -149,14 +149,9 @@ pub fn not_found(asset_id: &String) -> DbErr {
     DbErr::RecordNotFound(format!("Asset Proof for {} Not Found", asset_id))
 }
 
-pub fn remove_duplicates_asset_ids(id_bytes: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+pub fn remove_duplicates_ids<T: Eq + Clone + std::hash::Hash>(ids: Vec<T>) -> Vec<T> {
     let mut hash_set = HashSet::new();
-    id_bytes.into_iter().filter(|asset_id| hash_set.insert(asset_id.clone())).collect()
-}
-
-pub fn remove_duplicates_string_ids(id: Vec<String>) -> Vec<String> {
-    let mut hash_set = HashSet::new();
-    id.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
+    ids.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
 }
 
 #[document_rpc]
@@ -229,6 +224,7 @@ impl ApiContract for DasApi {
     ) -> Result<Vec<Option<Asset>>, DasApiError> {
         let GetAssets { ids, options } = payload;
 
+        let ids = remove_duplicates_ids(ids);
         let batch_size = ids.len();
         if batch_size > 1000 {
             return Err(DasApiError::BatchSizeExceededError);
@@ -241,13 +237,9 @@ impl ApiContract for DasApi {
 
         let options = options.unwrap_or_default();
 
-        let unique_asset_ids =  remove_duplicates_asset_ids(id_bytes);
+        let assets = get_assets(&self.db_connection, id_bytes, batch_size as u64, &options).await?;
 
-        let assets = get_assets(&self.db_connection, unique_asset_ids, batch_size as u64, &options).await?;
-
-        let filtered_string_ids = remove_duplicates_string_ids(ids);
-
-        let result: Vec<Option<Asset>> = filtered_string_ids.iter().map(|id| assets.get(id).cloned()).collect();
+        let result: Vec<Option<Asset>> = ids.iter().map(|id| assets.get(id).cloned()).collect();
         Ok(result)
     }
 
