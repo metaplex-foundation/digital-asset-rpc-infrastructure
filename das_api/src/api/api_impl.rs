@@ -23,6 +23,7 @@ use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use open_rpc_schema::document::OpenrpcDocument;
+use std::collections::HashSet;
 use {
     crate::api::*,
     crate::config::Config,
@@ -148,6 +149,11 @@ pub fn not_found(asset_id: &String) -> DbErr {
     DbErr::RecordNotFound(format!("Asset Proof for {} Not Found", asset_id))
 }
 
+pub fn remove_duplicates_ids(ids: Vec<String>) -> Vec<String> {
+    let mut hash_set = HashSet::new();
+    ids.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
+}
+
 #[document_rpc]
 #[async_trait]
 impl ApiContract for DasApi {
@@ -218,6 +224,7 @@ impl ApiContract for DasApi {
     ) -> Result<Vec<Option<Asset>>, DasApiError> {
         let GetAssets { ids, options } = payload;
 
+        let ids = remove_duplicates_ids(ids);
         let batch_size = ids.len();
         if batch_size > 1000 {
             return Err(DasApiError::BatchSizeExceededError);
