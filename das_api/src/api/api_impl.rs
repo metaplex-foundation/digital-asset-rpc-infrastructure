@@ -149,7 +149,7 @@ pub fn not_found(asset_id: &String) -> DbErr {
     DbErr::RecordNotFound(format!("Asset Proof for {} Not Found", asset_id))
 }
 
-pub fn remove_duplicates_ids<T: Eq + Clone + std::hash::Hash>(ids: Vec<T>) -> Vec<T> {
+pub fn remove_duplicates_ids(ids: Vec<String>) -> Vec<String> {
     let mut hash_set = HashSet::new();
     ids.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
 }
