@@ -9,13 +9,13 @@ use digital_asset_types::{
     dapi::{
         get_asset, get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
         get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
-        search_assets,
+        get_token_accounts, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
-        response::GetGroupingResponse,
+        response::{GetGroupingResponse, TokenAccountList},
+        OwnershipModel, RoyaltyModel,
     },
-    rpc::{OwnershipModel, RoyaltyModel},
 };
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
@@ -515,5 +515,34 @@ impl ApiContract for DasApi {
             group_name: group_value,
             group_size: gs.size,
         })
+    }
+
+    async fn get_token_accounts(
+        self: &DasApi,
+        payload: GetTokenAccounts,
+    ) -> Result<TokenAccountList, DasApiError> {
+        let GetTokenAccounts {
+            owner_address,
+            mint_address,
+            limit,
+            page,
+            before,
+            after,
+            options,
+            cursor,
+        } = payload;
+        let owner_address = validate_opt_pubkey(&owner_address)?;
+        let mint_address = validate_opt_pubkey(&mint_address)?;
+        let options = options.unwrap_or_default();
+        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
+        get_token_accounts(
+            &self.db_connection,
+            owner_address,
+            mint_address,
+            &page_options,
+            &options,
+        )
+        .await
+        .map_err(Into::into)
     }
 }

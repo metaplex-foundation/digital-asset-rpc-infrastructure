@@ -5,6 +5,7 @@ mod assets_by_owner;
 mod change_logs;
 mod get_asset;
 mod get_asset_signatures;
+mod get_token_accounts;
 mod search_assets;
 
 pub mod common;
@@ -16,4 +17,5 @@ pub use assets_by_owner::*;
 pub use change_logs::*;
 pub use get_asset::*;
 pub use get_asset_signatures::*;
+pub use get_token_accounts::*;
 pub use search_assets::*;
