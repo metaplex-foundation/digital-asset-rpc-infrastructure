@@ -316,9 +316,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     upsert_assets_mint_account_columns(
         AssetMintAccountColumns {
             mint: id_vec.clone(),
-            supply_mint: None,
             supply,
-            slot_updated_mint_account: slot,
+            slot_updated_mint_account: slot as i64,
+            extensions: None,
         },
         &txn,
     )

@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
+snapshot_kind: text
 ---
 [
   {
@@ -68,7 +69,6 @@ expression: response
       "ownership_model": "single",
       "owner": "9PacVenjPyQYiWBha89UYRM1nn6mf9bGY7vi32zY6DLn"
     },
-    "supply": null,
     "mutable": true,
     "burnt": false
   },
@@ -137,7 +137,6 @@ expression: response
       "ownership_model": "single",
       "owner": "3H3d3hfpZVVdVwuFAxDtDSFN2AdR7kwiDA3ynbnbkhc9"
     },
-    "supply": null,
     "mutable": true,
     "burnt": false
   }

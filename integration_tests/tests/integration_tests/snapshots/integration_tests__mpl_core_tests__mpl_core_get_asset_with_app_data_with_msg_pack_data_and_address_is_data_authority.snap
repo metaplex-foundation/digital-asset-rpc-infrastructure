@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 662
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "MplCoreAsset",
@@ -51,7 +51,6 @@ expression: response
     "ownership_model": "single",
     "owner": "HKwwF4sPVYFPgqEgxth4GZRZjJ9o4E3wA8eu2QM5Vt3H"
   },
-  "supply": null,
   "mutable": true,
   "burnt": false,
   "plugins": {},
