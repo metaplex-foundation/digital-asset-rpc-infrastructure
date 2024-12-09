@@ -29,7 +29,7 @@ pub enum Interface {
     V1PRINT,
     #[serde(rename = "V2_NFT")]
     Nft,
-    // TODO: change on version bump\
+    // TODO: change on version bump
     #[serde(rename = "LEGACY_NFT")]
     #[allow(non_camel_case_types)]
     LEGACY_NFT,
@@ -97,7 +97,7 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
                 SpecificationAssetClass::MplCoreCollection,
             ),
             Interface::FungibleToken => (
-                SpecificationVersions::V0,
+                SpecificationVersions::V1,
                 SpecificationAssetClass::FungibleToken,
             ),
             _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
