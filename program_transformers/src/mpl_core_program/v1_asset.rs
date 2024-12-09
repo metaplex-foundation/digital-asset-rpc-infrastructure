@@ -1,10 +1,5 @@
 use {
     crate::{
-        asset_upserts::{
-            upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
-            upsert_assets_token_account_columns, AssetMetadataAccountColumns,
-            AssetMintAccountColumns, AssetTokenAccountColumns,
-        },
         error::{ProgramTransformerError, ProgramTransformerResult},
         find_model_with_retry, DownloadMetadataInfo,
     },
@@ -17,6 +12,7 @@ use {
             asset, asset_authority, asset_creators, asset_data, asset_grouping,
             sea_orm_active_enums::{
                 ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
+                SpecificationVersions,
             },
         },
         json::ChainDataV1,
@@ -300,41 +296,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         None
     };
 
-    upsert_assets_metadata_account_columns(
-        AssetMetadataAccountColumns {
-            mint: id_vec.clone(),
-            owner_type: ownership_type,
-            specification_asset_class: Some(class),
-            royalty_amount: royalty_amount as i32,
-            asset_data: Some(id_vec.clone()),
-            slot_updated_metadata_account: slot,
-            mpl_core_plugins: Some(plugins_json),
-            mpl_core_unknown_plugins: unknown_plugins_json,
-            mpl_core_collection_num_minted: asset.num_minted.map(|val| val as i32),
-            mpl_core_collection_current_size: asset.current_size.map(|val| val as i32),
-            mpl_core_plugins_json_version: Some(1),
-            mpl_core_external_plugins: Some(external_plugins_json),
-            mpl_core_unknown_external_plugins: unknown_external_plugins_json,
-        },
-        &txn,
-    )
-    .await?;
-
-    let supply = Decimal::from(1);
-
-    // Note: these need to be separate for Token Metadata but here could be one upsert.
-    upsert_assets_mint_account_columns(
-        AssetMintAccountColumns {
-            mint: id_vec.clone(),
-            supply_mint: None,
-            supply,
-            slot_updated_mint_account: slot,
-        },
-        &txn,
-    )
-    .await?;
-
-    // Get transfer delegate from `TransferDelegate` plugin if available.
     let transfer_delegate =
         asset
             .plugins
@@ -346,7 +307,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 PluginAuthority::None => None,
             });
 
-    // Get frozen status from `FreezeDelegate` plugin if available.
     let frozen = asset
         .plugins
         .get(&PluginType::FreezeDelegate)
@@ -359,19 +319,68 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         })
         .unwrap_or(false);
 
-    // TODO: these upserts needed to be separate for Token Metadata but here could be one upsert.
-    upsert_assets_token_account_columns(
-        AssetTokenAccountColumns {
-            mint: id_vec.clone(),
-            owner,
-            frozen,
-            // Note use transfer delegate for the existing delegate field.
-            delegate: transfer_delegate.clone(),
-            slot_updated_token_account: Some(slot_i),
-        },
-        &txn,
-    )
-    .await?;
+    let asset_model = asset::ActiveModel {
+        id: ActiveValue::Set(id_vec.clone()),
+        owner_type: ActiveValue::Set(ownership_type),
+        supply: ActiveValue::Set(Decimal::from(1)),
+        supply_mint: ActiveValue::Set(None),
+        slot_updated_mint_account: ActiveValue::Set(Some(slot as i64)),
+        specification_version: ActiveValue::Set(Some(SpecificationVersions::V1)),
+        specification_asset_class: ActiveValue::Set(Some(class)),
+        royalty_amount: ActiveValue::Set(royalty_amount as i32),
+        asset_data: ActiveValue::Set(Some(id_vec.clone())),
+        slot_updated_metadata_account: ActiveValue::Set(Some(slot as i64)),
+        mpl_core_plugins: ActiveValue::Set(Some(plugins_json)),
+        mpl_core_unknown_plugins: ActiveValue::Set(unknown_plugins_json),
+        mpl_core_collection_num_minted: ActiveValue::Set(asset.num_minted.map(|val| val as i32)),
+        mpl_core_collection_current_size: ActiveValue::Set(
+            asset.current_size.map(|val| val as i32),
+        ),
+        mpl_core_plugins_json_version: ActiveValue::Set(Some(1)),
+        mpl_core_external_plugins: ActiveValue::Set(Some(external_plugins_json)),
+        mpl_core_unknown_external_plugins: ActiveValue::Set(unknown_external_plugins_json),
+        owner: ActiveValue::Set(owner),
+        frozen: ActiveValue::Set(frozen),
+        delegate: ActiveValue::Set(transfer_delegate.clone()),
+        slot_updated_token_account: ActiveValue::Set(Some(slot_i)),
+        ..Default::default()
+    };
+
+    let mut query = asset::Entity::insert(asset_model)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([
+                    asset::Column::OwnerType,
+                    asset::Column::Supply,
+                    asset::Column::SupplyMint,
+                    asset::Column::SlotUpdatedMintAccount,
+                    asset::Column::SpecificationVersion,
+                    asset::Column::SpecificationAssetClass,
+                    asset::Column::RoyaltyAmount,
+                    asset::Column::AssetData,
+                    asset::Column::SlotUpdatedMetadataAccount,
+                    asset::Column::MplCorePlugins,
+                    asset::Column::MplCoreUnknownPlugins,
+                    asset::Column::MplCoreCollectionNumMinted,
+                    asset::Column::MplCoreCollectionCurrentSize,
+                    asset::Column::MplCorePluginsJsonVersion,
+                    asset::Column::MplCoreExternalPlugins,
+                    asset::Column::MplCoreUnknownExternalPlugins,
+                    asset::Column::Owner,
+                    asset::Column::Frozen,
+                    asset::Column::Delegate,
+                    asset::Column::SlotUpdatedTokenAccount,
+                ])
+                .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated_metadata_account >= asset.slot_updated_metadata_account OR asset.slot_updated_metadata_account IS NULL",
+        query.sql
+    );
+
+    txn.execute(query).await?;
 
     //-----------------------
     // asset_grouping table

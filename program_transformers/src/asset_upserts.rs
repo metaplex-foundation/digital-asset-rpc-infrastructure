@@ -47,7 +47,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-    "{} WHERE excluded.slot_updated_token_account >= asset.slot_updated_token_account OR asset.slot_updated_token_account IS NULL",
+    "{} WHERE (excluded.slot_updated_token_account >= asset.slot_updated_token_account OR asset.slot_updated_token_account IS NULL) AND asset.owner_type = 'single'",
     query.sql);
     txn_or_conn.execute(query).await?;
     Ok(())
@@ -64,11 +64,18 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     columns: AssetMintAccountColumns,
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
+    let owner_type = if columns.supply == Decimal::from(1) {
+        OwnerType::Single
+    } else {
+        OwnerType::Token
+    };
+
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
         supply: Set(columns.supply),
         supply_mint: Set(columns.supply_mint),
         slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
+        owner_type: Set(owner_type),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
@@ -78,6 +85,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
                     asset::Column::SlotUpdatedMintAccount,
+                    asset::Column::OwnerType,
                 ])
                 .to_owned(),
         )
@@ -92,7 +100,6 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
 
 pub struct AssetMetadataAccountColumns {
     pub mint: Vec<u8>,
-    pub owner_type: OwnerType,
     pub specification_asset_class: Option<SpecificationAssetClass>,
     pub royalty_amount: i32,
     pub asset_data: Option<Vec<u8>>,
@@ -112,7 +119,6 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
 ) -> Result<(), DbErr> {
     let active_model = asset::ActiveModel {
         id: Set(columns.mint),
-        owner_type: Set(columns.owner_type),
         specification_version: Set(Some(SpecificationVersions::V1)),
         specification_asset_class: Set(columns.specification_asset_class),
         tree_id: Set(None),
@@ -142,7 +148,6 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
-                    asset::Column::OwnerType,
                     asset::Column::SpecificationVersion,
                     asset::Column::SpecificationAssetClass,
                     asset::Column::TreeId,
