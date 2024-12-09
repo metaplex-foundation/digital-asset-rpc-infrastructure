@@ -233,6 +233,8 @@ async fn upsert_asset_data(
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::BaseInfoSeq,
+                    asset_data::Column::RawName,
+                    asset_data::Column::RawSymbol,
                 ])
                 .to_owned(),
         )
