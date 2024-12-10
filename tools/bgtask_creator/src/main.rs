@@ -237,7 +237,7 @@ WHERE
 
             let mut asset_data_missing = asset_data_processing
                 .0
-                .order_by(asset_data::Column::Id, Order::Asc)
+                // .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
                 .into_stream();
 
@@ -312,7 +312,7 @@ WHERE
 
             let mut asset_data_missing = asset_data
                 .0
-                .order_by(asset_data::Column::Id, Order::Asc)
+                // .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
                 .into_stream();
 

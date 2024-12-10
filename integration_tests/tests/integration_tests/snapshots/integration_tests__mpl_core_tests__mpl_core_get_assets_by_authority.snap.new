@@ -1,0 +1,133 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 108
+expression: response
+---
+{
+  "total": 2,
+  "limit": 50,
+  "page": 1,
+  "items": [
+    {
+      "interface": "MplCoreCollection",
+      "id": "9CSyGBw1DCVZfx621nb7UBM9SpVDsX1m9MaN6APCf1Ci",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/collection",
+        "files": [],
+        "metadata": {
+          "name": "Test Collection",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "plugins": {},
+      "mpl_core_info": {
+        "num_minted": 1,
+        "current_size": 1,
+        "plugins_json_version": 1
+      },
+      "external_plugins": []
+    },
+    {
+      "interface": "MplCoreAsset",
+      "id": "4FcFVJVPRsYoMjt8ewDGV5nipoK63SNrJzjrBHyXvhcz",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/asset",
+        "files": [],
+        "metadata": {
+          "name": "Test Asset",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "APrZTeVysBJqAznfLXS71NAzjr2fCVTSF1A66MeErzM7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "9CSyGBw1DCVZfx621nb7UBM9SpVDsX1m9MaN6APCf1Ci"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "GzYvuu9aUYXmnardj4svbAcCNmefiaGu2E3knGw9NJQQ"
+      },
+      "supply": null,
+      "mutable": true,
+      "burnt": false,
+      "plugins": {},
+      "mpl_core_info": {
+        "plugins_json_version": 1
+      },
+      "external_plugins": []
+    }
+  ]
+}

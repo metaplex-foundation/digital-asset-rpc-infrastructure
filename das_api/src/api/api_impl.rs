@@ -102,9 +102,9 @@ impl DasApi {
                 return Err(DasApiError::PaginationError);
             }
             if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
+                // if sort.sort_by != AssetSortBy::Id {
+                //     return Err(DasApiError::PaginationSortingValidationError);
+                // }
             }
             validate_pubkey(before.clone())?;
             is_cursor_enabled = false;
@@ -115,9 +115,9 @@ impl DasApi {
                 return Err(DasApiError::PaginationError);
             }
             if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
+                // if sort.sort_by != AssetSortBy::Id {
+                //     return Err(DasApiError::PaginationSortingValidationError);
+                // }
             }
             validate_pubkey(after.clone())?;
             is_cursor_enabled = false;
@@ -126,9 +126,9 @@ impl DasApi {
         page_opt.limit = limit.map(|x| x as u64).unwrap_or(1000);
         if is_cursor_enabled {
             if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
+                // if sort.sort_by != AssetSortBy::Id {
+                //     return Err(DasApiError::PaginationSortingValidationError);
+                // }
                 page_opt.cursor = Some(self.get_cursor(cursor)?);
             }
         } else {
