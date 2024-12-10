@@ -12,7 +12,7 @@ use digital_asset_types::{
         get_proof_for_asset, get_token_accounts, search_assets,
     },
     rpc::{
-        filter::{AssetSortBy, SearchConditionType},
+        filter::SearchConditionType,
         response::{GetGroupingResponse, TokenAccountList},
         OwnershipModel, RoyaltyModel,
     },
@@ -101,11 +101,6 @@ impl DasApi {
             if cursor.is_some() {
                 return Err(DasApiError::PaginationError);
             }
-            if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
-            }
             validate_pubkey(before.clone())?;
             is_cursor_enabled = false;
         }
@@ -114,21 +109,14 @@ impl DasApi {
             if cursor.is_some() {
                 return Err(DasApiError::PaginationError);
             }
-            if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
-            }
+
             validate_pubkey(after.clone())?;
             is_cursor_enabled = false;
         }
 
         page_opt.limit = limit.map(|x| x as u64).unwrap_or(1000);
         if is_cursor_enabled {
-            if let Some(sort) = &sorting {
-                if sort.sort_by != AssetSortBy::Id {
-                    return Err(DasApiError::PaginationSortingValidationError);
-                }
+            if let Some(_) = &sorting {
                 page_opt.cursor = Some(self.get_cursor(cursor)?);
             }
         } else {

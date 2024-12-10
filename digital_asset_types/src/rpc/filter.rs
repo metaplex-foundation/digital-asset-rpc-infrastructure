@@ -12,7 +12,7 @@ pub struct AssetSorting {
 impl Default for AssetSorting {
     fn default() -> AssetSorting {
         AssetSorting {
-            sort_by: AssetSortBy::Id,
+            sort_by: AssetSortBy::None,
             sort_direction: Some(AssetSortDirection::default()),
         }
     }
@@ -20,8 +20,6 @@ impl Default for AssetSorting {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AssetSortBy {
-    #[serde(rename = "id")]
-    Id,
     #[serde(rename = "created")]
     Created,
     #[serde(rename = "updated")]

@@ -248,9 +248,7 @@ where
         .join(JoinType::LeftJoin, relation.def());
 
     if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone());
+        stmt = stmt.order_by(col, sort_direction.clone())
     }
 
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
@@ -301,8 +299,7 @@ pub async fn get_related_for_assets(
 
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids))
-        .order_by_asc(asset_creators::Column::AssetId)
+        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
@@ -330,7 +327,6 @@ pub async fn get_related_for_assets(
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
     for a in authorities.into_iter() {
@@ -363,8 +359,7 @@ pub async fn get_related_for_assets(
     let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId);
+        .filter(cond);
 
     if options.show_inscription {
         let attachments = asset_v1_account_attachments::Entity::find()
@@ -418,9 +413,7 @@ pub async fn get_assets_by_condition(
     }
     stmt = stmt.filter(condition);
     if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone());
+        stmt = stmt.order_by(col, sort_direction.clone())
     }
 
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
@@ -465,7 +458,6 @@ pub async fn get_by_id(
 
     let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
     let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
@@ -485,8 +477,7 @@ pub async fn get_by_id(
                 // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
                 // Therefore if verified is null, we can assume that the group is verified.
                 .add(asset_grouping::Column::Verified.is_null()),
-        )
-        .order_by_asc(asset_grouping::Column::AssetId);
+        );
 
     let groups = if options.show_collection_metadata {
         grouping_query
@@ -580,7 +571,6 @@ pub async fn get_asset_signatures(
     let stmt = asset::Entity::find()
         .distinct_on([(asset::Entity, asset::Column::Id)])
         .filter(asset::Column::Id.eq(asset_id))
-        .order_by(asset::Column::Id, Order::Desc)
         .limit(1);
     let asset = stmt.one(conn).await?;
     if let Some(asset) = asset {

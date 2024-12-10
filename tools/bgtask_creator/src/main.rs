@@ -237,7 +237,6 @@ WHERE
 
             let mut asset_data_missing = asset_data_processing
                 .0
-                .order_by(asset_data::Column::Id, Order::Asc)
                 .paginate(&conn, *batch_size)
                 .into_stream();
 
@@ -310,11 +309,7 @@ WHERE
             let condition = asset_data::Column::Reindex.eq(true);
             let asset_data = find_by_type(authority, collection, creator, mint, condition);
 
-            let mut asset_data_missing = asset_data
-                .0
-                .order_by(asset_data::Column::Id, Order::Asc)
-                .paginate(&conn, *batch_size)
-                .into_stream();
+            let mut asset_data_missing = asset_data.0.paginate(&conn, *batch_size).into_stream();
 
             // Find all the assets with missing metadata
             let mut tasks = Vec::new();
