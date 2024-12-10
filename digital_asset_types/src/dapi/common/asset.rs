@@ -127,7 +127,7 @@ pub fn build_transaction_signatures_response(
 
 pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, Option<asset::Column>) {
     let sort_column = match sorting.sort_by {
-        AssetSortBy::Id => Some(asset::Column::Id),
+        // AssetSortBy::Id => Some(asset::Column::Id),
         AssetSortBy::Created => Some(asset::Column::CreatedAt),
         AssetSortBy::Updated => Some(asset::Column::SlotUpdated),
         AssetSortBy::RecentAction => Some(asset::Column::SlotUpdated),

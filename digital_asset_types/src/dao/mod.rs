@@ -219,11 +219,11 @@ impl SearchAssetsQuery {
                     // In theory, the owner_type=single check should be sufficient,
                     // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
                     // The supply check guarentees we do not include those.
-                    conditions = conditions.add_option(Some(
+                    conditions = conditions.add(
                         asset::Column::OwnerType
                             .eq(OwnerType::Single)
                             .and(asset::Column::Supply.lte(1)),
-                    ));
+                    );
                 }
             }
         }
