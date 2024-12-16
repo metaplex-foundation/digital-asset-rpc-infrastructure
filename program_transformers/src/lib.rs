@@ -17,8 +17,8 @@ use {
     },
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     sea_orm::{
-        entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
-        SqlxPostgresConnector, TransactionTrait,
+        entity::EntityTrait, query::Select, ConnectionTrait, DbErr, SqlxPostgresConnector,
+        TransactionTrait,
     },
     serde::Deserialize,
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
@@ -54,7 +54,7 @@ pub struct TransactionInfo {
 }
 
 pub struct ProgramTransformer {
-    storage: DatabaseConnection,
+    storage: PgPool,
     download_metadata_notifier: DownloadMetadataNotifier,
     parsers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
@@ -62,7 +62,7 @@ pub struct ProgramTransformer {
 
 impl ProgramTransformer {
     pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
-        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(4);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
@@ -75,9 +75,8 @@ impl ProgramTransformer {
             acc.insert(*k);
             acc
         });
-        let pool: PgPool = pool;
         ProgramTransformer {
-            storage: SqlxPostgresConnector::from_sqlx_postgres_pool(pool),
+            storage: pool,
             download_metadata_notifier,
             parsers,
             key_set: hs,
@@ -114,6 +113,7 @@ impl ProgramTransformer {
             .iter()
             .filter(|(ib, _inner)| ib.0 == mpl_bubblegum::ID);
         debug!("Instructions bgum: {}", contains.count());
+
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let ix_accounts = &instruction.accounts;
@@ -143,16 +143,20 @@ impl ProgramTransformer {
             };
 
             let program_key = ix.program;
+
             if let Some(program) = self.match_program(&program_key) {
                 debug!("Found a ix for program: {:?}", program.key());
                 let result = program.handle_instruction(&ix)?;
                 let concrete = result.result_type();
+
+                let db = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
+
                 match concrete {
                     ProgramParseResult::Bubblegum(parsing_result) => {
                         handle_bubblegum_instruction(
                             parsing_result,
                             &ix,
-                            &self.storage,
+                            &db,
                             &self.download_metadata_notifier,
                         )
                         .await
@@ -187,12 +191,14 @@ impl ProgramTransformer {
     ) -> ProgramTransformerResult<()> {
         if let Some(program) = self.match_program(&account_info.owner) {
             let result = program.handle_account(&account_info.data)?;
+            let db = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
+
             match result.result_type() {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
                     handle_token_metadata_account(
                         account_info,
                         parsing_result,
-                        &self.storage,
+                        &db,
                         &self.download_metadata_notifier,
                     )
                     .await
@@ -201,7 +207,7 @@ impl ProgramTransformer {
                     handle_token_program_account(
                         account_info,
                         parsing_result,
-                        &self.storage,
+                        &db,
                         &self.download_metadata_notifier,
                     )
                     .await
@@ -210,7 +216,7 @@ impl ProgramTransformer {
                     handle_mpl_core_account(
                         account_info,
                         parsing_result,
-                        &self.storage,
+                        &db,
                         &self.download_metadata_notifier,
                     )
                     .await
