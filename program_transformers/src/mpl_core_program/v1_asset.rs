@@ -296,6 +296,41 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         None
     };
 
+    upsert_assets_metadata_account_columns(
+        AssetMetadataAccountColumns {
+            mint: id_vec.clone(),
+            owner_type: ownership_type,
+            specification_asset_class: Some(class),
+            royalty_amount: royalty_amount as i32,
+            asset_data: Some(id_vec.clone()),
+            slot_updated_metadata_account: slot,
+            mpl_core_plugins: Some(plugins_json),
+            mpl_core_unknown_plugins: unknown_plugins_json,
+            mpl_core_collection_num_minted: asset.num_minted.map(|val| val as i32),
+            mpl_core_collection_current_size: asset.current_size.map(|val| val as i32),
+            mpl_core_plugins_json_version: Some(1),
+            mpl_core_external_plugins: Some(external_plugins_json),
+            mpl_core_unknown_external_plugins: unknown_external_plugins_json,
+        },
+        &txn,
+    )
+    .await?;
+
+    let supply = Decimal::from(1);
+
+    // Note: these need to be separate for Token Metadata but here could be one upsert.
+    upsert_assets_mint_account_columns(
+        AssetMintAccountColumns {
+            mint: id_vec.clone(),
+            supply,
+            slot_updated_mint_account: slot as i64,
+            extensions: None,
+        },
+        &txn,
+    )
+    .await?;
+
+    // Get transfer delegate from `TransferDelegate` plugin if available.
     let transfer_delegate =
         asset
             .plugins

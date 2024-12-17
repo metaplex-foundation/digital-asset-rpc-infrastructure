@@ -12,8 +12,9 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_inscriptions::TokenInscriptionParser,
-            token_metadata::TokenMetadataParser, ProgramParseResult,
+            token_account::TokenAccountParser, token_extensions::Token2022AccountParser,
+            token_inscriptions::TokenInscriptionParser, token_metadata::TokenMetadataParser,
+            ProgramParseResult,
         },
     },
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
@@ -22,12 +23,14 @@ use {
         TransactionTrait,
     },
     serde::Deserialize,
+    serde_json::{Map, Value},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
+    token_extensions::handle_token_extensions_program_account,
     tokio::time::{sleep, Duration},
-    tracing::{debug, error, info},
+    tracing::{debug, error},
 };
 
 mod asset_upserts;
@@ -35,6 +38,7 @@ pub mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_extensions;
 mod token_inscription;
 mod token_metadata;
 
@@ -64,17 +68,19 @@ pub struct ProgramTransformer {
 
 impl ProgramTransformer {
     pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
-        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(4);
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(5);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
         let token_inscription = TokenInscriptionParser {};
+        let token_extensions = Token2022AccountParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
         parsers.insert(token_inscription.key(), Box::new(token_inscription));
+        parsers.insert(token_extensions.key(), Box::new(token_extensions));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -108,7 +114,6 @@ impl ProgramTransformer {
         &self,
         tx_info: &TransactionInfo,
     ) -> ProgramTransformerResult<()> {
-        info!("Handling Transaction: {:?}", tx_info.signature);
         let instructions = self.break_transaction(tx_info);
         let mut not_impl = 0;
         let ixlen = instructions.len();
@@ -216,6 +221,14 @@ impl ProgramTransformer {
                     )
                     .await
                 }
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    handle_token_extensions_program_account(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
+                    )
+                    .await
+                }
                 ProgramParseResult::MplCore(parsing_result) => {
                     handle_mpl_core_account(
                         account_info,
@@ -265,5 +278,29 @@ fn record_metric(metric_name: &str, success: bool, retries: u32) {
     let success = if success { "true" } else { "false" };
     if cadence_macros::is_global_default_set() {
         cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    }
+}
+
+pub fn filter_non_null_fields(value: Value) -> Option<Value> {
+    match value {
+        Value::Null => None,
+        Value::Object(map) => {
+            if map.values().all(|v| matches!(v, Value::Null)) {
+                None
+            } else {
+                let filtered_map: Map<String, Value> = map
+                    .into_iter()
+                    .filter(|(_k, v)| !matches!(v, Value::Null))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                if filtered_map.is_empty() {
+                    None
+                } else {
+                    Some(Value::Object(filtered_map))
+                }
+            }
+        }
+        _ => Some(value),
     }
 }

@@ -286,7 +286,7 @@ pub async fn get_related_for_assets(
             let id = asset.id.clone();
             let fa = FullAsset {
                 asset,
-                data: ad.clone(),
+                data: Some(ad.clone()),
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
@@ -444,9 +444,9 @@ pub async fn get_by_id(
         None
     };
 
-    let asset_data: (asset::Model, asset_data::Model) =
+    let asset_data: (asset::Model, Option<asset_data::Model>) =
         asset_data.one(conn).await.and_then(|o| match o {
-            Some((a, Some(d))) => Ok((a, d)),
+            Some((a, d)) => Ok((a, d)),
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })?;
 

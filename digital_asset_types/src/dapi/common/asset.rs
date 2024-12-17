@@ -1,4 +1,3 @@
-use crate::dao::sea_orm_active_enums::SpecificationVersions;
 use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
@@ -284,14 +283,8 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
-    match asset.specification_version {
-        Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
-            v1_content_from_json(data)
-        }
-        Some(_) => Err(DbErr::Custom("Version Not Implemented".to_string())),
-        None => Err(DbErr::Custom("Specification version not found".to_string())),
-    }
+pub fn get_content(data: &asset_data::Model) -> Option<Content> {
+    v1_content_from_json(data).ok()
 }
 
 pub fn to_authority(authority: Vec<asset_authority::Model>) -> Vec<Authority> {
@@ -365,10 +358,7 @@ pub fn to_grouping(
 
 pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     Ok(Interface::from((
-        asset
-            .specification_version
-            .as_ref()
-            .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+        asset.specification_version.as_ref(),
         asset
             .specification_asset_class
             .as_ref()
@@ -393,14 +383,32 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
-    let content = get_content(&asset, &data)?;
-    let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
-    let chain_data_selector = &mut chain_data_selector_fn;
-    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let edition_nonce =
-        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+
+    let (content, edition_nonce, basis_points, mutable, uses) = if let Some(data) = &data {
+        let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
+        let chain_data_selector = &mut chain_data_selector_fn;
+        (
+            get_content(data),
+            safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64()),
+            safe_select(chain_data_selector, "$.primary_sale_happened")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            data.chain_data_mutability.clone().into(),
+            data.chain_data.get("uses").map(|u| Uses {
+                use_method: u
+                    .get("use_method")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("Single")
+                    .to_string()
+                    .into(),
+                total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+                remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+            }),
+        )
+    } else {
+        (None, None, false, false, None)
+    };
+
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
             num_minted: asset.mpl_core_collection_num_minted,
@@ -454,9 +462,9 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
-        content: Some(content),
+        content,
         authorities: Some(rpc_authorities),
-        mutable: data.chain_data_mutability.into(),
+        mutable,
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
@@ -489,7 +497,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             locked: false,
         }),
         creators: Some(rpc_creators),
-        ownership: Ownership {
+        ownership: Some(Ownership {
             frozen: asset.frozen,
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
@@ -498,7 +506,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .owner
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
-        },
+        }),
         supply: match interface {
             Interface::V1NFT => Some(Supply {
                 edition_nonce,
@@ -507,19 +515,11 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             }),
             _ => None,
         },
-        uses: data.chain_data.get("uses").map(|u| Uses {
-            use_method: u
-                .get("use_method")
-                .and_then(|s| s.as_str())
-                .unwrap_or("Single")
-                .to_string()
-                .into(),
-            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-        }),
+        uses,
         burnt: asset.burnt,
         token_info,
         inscription,
+        mint_extensions: asset.mint_extensions,
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,

@@ -8,7 +8,10 @@ use {
         AccountInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
-    digital_asset_types::dao::{token_accounts, tokens},
+    digital_asset_types::dao::{
+        token_accounts,
+        tokens::{self, IsNonFungible},
+    },
     sea_orm::{
         entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
         DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
@@ -25,6 +28,7 @@ pub async fn handle_token_program_account<'a, 'b>(
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
+    let slot = account_info.slot as i64;
     match &parsing_result {
         TokenProgramAccount::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
@@ -42,9 +46,10 @@ pub async fn handle_token_program_account<'a, 'b>(
                 frozen: ActiveValue::Set(frozen),
                 delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
                 token_program: ActiveValue::Set(account_owner.clone()),
-                slot_updated: ActiveValue::Set(account_info.slot as i64),
+                slot_updated: ActiveValue::Set(slot),
                 amount: ActiveValue::Set(ta.amount as i64),
                 close_authority: ActiveValue::Set(None),
+                extensions: ActiveValue::Set(None),
             };
 
             let txn = db.begin().await?;
@@ -70,23 +75,30 @@ pub async fn handle_token_program_account<'a, 'b>(
                 "{} WHERE excluded.slot_updated > token_accounts.slot_updated",
                 query.sql
             );
-            txn.execute(query).await?;
+            db.execute(query).await?;
 
-            if ta.amount == 1 {
+            let token = tokens::Entity::find_by_id(mint.clone()).one(db).await?;
+
+            let is_non_fungible = token.map(|t| t.is_non_fungible()).unwrap_or(false);
+
+            if is_non_fungible {
+                let txn = db.begin().await?;
+
                 upsert_assets_token_account_columns(
                     AssetTokenAccountColumns {
                         mint: mint.clone(),
                         owner: Some(owner.clone()),
                         frozen,
                         delegate,
-                        slot_updated_token_account: Some(account_info.slot as i64),
+                        slot_updated_token_account: Some(slot),
                     },
                     &txn,
                 )
                 .await?;
+
+                txn.commit().await?;
             }
 
-            txn.commit().await?;
             Ok(())
         }
         TokenProgramAccount::Mint(m) => {
@@ -108,6 +120,7 @@ pub async fn handle_token_program_account<'a, 'b>(
                 extension_data: ActiveValue::Set(None),
                 mint_authority: ActiveValue::Set(mint_auth),
                 freeze_authority: ActiveValue::Set(freeze_auth),
+                extensions: ActiveValue::Set(None),
             };
 
             let txn = db.begin().await?;
@@ -133,22 +146,22 @@ pub async fn handle_token_program_account<'a, 'b>(
                 "{} WHERE excluded.slot_updated >= tokens.slot_updated",
                 query.sql
             );
+            db.execute(query).await?;
 
-            txn.execute(query).await?;
+            let txn = db.begin().await?;
 
             upsert_assets_mint_account_columns(
                 AssetMintAccountColumns {
                     mint: account_key.clone(),
-                    supply_mint: Some(account_key),
                     supply: m.supply.into(),
-                    slot_updated_mint_account: account_info.slot,
+                    slot_updated_mint_account: slot,
+                    extensions: None,
                 },
                 &txn,
             )
             .await?;
 
             txn.commit().await?;
-
             Ok(())
         }
     }
