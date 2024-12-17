@@ -10,11 +10,13 @@ use crate::rpc::response::TokenAccountList;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetList, DasError};
 use crate::rpc::TokenInfo;
+use crate::rpc::TokenInscriptionInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, TokenAccount as RpcTokenAccount,
     Uses,
 };
+use blockbuster::programs::token_inscriptions::InscriptionData;
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
@@ -385,6 +387,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         creators,
         groups,
         token_info,
+        inscription,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -419,6 +422,31 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .map(|s| bs58::encode(s).into_string()),
             token_program: bs58::encode(token_info.token_program).into_string(),
         })
+    } else {
+        None
+    };
+
+    let inscription = if options.show_inscription {
+        inscription
+            .and_then(|i| {
+                i.data.map(|d| -> Result<TokenInscriptionInfo, DbErr> {
+                    let deserialized_data: InscriptionData =
+                        serde_json::from_value(d).map_err(|e| {
+                            DbErr::Custom(format!("Failed to deserialize inscription data: {}", e))
+                        })?;
+                    Ok(TokenInscriptionInfo {
+                        authority: deserialized_data.authority,
+                        root: deserialized_data.root,
+                        content: deserialized_data.content,
+                        encoding: deserialized_data.encoding,
+                        inscription_data: deserialized_data.inscription_data,
+                        order: deserialized_data.order,
+                        size: deserialized_data.size,
+                        validation_hash: deserialized_data.validation_hash,
+                    })
+                })
+            })
+            .and_then(|i| i.ok())
     } else {
         None
     };
@@ -491,6 +519,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         }),
         burnt: asset.burnt,
         token_info,
+        inscription,
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,

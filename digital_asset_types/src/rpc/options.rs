@@ -10,4 +10,6 @@ pub struct Options {
     pub show_fungible: bool,
     #[serde(default)]
     pub show_collection_metadata: bool,
+    #[serde(default)]
+    pub show_inscription: bool,
 }

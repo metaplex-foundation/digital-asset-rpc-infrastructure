@@ -4,6 +4,7 @@ use {
         error::{ProgramTransformerError, ProgramTransformerResult},
         mpl_core_program::handle_mpl_core_account,
         token::handle_token_program_account,
+        token_inscription::handle_token_inscription_program_update,
         token_metadata::handle_token_metadata_account,
     },
     blockbuster::{
@@ -11,8 +12,8 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
-            ProgramParseResult,
+            token_account::TokenAccountParser, token_inscriptions::TokenInscriptionParser,
+            token_metadata::TokenMetadataParser, ProgramParseResult,
         },
     },
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
@@ -34,6 +35,7 @@ pub mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_inscription;
 mod token_metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -67,10 +69,12 @@ impl ProgramTransformer {
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
+        let token_inscription = TokenInscriptionParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
+        parsers.insert(token_inscription.key(), Box::new(token_inscription));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -218,6 +222,14 @@ impl ProgramTransformer {
                         parsing_result,
                         &db,
                         &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::TokenInscriptionAccount(parsing_result) => {
+                    handle_token_inscription_program_update(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
                     )
                     .await
                 }

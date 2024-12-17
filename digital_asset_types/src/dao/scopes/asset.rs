@@ -2,20 +2,22 @@ use crate::{
     dao::{
         asset::{self},
         asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
-        cl_audits_v2,
+        asset_v1_account_attachments, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::{Instruction, V1AccountAttachments},
         token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{
-        filter::AssetSortDirection,
         options::Options,
         response::{NftEdition, NftEditions},
+        {filter::AssetSortDirection, options::Options},
     },
 };
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
-use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
+use sea_orm::{
+    entity::*, query::*, sea_query::Expr, sea_query::Expr, ConnectionTrait, DbErr, Order,
+};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
@@ -268,7 +270,7 @@ pub async fn get_related_for_assets(
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
     let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
-        .filter(asset_data::Column::Id.is_in(asset_ids))
+        .filter(asset_data::Column::Id.is_in(asset_ids.clone()))
         .all(conn)
         .await?;
     let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
@@ -291,6 +293,7 @@ pub async fn get_related_for_assets(
                 creators: vec![],
                 groups: vec![],
                 token_info: None,
+                inscription: None,
             };
             acc.insert(id, fa);
         };
@@ -300,7 +303,7 @@ pub async fn get_related_for_assets(
 
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_creators::Column::AssetId.is_in(ids))
         .order_by_asc(asset_creators::Column::AssetId)
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
@@ -359,6 +362,20 @@ pub async fn get_related_for_assets(
             .find_also_related(asset_data::Entity)
             .all(conn)
             .await?;
+
+        if options.show_inscription {
+            let attachments = asset_v1_account_attachments::Entity::find()
+                .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids))
+                .all(conn)
+                .await?;
+
+            for a in attachments.into_iter() {
+                if let Some(asset) = assets_map.get_mut(&a.id) {
+                    asset.inscription = Some(a);
+                }
+            }
+        }
+
         for (g, a) in combined_group_query.into_iter() {
             if let Some(asset) = assets_map.get_mut(&g.asset_id) {
                 asset.groups.push((g, a));
@@ -371,7 +388,7 @@ pub async fn get_related_for_assets(
                 asset.groups.push((g, None));
             }
         }
-    };
+    }
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
@@ -422,6 +439,13 @@ pub async fn get_by_id(
     } else {
         None
     };
+
+    let inscription = if options.show_inscription {
+        get_inscription_by_mint(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
+
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
@@ -475,6 +499,7 @@ pub async fn get_by_id(
         creators,
         groups,
         token_info,
+        inscription,
     })
 }
 
@@ -750,5 +775,26 @@ pub async fn get_token_by_id(
         .and_then(|o| match o {
             Some(t) => Ok(t),
             _ => Err(DbErr::RecordNotFound("Token Not Found".to_string())),
+        })
+}
+
+pub async fn get_inscription_by_mint(
+    conn: &impl ConnectionTrait,
+    mint: Vec<u8>,
+) -> Result<asset_v1_account_attachments::Model, DbErr> {
+    asset_v1_account_attachments::Entity::find()
+        .filter(
+            asset_v1_account_attachments::Column::Data
+                .is_not_null()
+                .and(Expr::cust(&format!(
+                    "data->>'root' = '{}'",
+                    bs58::encode(mint).into_string()
+                ))),
+        )
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
         })
 }
