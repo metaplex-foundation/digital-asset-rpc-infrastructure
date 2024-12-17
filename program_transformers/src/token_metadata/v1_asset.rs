@@ -207,14 +207,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             OnConflict::columns([asset_authority::Column::AssetId])
                 .update_columns([
                     asset_authority::Column::Authority,
-                    asset_authority::Column::Seq,
                     asset_authority::Column::SlotUpdated,
                 ])
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
     query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_authority.slot_updated",
+        "{} WHERE excluded.slot_updated > asset_authority.slot_updated AND excluded.authority != asset_authority.authority",
         query.sql
     );
     txn.execute(query)

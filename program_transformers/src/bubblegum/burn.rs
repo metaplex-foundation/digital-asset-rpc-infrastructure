@@ -28,7 +28,13 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let Some(cl) = &parsing_result.tree_update {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
+        let seq =
+            save_changelog_event(cl, bundle.slot, bundle.txn_id, &multi_txn, instruction).await?;
         let leaf_index = cl.index;
         let (asset_id, _) = Pubkey::find_program_address(
             &[
@@ -46,11 +52,6 @@ where
             burnt: ActiveValue::Set(true),
             ..Default::default()
         };
-
-        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-        // an error and this function returns it using the `?` operator), then the transaction is
-        // automatically rolled back.
-        let multi_txn = txn.begin().await?;
 
         // Upsert asset table `burnt` column.  Note we don't check for decompression (asset.seq = 0)
         // because we know if the item was burnt it could not have been decompressed later.

@@ -43,18 +43,19 @@ where
             "Handling collection verification event for {} (verify: {}): {}",
             collection, verify, bundle.txn_id
         );
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
+        let seq =
+            save_changelog_event(cl, bundle.slot, bundle.txn_id, &multi_txn, instruction).await?;
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
         };
 
         let tree_id = cl.id.to_bytes();
         let nonce = cl.index as i64;
-
-        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-        // an error and this function returns it using the `?` operator), then the transaction is
-        // automatically rolled back.
-        let multi_txn = txn.begin().await?;
 
         // Partial update of asset table with just leaf.
         upsert_asset_with_leaf_info(

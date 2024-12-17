@@ -23,7 +23,14 @@ where
     T: ConnectionTrait + TransactionTrait,
 {
     if let (Some(le), Some(cl)) = (&parsing_result.leaf_update, &parsing_result.tree_update) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
+        let seq =
+            save_changelog_event(cl, bundle.slot, bundle.txn_id, &multi_txn, instruction).await?;
+
         match le.schema {
             LeafSchema::V1 {
                 id,
@@ -39,11 +46,6 @@ where
                     Some(delegate.to_bytes().to_vec())
                 };
                 let tree_id = cl.id.to_bytes();
-
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
 
                 // Partial update of asset table with just leaf.
                 upsert_asset_with_leaf_info(

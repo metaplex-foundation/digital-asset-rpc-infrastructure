@@ -48,7 +48,13 @@ where
         &parsing_result.tree_update,
         &parsing_result.payload,
     ) {
-        let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+        // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
+        // an error and this function returns it using the `?` operator), then the transaction is
+        // automatically rolled back.
+        let multi_txn = txn.begin().await?;
+
+        let seq =
+            save_changelog_event(cl, bundle.slot, bundle.txn_id, &multi_txn, instruction).await?;
 
         #[allow(unreachable_patterns)]
         return match le.schema {
@@ -108,11 +114,6 @@ where
                 } else {
                     ChainMutability::Immutable
                 };
-
-                // Begin a transaction.  If the transaction goes out of scope (i.e. one of the executions has
-                // an error and this function returns it using the `?` operator), then the transaction is
-                // automatically rolled back.
-                let multi_txn = txn.begin().await?;
 
                 let download_metadata_info = upsert_asset_data(
                     &multi_txn,
