@@ -1,0 +1,53 @@
+---
+source: integration_tests/tests/integration_tests/token_extensions_tests.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "interface": "FungibleToken",
+  "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
+  "authorities": [],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "token",
+    "owner": ""
+  },
+  "mutable": true,
+  "burnt": false,
+  "mint_extensions": {
+    "metadata": {
+      "uri": "https://acme.com/demo.json",
+      "mint": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
+      "name": "DAS Dev",
+      "symbol": "DAS",
+      "update_authority": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL",
+      "additional_metadata": []
+    },
+    "metadata_pointer": {
+      "authority": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL",
+      "metadata_address": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"
+    }
+  }
+}
