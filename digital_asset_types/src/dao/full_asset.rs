@@ -2,8 +2,6 @@ use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_group
 
 use super::tokens;
 
-use super::tokens;
-
 pub struct FullAssetGroup {
     pub id: i64,
     pub asset_id: Vec<u8>,

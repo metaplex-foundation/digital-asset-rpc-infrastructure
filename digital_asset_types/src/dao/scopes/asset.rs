@@ -8,9 +8,9 @@ use crate::{
         token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{
+        filter::AssetSortDirection,
         options::Options,
         response::{NftEdition, NftEditions},
-        {filter::AssetSortDirection, options::Options},
     },
 };
 use indexmap::IndexMap;
