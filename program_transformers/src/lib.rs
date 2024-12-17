@@ -226,12 +226,7 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenInscriptionAccount(parsing_result) => {
-                    handle_token_inscription_program_update(
-                        account_info,
-                        parsing_result,
-                        &self.storage,
-                    )
-                    .await
+                    handle_token_inscription_program_update(account_info, parsing_result, &db).await
                 }
                 _ => Err(ProgramTransformerError::NotImplemented),
             }?;
