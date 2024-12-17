@@ -73,7 +73,6 @@ snapshot_kind: text
         "ownership_model": "single",
         "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g"
       },
-      "supply": null,
       "mutable": true,
       "burnt": false
     },
@@ -142,7 +141,6 @@ snapshot_kind: text
         "ownership_model": "single",
         "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g"
       },
-      "supply": null,
       "mutable": true,
       "burnt": false
     }
