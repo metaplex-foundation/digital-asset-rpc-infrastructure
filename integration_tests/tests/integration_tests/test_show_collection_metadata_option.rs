@@ -23,7 +23,11 @@ async fn test_get_asset_with_show_collection_metadata_option() {
     )
     .await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts(["F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk"]);
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
+        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
+    ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
 
@@ -31,7 +35,7 @@ async fn test_get_asset_with_show_collection_metadata_option() {
 
     let request = r#"
     {
-    "id": "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+    "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
     "displayOptions" : {
         "showCollectionMetadata": true
         }
