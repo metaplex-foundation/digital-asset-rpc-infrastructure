@@ -314,25 +314,50 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
 }
 
 pub fn to_grouping(
-    groups: Vec<asset_grouping::Model>,
+    groups: Vec<(asset_grouping::Model, Option<asset_data::Model>)>,
     options: &Options,
 ) -> Result<Vec<Group>, DbErr> {
     let result: Vec<Group> = groups
         .iter()
-        .filter_map(|model| {
+        .filter_map(|(asset_group, asset_data)| {
             let verified = match options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
-                true => Some(model.verified),
+                true => Some(asset_group.verified),
                 false => None,
             };
             // Filter out items where group_value is None.
-            model.group_value.clone().map(|group_value| Group {
-                group_key: model.group_key.clone(),
-                group_value: Some(group_value),
-                verified,
+            asset_group.group_value.clone().map(|group_value| {
+                let collection_metadata = asset_data.as_ref().map(|data| {
+                    let mut metadata_selector_fn = jsonpath_lib::selector(&data.metadata);
+                    let metadata_selector = &mut metadata_selector_fn;
+                    let mut meta: MetadataMap = MetadataMap::new();
+
+                    if let Some(name) = safe_select(metadata_selector, "$.name") {
+                        meta.set_item("name", name.clone());
+                    }
+                    if let Some(symbol) = safe_select(metadata_selector, "$.symbol") {
+                        meta.set_item("symbol", symbol.clone());
+                    }
+                    if let Some(image) = safe_select(metadata_selector, "$.image") {
+                        meta.set_item("image", image.clone());
+                    }
+                    if let Some(external_url) = safe_select(metadata_selector, "$.external_url") {
+                        meta.set_item("external_url", external_url.clone());
+                    }
+
+                    meta
+                });
+
+                Group {
+                    group_key: asset_group.group_key.clone(),
+                    group_value: Some(group_value),
+                    verified,
+                    collection_metadata,
+                }
             })
         })
         .collect();
+
     Ok(result)
 }
 
@@ -492,7 +517,6 @@ pub fn asset_list_to_rpc(
             (assets, errors)
         })
 }
-
 pub fn token_account_to_rpc(
     token_account: token_accounts::Model,
     _options: &Options,

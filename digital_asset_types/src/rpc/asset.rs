@@ -219,6 +219,8 @@ pub struct Group {
     pub group_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_metadata: Option<MetadataMap>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
@@ -412,7 +414,6 @@ pub struct Asset {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
 #[serde(default)]
 pub struct TokenAccount {
