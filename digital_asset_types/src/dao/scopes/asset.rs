@@ -5,11 +5,11 @@ use crate::{
         cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::{Instruction, V1AccountAttachments},
-        token_accounts, Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{
-        filter::AssetSortDirection,
         response::{NftEdition, NftEditions},
+        {filter::AssetSortDirection, options::Options},
     },
 };
 use indexmap::IndexMap;
@@ -157,11 +157,12 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Owner.eq(owner))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -170,7 +171,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options.show_unverified_collections,
     )
     .await
 }
@@ -184,6 +185,7 @@ pub async fn get_assets(
     let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -286,6 +288,7 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                token_info: None,
             };
             acc.insert(id, fa);
         };
@@ -393,12 +396,19 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
     if !include_no_supply {
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
+
+    let token_info = if options.show_fungible {
+        get_token_by_id(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
     let asset_data: (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
@@ -438,6 +448,7 @@ pub async fn get_by_id(
         authorities,
         creators,
         groups: grouping,
+        token_info,
     })
 }
 
@@ -702,4 +713,17 @@ pub async fn get_nft_editions(
         after,
         cursor,
     })
+}
+
+pub async fn get_token_by_id(
+    conn: &impl ConnectionTrait,
+    id: Vec<u8>,
+) -> Result<tokens::Model, DbErr> {
+    tokens::Entity::find_by_id(id)
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Token Not Found".to_string())),
+        })
 }

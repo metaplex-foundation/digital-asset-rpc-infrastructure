@@ -9,6 +9,7 @@ use crate::rpc::options::Options;
 use crate::rpc::response::TokenAccountList;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetList, DasError};
+use crate::rpc::TokenInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
     MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, TokenAccount as RpcTokenAccount,
@@ -358,6 +359,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         authorities,
         creators,
         groups,
+        token_info,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -378,6 +380,22 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             plugins_json_version: asset.mpl_core_plugins_json_version,
         }),
         _ => None,
+    };
+
+    let token_info = if options.show_fungible {
+        token_info.map(|token_info| TokenInfo {
+            supply: token_info.supply.try_into().unwrap_or(0),
+            decimals: token_info.decimals as u8,
+            mint_authority: token_info
+                .mint_authority
+                .map(|s| bs58::encode(s).into_string()),
+            freeze_authority: token_info
+                .freeze_authority
+                .map(|s| bs58::encode(s).into_string()),
+            token_program: bs58::encode(token_info.token_program).into_string(),
+        })
+    } else {
+        None
     };
 
     Ok(RpcAsset {
@@ -447,6 +465,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
         }),
         burnt: asset.burnt,
+        token_info,
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
