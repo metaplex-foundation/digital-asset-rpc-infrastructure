@@ -27,7 +27,7 @@ pub async fn get_assets_by_group(
         sort_direction,
         &pagination,
         page_options.limit,
-        options.show_unverified_collections,
+        options,
     )
     .await?;
     Ok(build_asset_response(

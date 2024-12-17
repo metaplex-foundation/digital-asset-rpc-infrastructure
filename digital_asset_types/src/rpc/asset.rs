@@ -219,6 +219,8 @@ pub struct Group {
     pub group_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_metadata: Option<MetadataMap>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]

@@ -23,7 +23,7 @@ pub async fn search_assets(
         sort_direction,
         &pagination,
         page_options.limit,
-        options.show_unverified_collections,
+        options,
     )
     .await?;
     Ok(build_asset_response(
