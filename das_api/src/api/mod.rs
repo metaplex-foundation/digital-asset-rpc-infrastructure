@@ -2,7 +2,9 @@ use crate::error::DasApiError;
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
 use digital_asset_types::rpc::options::Options;
-use digital_asset_types::rpc::response::{AssetList, TokenAccountList, TransactionSignatureList};
+use digital_asset_types::rpc::response::{
+    AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
+};
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
 use open_rpc_derive::{document_rpc, rpc};
@@ -147,6 +149,18 @@ pub struct GetGrouping {
     pub group_value: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetNftEditions {
+    pub mint_address: String,
+    pub page: Option<u32>,
+    pub limit: Option<u32>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetSignatures {
@@ -276,4 +290,11 @@ pub trait ApiContract: Send + Sync + 'static {
         &self,
         payload: GetTokenAccounts,
     ) -> Result<TokenAccountList, DasApiError>;
+
+    #[rpc(
+        name = "getNftEditions",
+        params = "named",
+        summary = "Get all printable editions for a master edition NFT mint"
+    )]
+    async fn get_nft_editions(&self, payload: GetNftEditions) -> Result<NftEditions, DasApiError>;
 }

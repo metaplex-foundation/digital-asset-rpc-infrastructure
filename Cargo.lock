@@ -2135,6 +2135,7 @@ dependencies = [
  "jsonpath_lib",
  "log",
  "mime_guess",
+ "mpl-token-metadata",
  "num-derive 0.3.3",
  "num-traits",
  "schemars",
