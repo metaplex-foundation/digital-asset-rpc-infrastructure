@@ -1,25 +1,25 @@
 ---
 source: integration_tests/tests/integration_tests/show_fungible_flag_tests.rs
+assertion_line: 46
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
-  "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+  "id": "Ca84nWhQu41DMRnjdhRrLZty1i9txepMhAhz5qLLGcBw",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
-    "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/1983.json",
+    "json_uri": "https://nftstorage.link/ipfs/bafkreibmdapcawep5fb77lvcuvoivft3w3wsnc4qworrntjbg6abc5vwti",
     "files": [],
     "metadata": {
-      "name": "Mad Lads #1983",
-      "symbol": "MAD",
+      "name": "Claynosaurz #1096",
+      "symbol": "DINO",
       "token_standard": "ProgrammableNonFungible"
     },
     "links": {}
   },
   "authorities": [
     {
-      "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+      "address": "B7B2g3WbdZMDV3YcDGRGhEt5KyWqDJZFwRR8zpWVEkUF",
       "scopes": [
         "full"
       ]
@@ -38,35 +38,35 @@ snapshot_kind: text
   "grouping": [
     {
       "group_key": "collection",
-      "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w"
+      "group_value": "6mszaj17KSfVqADrQj3o4W3zoLMTykgmV37W4QadCczK"
     }
   ],
   "royalty": {
     "royalty_model": "creators",
     "target": null,
-    "percent": 0.042,
-    "basis_points": 420,
+    "percent": 0.05,
+    "basis_points": 500,
     "primary_sale_happened": true,
     "locked": false
   },
   "creators": [
     {
-      "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+      "address": "AoebZtN5iKpVyUBc82aouWhugVknLzjUmEEUezxviYNo",
       "share": 0,
       "verified": true
     },
     {
-      "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+      "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
       "share": 100,
-      "verified": true
+      "verified": false
     }
   ],
   "ownership": {
     "frozen": true,
-    "delegated": true,
-    "delegate": "BPB5idZgbA1DG4XEmnKs62AADRZFf3jY7Kr9mpMGyKPi",
+    "delegated": false,
+    "delegate": null,
     "ownership_model": "single",
-    "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
+    "owner": "J1ep1LizHMU3Bf1GKkWePGHU3Qwwzw6FvwW5ySFWdCkn"
   },
   "mutable": true,
   "burnt": false,
@@ -74,7 +74,7 @@ snapshot_kind: text
     "supply": 1,
     "decimals": 0,
     "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-    "mint_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
-    "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip"
+    "mint_authority": "EwSfdqoZPBW6JJN1SBkM2pPgpihDVbByuxKdmiXurxYF",
+    "freeze_authority": "EwSfdqoZPBW6JJN1SBkM2pPgpihDVbByuxKdmiXurxYF"
   }
 }

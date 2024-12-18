@@ -1,9 +1,13 @@
 use {
     super::IsNonFungibeFromTokenStandard,
     crate::{
-        asset_upserts::{upsert_assets_metadata_account_columns, AssetMetadataAccountColumns},
+        asset_upserts::{
+            upsert_assets_metadata_account_columns, upsert_assets_mint_account_columns,
+            upsert_assets_token_account_columns, AssetMetadataAccountColumns,
+            AssetMintAccountColumns, AssetTokenAccountColumns,
+        },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        DownloadMetadataInfo,
+        find_model_with_retry, DownloadMetadataInfo,
     },
     blockbuster::token_metadata::{
         accounts::{MasterEdition, Metadata},
@@ -14,8 +18,8 @@ use {
             asset, asset_authority, asset_creators, asset_data, asset_grouping,
             asset_v1_account_attachments,
             sea_orm_active_enums::{
-                ChainMutability, Mutability, SpecificationAssetClass, SpecificationVersions,
-                V1AccountAttachments,
+                ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
+                SpecificationVersions, V1AccountAttachments,
             },
             token_accounts,
             tokens::{self},
@@ -26,16 +30,18 @@ use {
         entity::{ActiveValue, EntityTrait},
         query::{JsonValue, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, Statement, TransactionTrait,
+        ColumnTrait, ConnectionTrait, DbBackend, DbErr, Order, QueryFilter, QueryOrder, Statement,
+        TransactionTrait,
     },
     solana_sdk::pubkey,
     solana_sdk::pubkey::Pubkey,
+    sqlx::types::Decimal,
     tracing::warn,
 };
 
 pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
-    id: pubkey::Pubkey,
+    id: Pubkey,
     slot: u64,
 ) -> ProgramTransformerResult<()> {
     let slot_i = slot as i64;
@@ -61,6 +67,7 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 }
 
 static WSOL_PUBKEY: pubkey::Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+const RETRY_INTERVALS: &[u64] = &[0, 5, 10];
 
 pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
@@ -277,6 +284,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         AssetMetadataAccountColumns {
             mint: mint_pubkey_vec.clone(),
             specification_asset_class: Some(class),
+            owner_type: ownership_type,
             royalty_amount: metadata.seller_fee_basis_points as i32,
             asset_data: Some(mint_pubkey_vec.clone()),
             slot_updated_metadata_account: slot_i as u64,

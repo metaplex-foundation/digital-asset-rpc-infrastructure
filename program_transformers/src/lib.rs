@@ -222,12 +222,7 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
-                    handle_token_extensions_program_account(
-                        account_info,
-                        parsing_result,
-                        &self.storage,
-                    )
-                    .await
+                    handle_token_extensions_program_account(account_info, parsing_result, &db).await
                 }
                 ProgramParseResult::MplCore(parsing_result) => {
                     handle_mpl_core_account(

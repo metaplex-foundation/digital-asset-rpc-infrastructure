@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/show_fungible_flag_tests.rs
+assertion_line: 83
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",

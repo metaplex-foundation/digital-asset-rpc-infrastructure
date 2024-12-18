@@ -69,7 +69,6 @@ snapshot_kind: text
     "ownership_model": "single",
     "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
   },
-  "supply": null,
   "mutable": true,
   "burnt": false
 }

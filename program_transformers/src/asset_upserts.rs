@@ -47,7 +47,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
         .build(DbBackend::Postgres);
 
     query.sql = format!(
-    "{} WHERE (excluded.slot_updated_token_account >= asset.slot_updated_token_account OR asset.slot_updated_token_account IS NULL) AND asset.owner_type = 'single'",
+    "{} WHERE (excluded.slot_updated_token_account >= asset.slot_updated_token_account OR asset.slot_updated_token_account IS NULL)",
     query.sql);
     txn_or_conn.execute(query).await?;
     Ok(())
@@ -64,12 +64,6 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     columns: AssetMintAccountColumns,
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
-    let owner_type = if columns.supply == Decimal::from(1) {
-        OwnerType::Single
-    } else {
-        OwnerType::Token
-    };
-
     let active_model = asset::ActiveModel {
         id: Set(columns.mint.clone()),
         supply: Set(columns.supply),
@@ -109,6 +103,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
 pub struct AssetMetadataAccountColumns {
     pub mint: Vec<u8>,
     pub specification_asset_class: Option<SpecificationAssetClass>,
+    pub owner_type: OwnerType,
     pub royalty_amount: i32,
     pub asset_data: Option<Vec<u8>>,
     pub slot_updated_metadata_account: u64,
@@ -129,6 +124,7 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
         id: Set(columns.mint),
         specification_version: Set(Some(SpecificationVersions::V1)),
         specification_asset_class: Set(columns.specification_asset_class),
+        owner_type: Set(columns.owner_type),
         tree_id: Set(None),
         nonce: Set(Some(0)),
         seq: Set(Some(0)),
@@ -158,6 +154,7 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
                 .update_columns([
                     asset::Column::SpecificationVersion,
                     asset::Column::SpecificationAssetClass,
+                    asset::Column::OwnerType,
                     asset::Column::TreeId,
                     asset::Column::Nonce,
                     asset::Column::Seq,

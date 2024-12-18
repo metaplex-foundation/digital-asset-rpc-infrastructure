@@ -52,8 +52,6 @@ pub async fn handle_token_program_account<'a, 'b>(
                 extensions: ActiveValue::Set(None),
             };
 
-            let txn = db.begin().await?;
-
             let mut query = token_accounts::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([token_accounts::Column::Pubkey])
@@ -122,8 +120,6 @@ pub async fn handle_token_program_account<'a, 'b>(
                 freeze_authority: ActiveValue::Set(freeze_auth),
                 extensions: ActiveValue::Set(None),
             };
-
-            let txn = db.begin().await?;
 
             let mut query = tokens::Entity::insert(model)
                 .on_conflict(
