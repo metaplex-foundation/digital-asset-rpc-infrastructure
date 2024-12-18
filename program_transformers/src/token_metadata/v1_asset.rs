@@ -343,15 +343,17 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 .action_cond_where(
                     Condition::all()
                         .add(
-                            Condition::any().add(
-                                Expr::tbl(
-                                    Alias::new("excluded"),
-                                    asset_grouping::Column::GroupValue,
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_grouping::Column::GroupValue,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_grouping::Entity,
+                                        asset_grouping::Column::GroupValue,
+                                    )),
                                 )
-                                .ne(Expr::tbl(
-                                    asset_grouping::Entity,
-                                    asset_grouping::Column::GroupValue,
-                                ))
                                 .add(
                                     Expr::tbl(
                                         Alias::new("excluded"),
@@ -362,7 +364,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                                         asset_grouping::Column::Verified,
                                     )),
                                 ),
-                            ),
                         )
                         .add(
                             Expr::tbl(asset_grouping::Entity, asset_grouping::Column::SlotUpdated)
