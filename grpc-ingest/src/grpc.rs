@@ -140,6 +140,7 @@ impl SubscriptionTask {
         let request = SubscribeRequest {
             accounts: req_accounts,
             transactions: req_transactions,
+            commitment: Some(config.geyser.commitment.to_proto().into()),
             ..Default::default()
         };
 
