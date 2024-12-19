@@ -9,9 +9,8 @@ use {
     },
     sea_orm::{
         entity::{ActiveValue, EntityTrait},
-        query::QueryTrait,
-        sea_query::query::OnConflict,
-        ConnectionTrait, DatabaseTransaction, DbBackend,
+        sea_query::{query::OnConflict, Alias, Condition, Expr},
+        DatabaseTransaction,
     },
     solana_sdk::pubkey::Pubkey,
 };
@@ -74,7 +73,7 @@ pub async fn save_master_edition(
         ..Default::default()
     };
 
-    let query = asset_v1_account_attachments::Entity::insert(model)
+    asset_v1_account_attachments::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .update_columns([
@@ -82,9 +81,43 @@ pub async fn save_master_edition(
                     asset_v1_account_attachments::Column::Data,
                     asset_v1_account_attachments::Column::SlotUpdated,
                 ])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_v1_account_attachments::Column::AttachmentType,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_v1_account_attachments::Entity,
+                                        asset_v1_account_attachments::Column::AttachmentType,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_v1_account_attachments::Column::Data,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_v1_account_attachments::Entity,
+                                        asset_v1_account_attachments::Column::Data,
+                                    )),
+                                ),
+                        )
+                        .add(
+                            Expr::tbl(
+                                asset_v1_account_attachments::Entity,
+                                asset_v1_account_attachments::Column::SlotUpdated,
+                            )
+                            .lte(slot as i64),
+                        ),
+                )
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query).await?;
+        .exec_without_returning(txn)
+        .await?;
+
     Ok(())
 }

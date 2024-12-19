@@ -21,9 +21,9 @@ use {
     },
     sea_orm::{
         entity::{ActiveValue, EntityTrait},
-        query::{JsonValue, QueryTrait},
-        sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, Statement, TransactionTrait,
+        query::JsonValue,
+        sea_query::{query::OnConflict, Alias, Expr},
+        Condition, ConnectionTrait, Statement, TransactionTrait,
     },
     solana_sdk::pubkey,
     tracing::warn,
@@ -41,18 +41,24 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
         burnt: ActiveValue::Set(true),
         ..Default::default()
     };
-    let mut query = asset::Entity::insert(model)
+
+    asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([asset::Column::SlotUpdated, asset::Column::Burnt])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Expr::tbl(Alias::new("excluded"), asset::Column::Burnt)
+                                .ne(Expr::tbl(asset::Entity, asset::Column::Burnt)),
+                        )
+                        .add(Expr::tbl(asset::Entity, asset::Column::SlotUpdated).lte(slot_i)),
+                )
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset.slot_updated",
-        query.sql
-    );
-    conn.execute(query).await?;
+        .exec_without_returning(conn)
+        .await?;
+
     Ok(())
 }
 
@@ -134,7 +140,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.execute(set_lock_timeout_stmt).await?;
     txn.execute(set_local_app_name_stmt).await?;
 
-    let mut query = asset_data::Entity::insert(asset_data_model)
+    asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -148,14 +154,93 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::RawSymbol,
                     asset_data::Column::BaseInfoSeq,
                 ])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::ChainDataMutability,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::ChainDataMutability,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::ChainData,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::ChainData,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::MetadataUrl,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::MetadataUrl,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::MetadataMutability,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::MetadataMutability,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(Alias::new("excluded"), asset_data::Column::Reindex)
+                                        .ne(Expr::tbl(
+                                            asset_data::Entity,
+                                            asset_data::Column::Reindex,
+                                        )),
+                                )
+                                .add(
+                                    Expr::tbl(Alias::new("excluded"), asset_data::Column::RawName)
+                                        .ne(Expr::tbl(
+                                            asset_data::Entity,
+                                            asset_data::Column::RawName,
+                                        )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::RawSymbol,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::RawSymbol,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::BaseInfoSeq,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::BaseInfoSeq,
+                                    )),
+                                ),
+                        )
+                        .add(
+                            Expr::tbl(asset_data::Entity, asset_data::Column::SlotUpdated)
+                                .lte(slot_i),
+                        ),
+                )
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_data.slot_updated",
-        query.sql
-    );
-    txn.execute(query)
+        .exec_without_returning(&txn)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
@@ -184,14 +269,14 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         attachment_type: ActiveValue::Set(V1AccountAttachments::MasterEditionV2),
         ..Default::default()
     };
-    let query = asset_v1_account_attachments::Entity::insert(attachment)
+
+    asset_v1_account_attachments::Entity::insert(attachment)
         .on_conflict(
             OnConflict::columns([asset_v1_account_attachments::Column::Id])
                 .do_nothing()
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    txn.execute(query)
+        .exec_without_returning(&txn)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
@@ -202,21 +287,34 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         slot_updated: ActiveValue::Set(slot_i),
         ..Default::default()
     };
-    let mut query = asset_authority::Entity::insert(model)
+
+    asset_authority::Entity::insert(model)
         .on_conflict(
-            OnConflict::columns([asset_authority::Column::AssetId])
+            OnConflict::column(asset_authority::Column::AssetId)
                 .update_columns([
                     asset_authority::Column::Authority,
                     asset_authority::Column::SlotUpdated,
                 ])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Expr::tbl(Alias::new("excluded"), asset_authority::Column::Authority)
+                                .ne(Expr::tbl(
+                                    asset_authority::Entity,
+                                    asset_authority::Column::Authority,
+                                )),
+                        )
+                        .add(
+                            Expr::tbl(
+                                asset_authority::Entity,
+                                asset_authority::Column::SlotUpdated,
+                            )
+                            .lte(slot_i),
+                        ),
+                )
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_authority.slot_updated AND excluded.authority != asset_authority.authority",
-        query.sql
-    );
-    txn.execute(query)
+        .exec_without_returning(&txn)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
@@ -230,7 +328,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             slot_updated: ActiveValue::Set(Some(slot_i)),
             ..Default::default()
         };
-        let mut query = asset_grouping::Entity::insert(model)
+
+        asset_grouping::Entity::insert(model)
             .on_conflict(
                 OnConflict::columns([
                     asset_grouping::Column::AssetId,
@@ -240,16 +339,40 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_grouping::Column::GroupValue,
                     asset_grouping::Column::Verified,
                     asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::GroupInfoSeq,
                 ])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_grouping::Column::GroupValue,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_grouping::Entity,
+                                        asset_grouping::Column::GroupValue,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_grouping::Column::Verified,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_grouping::Entity,
+                                        asset_grouping::Column::Verified,
+                                    )),
+                                ),
+                        )
+                        .add(
+                            Expr::tbl(asset_grouping::Entity, asset_grouping::Column::SlotUpdated)
+                                .lte(slot_i),
+                        ),
+                )
                 .to_owned(),
             )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-            "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
-            query.sql
-        );
-        txn.execute(query)
+            .exec_without_returning(&txn)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
@@ -272,7 +395,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .collect::<Vec<_>>();
 
     if !creators.is_empty() {
-        let mut query = asset_creators::Entity::insert_many(creators)
+        asset_creators::Entity::insert_many(creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
@@ -281,18 +404,78 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 .update_columns([
                     asset_creators::Column::Creator,
                     asset_creators::Column::Share,
-                    asset_creators::Column::Verified,
                     asset_creators::Column::Seq,
+                    asset_creators::Column::Verified,
                     asset_creators::Column::SlotUpdated,
                 ])
+                .action_cond_where(
+                    Condition::any()
+                        .add(
+                            Condition::all().add(
+                                Condition::any()
+                                    .add(
+                                        Expr::tbl(
+                                            Alias::new("excluded"),
+                                            asset_creators::Column::Creator,
+                                        )
+                                        .ne(Expr::tbl(
+                                            asset_creators::Entity,
+                                            asset_creators::Column::Creator,
+                                        )),
+                                    )
+                                    .add(
+                                        Expr::tbl(
+                                            Alias::new("excluded"),
+                                            asset_creators::Column::Share,
+                                        )
+                                        .ne(Expr::tbl(
+                                            asset_creators::Entity,
+                                            asset_creators::Column::Share,
+                                        )),
+                                    )
+                                    .add(
+                                        Expr::tbl(
+                                            Alias::new("excluded"),
+                                            asset_creators::Column::Verified,
+                                        )
+                                        .ne(Expr::tbl(
+                                            asset_creators::Entity,
+                                            asset_creators::Column::Verified,
+                                        )),
+                                    )
+                                    .add(
+                                        Expr::tbl(
+                                            Alias::new("excluded"),
+                                            asset_creators::Column::Seq,
+                                        )
+                                        .ne(Expr::tbl(
+                                            asset_creators::Entity,
+                                            asset_creators::Column::Seq,
+                                        )),
+                                    ),
+                            ),
+                        )
+                        .add(
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        asset_creators::Entity,
+                                        asset_creators::Column::SlotUpdated,
+                                    )
+                                    .is_null(),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        asset_creators::Entity,
+                                        asset_creators::Column::SlotUpdated,
+                                    )
+                                    .lte(slot_i),
+                                ),
+                        ),
+                )
                 .to_owned(),
             )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-                "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
-                query.sql
-            );
-        txn.execute(query)
+            .exec_without_returning(&txn)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
