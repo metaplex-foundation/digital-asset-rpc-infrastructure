@@ -176,8 +176,7 @@ async fn test_search_asset_with_token_type_fungible() {
     {
     "page": 1,
     "limit": 1,
-    "tokenType": "Fungible",
-    "ownerType" : "token"
+    "tokenType": "Fungible"
     }
     "#;
 
