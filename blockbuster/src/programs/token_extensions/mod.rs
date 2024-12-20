@@ -4,6 +4,7 @@ use crate::{
     program_handler::{ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
+
 use serde::{Deserialize, Serialize};
 use solana_sdk::{pubkey::Pubkey, pubkeys};
 use spl_token_2022::{
@@ -14,10 +15,12 @@ use spl_token_2022::{
         default_account_state::DefaultAccountState,
         group_member_pointer::GroupMemberPointer,
         group_pointer::GroupPointer,
+        immutable_owner::ImmutableOwner,
         interest_bearing_mint::InterestBearingConfig,
         memo_transfer::MemoTransfer,
         metadata_pointer::MetadataPointer,
         mint_close_authority::MintCloseAuthority,
+        non_transferable::{NonTransferable, NonTransferableAccount},
         permanent_delegate::PermanentDelegate,
         transfer_fee::{TransferFeeAmount, TransferFeeConfig},
         transfer_hook::TransferHook,
@@ -41,7 +44,6 @@ use self::extension::{
 pub struct MintAccountExtensions {
     pub default_account_state: Option<ShadowDefaultAccountState>,
     pub confidential_transfer_mint: Option<ShadowConfidentialTransferMint>,
-    pub confidential_transfer_account: Option<ShadowConfidentialTransferAccount>,
     pub confidential_transfer_fee_config: Option<ShadowConfidentialTransferFeeConfig>,
     pub interest_bearing_config: Option<ShadowInterestBearingConfig>,
     pub transfer_fee_config: Option<ShadowTransferFeeConfig>,
@@ -54,6 +56,10 @@ pub struct MintAccountExtensions {
     pub token_group: Option<ShadowTokenGroup>,
     pub group_member_pointer: Option<ShadowGroupMemberPointer>,
     pub token_group_member: Option<ShadowTokenGroupMember>,
+    // TODO : add this when spl-token-2022 is updated
+    // pub scaled_ui_amount: Option<ShadowScaledUiAmount>,
+    pub non_transferable: Option<bool>,
+    pub immutable_owner: Option<bool>,
 }
 
 impl MintAccountExtensions {
@@ -82,6 +88,8 @@ pub struct TokenAccountExtensions {
     pub cpi_guard: Option<ShadowCpiGuard>,
     pub memo_transfer: Option<ShadowMemoTransfer>,
     pub transfer_fee_amount: Option<ShadowTransferFeeAmount>,
+    pub immutable_owner: Option<bool>,
+    pub non_transferable_account: Option<bool>,
 }
 
 impl TokenAccountExtensions {
@@ -163,6 +171,16 @@ impl ProgramParser for Token2022AccountParser {
             let cpi_guard = account.get_extension::<CpiGuard>().ok().copied();
             let memo_transfer = account.get_extension::<MemoTransfer>().ok().copied();
             let transfer_fee_amount = account.get_extension::<TransferFeeAmount>().ok().copied();
+            let immutable_owner = account
+                .get_extension::<ImmutableOwner>()
+                .ok()
+                .copied()
+                .map(|_| true);
+            let non_transferable_account = account
+                .get_extension::<NonTransferableAccount>()
+                .ok()
+                .copied()
+                .map(|_| true);
 
             // Create a structured account with extensions
             let structured_account = TokenAccount {
@@ -173,6 +191,8 @@ impl ProgramParser for Token2022AccountParser {
                     cpi_guard: cpi_guard.map(ShadowCpiGuard::from),
                     memo_transfer: memo_transfer.map(ShadowMemoTransfer::from),
                     transfer_fee_amount: transfer_fee_amount.map(ShadowTransferFeeAmount::from),
+                    immutable_owner,
+                    non_transferable_account,
                 },
             };
 
@@ -182,10 +202,7 @@ impl ProgramParser for Token2022AccountParser {
                 .get_extension::<ConfidentialTransferMint>()
                 .ok()
                 .copied();
-            let confidential_transfer_account = mint
-                .get_extension::<ConfidentialTransferAccount>()
-                .ok()
-                .copied();
+
             let confidential_transfer_fee_config = mint
                 .get_extension::<ConfidentialTransferFeeConfig>()
                 .ok()
@@ -203,14 +220,23 @@ impl ProgramParser for Token2022AccountParser {
             let group_member_pointer = mint.get_extension::<GroupMemberPointer>().ok().copied();
             let token_group_member = mint.get_extension::<TokenGroupMember>().ok().copied();
             let transfer_hook = mint.get_extension::<TransferHook>().ok().copied();
+            let non_transferable = mint
+                .get_extension::<NonTransferable>()
+                .ok()
+                .copied()
+                .map(|_| true);
+
+            let immutable_owner = mint
+                .get_extension::<ImmutableOwner>()
+                .ok()
+                .copied()
+                .map(|_| true);
 
             let structured_mint = MintAccount {
                 account: mint.base,
                 extensions: MintAccountExtensions {
                     confidential_transfer_mint: confidential_transfer_mint
                         .map(ShadowConfidentialTransferMint::from),
-                    confidential_transfer_account: confidential_transfer_account
-                        .map(ShadowConfidentialTransferAccount::from),
                     confidential_transfer_fee_config: confidential_transfer_fee_config
                         .map(ShadowConfidentialTransferFeeConfig::from),
                     default_account_state: default_account_state
@@ -227,6 +253,8 @@ impl ProgramParser for Token2022AccountParser {
                     token_group: token_group.map(ShadowTokenGroup::from),
                     group_member_pointer: group_member_pointer.map(ShadowGroupMemberPointer::from),
                     token_group_member: token_group_member.map(ShadowTokenGroupMember::from),
+                    non_transferable,
+                    immutable_owner,
                 },
             };
             result = TokenExtensionsProgramAccount::MintAccount(structured_mint);
