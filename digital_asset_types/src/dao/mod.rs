@@ -80,6 +80,15 @@ pub struct SearchAssetsQuery {
 
 impl SearchAssetsQuery {
 
+    pub fn check_onwer_type(&self) -> Result<(), DbErr> {
+        if self.token_type.is_some() && self.owner_type.is_some() {
+            return Err(DbErr::Custom(
+                "`owner_type` is not supported when using `token_type` field"
+                    .to_string()));
+        }
+        Ok(())
+    }
+
     pub fn check_owner_address(&self) -> Result<(), DbErr> {
         if self.owner_address.is_none() && self.token_type.is_some() {
             return Err(DbErr::Custom(
