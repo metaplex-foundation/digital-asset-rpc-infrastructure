@@ -60,7 +60,6 @@ snapshot_kind: text
       "program_id": null
     },
     "metadata_pointer": {
-      "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
       "metadata_address": "HVbpJAQGNpkgBaYBZQBR1t7yFdvaYVp2vCQQfKKEN4tM"
     },
     "permanent_delegate": {

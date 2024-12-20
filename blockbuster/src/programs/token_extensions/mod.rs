@@ -66,7 +66,6 @@ impl MintAccountExtensions {
     pub fn is_some(&self) -> bool {
         self.default_account_state.is_some()
             || self.confidential_transfer_mint.is_some()
-            || self.confidential_transfer_account.is_some()
             || self.confidential_transfer_fee_config.is_some()
             || self.interest_bearing_config.is_some()
             || self.transfer_fee_config.is_some()
