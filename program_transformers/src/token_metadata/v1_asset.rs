@@ -130,7 +130,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     };
     let txn = conn.begin().await?;
 
-    let set_lock_timeout = "SET LOCAL lock_timeout = '5s';";
+    let set_lock_timeout = "SET LOCAL lock_timeout = '1s';";
     let set_local_app_name =
         "SET LOCAL application_name = 'das::program_transformers::token_metadata::v1_asset';";
     let set_lock_timeout_stmt =

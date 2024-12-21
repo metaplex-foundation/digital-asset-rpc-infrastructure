@@ -13,7 +13,7 @@ use {
         entity::ActiveValue,
         sea_query::query::OnConflict,
         sea_query::{Alias, Condition, Expr},
-        DatabaseConnection, EntityTrait, TransactionTrait,
+        ConnectionTrait, DatabaseConnection, EntityTrait, Statement, TransactionTrait,
     },
     solana_sdk::program_option::COption,
     spl_token::state::AccountState,
@@ -50,6 +50,16 @@ pub async fn handle_token_program_account<'a, 'b>(
             };
 
             let txn = db.begin().await?;
+
+            let set_lock_timeout = "SET LOCAL lock_timeout = '100ms';";
+            let set_local_app_name =
+                "SET LOCAL application_name = 'das::program_transformers::token::token_account';";
+            let set_lock_timeout_stmt =
+                Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
+            let set_local_app_name_stmt =
+                Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
+            txn.execute(set_lock_timeout_stmt).await?;
+            txn.execute(set_local_app_name_stmt).await?;
 
             token_accounts::Entity::insert(model)
                 .on_conflict(
@@ -205,6 +215,16 @@ pub async fn handle_token_program_account<'a, 'b>(
             };
 
             let txn = db.begin().await?;
+
+            let set_lock_timeout = "SET LOCAL lock_timeout = '100ms';";
+            let set_local_app_name =
+                "SET LOCAL application_name = 'das::program_transformers::token::mint';";
+            let set_lock_timeout_stmt =
+                Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
+            let set_local_app_name_stmt =
+                Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
+            txn.execute(set_lock_timeout_stmt).await?;
+            txn.execute(set_local_app_name_stmt).await?;
 
             tokens::Entity::insert(model)
                 .on_conflict(
