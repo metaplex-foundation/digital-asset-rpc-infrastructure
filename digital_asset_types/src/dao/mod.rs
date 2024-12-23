@@ -92,12 +92,12 @@ impl SearchAssetsQuery {
             )
             .add_option(self.token_type.clone().map(|x| {
                 match x {
-                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                        TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
                     TokenTypeClass::Nft => {
                         asset::Column::TreeId.is_null()
-                        .and(
-                            asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
-                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                            .and(
+                                asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
                             .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft))
                         )
                     },
@@ -107,18 +107,13 @@ impl SearchAssetsQuery {
                         .eq(SpecificationAssetClass::ProgrammableNft))
                         .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
                         },
-                    TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
-                        .eq(SpecificationAssetClass::FungibleAsset)
+                        TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::FungibleAsset)
                         .or(asset::Column::SpecificationAssetClass
                             .eq(SpecificationAssetClass::FungibleToken)),
-                    TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                        TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
                 }
             }))
-            .add_option(
-                self.owner_address
-                    .to_owned()
-                    .map(|x| asset::Column::Owner.eq(x)),
-            )
             .add_option(
                 self.delegate
                     .to_owned()
@@ -232,6 +227,24 @@ impl SearchAssetsQuery {
                         .into_condition()
                 });
             joins.push(rel);
+        }
+
+        if let Some(o) = self.owner_address.to_owned() {
+            if self.token_type == Some(TokenTypeClass::Fungible) {
+                conditions = conditions.add(token_accounts::Column::Owner.eq(o));
+            let rel = extensions::token_accounts::Relation::Asset
+                .def()
+                .rev()
+                .on_condition(|left, right| {
+                    Expr::tbl(right, token_accounts::Column::Mint)
+                        .eq(Expr::tbl(left, asset::Column::Id))
+                        .into_condition()
+                });
+            joins.push(rel);
+            } else {
+                conditions = conditions.add(asset::Column::Owner.eq(o));
+            }
+            
         }
 
         if let Some(g) = self.grouping.to_owned() {
