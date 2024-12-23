@@ -2,7 +2,7 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
-use crate::rpc::filter::TokenTypeClass;
+use crate::rpc::{filter::TokenTypeClass, Interface};
 
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
@@ -54,7 +54,9 @@ pub struct SearchAssetsQuery {
     pub negate: Option<bool>,
     /// Defaults to [ConditionType::All]
     pub condition_type: Option<ConditionType>,
+    pub interface: Option<Interface>,
     pub specification_version: Option<SpecificationVersions>,
+    pub specification_asset_class: Option<SpecificationAssetClass>,
     pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
@@ -77,6 +79,24 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
+
+    pub fn check_owner_address(&self) -> Result<(), DbErr> {
+        if self.owner_address.is_none() && self.token_type.is_some() {
+            return Err(DbErr::Custom(
+                "Must provide `owner_address` when using `token_type` field"
+                    .to_string()));
+        }
+        Ok(())
+    }
+    pub fn check_token_type(&self) -> Result<(), DbErr> {
+        if self.token_type.is_some() && self.interface.is_some() {
+            return Err(DbErr::Custom(
+                "`specification_asset_class` is not supported when using `token_type` field"
+                    .to_string()));
+        }
+        Ok(())
+    }
+
     pub fn conditions(&self) -> Result<(Condition, Vec<RelationDef>), DbErr> {
         let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
@@ -90,30 +110,34 @@ impl SearchAssetsQuery {
                     .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
-            .add_option(self.token_type.clone().map(|x| {
-                match x {
+            .add_option({
+                self.check_owner_address()?;
+                match &self.token_type {
+                    Some(x) => Some(match x {
                         TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
-                    TokenTypeClass::Nft => {
-                        asset::Column::TreeId.is_null()
+                        TokenTypeClass::Nft => asset::Column::TreeId.is_null()
                             .and(
                                 asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
                                     .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft)),
+                            ),
+                        TokenTypeClass::NonFungible => asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
                             .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft))
-                        )
-                    },
-                    TokenTypeClass::NonFungible => {
-                    asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
-                    .or(asset::Column::SpecificationAssetClass
-                        .eq(SpecificationAssetClass::ProgrammableNft))
-                        .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
-                        },
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset)),
                         TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
                             .eq(SpecificationAssetClass::FungibleAsset)
-                        .or(asset::Column::SpecificationAssetClass
-                            .eq(SpecificationAssetClass::FungibleToken)),
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken)),
                         TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                    }),
+                    None => None,
                 }
-            }))
+            })
+            .add_option({
+                self.check_token_type()?;
+                self.specification_asset_class
+                .clone()
+                .map(|x| asset::Column::SpecificationAssetClass.eq(x))
+            })
             .add_option(
                 self.delegate
                     .to_owned()
