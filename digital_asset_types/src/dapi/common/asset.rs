@@ -76,16 +76,27 @@ pub fn build_asset_response(
         }
     };
 
-    let (items, errors) = asset_list_to_rpc(assets, options);
-    AssetList {
+    let base_asset_list = AssetList {
         total,
         limit: limit as u32,
-        page: page.map(|x| x as u32),
+        page : page.map(|x| x as u32),
         before,
         after,
+        items: vec![],
+        errors: vec![],
+        cursor,
+    };
+    
+    if assets.is_empty() {
+        return base_asset_list;
+    }
+
+    let (items, errors) = asset_list_to_rpc(assets, options);
+    
+    AssetList {
         items,
         errors,
-        cursor,
+        ..base_asset_list
     }
 }
 
