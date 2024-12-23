@@ -80,7 +80,16 @@ pub struct SearchAssetsQuery {
 
 impl SearchAssetsQuery {
 
-    pub fn check_owner_address(&self) -> Result<(), DbErr> {
+    pub fn check_for_onwer_type_and_token_type(&self) -> Result<(), DbErr> {
+        if self.token_type.is_some() && self.owner_type.is_some() {
+            return Err(DbErr::Custom(
+                "`owner_type` is not supported when using `token_type` field"
+                    .to_string()));
+        }
+        Ok(())
+    }
+
+    pub fn check_for_owner_address_and_token_type(&self) -> Result<(), DbErr> {
         if self.owner_address.is_none() && self.token_type.is_some() {
             return Err(DbErr::Custom(
                 "Must provide `owner_address` when using `token_type` field"
@@ -88,7 +97,7 @@ impl SearchAssetsQuery {
         }
         Ok(())
     }
-    pub fn check_token_type(&self) -> Result<(), DbErr> {
+    pub fn check_for_token_type_and_interface(&self) -> Result<(), DbErr> {
         if self.token_type.is_some() && self.interface.is_some() {
             return Err(DbErr::Custom(
                 "`specification_asset_class` is not supported when using `token_type` field"
@@ -111,7 +120,8 @@ impl SearchAssetsQuery {
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
             .add_option({
-                self.check_owner_address()?;
+                self.check_for_owner_address_and_token_type()?;
+                self.check_for_onwer_type_and_token_type()?;
                 match &self.token_type {
                     Some(x) => Some(match x {
                         TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
@@ -133,7 +143,7 @@ impl SearchAssetsQuery {
                 }
             })
             .add_option({
-                self.check_token_type()?;
+                self.check_for_token_type_and_interface()?;
                 self.specification_asset_class
                 .clone()
                 .map(|x| asset::Column::SpecificationAssetClass.eq(x))
