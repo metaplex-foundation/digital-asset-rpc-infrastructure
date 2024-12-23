@@ -174,6 +174,7 @@ async fn test_search_asset_with_token_type_fungible() {
 
     let request = r#"
     {
+    "ownerAddress": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
     "page": 1,
     "limit": 1,
     "tokenType": "Fungible"
