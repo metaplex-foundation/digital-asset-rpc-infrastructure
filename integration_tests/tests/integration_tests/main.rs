@@ -10,3 +10,4 @@ mod show_fungible_flag_tests;
 mod show_inscription_flag_tests;
 mod test_show_collection_metadata_option;
 mod token_accounts_tests;
+mod token_type_test;

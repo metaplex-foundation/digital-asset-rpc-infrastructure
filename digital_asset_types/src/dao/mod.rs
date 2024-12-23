@@ -2,6 +2,8 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
+use crate::rpc::filter::TokenTypeClass;
+
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
@@ -53,7 +55,7 @@ pub struct SearchAssetsQuery {
     /// Defaults to [ConditionType::All]
     pub condition_type: Option<ConditionType>,
     pub specification_version: Option<SpecificationVersions>,
-    pub specification_asset_class: Option<SpecificationAssetClass>,
+    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
     pub creator_address: Option<Vec<u8>>,
@@ -88,11 +90,30 @@ impl SearchAssetsQuery {
                     .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
-            .add_option(
-                self.specification_asset_class
-                    .clone()
-                    .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
-            )
+            .add_option(self.token_type.clone().map(|x| {
+                match x {
+                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                    TokenTypeClass::Nft => {
+                        asset::Column::TreeId.is_null()
+                        .and(
+                            asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft))
+                        )
+                    },
+                    TokenTypeClass::NonFungible => {
+                    asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
+                    .or(asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::ProgrammableNft))
+                        .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
+                        },
+                    TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::FungibleAsset)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::FungibleToken)),
+                    TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                }
+            }))
             .add_option(
                 self.owner_address
                     .to_owned()
@@ -145,17 +166,36 @@ impl SearchAssetsQuery {
         if let Some(o) = self.owner_type.clone() {
             conditions = conditions.add(asset::Column::OwnerType.eq(o));
         } else {
-            // Default to NFTs
-            //
-            // In theory, the owner_type=single check should be sufficient,
-            // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
-            // The supply check guarentees we do not include those.
-            conditions = conditions.add_option(Some(
-                asset::Column::OwnerType
+            match self.token_type {
+                Some(TokenTypeClass::Fungible) => {
+                    conditions = conditions.add_option(Some(
+                    asset::Column::OwnerType
+                    .eq(OwnerType::Token)
+                    .and((asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken))
+                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleAsset))
+                ),
+                ));
+                }
+                Some(TokenTypeClass::All) => {
+                    conditions = conditions.add_option(Some(
+                    asset::Column::SpecificationAssetClass.is_not_null(),
+                ));
+                }
+                _ => {
+                    // Default to NFTs
+                    //
+                    // In theory, the owner_type=single check should be sufficient,
+                    // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
+                    // The supply check guarentees we do not include those.
+                    conditions = conditions.add_option(Some(
+                    asset::Column::OwnerType
                     .eq(OwnerType::Single)
-                    .and(asset::Column::Supply.lte(1)),
-            ));
-        }
+                   .and(asset::Column::Supply.lte(1)),
+                ));
+                }
+            }
+       
+         }
 
         if let Some(c) = self.creator_address.to_owned() {
             conditions = conditions.add(asset_creators::Column::Creator.eq(c));
