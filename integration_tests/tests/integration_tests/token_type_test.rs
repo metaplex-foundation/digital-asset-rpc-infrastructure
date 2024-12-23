@@ -43,7 +43,6 @@ async fn test_search_asset_with_token_type_regular_nft() {
     insta::assert_json_snapshot!(name, response);
 }
 
-
 #[tokio::test]
 #[serial]
 #[named]
@@ -148,7 +147,6 @@ async fn test_search_asset_with_token_type_all() {
     let response = setup.das_api.search_assets(request).await.unwrap();
     insta::assert_json_snapshot!(name, response);
 }
-
 
 #[tokio::test]
 #[serial]

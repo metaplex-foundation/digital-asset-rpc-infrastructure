@@ -24,7 +24,7 @@ use {
         },
         json::ChainDataV1,
     },
-    sea_orm::{ConnectionTrait, TransactionTrait},
+    sea_orm::{ConnectionTrait, Statement, TransactionTrait},
     tracing::warn,
 };
 
@@ -54,6 +54,20 @@ where
         // an error and this function returns it using the `?` operator), then the transaction is
         // automatically rolled back.
         let multi_txn = txn.begin().await?;
+
+        let set_lock_timeout = "SET LOCAL lock_timeout = '2s';";
+        let set_local_app_name =
+            "SET LOCAL application_name = 'das::program_transformers::bubblegum::mint_v1';";
+        let set_lock_timeout_stmt = Statement::from_string(
+            multi_txn.get_database_backend(),
+            set_lock_timeout.to_string(),
+        );
+        let set_local_app_name_stmt = Statement::from_string(
+            multi_txn.get_database_backend(),
+            set_local_app_name.to_string(),
+        );
+        multi_txn.execute(set_lock_timeout_stmt).await?;
+        multi_txn.execute(set_local_app_name_stmt).await?;
 
         let seq =
             save_changelog_event(cl, bundle.slot, bundle.txn_id, &multi_txn, instruction).await?;

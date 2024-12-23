@@ -151,7 +151,9 @@ pub fn not_found(asset_id: &String) -> DbErr {
 
 pub fn remove_duplicates_ids(ids: Vec<String>) -> Vec<String> {
     let mut hash_set = HashSet::new();
-    ids.into_iter().filter(|id| hash_set.insert(id.clone())).collect()
+    ids.into_iter()
+        .filter(|id| hash_set.insert(id.clone()))
+        .collect()
 }
 
 #[document_rpc]

@@ -13,7 +13,7 @@ use {
         entity::{ActiveValue, EntityTrait},
         prelude::*,
         query::{JsonValue, QueryTrait},
-        sea_query::query::OnConflict,
+        sea_query::{query::OnConflict, Expr},
         ConnectionTrait, DbBackend, TransactionTrait,
     },
     spl_account_compression::events::ChangeLogEventV1,
@@ -50,51 +50,58 @@ where
 {
     let depth = change_log_event.path.len() - 1;
     let tree_id = change_log_event.id.as_ref();
-    for (i, p) in (0_i64..).zip(change_log_event.path.iter()) {
-        let node_idx = p.index as i64;
-        debug!(
-            "ChangeLogEvent: seq={}, index={}, level={}, depth={}, node={}, txn={}, instruction={}",
-            change_log_event.seq,
-            p.index,
-            i,
-            depth,
-            bs58::encode(p.node).into_string(),
-            txn_id,
-            instruction
-        );
-        let leaf_idx = if i == 0 {
-            Some(node_idx_to_leaf_idx(node_idx, depth as u32))
-        } else {
-            None
-        };
 
-        let item = cl_items::ActiveModel {
-            tree: ActiveValue::Set(tree_id.to_vec()),
-            level: ActiveValue::Set(i),
-            node_idx: ActiveValue::Set(node_idx),
-            hash: ActiveValue::Set(p.node.as_ref().to_vec()),
-            seq: ActiveValue::Set(change_log_event.seq as i64),
-            leaf_idx: ActiveValue::Set(leaf_idx),
-            ..Default::default()
-        };
+    let items: Vec<cl_items::ActiveModel> = change_log_event
+        .path
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let node_idx = p.index as i64;
+            debug!(
+                "ChangeLogEvent: seq={}, index={}, level={}, depth={}, node={}, txn={}, instruction={}",
+                change_log_event.seq,
+                p.index,
+                i,
+                depth,
+                bs58::encode(p.node).into_string(),
+                txn_id,
+                instruction
+            );
+            let leaf_idx = if i == 0 {
+                Some(node_idx_to_leaf_idx(node_idx, depth as u32))
+            } else {
+                None
+            };
 
-        let mut query = cl_items::Entity::insert(item)
-            .on_conflict(
-                OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
-                    .update_columns([
-                        cl_items::Column::Hash,
-                        cl_items::Column::Seq,
-                        cl_items::Column::LeafIdx,
-                        cl_items::Column::Level,
-                    ])
-                    .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        query.sql = format!("{} WHERE excluded.seq > cl_items.seq", query.sql);
-        txn.execute(query)
-            .await
-            .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
-    }
+            cl_items::ActiveModel {
+                tree: ActiveValue::Set(tree_id.to_vec()),
+                level: ActiveValue::Set(i as i64),
+                node_idx: ActiveValue::Set(node_idx),
+                hash: ActiveValue::Set(p.node.as_ref().to_vec()),
+                seq: ActiveValue::Set(change_log_event.seq as i64),
+                leaf_idx: ActiveValue::Set(leaf_idx),
+                ..Default::default()
+            }
+        })
+        .collect();
+
+    cl_items::Entity::insert_many(items)
+        .on_conflict(
+            OnConflict::columns([cl_items::Column::Tree, cl_items::Column::NodeIdx])
+                .update_columns([
+                    cl_items::Column::Hash,
+                    cl_items::Column::Seq,
+                    cl_items::Column::LeafIdx,
+                    cl_items::Column::Level,
+                ])
+                .action_and_where(
+                    Expr::tbl(cl_items::Entity, cl_items::Column::Seq).lte(change_log_event.seq),
+                )
+                .to_owned(),
+        )
+        .exec_without_returning(txn)
+        .await
+        .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     let tx_id_bytes = bs58::decode(txn_id)
         .into_vec()
