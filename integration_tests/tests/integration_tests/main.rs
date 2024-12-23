@@ -8,5 +8,6 @@ mod nft_editions_tests;
 mod regular_nft_tests;
 mod show_fungible_flag_tests;
 mod show_inscription_flag_tests;
+mod test_get_assets_with_multiple_same_ids;
 mod test_show_collection_metadata_option;
 mod token_accounts_tests;
