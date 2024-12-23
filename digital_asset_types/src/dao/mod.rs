@@ -264,7 +264,7 @@ impl SearchAssetsQuery {
         }
 
         if let Some(o) = self.owner_address.to_owned() {
-            if self.token_type == Some(TokenTypeClass::Fungible) {
+            if self.token_type == Some(TokenTypeClass::Fungible) || self.token_type == Some(TokenTypeClass::All) {
                 conditions = conditions.add(token_accounts::Column::Owner.eq(o));
             let rel = extensions::token_accounts::Relation::Asset
                 .def()
