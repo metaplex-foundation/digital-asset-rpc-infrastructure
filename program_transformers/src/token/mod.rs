@@ -186,8 +186,6 @@ pub async fn handle_token_program_account<'a, 'b>(
             let is_non_fungible = token.map(|t| t.is_non_fungible()).unwrap_or(false);
 
             if is_non_fungible {
-                let txn = db.begin().await?;
-
                 upsert_assets_token_account_columns(
                     AssetTokenAccountColumns {
                         mint: mint.clone(),
@@ -199,10 +197,8 @@ pub async fn handle_token_program_account<'a, 'b>(
                     &txn,
                 )
                 .await?;
-
-                txn.commit().await?;
             }
-
+            txn.commit().await?;
             Ok(())
         }
         TokenProgramAccount::Mint(m) => {

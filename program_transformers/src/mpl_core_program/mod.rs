@@ -16,12 +16,14 @@ pub async fn handle_mpl_core_account<'a, 'b, 'c>(
     db: &'b DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
+    println!("mpl core account");
     match &parsing_result.data {
         MplCoreAccountData::EmptyAccount => {
             burn_v1_asset(db, account_info.pubkey, account_info.slot).await?;
             Ok(())
         }
         MplCoreAccountData::Asset(_) | MplCoreAccountData::Collection(_) => {
+            println!("mpl core account data");
             if let Some(info) = save_v1_asset(
                 db,
                 account_info.pubkey,
