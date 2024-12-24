@@ -339,6 +339,14 @@ pub async fn get_related_for_assets(
         }
     }
 
+    for id in ids.clone() {
+        if let Ok(t) = get_token_by_id(conn, id.clone()).await {
+            if let Some(asset) = assets_map.get_mut(&id) {
+                asset.token_info = Some(t);
+            }
+        }
+    }
+
     let cond = if options.show_unverified_collections {
         Condition::all()
     } else {
@@ -627,6 +635,7 @@ pub async fn get_token_accounts(
     mint_address: Option<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<token_accounts::Model>, DbErr> {
     let mut condition = Condition::all();
 
@@ -634,6 +643,12 @@ pub async fn get_token_accounts(
         return Err(DbErr::Custom(
             "Either 'owner_address' or 'mint_address' must be provided".to_string(),
         ));
+    }
+
+    if options.show_zero_balance {
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
     }
 
     if let Some(owner) = owner_address {

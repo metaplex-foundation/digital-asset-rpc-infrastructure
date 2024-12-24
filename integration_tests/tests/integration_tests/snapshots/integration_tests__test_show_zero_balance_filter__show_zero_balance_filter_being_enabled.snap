@@ -1,0 +1,35 @@
+---
+source: integration_tests/tests/integration_tests/test_show_zero_balance_filter.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "total": 2,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "BE1CkzRjLTXAWcSVCaqzycwXsZ18Yuk3jMDMnPUoHjjS",
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "amount": 0,
+      "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
+      "frozen": false,
+      "delegate": null,
+      "delegated_amount": 0,
+      "close_authority": null,
+      "extensions": null
+    },
+    {
+      "address": "CyqarC6hyNYvb3EDueyeYrnGeAUjCDtMvWrbtdAnA53a",
+      "mint": "7Y5WQ2e3FummR2DebrqP8caC64QvXzpnhSTNWjNabxWn",
+      "amount": 1,
+      "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
+      "frozen": true,
+      "delegate": "D98f1ebFe6kfZTcztLo1iPeKAwogbWHAgXzgSpdRDiu7",
+      "delegated_amount": 1,
+      "close_authority": null,
+      "extensions": null
+    }
+  ],
+  "cursor": null,
+  "errors": []
+}
