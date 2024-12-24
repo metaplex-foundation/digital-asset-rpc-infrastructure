@@ -79,12 +79,11 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-
     pub fn check_for_onwer_type_and_token_type(&self) -> Result<(), DbErr> {
         if self.token_type.is_some() && self.owner_type.is_some() {
             return Err(DbErr::Custom(
-                "`owner_type` is not supported when using `token_type` field"
-                    .to_string()));
+                "`owner_type` is not supported when using `token_type` field".to_string(),
+            ));
         }
         Ok(())
     }
@@ -92,8 +91,8 @@ impl SearchAssetsQuery {
     pub fn check_for_owner_address_and_token_type(&self) -> Result<(), DbErr> {
         if self.owner_address.is_none() && self.token_type.is_some() {
             return Err(DbErr::Custom(
-                "Must provide `owner_address` when using `token_type` field"
-                    .to_string()));
+                "Must provide `owner_address` when using `token_type` field".to_string(),
+            ));
         }
         Ok(())
     }
@@ -101,7 +100,8 @@ impl SearchAssetsQuery {
         if self.token_type.is_some() && self.interface.is_some() {
             return Err(DbErr::Custom(
                 "`specification_asset_class` is not supported when using `token_type` field"
-                    .to_string()));
+                    .to_string(),
+            ));
         }
         Ok(())
     }
@@ -122,31 +122,34 @@ impl SearchAssetsQuery {
             .add_option({
                 self.check_for_owner_address_and_token_type()?;
                 self.check_for_onwer_type_and_token_type()?;
-                match &self.token_type {
-                    Some(x) => Some(match x {
-                        TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
-                        TokenTypeClass::Nft => asset::Column::TreeId.is_null()
-                            .and(
-                                asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
-                                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
-                                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft)),
-                            ),
-                        TokenTypeClass::NonFungible => asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::Nft)
-                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::ProgrammableNft))
-                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset)),
-                        TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
-                            .eq(SpecificationAssetClass::FungibleAsset)
-                            .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken)),
-                        TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
-                    }),
-                    None => None,
-                }
+                self.token_type.as_ref().map(|x| match x {
+                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                    TokenTypeClass::Nft => asset::Column::TreeId.is_null().and(
+                        asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::Nft)
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::MplCoreAsset))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::ProgrammableNft)),
+                    ),
+                    TokenTypeClass::NonFungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::Nft)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::ProgrammableNft))
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::MplCoreAsset)),
+                    TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::FungibleAsset)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::FungibleToken)),
+                    TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                })
             })
             .add_option({
                 self.check_for_token_type_and_interface()?;
                 self.specification_asset_class
-                .clone()
-                .map(|x| asset::Column::SpecificationAssetClass.eq(x))
+                    .clone()
+                    .map(|x| asset::Column::SpecificationAssetClass.eq(x))
             })
             .add_option(
                 self.delegate
@@ -198,17 +201,17 @@ impl SearchAssetsQuery {
             match self.token_type {
                 Some(TokenTypeClass::Fungible) => {
                     conditions = conditions.add_option(Some(
-                    asset::Column::OwnerType
-                    .eq(OwnerType::Token)
-                    .and((asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleToken))
-                    .or(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::FungibleAsset))
-                ),
-                ));
+                        asset::Column::OwnerType.eq(OwnerType::Token).and(
+                            (asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::FungibleToken))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::FungibleAsset)),
+                        ),
+                    ));
                 }
                 Some(TokenTypeClass::All) => {
-                    conditions = conditions.add_option(Some(
-                    asset::Column::SpecificationAssetClass.is_not_null(),
-                ));
+                    conditions = conditions
+                        .add_option(Some(asset::Column::SpecificationAssetClass.is_not_null()));
                 }
                 _ => {
                     // Default to NFTs
@@ -217,14 +220,13 @@ impl SearchAssetsQuery {
                     // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
                     // The supply check guarentees we do not include those.
                     conditions = conditions.add_option(Some(
-                    asset::Column::OwnerType
-                    .eq(OwnerType::Single)
-                   .and(asset::Column::Supply.lte(1)),
-                ));
+                        asset::Column::OwnerType
+                            .eq(OwnerType::Single)
+                            .and(asset::Column::Supply.lte(1)),
+                    ));
                 }
             }
-       
-         }
+        }
 
         if let Some(c) = self.creator_address.to_owned() {
             conditions = conditions.add(asset_creators::Column::Creator.eq(c));
@@ -264,21 +266,22 @@ impl SearchAssetsQuery {
         }
 
         if let Some(o) = self.owner_address.to_owned() {
-            if self.token_type == Some(TokenTypeClass::Fungible) || self.token_type == Some(TokenTypeClass::All) {
+            if self.token_type == Some(TokenTypeClass::Fungible)
+                || self.token_type == Some(TokenTypeClass::All)
+            {
                 conditions = conditions.add(token_accounts::Column::Owner.eq(o));
-            let rel = extensions::token_accounts::Relation::Asset
-                .def()
-                .rev()
-                .on_condition(|left, right| {
-                    Expr::tbl(right, token_accounts::Column::Mint)
-                        .eq(Expr::tbl(left, asset::Column::Id))
-                        .into_condition()
-                });
-            joins.push(rel);
+                let rel = extensions::token_accounts::Relation::Asset
+                    .def()
+                    .rev()
+                    .on_condition(|left, right| {
+                        Expr::tbl(right, token_accounts::Column::Mint)
+                            .eq(Expr::tbl(left, asset::Column::Id))
+                            .into_condition()
+                    });
+                joins.push(rel);
             } else {
                 conditions = conditions.add(asset::Column::Owner.eq(o));
             }
-            
         }
 
         if let Some(g) = self.grouping.to_owned() {

@@ -94,7 +94,7 @@ pub struct SearchAssets {
     pub negate: Option<bool>,
     pub condition_type: Option<SearchConditionType>,
     pub interface: Option<Interface>,
-    pub token_type : Option<TokenTypeClass>,
+    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<String>,
     pub owner_type: Option<OwnershipModel>,
     pub creator_address: Option<String>,

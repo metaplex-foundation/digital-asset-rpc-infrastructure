@@ -2,10 +2,10 @@ use sea_orm::{EntityTrait, EnumIter, Related, RelationDef, RelationTrait};
 
 use crate::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping,
-    asset_v1_account_attachments,token_accounts,
+    asset_v1_account_attachments,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
+    token_accounts,
 };
-
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {

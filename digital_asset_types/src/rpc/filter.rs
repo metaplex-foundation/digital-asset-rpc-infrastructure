@@ -1,6 +1,6 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -32,13 +32,13 @@ pub enum AssetSortBy {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq ,EnumIter, Serialize, Deserialize,JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, Serialize, Deserialize, JsonSchema)]
 pub enum TokenTypeClass {
     Fungible,
     NonFungible,
     Compressed,
     Nft,
-    All
+    All,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]

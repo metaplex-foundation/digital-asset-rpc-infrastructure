@@ -9,12 +9,12 @@ pub enum Relation {
 }
 
 impl RelationTrait for Relation {
-fn def(&self) -> RelationDef {
-    match self {
-        Self::Asset => token_accounts::Entity::belongs_to(asset::Entity)
-            .from(token_accounts::Column::Mint)
-            .to(asset::Column::Id)
-            .into(),
+    fn def(&self) -> RelationDef {
+        match self {
+            Self::Asset => token_accounts::Entity::belongs_to(asset::Entity)
+                .from(token_accounts::Column::Mint)
+                .to(asset::Column::Id)
+                .into(),
         }
     }
 }
