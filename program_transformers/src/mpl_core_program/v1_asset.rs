@@ -86,8 +86,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         _ => return Err(ProgramTransformerError::NotImplemented),
     };
 
-    println!("asset: {:?}", asset);
-
     //-----------------------
     // Asset authority table
     //-----------------------
