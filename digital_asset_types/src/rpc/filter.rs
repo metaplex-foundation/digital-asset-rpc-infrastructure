@@ -20,8 +20,6 @@ impl Default for AssetSorting {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AssetSortBy {
-    // #[serde(rename = "id")]
-    // Id,
     #[serde(rename = "created")]
     Created,
     #[serde(rename = "updated")]

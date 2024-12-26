@@ -6,9 +6,9 @@ prometheus: 0.0.0.0:8873
 # gRPC server configuration (change x_token and endpoint to the correct ones)
 geyser:
   # endpoint of the dragonmouth stream
-  endpoint: http://127.0.0.1:10000
+  endpoint: https://index.rpcpool.com/
   # x-token of the dragonmouth stream
-  x_token: null
+  x_token: b6e163d7-388a-49fe-bec2-63a6ea1a8f6b
   # transaction commitment level: finalized, confirmed, processed
   commitment: finalized
   # connection timeout in seconds
