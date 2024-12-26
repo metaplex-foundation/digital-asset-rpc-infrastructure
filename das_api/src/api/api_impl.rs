@@ -116,7 +116,7 @@ impl DasApi {
 
         page_opt.limit = limit.map(|x| x as u64).unwrap_or(1000);
         if is_cursor_enabled {
-            if let Some(_) = &sorting {
+            if sorting.is_some() {
                 page_opt.cursor = Some(self.get_cursor(cursor)?);
             }
         } else {

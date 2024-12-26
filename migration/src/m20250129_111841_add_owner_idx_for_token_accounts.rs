@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::model::table::Asset;
+use crate::model::table::TokenAccounts;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,12 +11,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_asset_owner_supply")
-                    .col(Asset::Owner)
-                    .col(Asset::Supply)
-                    .col(Asset::Burnt)
-                    .col(Asset::OwnerType)
-                    .table(Asset::Table)
+                    .name("idx_token_account_owner")
+                    .col(TokenAccounts::Owner)
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
@@ -28,8 +25,8 @@ impl MigrationTrait for Migration {
         manager
             .drop_index(
                 Index::drop()
-                    .name("idx_asset_owner_supply")
-                    .table(Asset::Table)
+                    .name("idx_token_account_owner")
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;

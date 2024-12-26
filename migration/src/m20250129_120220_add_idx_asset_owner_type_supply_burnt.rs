@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use crate::model::table::AssetGrouping;
+use crate::model::table::Asset;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,24 +11,24 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .unique()
-                    .name("asset_grouping_id_value_verified_unique")
-                    .col(AssetGrouping::AssetId)
-                    .col(AssetGrouping::GroupValue)
-                    .col(AssetGrouping::Verified)
-                    .table(AssetGrouping::Table)
+                    .name("idx_asset_ownertype_supply_burnt")
+                    .col(Asset::OwnerType)
+                    .col(Asset::Supply)
+                    .col(Asset::Burnt)
+                    .table(Asset::Table)
                     .to_owned(),
             )
             .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .drop_index(
-                sea_query::Index::drop()
-                    .name("asset_grouping_id_value_verified_unique")
-                    .table(AssetGrouping::Table)
+                Index::drop()
+                    .name("idx_asset_ownertype_supply_burnt")
+                    .table(Asset::Table)
                     .to_owned(),
             )
             .await?;
