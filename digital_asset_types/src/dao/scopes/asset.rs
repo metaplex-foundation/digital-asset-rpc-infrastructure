@@ -6,7 +6,7 @@ use crate::{
         sea_orm_active_enums::Instruction,
         token_accounts, Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -560,8 +560,15 @@ pub async fn get_token_accounts(
     mint_address: Option<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<token_accounts::Model>, DbErr> {
     let mut condition = Condition::all();
+
+    if options.show_zero_balance {
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
+    }
 
     if owner_address.is_none() && mint_address.is_none() {
         return Err(DbErr::Custom(
