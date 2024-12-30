@@ -348,3 +348,27 @@ async fn test_mint_verify_collection() {
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mint_transfer_mpl_programs() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "ZzTjJVwo66cRyBB5zNWNhUWDdPB6TqzyXDcwjUnpSJC";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        "3iJ6XzhUXxGQYEEUnfkbZGdrkgS2o9vXUpsXALet3Co6sFQ2h7J21J4dTgSka8qoKiUFUzrXZFHfkqss1VFivnAG",
+        "4gV14HQBm8GCXjSTHEXjrhUNGmsBiyNdWY9hhCapH9cshmqbPKxn2kUU1XbajZ9j1Pxng95onzR6dx5bYqxQRh2a",
+        "T571TWE76frw6mWxYoHDrTdxYq7hJSyCtVEG4qmemPPtsc1CCKdknn9rTMAVcdeukLfwB1G97LZLH8eHLvuByoA",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}

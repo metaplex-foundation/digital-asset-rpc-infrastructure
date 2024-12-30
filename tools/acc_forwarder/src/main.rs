@@ -20,7 +20,6 @@ use {
     },
     solana_sdk::{
         account::Account,
-        borsh0_10::try_from_slice_unchecked,
         commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::Pubkey,
         signature::Signature,
@@ -33,6 +32,9 @@ use {
     tokio::{sync::Mutex, time::Duration},
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
+
+#[allow(deprecated)]
+use solana_sdk::borsh0_10::try_from_slice_unchecked;
 
 lazy_static::lazy_static! {
     pub static ref ACC_FORWARDER_SENT: IntCounter = IntCounter::new(
@@ -321,6 +323,7 @@ async fn fetch_metadata_and_send_accounts(
     messenger: &Arc<Mutex<Box<dyn plerkle_messenger::Messenger>>>,
 ) -> anyhow::Result<()> {
     let (account, _slot) = fetch_account(pubkey, client).await?;
+    #[allow(deprecated)]
     let metadata: Metadata = try_from_slice_unchecked(&account.data)
         .with_context(|| anyhow::anyhow!("failed to parse data for metadata account {pubkey}"))?;
 
