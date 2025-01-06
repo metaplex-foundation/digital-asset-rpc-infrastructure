@@ -56,8 +56,8 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
     pub supply: Decimal,
-    pub supply_mint: Option<Vec<u8>>,
-    pub slot_updated_mint_account: u64,
+    pub slot_updated_mint_account: i64,
+    pub extensions: Option<Value>,
 }
 
 pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + TransactionTrait>(
@@ -65,10 +65,17 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
     let active_model = asset::ActiveModel {
-        id: Set(columns.mint),
+        id: Set(columns.mint.clone()),
         supply: Set(columns.supply),
-        supply_mint: Set(columns.supply_mint),
-        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
+        supply_mint: Set(Some(columns.mint.clone())),
+        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account)),
+        slot_updated: Set(Some(columns.slot_updated_mint_account)),
+        mint_extensions: Set(columns.extensions),
+        asset_data: Set(Some(columns.mint.clone())),
+        // assume every token is a fungible token when mint account is created
+        specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
+        // // assume multiple ownership as we set asset class to fungible token
+        owner_type: Set(OwnerType::Token),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
@@ -76,8 +83,10 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
                     asset::Column::Supply,
-                    asset::Column::SupplyMint,
                     asset::Column::SlotUpdatedMintAccount,
+                    asset::Column::MintExtensions,
+                    asset::Column::SlotUpdated,
+                    asset::Column::AssetData,
                 ])
                 .to_owned(),
         )

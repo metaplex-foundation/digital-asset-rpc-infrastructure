@@ -20,7 +20,8 @@ use {
                 ChainMutability, Mutability, OwnerType, SpecificationAssetClass,
                 SpecificationVersions, V1AccountAttachments,
             },
-            token_accounts, tokens,
+            token_accounts,
+            tokens::{self},
         },
         json::ChainDataV1,
     },
@@ -84,9 +85,9 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         upsert_assets_mint_account_columns(
             AssetMintAccountColumns {
                 mint: mint_pubkey_vec.clone(),
-                supply_mint: Some(token.mint.clone()),
                 supply: token.supply,
-                slot_updated_mint_account: token.slot_updated as u64,
+                slot_updated_mint_account: token.slot_updated,
+                extensions: token.extensions.clone(),
             },
             conn,
         )
@@ -109,7 +110,7 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
 ) -> ProgramTransformerResult<()> {
     let token_account: Option<token_accounts::Model> = find_model_with_retry(
         conn,
-        "owners",
+        "token_accounts",
         &token_accounts::Entity::find()
             .filter(token_accounts::Column::Mint.eq(mint_pubkey_vec.clone()))
             .filter(token_accounts::Column::Amount.gt(0))
@@ -135,7 +136,7 @@ async fn index_token_account_data<T: ConnectionTrait + TransactionTrait>(
     } else {
         warn!(
             target: "Account not found",
-            "Token acc not found in 'owners' table for mint {}",
+            "Token acc not found in 'token-accounts' table for mint {}",
             bs58::encode(&mint_pubkey_vec).into_string()
         );
     }
@@ -173,10 +174,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let mut ownership_type = match class {
         SpecificationAssetClass::FungibleAsset => OwnerType::Token,
         SpecificationAssetClass::FungibleToken => OwnerType::Token,
-        SpecificationAssetClass::Nft | SpecificationAssetClass::ProgrammableNft => {
-            OwnerType::Single
-        }
-        _ => OwnerType::Unknown,
+        SpecificationAssetClass::Unknown => OwnerType::Unknown,
+        _ => OwnerType::Single,
     };
 
     // Wrapped Solana is a special token that has supply 0 (infinite).
@@ -197,6 +196,14 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             s if s == Decimal::from(1) => OwnerType::Single,
             s if s > Decimal::from(1) => OwnerType::Token,
             _ => OwnerType::Unknown,
+        };
+    };
+
+    //Map specification asset class based on the supply.
+    if class == SpecificationAssetClass::Unknown {
+        class = match supply {
+            s if s > Decimal::from(1) => SpecificationAssetClass::FungibleToken,
+            _ => SpecificationAssetClass::Unknown,
         };
     };
 
