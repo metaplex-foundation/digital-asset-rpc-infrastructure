@@ -4,9 +4,9 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{filter::AssetSortDirection, options::Options},
 };
 use indexmap::IndexMap;
 use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
@@ -552,4 +552,46 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+pub async fn get_token_accounts(
+    conn: &impl ConnectionTrait,
+    owner_address: Option<Vec<u8>>,
+    mint_address: Option<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+    options: &Options,
+) -> Result<Vec<token_accounts::Model>, DbErr> {
+    let mut condition = Condition::all();
+
+    if options.show_zero_balance {
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
+    }
+
+    if owner_address.is_none() && mint_address.is_none() {
+        return Err(DbErr::Custom(
+            "Either 'owner_address' or 'mint_address' must be provided".to_string(),
+        ));
+    }
+
+    if let Some(owner) = owner_address {
+        condition = condition.add(token_accounts::Column::Owner.eq(owner));
+    }
+    if let Some(mint) = mint_address {
+        condition = condition.add(token_accounts::Column::Mint.eq(mint));
+    }
+
+    let token_accounts = paginate(
+        pagination,
+        limit,
+        token_accounts::Entity::find().filter(condition),
+        Order::Asc,
+        token_accounts::Column::Pubkey,
+    )
+    .all(conn)
+    .await?;
+
+    Ok(token_accounts)
 }
