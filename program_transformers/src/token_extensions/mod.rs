@@ -16,7 +16,6 @@ use {
         token_accounts,
         tokens::{self, IsNonFungible as IsNonFungibleModel},
     },
-    futures::TryFutureExt,
     sea_orm::{
         entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
         DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, Set,
@@ -198,15 +197,13 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             txn.commit().await?;
 
             if let Some(metadata) = &extensions.metadata {
-                upsert_asset_data(metadata, account_key.clone(), slot, db)
-                    .map_ok(|i| {
-                        i.map(|info| async move {
-                            download_metadata_notifier(info).await.map_err(|e| {
-                                ProgramTransformerError::DownloadMetadataNotify(e.into())
-                            })
-                        })
-                    })
-                    .await?;
+                if let Some(info) =
+                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?
+                {
+                    download_metadata_notifier(info)
+                        .await
+                        .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
+                }
             }
 
             Ok(())
