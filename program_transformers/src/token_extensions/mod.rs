@@ -16,6 +16,7 @@ use {
         token_accounts,
         tokens::{self, IsNonFungible as IsNonFungibleModel},
     },
+    futures::TryFutureExt,
     sea_orm::{
         entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
         DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, Set,
@@ -24,6 +25,7 @@ use {
     serde_json::Value,
     solana_sdk::program_option::COption,
     spl_token_2022::state::AccountState,
+    tracing::warn,
 };
 
 pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
@@ -196,11 +198,15 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             txn.commit().await?;
 
             if let Some(metadata) = &extensions.metadata {
-                if let Ok(info) = upsert_asset_data(metadata, account_key.clone(), slot, db).await {
-                    download_metadata_notifier(info)
-                        .await
-                        .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
-                }
+                upsert_asset_data(metadata, account_key.clone(), slot, db)
+                    .map_ok(|i| {
+                        i.map(|info| async move {
+                            download_metadata_notifier(info).await.map_err(|e| {
+                                ProgramTransformerError::DownloadMetadataNotify(e.into())
+                            })
+                        })
+                    })
+                    .await?;
             }
 
             Ok(())
@@ -214,7 +220,7 @@ async fn upsert_asset_data(
     key_bytes: Vec<u8>,
     slot: i64,
     db: &DatabaseConnection,
-) -> ProgramTransformerResult<DownloadMetadataInfo> {
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>> {
     let metadata_json = serde_json::to_value(metadata.clone())
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
     let asset_data_model = asset_data::ActiveModel {
@@ -262,10 +268,18 @@ async fn upsert_asset_data(
 
     txn.commit().await?;
 
-    Ok(DownloadMetadataInfo {
+    if metadata.uri.is_empty() {
+        warn!(
+            "URI is empty for mint {}. Skipping background task.",
+            bs58::encode(key_bytes).into_string()
+        );
+        return Ok(None);
+    }
+
+    Ok(Some(DownloadMetadataInfo {
         uri: metadata.uri.clone(),
         asset_data_id: key_bytes,
-    })
+    }))
 }
 
 struct AssetMetadataAccountCols {
