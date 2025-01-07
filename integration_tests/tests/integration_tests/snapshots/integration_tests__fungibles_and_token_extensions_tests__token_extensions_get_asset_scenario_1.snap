@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "FungibleToken",
@@ -56,7 +55,6 @@ snapshot_kind: text
       "additional_metadata": []
     },
     "metadata_pointer": {
-      "authority": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL",
       "metadata_address": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"
     }
   }
