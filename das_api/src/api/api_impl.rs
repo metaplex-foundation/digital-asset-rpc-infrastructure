@@ -288,6 +288,7 @@ impl ApiContract for DasApi {
             options,
             cursor,
         } = payload;
+        validate_pubkey(group_value.clone())?;
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
         let sort_by = sort_by.unwrap_or_default();
