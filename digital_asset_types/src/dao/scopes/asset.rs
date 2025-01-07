@@ -5,7 +5,7 @@ use crate::{
         cl_audits_v2,
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::{Instruction, V1AccountAttachments},
-        token_accounts, Cursor, FullAsset, GroupingSize, Pagination,
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{
         filter::AssetSortDirection,
@@ -161,7 +161,7 @@ pub async fn get_assets_by_owner(
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
-        .add(asset::Column::Owner.eq(owner))
+        .add(asset::Column::Owner.eq(owner.clone()))
         .add(asset::Column::Supply.gt(0));
 
     get_assets_by_condition(
@@ -286,11 +286,12 @@ pub async fn get_related_for_assets(
             let id = asset.id.clone();
             let fa = FullAsset {
                 asset,
-                data: Some(ad.clone()),
+                data: ad.clone(),
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
                 inscription: None,
+                token_info: None,
             };
             acc.insert(id, fa);
         };
@@ -336,6 +337,17 @@ pub async fn get_related_for_assets(
         if let Some(asset) = assets_map.get_mut(&a.asset_id) {
             asset.authorities.push(a);
         }
+    }
+
+    if options.show_fungible {
+        find_tokens(conn, ids.clone())
+            .await?
+            .into_iter()
+            .for_each(|t| {
+                if let Some(asset) = assets_map.get_mut(&t.mint.clone()) {
+                    asset.token_info = Some(t);
+                }
+            });
     }
 
     let cond = if options.show_unverified_collections {
@@ -436,13 +448,21 @@ pub async fn get_by_id(
         None
     };
 
-    let asset_data: (asset::Model, Option<asset_data::Model>) =
+    let token_info = if options.show_fungible {
+        find_tokens(conn, vec![asset_id.clone()])
+            .await?
+            .into_iter()
+            .next()
+    } else {
+        None
+    };
+
+    let (asset, data): (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
-            Some((a, d)) => Ok((a, d)),
+            Some((a, Some(d))) => Ok((a, d)),
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })?;
 
-    let (asset, data) = asset_data;
     let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -489,6 +509,7 @@ pub async fn get_by_id(
         creators,
         inscription,
         groups,
+        token_info,
     })
 }
 
@@ -655,11 +676,11 @@ pub async fn get_token_accounts(
     Ok(token_accounts)
 }
 
-pub fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {
+fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
 }
 
-pub fn attachment_to_nft_edition(
+fn attachment_to_nft_edition(
     attachment: asset_v1_account_attachments::Model,
 ) -> Result<NftEdition, DbErr> {
     let data: Edition = attachment
@@ -761,7 +782,8 @@ pub async fn get_nft_editions(
         cursor,
     })
 }
-pub async fn get_inscription_by_mint(
+
+async fn get_inscription_by_mint(
     conn: &impl ConnectionTrait,
     mint: Vec<u8>,
 ) -> Result<asset_v1_account_attachments::Model, DbErr> {
@@ -780,4 +802,15 @@ pub async fn get_inscription_by_mint(
             Some(t) => Ok(t),
             _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
         })
+}
+
+async fn find_tokens(
+    conn: &impl ConnectionTrait,
+    ids: Vec<Vec<u8>>,
+) -> Result<Vec<tokens::Model>, DbErr> {
+    tokens::Entity::find()
+        .filter(tokens::Column::Mint.is_in(ids))
+        .all(conn)
+        .await
+        .map_err(|_| DbErr::RecordNotFound("Token (s) Not Found".to_string()))
 }

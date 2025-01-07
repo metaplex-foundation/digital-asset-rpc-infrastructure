@@ -8,6 +8,7 @@ use crate::rpc::options::Options;
 use crate::rpc::response::TokenAccountList;
 use crate::rpc::response::TransactionSignatureList;
 use crate::rpc::response::{AssetList, DasError};
+use crate::rpc::TokenInfo;
 use crate::rpc::TokenInscriptionInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
@@ -376,36 +377,32 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         creators,
         groups,
         inscription,
+        token_info,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
+    let content = get_content(&data);
+    let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
+    let chain_data_selector = &mut chain_data_selector_fn;
 
-    let (content, edition_nonce, basis_points, mutable, uses) = if let Some(data) = &data {
-        let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
-        let chain_data_selector = &mut chain_data_selector_fn;
-        (
-            get_content(data),
-            safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64()),
-            safe_select(chain_data_selector, "$.primary_sale_happened")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false),
-            data.chain_data_mutability.clone().into(),
-            data.chain_data.get("uses").map(|u| Uses {
-                use_method: u
-                    .get("use_method")
-                    .and_then(|s| s.as_str())
-                    .unwrap_or("Single")
-                    .to_string()
-                    .into(),
-                total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-                remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-            }),
-        )
-    } else {
-        (None, None, false, false, None)
-    };
+    let edition_nonce =
+        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let mutable = data.chain_data_mutability.clone().into();
+    let uses = data.chain_data.get("uses").map(|u| Uses {
+        use_method: u
+            .get("use_method")
+            .and_then(|s| s.as_str())
+            .unwrap_or("Single")
+            .to_string()
+            .into(),
+        total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+        remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+    });
 
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
@@ -437,6 +434,22 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 })
             })
             .and_then(|i| i.ok())
+    } else {
+        None
+    };
+
+    let token_info = if options.show_fungible {
+        token_info.map(|token_info| TokenInfo {
+            supply: token_info.supply.try_into().unwrap_or(0),
+            decimals: token_info.decimals as u8,
+            mint_authority: token_info
+                .mint_authority
+                .map(|s| bs58::encode(s).into_string()),
+            freeze_authority: token_info
+                .freeze_authority
+                .map(|s| bs58::encode(s).into_string()),
+            token_program: bs58::encode(token_info.token_program).into_string(),
+        })
     } else {
         None
     };
@@ -499,6 +512,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         },
         uses,
         burnt: asset.burnt,
+        token_info,
         mint_extensions: asset.mint_extensions,
         inscription,
         plugins: asset.mpl_core_plugins,

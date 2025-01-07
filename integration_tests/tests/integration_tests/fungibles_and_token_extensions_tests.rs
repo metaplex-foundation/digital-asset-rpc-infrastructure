@@ -1,12 +1,11 @@
-use function_name::named;
-
-use das_api::api::{self, ApiContract};
-
-use itertools::Itertools;
-
-use serial_test::serial;
-
 use super::common::*;
+use das_api::{
+    api::{self, ApiContract},
+    error::DasApiError,
+};
+use function_name::named;
+use itertools::Itertools;
+use serial_test::serial;
 
 #[tokio::test]
 #[serial]
@@ -134,7 +133,7 @@ async fn test_fungible_token_get_asset_scenario_1() {
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_fungible_token_get_asset_scenario_2() {
+async fn test_token_keg_fungible_with_no_metadata() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
         name.clone(),
@@ -156,7 +155,7 @@ async fn test_fungible_token_get_asset_scenario_2() {
     "#;
 
     let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await.unwrap();
+    let response = setup.das_api.get_asset(request).await;
 
-    insta::assert_json_snapshot!(name, response);
+    assert!(matches!(response, Err(DasApiError::DatabaseError(_))));
 }

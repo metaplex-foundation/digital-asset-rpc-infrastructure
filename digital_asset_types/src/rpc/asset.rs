@@ -393,6 +393,17 @@ pub struct TokenInscriptionInfo {
     pub validation_hash: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInfo {
+    pub supply: u64,
+    pub decimals: u8,
+    pub token_program: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_authority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_authority: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Asset {
     pub interface: Interface,
@@ -421,6 +432,8 @@ pub struct Asset {
     pub mint_extensions: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inscription: Option<TokenInscriptionInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_info: Option<TokenInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
