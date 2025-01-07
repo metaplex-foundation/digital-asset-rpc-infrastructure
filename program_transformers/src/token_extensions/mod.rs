@@ -5,7 +5,7 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        filter_non_null_fields, AccountInfo,
+        filter_non_null_fields, AccountInfo, DownloadMetadataInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_extensions::{
         extension::ShadowMetadata, MintAccount, TokenAccount, TokenExtensionsProgramAccount,
@@ -30,6 +30,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
     account_info: &'a AccountInfo,
     parsing_result: &'b TokenExtensionsProgramAccount,
     db: &'c DatabaseConnection,
+    download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
@@ -195,7 +196,11 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             txn.commit().await?;
 
             if let Some(metadata) = &extensions.metadata {
-                upsert_asset_data(metadata, account_key.clone(), slot, db).await?;
+                if let Ok(info) = upsert_asset_data(metadata, account_key.clone(), slot, db).await {
+                    download_metadata_notifier(info)
+                        .await
+                        .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
+                }
             }
 
             Ok(())
@@ -209,7 +214,7 @@ async fn upsert_asset_data(
     key_bytes: Vec<u8>,
     slot: i64,
     db: &DatabaseConnection,
-) -> ProgramTransformerResult<()> {
+) -> ProgramTransformerResult<DownloadMetadataInfo> {
     let metadata_json = serde_json::to_value(metadata.clone())
         .map_err(|e| ProgramTransformerError::SerializatonError(e.to_string()))?;
     let asset_data_model = asset_data::ActiveModel {
@@ -257,7 +262,10 @@ async fn upsert_asset_data(
 
     txn.commit().await?;
 
-    Ok(())
+    Ok(DownloadMetadataInfo {
+        uri: metadata.uri.clone(),
+        asset_data_id: key_bytes,
+    })
 }
 
 struct AssetMetadataAccountCols {

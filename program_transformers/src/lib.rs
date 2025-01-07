@@ -233,19 +233,14 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenProgramAccount(parsing_result) => {
-                    handle_token_program_account(
-                        account_info,
-                        parsing_result,
-                        &self.storage,
-                        &self.download_metadata_notifier,
-                    )
-                    .await
+                    handle_token_program_account(account_info, parsing_result, &self.storage).await
                 }
                 ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
                     handle_token_extensions_program_account(
                         account_info,
                         parsing_result,
                         &self.storage,
+                        &self.download_metadata_notifier,
                     )
                     .await
                 }
