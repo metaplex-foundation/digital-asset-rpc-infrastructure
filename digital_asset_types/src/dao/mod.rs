@@ -2,6 +2,8 @@
 mod full_asset;
 mod generated;
 pub mod scopes;
+use crate::rpc::{filter::TokenTypeClass, Interface};
+
 use self::sea_orm_active_enums::{
     OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
 };
@@ -52,8 +54,10 @@ pub struct SearchAssetsQuery {
     pub negate: Option<bool>,
     /// Defaults to [ConditionType::All]
     pub condition_type: Option<ConditionType>,
+    pub interface: Option<Interface>,
     pub specification_version: Option<SpecificationVersions>,
     pub specification_asset_class: Option<SpecificationAssetClass>,
+    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
     pub creator_address: Option<Vec<u8>>,
@@ -75,7 +79,31 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
+    fn validate(&self) -> Result<(), DbErr> {
+        if self.token_type.is_some() {
+            if self.owner_type.is_some() {
+                return Err(DbErr::Custom(
+                    "`owner_type` is not supported when using `token_type` field".to_string(),
+                ));
+            }
+            if self.owner_address.is_none() {
+                return Err(DbErr::Custom(
+                    "Must provide `owner_address` when using `token_type` field".to_string(),
+                ));
+            }
+            if self.interface.is_some() {
+                return Err(DbErr::Custom(
+                    "`specification_asset_class` is not supported when using `token_type` field"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn conditions(&self) -> Result<(Condition, Vec<RelationDef>), DbErr> {
+        self.validate()?;
+
         let mut conditions = match self.condition_type {
             // None --> default to all when no option is provided
             None | Some(ConditionType::All) => Condition::all(),
@@ -88,15 +116,34 @@ impl SearchAssetsQuery {
                     .clone()
                     .map(|x| asset::Column::SpecificationVersion.eq(x)),
             )
+            .add_option(self.token_type.as_ref().map(|x| {
+                match x {
+                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                    TokenTypeClass::Nft => asset::Column::TreeId.is_null().and(
+                        asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::Nft)
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::MplCoreAsset))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::ProgrammableNft)),
+                    ),
+                    TokenTypeClass::NonFungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::Nft)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::ProgrammableNft))
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::MplCoreAsset)),
+                    TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::FungibleAsset)
+                        .or(asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::FungibleToken)),
+                    TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+                }
+            }))
             .add_option(
                 self.specification_asset_class
                     .clone()
                     .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
-            )
-            .add_option(
-                self.owner_address
-                    .to_owned()
-                    .map(|x| asset::Column::Owner.eq(x)),
             )
             .add_option(
                 self.delegate
@@ -145,16 +192,34 @@ impl SearchAssetsQuery {
         if let Some(o) = self.owner_type.clone() {
             conditions = conditions.add(asset::Column::OwnerType.eq(o));
         } else {
-            // Default to NFTs
-            //
-            // In theory, the owner_type=single check should be sufficient,
-            // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
-            // The supply check guarentees we do not include those.
-            conditions = conditions.add_option(Some(
-                asset::Column::OwnerType
-                    .eq(OwnerType::Single)
-                    .and(asset::Column::Supply.lte(1)),
-            ));
+            match self.token_type {
+                Some(TokenTypeClass::Fungible) => {
+                    conditions = conditions.add_option(Some(
+                        asset::Column::OwnerType.eq(OwnerType::Token).and(
+                            (asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::FungibleToken))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::FungibleAsset)),
+                        ),
+                    ));
+                }
+                Some(TokenTypeClass::All) => {
+                    conditions = conditions
+                        .add_option(Some(asset::Column::SpecificationAssetClass.is_not_null()));
+                }
+                _ => {
+                    // Default to NFTs
+                    //
+                    // In theory, the owner_type=single check should be sufficient,
+                    // however there is an old bug that has marked some non-NFTs as "single" with supply > 1.
+                    // The supply check guarentees we do not include those.
+                    conditions = conditions.add_option(Some(
+                        asset::Column::OwnerType
+                            .eq(OwnerType::Single)
+                            .and(asset::Column::Supply.lte(1)),
+                    ));
+                }
+            }
         }
 
         if let Some(c) = self.creator_address.to_owned() {
@@ -192,6 +257,30 @@ impl SearchAssetsQuery {
                         .into_condition()
                 });
             joins.push(rel);
+        }
+
+        if let Some(o) = self.owner_address.to_owned() {
+            if self.token_type == Some(TokenTypeClass::Fungible)
+                || self.token_type == Some(TokenTypeClass::All)
+            {
+                conditions = conditions.add(
+                    asset::Column::Owner
+                        .eq(o.clone())
+                        .or(token_accounts::Column::Owner.eq(o)),
+                );
+
+                let rel = extensions::token_accounts::Relation::Asset
+                    .def()
+                    .rev()
+                    .on_condition(|left, right| {
+                        Expr::tbl(right, token_accounts::Column::Mint)
+                            .eq(Expr::tbl(left, asset::Column::Id))
+                            .into_condition()
+                    });
+                joins.push(rel);
+            } else {
+                conditions = conditions.add(asset::Column::Owner.eq(o));
+            }
         }
 
         if let Some(g) = self.grouping.to_owned() {
