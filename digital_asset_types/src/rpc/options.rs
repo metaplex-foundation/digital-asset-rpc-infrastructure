@@ -12,4 +12,6 @@ pub struct Options {
     pub show_zero_balance: bool,
     #[serde(default)]
     pub show_inscription: bool,
+    #[serde(default)]
+    pub show_fungible: bool,
 }
