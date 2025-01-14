@@ -5,7 +5,7 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::ProgramTransformerResult,
-        AccountInfo, DownloadMetadataNotifier,
+        AccountInfo,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
     digital_asset_types::dao::{
@@ -24,7 +24,6 @@ pub async fn handle_token_program_account<'a, 'b>(
     account_info: &AccountInfo,
     parsing_result: &'a TokenProgramAccount,
     db: &'b DatabaseConnection,
-    _download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
