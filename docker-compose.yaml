@@ -87,8 +87,17 @@ services:
     ports:
       - "6379:6379"
   db:
-    image: 'postgres:14'
-    command: [ "postgres", "-c", "log_statement=all", "-c", "log_destination=stderr" ,"-c","max_connections=200" ]
+    image: "postgres:14"
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_statement=all",
+        "-c",
+        "log_destination=stderr",
+        "-c",
+        "max_connections=200",
+      ]
     ports:
       - 5432:5432
     environment:
@@ -96,7 +105,7 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-      - ./db-data/:/var/lib/postgresql/data/:rw
+      - ./db-data/:/var/lib/postgresql/data/:z
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.9.0-1.75.0-v1.18.11
     volumes:
@@ -113,5 +122,5 @@ services:
       - "8899:8899"
       - "9900:9900"
 volumes:
-  grafana_data: { }
-  graphite_data: { }
+  grafana_data: {}
+  graphite_data: {}
