@@ -1,0 +1,55 @@
+---
+source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
+expression: response
+---
+{
+  "interface": "Custom",
+  "id": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "",
+    "files": [],
+    "metadata": {
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "2wmVCSfPxGPjrnMMn7rchp4uaeoTqN39mXFC2zhPdri9",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "token",
+    "owner": ""
+  },
+  "mutable": true,
+  "burnt": false
+}

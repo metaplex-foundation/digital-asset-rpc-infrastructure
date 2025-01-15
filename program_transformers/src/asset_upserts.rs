@@ -30,6 +30,7 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
         owner: Set(columns.owner),
         frozen: Set(columns.frozen),
         delegate: Set(columns.delegate),
+        slot_updated: Set(columns.slot_updated_token_account),
         slot_updated_token_account: Set(columns.slot_updated_token_account),
         ..Default::default()
     };
@@ -116,25 +117,33 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
     pub supply: Decimal,
-    pub supply_mint: Option<Vec<u8>>,
-    pub slot_updated_mint_account: u64,
+    pub decimals: u8,
+    pub slot_updated_mint_account: i64,
+    pub extensions: Option<Value>,
 }
 
 pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + TransactionTrait>(
     columns: AssetMintAccountColumns,
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
-    let owner_type = if columns.supply == Decimal::from(1) {
-        OwnerType::Single
-    } else {
-        OwnerType::Token
-    };
+    let (specification_asset_class, owner_type) =
+        if columns.supply == Decimal::from(1) && columns.decimals == 0 {
+            (SpecificationAssetClass::Nft, OwnerType::Single)
+        } else {
+            (SpecificationAssetClass::FungibleToken, OwnerType::Token)
+        };
 
     let active_model = asset::ActiveModel {
-        id: Set(columns.mint),
+        id: Set(columns.mint.clone()),
         supply: Set(columns.supply),
-        supply_mint: Set(columns.supply_mint),
-        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
+        supply_mint: Set(Some(columns.mint.clone())),
+        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account)),
+        slot_updated: Set(Some(columns.slot_updated_mint_account)),
+        mint_extensions: Set(columns.extensions),
+        asset_data: Set(Some(columns.mint.clone())),
+        // assume every token is a fungible token when mint account is created
+        specification_asset_class: Set(Some(specification_asset_class)),
+        // // assume multiple ownership as we set asset class to fungible token
         owner_type: Set(owner_type),
         ..Default::default()
     };
@@ -145,6 +154,8 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                     asset::Column::Supply,
                     asset::Column::SupplyMint,
                     asset::Column::SlotUpdatedMintAccount,
+                    asset::Column::MintExtensions,
+                    asset::Column::AssetData,
                     asset::Column::OwnerType,
                 ])
                 .action_cond_where(
@@ -172,6 +183,37 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                                         .add(
                                             Expr::tbl(
                                                 Alias::new("excluded"),
+                                                asset::Column::SlotUpdatedMintAccount,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    asset::Entity,
+                                                    asset::Column::SlotUpdatedMintAccount,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                asset::Column::MintExtensions,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    asset::Entity,
+                                                    asset::Column::MintExtensions,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                asset::Column::AssetData,
+                                            )
+                                            .ne(Expr::tbl(asset::Entity, asset::Column::AssetData)),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
                                                 asset::Column::OwnerType,
                                             )
                                             .ne(Expr::tbl(asset::Entity, asset::Column::OwnerType)),
@@ -179,7 +221,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                                 )
                                 .add(
                                     Expr::tbl(asset::Entity, asset::Column::SlotUpdatedMintAccount)
-                                        .lte(columns.slot_updated_mint_account as i64),
+                                        .lte(columns.slot_updated_mint_account),
                                 ),
                         )
                         .add(
@@ -230,6 +272,7 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
         royalty_target: Set(None),
         royalty_amount: Set(columns.royalty_amount),
         asset_data: Set(columns.asset_data),
+        slot_updated: Set(Some(columns.slot_updated_metadata_account as i64)),
         slot_updated_metadata_account: Set(Some(columns.slot_updated_metadata_account as i64)),
         burnt: Set(false),
         mpl_core_plugins: Set(columns.mpl_core_plugins),

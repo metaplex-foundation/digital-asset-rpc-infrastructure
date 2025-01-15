@@ -1,4 +1,5 @@
 use {
+    super::IsNonFungibe,
     crate::{
         asset_upserts::{upsert_assets_metadata_account_columns, AssetMetadataAccountColumns},
         error::{ProgramTransformerError, ProgramTransformerResult},
@@ -26,6 +27,7 @@ use {
         Condition, ConnectionTrait, Statement, TransactionTrait,
     },
     solana_sdk::pubkey,
+    solana_sdk::pubkey::Pubkey,
     tracing::warn,
 };
 
@@ -63,7 +65,6 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
 }
 
 static WSOL_PUBKEY: pubkey::Pubkey = pubkey!("So11111111111111111111111111111111111111112");
-
 pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     metadata: &Metadata,
@@ -479,6 +480,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
+
+    // If the asset is a non-fungible token, then we need to insert to the asset_v1_account_attachments table
+    if let Some(true) = metadata.token_standard.map(|t| t.is_non_fungible()) {
+        upsert_asset_v1_account_attachments(&txn, &mint_pubkey, slot).await?;
+    }
+
     txn.commit().await?;
 
     if uri.is_empty() {
@@ -494,4 +501,40 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         uri,
         slot_i,
     )))
+}
+
+async fn upsert_asset_v1_account_attachments<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    mint_pubkey: &Pubkey,
+    slot: u64,
+) -> ProgramTransformerResult<()> {
+    let edition_pubkey = MasterEdition::find_pda(mint_pubkey).0;
+    let mint_pubkey_vec = mint_pubkey.to_bytes().to_vec();
+    let attachment = asset_v1_account_attachments::ActiveModel {
+        id: ActiveValue::Set(edition_pubkey.to_bytes().to_vec()),
+        asset_id: ActiveValue::Set(Some(mint_pubkey_vec.clone())),
+        slot_updated: ActiveValue::Set(slot as i64),
+        // by default, the attachment type is MasterEditionV2
+        attachment_type: ActiveValue::Set(V1AccountAttachments::MasterEditionV2),
+        ..Default::default()
+    };
+
+    asset_v1_account_attachments::Entity::insert(attachment)
+        .on_conflict(
+            OnConflict::columns([asset_v1_account_attachments::Column::Id])
+                .update_columns([asset_v1_account_attachments::Column::AssetId])
+                .action_cond_where(
+                    Expr::tbl(
+                        asset_v1_account_attachments::Entity,
+                        asset_v1_account_attachments::Column::SlotUpdated,
+                    )
+                    .lte(slot as i64),
+                )
+                .to_owned(),
+        )
+        .exec_without_returning(conn)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+    Ok(())
 }

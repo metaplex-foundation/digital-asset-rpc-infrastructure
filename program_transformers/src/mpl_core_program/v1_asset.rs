@@ -388,6 +388,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         None
     };
 
+    // Get transfer delegate from `TransferDelegate` plugin if available.
     let transfer_delegate =
         asset
             .plugins
@@ -413,7 +414,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     let asset_model = asset::ActiveModel {
         id: ActiveValue::Set(id_vec.clone()),
-        owner_type: ActiveValue::Set(ownership_type),
         supply: ActiveValue::Set(Decimal::from(1)),
         supply_mint: ActiveValue::Set(None),
         slot_updated_mint_account: ActiveValue::Set(Some(slot as i64)),
@@ -432,6 +432,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         mpl_core_external_plugins: ActiveValue::Set(Some(external_plugins_json)),
         mpl_core_unknown_external_plugins: ActiveValue::Set(unknown_external_plugins_json),
         owner: ActiveValue::Set(owner),
+        owner_type: ActiveValue::Set(ownership_type),
         frozen: ActiveValue::Set(frozen),
         delegate: ActiveValue::Set(transfer_delegate.clone()),
         slot_updated_token_account: ActiveValue::Set(Some(slot_i)),
