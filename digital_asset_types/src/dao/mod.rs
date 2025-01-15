@@ -119,20 +119,18 @@ impl SearchAssetsQuery {
             .add_option(self.token_type.as_ref().map(|x| {
                 match x {
                     TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
-                    TokenTypeClass::Nft => asset::Column::TreeId.is_null().and(
-                        asset::Column::SpecificationAssetClass
-                            .eq(SpecificationAssetClass::Nft)
-                            .or(asset::Column::SpecificationAssetClass
-                                .eq(SpecificationAssetClass::MplCoreAsset))
-                            .or(asset::Column::SpecificationAssetClass
-                                .eq(SpecificationAssetClass::ProgrammableNft)),
-                    ),
-                    TokenTypeClass::NonFungible => asset::Column::SpecificationAssetClass
-                        .eq(SpecificationAssetClass::Nft)
-                        .or(asset::Column::SpecificationAssetClass
-                            .eq(SpecificationAssetClass::ProgrammableNft))
-                        .or(asset::Column::SpecificationAssetClass
-                            .eq(SpecificationAssetClass::MplCoreAsset)),
+                    TokenTypeClass::Nft | TokenTypeClass::NonFungible => {
+                        asset::Column::TreeId.is_null().and(
+                            asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::Nft)
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::MplCoreAsset))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::ProgrammableNft))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::MplCoreCollection)),
+                        )
+                    }
                     TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
                         .eq(SpecificationAssetClass::FungibleAsset)
                         .or(asset::Column::SpecificationAssetClass
