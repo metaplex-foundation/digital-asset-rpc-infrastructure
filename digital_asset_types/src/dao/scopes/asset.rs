@@ -1,15 +1,24 @@
 use crate::{
     dao::{
         asset::{self},
-        asset_authority, asset_creators, asset_data, asset_grouping, cl_audits_v2,
+        asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
+        cl_audits_v2,
         extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::Instruction,
-        Cursor, FullAsset, GroupingSize, Pagination,
+        sea_orm_active_enums::{Instruction, V1AccountAttachments},
+        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
-    rpc::filter::AssetSortDirection,
+    rpc::{
+        filter::AssetSortDirection,
+        options::Options,
+        response::{NftEdition, NftEditions},
+    },
 };
 use indexmap::IndexMap;
-use sea_orm::{entity::*, query::*, ConnectionTrait, DbErr, Order};
+use mpl_token_metadata::accounts::{Edition, MasterEdition};
+use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 pub fn paginate<T, C>(
@@ -60,7 +69,7 @@ pub async fn get_by_creator(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = Condition::all()
         .add(asset_creators::Column::Creator.eq(creator.clone()))
@@ -76,7 +85,7 @@ pub async fn get_by_creator(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         Some(creator),
     )
     .await
@@ -112,13 +121,13 @@ pub async fn get_by_grouping(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = asset_grouping::Column::GroupKey
         .eq(group_key)
         .and(asset_grouping::Column::GroupValue.eq(group_value));
 
-    if !show_unverified_collections {
+    if !options.show_unverified_collections {
         condition = condition.and(
             asset_grouping::Column::Verified
                 .eq(true)
@@ -136,7 +145,7 @@ pub async fn get_by_grouping(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -149,11 +158,12 @@ pub async fn get_assets_by_owner(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
-        .add(asset::Column::Owner.eq(owner))
+        .add(asset::Column::Owner.eq(owner.clone()))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -162,7 +172,7 @@ pub async fn get_assets_by_owner(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
     )
     .await
 }
@@ -172,10 +182,12 @@ pub async fn get_assets(
     asset_ids: Vec<Vec<u8>>,
     pagination: &Pagination,
     limit: u64,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset::Column::Id.is_in(asset_ids))
         .add(asset::Column::Supply.gt(0));
+
     get_assets_by_condition(
         conn,
         cond,
@@ -185,7 +197,7 @@ pub async fn get_assets(
         Order::Asc,
         pagination,
         limit,
-        false,
+        options,
     )
     .await
 }
@@ -197,7 +209,7 @@ pub async fn get_by_authority(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let cond = Condition::all()
         .add(asset_authority::Column::Authority.eq(authority))
@@ -210,7 +222,7 @@ pub async fn get_by_authority(
         sort_direction,
         pagination,
         limit,
-        show_unverified_collections,
+        options,
         None,
     )
     .await
@@ -225,7 +237,7 @@ async fn get_by_related_condition<E>(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
@@ -244,19 +256,19 @@ where
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    get_related_for_assets(conn, assets, show_unverified_collections, required_creator).await
+    get_related_for_assets(conn, assets, options, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
-    show_unverified_collections: bool,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
 
     let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
-        .filter(asset_data::Column::Id.is_in(asset_ids))
+        .filter(asset_data::Column::Id.is_in(asset_ids.clone()))
         .all(conn)
         .await?;
     let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
@@ -278,6 +290,8 @@ pub async fn get_related_for_assets(
                 authorities: vec![],
                 creators: vec![],
                 groups: vec![],
+                inscription: None,
+                token_info: None,
             };
             acc.insert(id, fa);
         };
@@ -287,7 +301,7 @@ pub async fn get_related_for_assets(
 
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids.clone()))
+        .filter(asset_creators::Column::AssetId.is_in(ids))
         .order_by_asc(asset_creators::Column::AssetId)
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
@@ -325,7 +339,18 @@ pub async fn get_related_for_assets(
         }
     }
 
-    let cond = if show_unverified_collections {
+    if options.show_fungible {
+        find_tokens(conn, ids.clone())
+            .await?
+            .into_iter()
+            .for_each(|t| {
+                if let Some(asset) = assets_map.get_mut(&t.mint.clone()) {
+                    asset.token_info = Some(t);
+                }
+            });
+    }
+
+    let cond = if options.show_unverified_collections {
         Condition::all()
     } else {
         Condition::any()
@@ -335,18 +360,43 @@ pub async fn get_related_for_assets(
             .add(asset_grouping::Column::Verified.is_null())
     };
 
-    let grouping = asset_grouping::Entity::find()
+    let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?;
-    for g in grouping.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&g.asset_id) {
-            asset.groups.push(g);
+        .order_by_asc(asset_grouping::Column::AssetId);
+
+    if options.show_inscription {
+        let attachments = asset_v1_account_attachments::Entity::find()
+            .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids))
+            .all(conn)
+            .await?;
+
+        for a in attachments.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&a.id) {
+                asset.inscription = Some(a);
+            }
         }
     }
+
+    if options.show_collection_metadata {
+        let combined_group_query = grouping_base_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?;
+        for (g, a) in combined_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, a));
+            }
+        }
+    } else {
+        let single_group_query = grouping_base_query.all(conn).await?;
+        for g in single_group_query.into_iter() {
+            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                asset.groups.push((g, None));
+            }
+        }
+    };
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
@@ -360,7 +410,7 @@ pub async fn get_assets_by_condition(
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
-    show_unverified_collections: bool,
+    options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut stmt = asset::Entity::find();
     for def in joins {
@@ -376,8 +426,7 @@ pub async fn get_assets_by_condition(
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
-    let full_assets =
-        get_related_for_assets(conn, assets, show_unverified_collections, None).await?;
+    let full_assets = get_related_for_assets(conn, assets, options, None).await?;
     Ok(full_assets)
 }
 
@@ -385,19 +434,35 @@ pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
     include_no_supply: bool,
+    options: &Options,
 ) -> Result<FullAsset, DbErr> {
     let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
     if !include_no_supply {
         asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
     }
-    let asset_data: (asset::Model, asset_data::Model) =
+
+    let inscription = if options.show_inscription {
+        get_inscription_by_mint(conn, asset_id.clone()).await.ok()
+    } else {
+        None
+    };
+
+    let token_info = if options.show_fungible {
+        find_tokens(conn, vec![asset_id.clone()])
+            .await?
+            .into_iter()
+            .next()
+    } else {
+        None
+    };
+
+    let (asset, data): (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
             Some((a, Some(d))) => Ok((a, d)),
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })?;
 
-    let (asset, data) = asset_data;
     let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_authority::Column::AssetId)
@@ -411,7 +476,7 @@ pub async fn get_by_id(
 
     filter_out_stale_creators(&mut creators);
 
-    let grouping: Vec<asset_grouping::Model> = asset_grouping::Entity::find()
+    let grouping_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
         .filter(
@@ -421,15 +486,30 @@ pub async fn get_by_id(
                 // Therefore if verified is null, we can assume that the group is verified.
                 .add(asset_grouping::Column::Verified.is_null()),
         )
-        .order_by_asc(asset_grouping::Column::AssetId)
-        .all(conn)
-        .await?;
+        .order_by_asc(asset_grouping::Column::AssetId);
+
+    let groups = if options.show_collection_metadata {
+        grouping_query
+            .find_also_related(asset_data::Entity)
+            .all(conn)
+            .await?
+    } else {
+        grouping_query
+            .all(conn)
+            .await?
+            .into_iter()
+            .map(|g| (g, None))
+            .collect::<Vec<_>>()
+    };
+
     Ok(FullAsset {
         asset,
         data,
         authorities,
         creators,
-        groups: grouping,
+        inscription,
+        groups,
+        token_info,
     })
 }
 
@@ -552,4 +632,185 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
             creators.retain(|creator| creator.seq == seq);
         }
     }
+}
+
+pub async fn get_token_accounts(
+    conn: &impl ConnectionTrait,
+    owner_address: Option<Vec<u8>>,
+    mint_address: Option<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+    options: &Options,
+) -> Result<Vec<token_accounts::Model>, DbErr> {
+    let mut condition = Condition::all();
+
+    if options.show_zero_balance {
+        condition = condition.add(token_accounts::Column::Amount.gte(0));
+    } else {
+        condition = condition.add(token_accounts::Column::Amount.gt(0));
+    }
+
+    if owner_address.is_none() && mint_address.is_none() {
+        return Err(DbErr::Custom(
+            "Either 'owner_address' or 'mint_address' must be provided".to_string(),
+        ));
+    }
+
+    if let Some(owner) = owner_address {
+        condition = condition.add(token_accounts::Column::Owner.eq(owner));
+    }
+    if let Some(mint) = mint_address {
+        condition = condition.add(token_accounts::Column::Mint.eq(mint));
+    }
+
+    let token_accounts = paginate(
+        pagination,
+        limit,
+        token_accounts::Entity::find().filter(condition),
+        Order::Asc,
+        token_accounts::Column::Pubkey,
+    )
+    .all(conn)
+    .await?;
+
+    Ok(token_accounts)
+}
+
+fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {
+    serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
+}
+
+fn attachment_to_nft_edition(
+    attachment: asset_v1_account_attachments::Model,
+) -> Result<NftEdition, DbErr> {
+    let data: Edition = attachment
+        .data
+        .clone()
+        .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
+        .map(get_edition_data_from_json)??;
+
+    Ok(NftEdition {
+        mint_address: attachment
+            .asset_id
+            .clone()
+            .map(|id| bs58::encode(id).into_string())
+            .unwrap_or("".to_string()),
+        edition_number: data.edition,
+        edition_address: bs58::encode(attachment.id.clone()).into_string(),
+    })
+}
+
+pub async fn get_nft_editions(
+    conn: &impl ConnectionTrait,
+    mint_address: Pubkey,
+    pagination: &Pagination,
+    limit: u64,
+) -> Result<NftEditions, DbErr> {
+    let master_edition_pubkey = MasterEdition::find_pda(&mint_address).0;
+
+    // to fetch nft editions associated with a mint we need to fetch the master edition first
+    let master_edition =
+        asset_v1_account_attachments::Entity::find_by_id(master_edition_pubkey.to_bytes().to_vec())
+            .one(conn)
+            .await?
+            .ok_or(DbErr::RecordNotFound(
+                "Master Edition not found".to_string(),
+            ))?;
+
+    let master_edition_data: MasterEdition = master_edition
+        .data
+        .clone()
+        .ok_or(DbErr::RecordNotFound(
+            "Master Edition data not found".to_string(),
+        ))
+        .map(get_edition_data_from_json)??;
+
+    let mut stmt = asset_v1_account_attachments::Entity::find();
+
+    stmt = stmt.filter(
+        asset_v1_account_attachments::Column::AttachmentType
+            .eq(V1AccountAttachments::Edition)
+            // The data field is a JSON field that contains the edition data.
+            .and(asset_v1_account_attachments::Column::Data.is_not_null())
+            // The parent field is a string field that contains the master edition pubkey ( mapping edition to master edition )
+            .and(Expr::cust(&format!(
+                "data->>'parent' = '{}'",
+                master_edition_pubkey
+            ))),
+    );
+
+    let nft_editions = paginate(
+        pagination,
+        limit,
+        stmt,
+        Order::Asc,
+        asset_v1_account_attachments::Column::Id,
+    )
+    .all(conn)
+    .await?
+    .into_iter()
+    .map(attachment_to_nft_edition)
+    .collect::<Result<Vec<NftEdition>, _>>()?;
+
+    let (page, before, after, cursor) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            (None, bef, aft, None)
+        }
+        Pagination::Page { page } => (Some(*page as u32), None, None, None),
+        Pagination::Cursor(_) => {
+            if let Some(last_asset) = nft_editions.last() {
+                let cursor_str = bs58::encode(last_asset.edition_address.clone()).into_string();
+                (None, None, None, Some(cursor_str))
+            } else {
+                (None, None, None, None)
+            }
+        }
+    };
+
+    Ok(NftEditions {
+        total: nft_editions.len() as u32,
+        master_edition_address: master_edition_pubkey.to_string(),
+        supply: master_edition_data.supply,
+        max_supply: master_edition_data.max_supply,
+        editions: nft_editions,
+        limit: limit as u32,
+        page,
+        before,
+        after,
+        cursor,
+    })
+}
+
+async fn get_inscription_by_mint(
+    conn: &impl ConnectionTrait,
+    mint: Vec<u8>,
+) -> Result<asset_v1_account_attachments::Model, DbErr> {
+    asset_v1_account_attachments::Entity::find()
+        .filter(
+            asset_v1_account_attachments::Column::Data
+                .is_not_null()
+                .and(Expr::cust(&format!(
+                    "data->>'root' = '{}'",
+                    bs58::encode(mint).into_string()
+                ))),
+        )
+        .one(conn)
+        .await
+        .and_then(|o| match o {
+            Some(t) => Ok(t),
+            _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
+        })
+}
+
+async fn find_tokens(
+    conn: &impl ConnectionTrait,
+    ids: Vec<Vec<u8>>,
+) -> Result<Vec<tokens::Model>, DbErr> {
+    tokens::Entity::find()
+        .filter(tokens::Column::Mint.is_in(ids))
+        .all(conn)
+        .await
+        .map_err(|_| DbErr::RecordNotFound("Token (s) Not Found".to_string()))
 }

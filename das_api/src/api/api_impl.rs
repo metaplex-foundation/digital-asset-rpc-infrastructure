@@ -1,21 +1,21 @@
 use digital_asset_types::{
     dao::{
-        scopes::asset::get_grouping,
+        scopes::asset::{get_grouping, get_nft_editions},
         sea_orm_active_enums::{
             OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
         },
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        get_asset, get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
-        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
-        search_assets,
+        common::create_pagination, get_asset, get_asset_proofs, get_asset_signatures, get_assets,
+        get_assets_by_authority, get_assets_by_creator, get_assets_by_group, get_assets_by_owner,
+        get_proof_for_asset, get_token_accounts, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
-        response::GetGroupingResponse,
+        response::{GetGroupingResponse, TokenAccountList},
+        OwnershipModel, RoyaltyModel,
     },
-    rpc::{OwnershipModel, RoyaltyModel},
 };
 use open_rpc_derive::document_rpc;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
@@ -218,6 +218,10 @@ impl ApiContract for DasApi {
     ) -> Result<Vec<Option<Asset>>, DasApiError> {
         let GetAssets { ids, options } = payload;
 
+        let mut ids: Vec<String> = ids.into_iter().collect();
+        ids.sort();
+        ids.dedup();
+
         let batch_size = ids.len();
         if batch_size > 1000 {
             return Err(DasApiError::BatchSizeExceededError);
@@ -284,6 +288,7 @@ impl ApiContract for DasApi {
             options,
             cursor,
         } = payload;
+        validate_pubkey(group_value.clone())?;
         let before: Option<String> = before.filter(|before| !before.is_empty());
         let after: Option<String> = after.filter(|after| !after.is_empty());
         let sort_by = sort_by.unwrap_or_default();
@@ -501,6 +506,7 @@ impl ApiContract for DasApi {
         .await
         .map_err(Into::into)
     }
+
     async fn get_grouping(
         self: &DasApi,
         payload: GetGrouping,
@@ -515,5 +521,60 @@ impl ApiContract for DasApi {
             group_name: group_value,
             group_size: gs.size,
         })
+    }
+
+    async fn get_token_accounts(
+        self: &DasApi,
+        payload: GetTokenAccounts,
+    ) -> Result<TokenAccountList, DasApiError> {
+        let GetTokenAccounts {
+            owner_address,
+            mint_address,
+            limit,
+            page,
+            before,
+            after,
+            options,
+            cursor,
+        } = payload;
+        let owner_address = validate_opt_pubkey(&owner_address)?;
+        let mint_address = validate_opt_pubkey(&mint_address)?;
+        let options = options.unwrap_or_default();
+        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
+        get_token_accounts(
+            &self.db_connection,
+            owner_address,
+            mint_address,
+            &page_options,
+            &options,
+        )
+        .await
+        .map_err(Into::into)
+    }
+
+    async fn get_nft_editions(
+        self: &DasApi,
+        payload: GetNftEditions,
+    ) -> Result<NftEditions, DasApiError> {
+        let GetNftEditions {
+            mint_address,
+            page,
+            limit,
+            before,
+            after,
+            cursor,
+        } = payload;
+
+        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
+        let mint_address = validate_pubkey(mint_address.clone())?;
+        let pagination = create_pagination(&page_options)?;
+        get_nft_editions(
+            &self.db_connection,
+            mint_address,
+            &pagination,
+            page_options.limit,
+        )
+        .await
+        .map_err(Into::into)
     }
 }

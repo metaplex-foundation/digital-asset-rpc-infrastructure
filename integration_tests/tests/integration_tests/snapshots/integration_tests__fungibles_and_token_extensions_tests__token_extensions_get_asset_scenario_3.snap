@@ -1,0 +1,195 @@
+---
+source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
+expression: response
+---
+{
+  "interface": "FungibleToken",
+  "id": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://token-metadata.paxos.com/pyusd_metadata/prod/solana/pyusd_metadata.json",
+    "files": [],
+    "metadata": {
+      "name": "PayPal USD",
+      "symbol": "PYUSD"
+    },
+    "links": {}
+  },
+  "authorities": [],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "token",
+    "owner": ""
+  },
+  "mutable": true,
+  "burnt": false,
+  "mint_extensions": {
+    "metadata": {
+      "uri": "https://token-metadata.paxos.com/pyusd_metadata/prod/solana/pyusd_metadata.json",
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "name": "PayPal USD",
+      "symbol": "PYUSD",
+      "update_authority": "9nEfZqzTP3dfVWmzQy54TzsZqSQqDFVW4PhXdG9vYCVD",
+      "additional_metadata": []
+    },
+    "transfer_hook": {
+      "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+      "program_id": null
+    },
+    "metadata_pointer": {
+      "metadata_address": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"
+    },
+    "permanent_delegate": {
+      "delegate": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
+    },
+    "transfer_fee_config": {
+      "withheld_amount": 0,
+      "newer_transfer_fee": {
+        "epoch": 605,
+        "maximum_fee": 0,
+        "transfer_fee_basis_points": 0
+      },
+      "older_transfer_fee": {
+        "epoch": 605,
+        "maximum_fee": 0,
+        "transfer_fee_basis_points": 0
+      },
+      "withdraw_withheld_authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+      "transfer_fee_config_authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
+    },
+    "mint_close_authority": {
+      "close_authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
+    },
+    "confidential_transfer_mint": {
+      "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+      "auditor_elgamal_pubkey": null,
+      "auto_approve_new_accounts": false
+    },
+    "confidential_transfer_fee_config": {
+      "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+      "withheld_amount": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "harvest_to_mint_enabled": true,
+      "withdraw_withheld_authority_elgamal_pubkey": [
+        28,
+        55,
+        230,
+        67,
+        59,
+        115,
+        4,
+        221,
+        130,
+        115,
+        122,
+        228,
+        13,
+        155,
+        139,
+        243,
+        196,
+        159,
+        91,
+        14,
+        108,
+        73,
+        168,
+        213,
+        51,
+        40,
+        179,
+        229,
+        6,
+        144,
+        28,
+        87
+      ]
+    }
+  }
+}

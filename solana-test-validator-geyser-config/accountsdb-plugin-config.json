@@ -4,19 +4,18 @@
   "metrics_port": 8125,
   "metrics_uri": "graphite",
   "env": "dev",
-  "accounts_selector" : {
-    "owners" : [
+  "accounts_selector": {
+    "owners": [
       "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
       "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
       "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
-      "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d"
+      "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
+      "inscokhJarcjaEs59QbQ7hYjrKz25LEPRfCbP8EmdUp"
     ]
   },
-  "transaction_selector" : {
-    "mentions" : [
-      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"
-    ]
+  "transaction_selector": {
+    "mentions": ["BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"]
   }
 }
