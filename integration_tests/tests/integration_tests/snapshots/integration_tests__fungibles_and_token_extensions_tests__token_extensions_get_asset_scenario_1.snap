@@ -3,7 +3,7 @@ source: integration_tests/tests/integration_tests/fungibles_and_token_extensions
 expression: response
 ---
 {
-  "interface": "FungibleToken",
+  "interface": "Custom",
   "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
@@ -40,7 +40,7 @@ expression: response
     "frozen": false,
     "delegated": false,
     "delegate": null,
-    "ownership_model": "token",
+    "ownership_model": "single",
     "owner": ""
   },
   "mutable": true,
