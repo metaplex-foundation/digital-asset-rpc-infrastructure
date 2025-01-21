@@ -31,8 +31,10 @@ pub struct MockMetadataArgs {
     /// Since we cannot easily change Metadata, we add the new DataV2 fields here at the end.
     pub token_standard: Option<TokenStandard>,
     /// Collection
+    #[allow(dead_code)]
     pub collection: Option<Collection>,
     /// Uses
+    #[allow(dead_code)]
     pub uses: Option<Uses>,
     pub creators: Vec<Creator>,
 }

@@ -2,12 +2,16 @@ use {
     crate::{
         config::{ConfigIngestStream, REDIS_STREAM_DATA_KEY},
         prom::{
-            ack_tasks_total_dec, ack_tasks_total_inc, ingest_job_time_set, ingest_tasks_total_dec,
-            ingest_tasks_total_inc, program_transformer_task_status_inc, redis_xack_inc,
-            redis_xlen_set, redis_xread_inc, ProgramTransformerTaskStatusKind,
+            ack_tasks_total_dec, ack_tasks_total_inc, download_metadata_json_task_status_count_inc,
+            ingest_job_time_set, ingest_tasks_total_dec, ingest_tasks_total_inc,
+            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set, redis_xread_inc,
+            ProgramTransformerTaskStatusKind,
         },
     },
-    das_core::{DownloadMetadata, DownloadMetadataInfo},
+    das_core::{
+        DownloadMetadata, DownloadMetadataInfo, FetchMetadataJsonError, MetadataJsonTaskError,
+        StatusCode,
+    },
     futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt},
     program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo},
     redis::{
@@ -202,10 +206,21 @@ impl MessageHandler for DownloadMetadataJsonHandle {
 
         Box::pin(async move {
             let info = DownloadMetadataInfo::try_parse_msg(input)?;
-            download_metadata
-                .handle_download(&info)
-                .await
-                .map_err(Into::into)
+            let response = download_metadata.handle_download(&info).await;
+            let status =
+                if let Err(MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response {
+                    status: StatusCode::Code(code),
+                    ..
+                })) = response
+                {
+                    code.as_u16()
+                } else {
+                    200
+                };
+
+            download_metadata_json_task_status_count_inc(status);
+
+            response.map_err(IngestMessageError::DownloadMetadataJson)
         })
     }
 }

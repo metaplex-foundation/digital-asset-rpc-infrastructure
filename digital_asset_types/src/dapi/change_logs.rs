@@ -206,7 +206,7 @@ fn build_asset_proof(
     let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
     for node in required_nodes.iter() {
         if node.level < final_node_list.len().try_into().unwrap() {
-            final_node_list[node.level as usize] = node.to_owned();
+            node.clone_into(&mut final_node_list[node.level as usize])
         }
     }
     for (i, (n, nin)) in final_node_list

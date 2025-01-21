@@ -66,6 +66,7 @@ const BLOCK_CACHE_SIZE: usize = 300_000;
 const MAX_CACHE_COST: i64 = 32;
 const BLOCK_CACHE_DURATION: u64 = 172800;
 
+#[allow(dead_code)]
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
 pub fn setup_backfiller<T: Messenger>(
