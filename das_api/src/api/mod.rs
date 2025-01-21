@@ -1,6 +1,6 @@
 use crate::error::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
+use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType, TokenTypeClass};
 use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{
     AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
@@ -96,6 +96,7 @@ pub struct SearchAssets {
     pub negate: Option<bool>,
     pub condition_type: Option<SearchConditionType>,
     pub interface: Option<Interface>,
+    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<String>,
     pub owner_type: Option<OwnershipModel>,
     pub creator_address: Option<String>,
