@@ -289,7 +289,7 @@ pub struct ConfigIngesterDownloadMetadata {
         default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
     )]
-    pub _max_attempts: usize,
+    pub max_attempts: usize,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_request_timeout",
         deserialize_with = "deserialize_duration_str",
@@ -312,6 +312,17 @@ pub struct ConfigIngesterDownloadMetadata {
         rename = "pipeline_max_idle_ms"
     )]
     pub _pipeline_max_idle: Duration,
+
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_retry_max_delay_ms",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub retry_max_delay_ms: usize,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_retry_min_delay_ms",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub retry_min_delay_ms: usize,
 }
 
 impl ConfigIngesterDownloadMetadata {
@@ -337,6 +348,14 @@ impl ConfigIngesterDownloadMetadata {
 
     pub const fn default_request_timeout() -> Duration {
         Duration::from_millis(3_000)
+    }
+
+    pub const fn default_retry_max_delay_ms() -> usize {
+        10
+    }
+
+    pub const fn default_retry_min_delay_ms() -> usize {
+        1
     }
 }
 

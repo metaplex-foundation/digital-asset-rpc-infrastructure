@@ -6,7 +6,10 @@ use {
         redis::{AccountHandle, DownloadMetadataJsonHandle, IngestStream, TransactionHandle},
         util::create_shutdown,
     },
-    das_core::{DownloadMetadata, DownloadMetadataInfo, DownloadMetadataNotifier},
+    das_core::{
+        DownloadMetadata, DownloadMetadataInfo, DownloadMetadataJsonRetryConfig,
+        DownloadMetadataNotifier,
+    },
     futures::{future::BoxFuture, stream::StreamExt},
     program_transformers::ProgramTransformer,
     redis::aio::MultiplexedConnection,
@@ -80,9 +83,14 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let download_metadatas = IngestStream::build()
         .config(config.download_metadata.stream.clone())
         .connection(connection.clone())
-        .handler(DownloadMetadataJsonHandle::new(Arc::clone(
-            &download_metadata,
-        )))
+        .handler(DownloadMetadataJsonHandle::new(
+            Arc::clone(&download_metadata),
+            Arc::new(DownloadMetadataJsonRetryConfig::new(
+                config.download_metadata.max_attempts,
+                config.download_metadata.retry_max_delay_ms,
+                config.download_metadata.retry_min_delay_ms,
+            )),
+        ))
         .start()
         .await?;
 

@@ -2,6 +2,7 @@ mod backfill;
 mod error;
 mod tree;
 
+use das_core::DownloadMetadataJsonRetryConfig;
 use das_core::{MetadataJsonDownloadWorkerArgs, Rpc};
 pub use error::ErrorKind;
 mod verify;
@@ -19,6 +20,7 @@ use sea_orm::{EntityTrait, QueryFilter};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::error;
 use tree::TreeResponse;
 
@@ -123,9 +125,10 @@ pub async fn start_bubblegum_replay(
     let metadata_json_download_db_pool = context.database_pool.clone();
     let program_transformer_context = context.clone();
     let signature_context = context.clone();
-
+    let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
     let (metadata_json_download_worker, metadata_json_download_sender) =
-        metadata_json_download_worker_args.start(metadata_json_download_db_pool)?;
+        metadata_json_download_worker_args
+            .start(metadata_json_download_db_pool, download_config)?;
 
     let (program_transformer_worker, transaction_info_sender) = program_transformer_worker_args
         .start(program_transformer_context, metadata_json_download_sender)?;
