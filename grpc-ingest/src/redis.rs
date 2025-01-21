@@ -9,10 +9,10 @@ use {
         },
     },
     das_core::{
-        DownloadMetadata, DownloadMetadataInfo, FetchMetadataJsonError, MetadataJsonTaskError,
-        StatusCode,
+        DownloadMetadata, DownloadMetadataInfo, DownloadMetadataJsonRetryConfig,
+        FetchMetadataJsonError, MetadataJsonTaskError, StatusCode,
     },
-    futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt},
+    futures::future::BoxFuture,
     program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
@@ -195,7 +195,7 @@ pub trait MessageHandler: Send + Sync + Clone + 'static {
     ) -> BoxFuture<'static, Result<(), IngestMessageError>>;
 }
 
-pub struct DownloadMetadataJsonHandle(Arc<DownloadMetadata>);
+pub struct DownloadMetadataJsonHandle(Arc<DownloadMetadata>, Arc<DownloadMetadataJsonRetryConfig>);
 
 impl MessageHandler for DownloadMetadataJsonHandle {
     fn handle(
@@ -203,10 +203,13 @@ impl MessageHandler for DownloadMetadataJsonHandle {
         input: HashMap<String, RedisValue>,
     ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
         let download_metadata = Arc::clone(&self.0);
+        let download_config = Arc::clone(&self.1);
 
         Box::pin(async move {
             let info = DownloadMetadataInfo::try_parse_msg(input)?;
-            let response = download_metadata.handle_download(&info).await;
+            let response = download_metadata
+                .handle_download(&info, download_config)
+                .await;
             let status =
                 if let Err(MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response {
                     status: StatusCode::Code(code),
@@ -226,14 +229,17 @@ impl MessageHandler for DownloadMetadataJsonHandle {
 }
 
 impl DownloadMetadataJsonHandle {
-    pub fn new(download_metadata: Arc<DownloadMetadata>) -> Self {
-        Self(download_metadata)
+    pub fn new(
+        download_metadata: Arc<DownloadMetadata>,
+        config: Arc<DownloadMetadataJsonRetryConfig>,
+    ) -> Self {
+        Self(download_metadata, config)
     }
 }
 
 impl Clone for DownloadMetadataJsonHandle {
     fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
+        Self(Arc::clone(&self.0), Arc::clone(&self.1))
     }
 }
 

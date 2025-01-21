@@ -2,8 +2,8 @@ use super::account_info;
 use anyhow::Result;
 use clap::Parser;
 use das_core::{
-    connect_db, create_download_metadata_notifier, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc,
-    SolanaRpcArgs,
+    connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
+    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
 };
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::error;
@@ -55,9 +55,11 @@ pub async fn run(config: Args) -> Result<()> {
 
     let metadata_json_download_db_pool = pool.clone();
 
-    let (metadata_json_download_worker, metadata_json_download_sender) = config
-        .metadata_json_download_worker
-        .start(metadata_json_download_db_pool)?;
+    let (metadata_json_download_worker, metadata_json_download_sender) =
+        config.metadata_json_download_worker.start(
+            metadata_json_download_db_pool,
+            Arc::new(DownloadMetadataJsonRetryConfig::default()),
+        )?;
 
     let (tx, mut rx) = mpsc::channel::<Vec<AccountInfo>>(config.max_buffer_size);
     let download_metadata_notifier =

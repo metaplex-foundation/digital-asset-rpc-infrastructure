@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     backfill::gap::{TreeGapFill, TreeGapModel},
     tree::TreeResponse,
@@ -5,7 +7,7 @@ use crate::{
 };
 use anyhow::Result;
 use clap::Parser;
-use das_core::MetadataJsonDownloadWorkerArgs;
+use das_core::{DownloadMetadataJsonRetryConfig, MetadataJsonDownloadWorkerArgs};
 use digital_asset_types::dao::cl_audits_v2;
 use log::error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector};
@@ -40,10 +42,13 @@ impl TreeWorkerArgs {
         let program_transformer_worker_args = self.program_transformer_worker.clone();
         let signature_worker_args = self.signature_worker.clone();
         let gap_worker_args = self.gap_worker.clone();
+        let force = self.force;
+        let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
 
         tokio::spawn(async move {
             let (metadata_json_download_worker, metadata_json_download_sender) =
-                metadata_json_download_worker_args.start(metadata_json_download_db_pool)?;
+                metadata_json_download_worker_args
+                    .start(metadata_json_download_db_pool, download_config)?;
 
             let (program_transformer_worker, transaction_info_sender) =
                 program_transformer_worker_args

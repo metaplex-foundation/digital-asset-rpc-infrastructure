@@ -51,5 +51,9 @@ transactions:
 download_metadata:
   # maximum number of attempts for downloading metadata JSON.
   max_attempts: 1
+  # reretry max delay in milliseconds
+  retry_max_delay: 10
+  # retry min delay in milliseconds
+  retry_min_delay: 1
   stream:
     name: METADATA_JSON
