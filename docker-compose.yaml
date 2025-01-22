@@ -105,7 +105,7 @@ services:
       POSTGRES_PASSWORD: solana # The PostgreSQL password (useful to connect to the database)
       POSTGRES_DB: solana
     volumes:
-      - ./db-data/:/var/lib/postgresql/data/:rw
+      - ./db-data/:/var/lib/postgresql/data/:z
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v1.9.0-1.75.0-v1.18.11
     volumes:
