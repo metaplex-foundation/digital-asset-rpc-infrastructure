@@ -10,7 +10,7 @@ use {
     serde::{Deserialize, Serialize},
     std::{sync::Arc, time::Duration},
     tokio::{
-        sync::mpsc::{error::SendError, unbounded_channel, UnboundedSender},
+        sync::mpsc::{unbounded_channel, UnboundedSender},
         task::JoinHandle,
         time::Instant,
     },
@@ -18,9 +18,9 @@ use {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DownloadMetadataInfo {
-    asset_data_id: Vec<u8>,
-    uri: String,
-    slot: i64,
+    pub asset_data_id: Vec<u8>,
+    pub uri: String,
+    pub slot: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,8 +138,8 @@ impl MetadataJsonDownloadWorkerArgs {
 
 #[derive(thiserror::Error, Debug)]
 pub enum MetadataJsonDownloadWorkerError {
-    #[error("send error: {0}")]
-    Send(#[from] SendError<asset_data::Model>),
+    #[error("send error")]
+    Send,
     #[error("join error: {0}")]
     Join(#[from] tokio::task::JoinError),
     #[error("reqwest: {0}")]
