@@ -196,7 +196,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
 
             if let Some(metadata) = &extensions.metadata {
                 if let Some(info) =
-                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?
+                    upsert_asset_data(metadata, account_key.clone(), slot, &txn).await?
                 {
                     download_metadata_notifier(info)
                         .await
