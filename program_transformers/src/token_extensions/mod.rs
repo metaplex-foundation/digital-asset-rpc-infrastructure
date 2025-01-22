@@ -5,7 +5,7 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
-        filter_non_null_fields, AccountInfo,
+        filter_non_null_fields, AccountInfo, DownloadMetadataInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_extensions::{
         extension::ShadowMetadata, MintAccount, TokenAccount, TokenExtensionsProgramAccount,
@@ -24,12 +24,14 @@ use {
     serde_json::Value,
     solana_sdk::program_option::COption,
     spl_token_2022::state::AccountState,
+    tracing::warn,
 };
 
 pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
     account_info: &'a AccountInfo,
     parsing_result: &'b TokenExtensionsProgramAccount,
     db: &'c DatabaseConnection,
+    download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
@@ -193,7 +195,13 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             .await?;
 
             if let Some(metadata) = &extensions.metadata {
-                upsert_asset_data(metadata, account_key.clone(), slot, &txn).await?;
+                if let Some(info) =
+                    upsert_asset_data(metadata, account_key.clone(), slot, db).await?
+                {
+                    download_metadata_notifier(info)
+                        .await
+                        .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
+                }
             }
 
             txn.commit().await?;
@@ -209,7 +217,7 @@ async fn upsert_asset_data<T>(
     key_bytes: Vec<u8>,
     slot: i64,
     db: &T,
-) -> ProgramTransformerResult<()>
+) -> ProgramTransformerResult<Option<DownloadMetadataInfo>>
 where
     T: ConnectionTrait + TransactionTrait,
 {
@@ -227,6 +235,7 @@ where
         raw_symbol: ActiveValue::Set(Some(metadata.symbol.clone().into_bytes().to_vec())),
         ..Default::default()
     };
+
     let mut asset_data_query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
@@ -257,7 +266,19 @@ where
     )
     .await?;
 
-    Ok(())
+    if metadata.uri.is_empty() {
+        warn!(
+            "URI is empty for mint {}. Skipping background task.",
+            bs58::encode(key_bytes).into_string()
+        );
+        return Ok(None);
+    }
+
+    Ok(Some(DownloadMetadataInfo::new(
+        key_bytes,
+        metadata.uri.clone(),
+        slot,
+    )))
 }
 
 struct AssetMetadataAccountCols {

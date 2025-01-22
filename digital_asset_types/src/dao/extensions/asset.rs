@@ -24,7 +24,7 @@ impl RelationTrait for Relation {
                 .from(asset::Column::AssetData)
                 .to(asset_data::Column::Id)
                 .into(),
-            Self::TokenAccounts => asset::Entity::belongs_to(token_accounts::Entity)
+            Self::TokenAccounts => asset::Entity::has_many(token_accounts::Entity)
                 .from(asset::Column::Id)
                 .to(token_accounts::Column::Mint)
                 .into(),

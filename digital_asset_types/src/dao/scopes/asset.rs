@@ -761,7 +761,7 @@ pub async fn get_nft_editions(
         Pagination::Page { page } => (Some(*page as u32), None, None, None),
         Pagination::Cursor(_) => {
             if let Some(last_asset) = nft_editions.last() {
-                let cursor_str = bs58::encode(last_asset.edition_address.clone()).into_string();
+                let cursor_str = last_asset.edition_address.clone();
                 (None, None, None, Some(cursor_str))
             } else {
                 (None, None, None, None)

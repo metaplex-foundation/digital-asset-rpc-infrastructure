@@ -9,8 +9,7 @@ use {
     },
     program_transformers::error::ProgramTransformerError,
     prometheus::{
-        HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGaugeVec, Opts, Registry,
-        TextEncoder,
+        HistogramOpts, HistogramVec, IntCounterVec, IntGaugeVec, Opts, Registry, TextEncoder,
     },
     std::{net::SocketAddr, sync::Once},
     tracing::{error, info},
@@ -59,8 +58,9 @@ lazy_static::lazy_static! {
         &["stream", "consumer"]
     ).unwrap();
 
-    static ref DOWNLOAD_METADATA_INSERTED_COUNT: IntCounter = IntCounter::new(
-        "download_metadata_inserted_count", "Total number of inserted tasks for download metadata"
+    static ref DOWNLOAD_METADATA_FETCHED_COUNT: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("download_metadata_fetched_count", "Status of download metadata task"),
+        &["status"]
     ).unwrap();
 
     static ref INGEST_TASKS: IntGaugeVec = IntGaugeVec::new(
@@ -123,7 +123,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(PGPOOL_CONNECTIONS);
         register!(PROGRAM_TRANSFORMER_TASK_STATUS_COUNT);
         register!(INGEST_JOB_TIME);
-        register!(DOWNLOAD_METADATA_INSERTED_COUNT);
+        register!(DOWNLOAD_METADATA_FETCHED_COUNT);
         register!(INGEST_TASKS);
         register!(ACK_TASKS);
         register!(GRPC_TASKS);
@@ -175,7 +175,10 @@ fn metrics_handler() -> Response<Body> {
             error!("could not encode custom metrics: {}", error);
             String::new()
         });
-    Response::builder().body(Body::from(metrics)).unwrap()
+    Response::builder()
+        .header("content-type", "text/plain")
+        .body(Body::from(metrics))
+        .unwrap()
 }
 
 fn not_found_handler() -> Response<Body> {
@@ -256,6 +259,12 @@ pub fn grpc_tasks_total_inc(label: &str, stream: &str) {
 
 pub fn grpc_tasks_total_dec(label: &str, stream: &str) {
     GRPC_TASKS.with_label_values(&[label, stream]).dec()
+}
+
+pub fn download_metadata_json_task_status_count_inc(status: u16) {
+    DOWNLOAD_METADATA_FETCHED_COUNT
+        .with_label_values(&[&status.to_string()])
+        .inc();
 }
 
 #[derive(Debug, Clone, Copy)]

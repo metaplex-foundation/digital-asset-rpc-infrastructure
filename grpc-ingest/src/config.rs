@@ -111,19 +111,6 @@ impl ConfigIngestStream {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct ConfigTopograph {
-    #[serde(default = "ConfigTopograph::default_num_threads")]
-    pub num_threads: usize,
-}
-
-impl ConfigTopograph {
-    pub const fn default_num_threads() -> usize {
-        5
-    }
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct ConfigPrometheus {
@@ -297,7 +284,7 @@ pub struct ConfigIngesterDownloadMetadata {
         default = "ConfigIngesterDownloadMetadata::default_num_threads",
         deserialize_with = "deserialize_usize_str"
     )]
-    pub num_threads: usize,
+    pub _num_threads: usize,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
@@ -318,13 +305,24 @@ pub struct ConfigIngesterDownloadMetadata {
         default = "ConfigIngesterDownloadMetadata::default_stream_max_size",
         deserialize_with = "deserialize_usize_str"
     )]
-    pub pipeline_max_size: usize,
+    pub _pipeline_max_size: usize,
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_pipeline_max_idle",
         deserialize_with = "deserialize_duration_str",
         rename = "pipeline_max_idle_ms"
     )]
-    pub pipeline_max_idle: Duration,
+    pub _pipeline_max_idle: Duration,
+
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_retry_max_delay_ms",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub retry_max_delay_ms: usize,
+    #[serde(
+        default = "ConfigIngesterDownloadMetadata::default_retry_min_delay_ms",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub retry_min_delay_ms: usize,
 }
 
 impl ConfigIngesterDownloadMetadata {
@@ -351,6 +349,14 @@ impl ConfigIngesterDownloadMetadata {
     pub const fn default_request_timeout() -> Duration {
         Duration::from_millis(3_000)
     }
+
+    pub const fn default_retry_max_delay_ms() -> usize {
+        10
+    }
+
+    pub const fn default_retry_min_delay_ms() -> usize {
+        1
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -366,7 +372,7 @@ pub struct ConfigBubblegumVerify {
         default = "ConfigBubblegumVerify::default_report_interval",
         deserialize_with = "deserialize_duration_str"
     )]
-    pub report_interval: Duration,
+    pub _report_interval: Duration,
     #[serde(default)]
     pub only_trees: Option<Vec<String>>,
     #[serde(

@@ -213,16 +213,16 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenProgramAccount(parsing_result) => {
-                    handle_token_program_account(
+                    handle_token_program_account(account_info, parsing_result, &db).await
+                }
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    handle_token_extensions_program_account(
                         account_info,
                         parsing_result,
                         &db,
                         &self.download_metadata_notifier,
                     )
                     .await
-                }
-                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
-                    handle_token_extensions_program_account(account_info, parsing_result, &db).await
                 }
                 ProgramParseResult::MplCore(parsing_result) => {
                     handle_mpl_core_account(

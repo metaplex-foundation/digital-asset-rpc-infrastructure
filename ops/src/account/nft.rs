@@ -8,8 +8,8 @@ use log::error;
 
 use clap::Parser;
 use das_core::{
-    connect_db, create_download_metadata_notifier, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc,
-    SolanaRpcArgs,
+    connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
+    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
 };
 use mpl_token_metadata::accounts::Metadata;
 use program_transformers::ProgramTransformer;
@@ -42,9 +42,11 @@ pub async fn run(config: Args) -> Result<()> {
     let pool = connect_db(&config.database).await?;
     let metadata_json_download_db_pool = pool.clone();
 
-    let (metadata_json_download_worker, metadata_json_download_sender) = config
-        .metadata_json_download_worker
-        .start(metadata_json_download_db_pool)?;
+    let (metadata_json_download_worker, metadata_json_download_sender) =
+        config.metadata_json_download_worker.start(
+            metadata_json_download_db_pool,
+            Arc::new(DownloadMetadataJsonRetryConfig::default()),
+        )?;
 
     let download_metadata_notifier =
         create_download_metadata_notifier(metadata_json_download_sender.clone()).await;

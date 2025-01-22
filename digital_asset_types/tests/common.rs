@@ -31,8 +31,10 @@ pub struct MockMetadataArgs {
     /// Since we cannot easily change Metadata, we add the new DataV2 fields here at the end.
     pub token_standard: Option<TokenStandard>,
     /// Collection
+    #[allow(dead_code)]
     pub collection: Option<Collection>,
     /// Uses
+    #[allow(dead_code)]
     pub uses: Option<Uses>,
     pub creators: Vec<Creator>,
 }
@@ -234,12 +236,12 @@ pub fn create_asset_grouping(
         asset_grouping::ActiveModel {
             asset_id: Set(asset_id.clone()),
             group_key: Set(String::from("collection")),
-            group_value: Set(Some(bs58::encode(collection).into_string())),
+            group_value: Set(Some(collection.to_string())),
             ..Default::default()
         },
         asset_grouping::Model {
             asset_id,
-            group_value: Some(bs58::encode(collection).into_string()),
+            group_value: Some(collection.to_string()),
             seq: Some(0),
             id: row_num,
             group_key: "collection".to_string(),

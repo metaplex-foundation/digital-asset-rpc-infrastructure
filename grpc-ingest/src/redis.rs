@@ -2,13 +2,17 @@ use {
     crate::{
         config::{ConfigIngestStream, REDIS_STREAM_DATA_KEY},
         prom::{
-            ack_tasks_total_dec, ack_tasks_total_inc, ingest_job_time_set, ingest_tasks_total_dec,
-            ingest_tasks_total_inc, program_transformer_task_status_inc, redis_xack_inc,
-            redis_xlen_set, redis_xread_inc, ProgramTransformerTaskStatusKind,
+            ack_tasks_total_dec, ack_tasks_total_inc, download_metadata_json_task_status_count_inc,
+            ingest_job_time_set, ingest_tasks_total_dec, ingest_tasks_total_inc,
+            program_transformer_task_status_inc, redis_xack_inc, redis_xlen_set, redis_xread_inc,
+            ProgramTransformerTaskStatusKind,
         },
     },
-    das_core::{DownloadMetadata, DownloadMetadataInfo},
-    futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt},
+    das_core::{
+        DownloadMetadata, DownloadMetadataInfo, DownloadMetadataJsonRetryConfig,
+        FetchMetadataJsonError, MetadataJsonTaskError, StatusCode,
+    },
+    futures::future::BoxFuture,
     program_transformers::{AccountInfo, ProgramTransformer, TransactionInfo},
     redis::{
         aio::MultiplexedConnection,
@@ -72,8 +76,7 @@ impl RedisStreamMessage<Self> for AccountInfo {
 
         let SubscribeUpdateAccount { account, slot, .. } = Message::decode(account_data.as_ref())?;
 
-        let account =
-            account.ok_or_else(|| RedisStreamMessageError::InvalidSubscribeUpdateAccount)?;
+        let account = account.ok_or(RedisStreamMessageError::InvalidSubscribeUpdateAccount)?;
 
         Ok(Self {
             slot,
@@ -191,7 +194,7 @@ pub trait MessageHandler: Send + Sync + Clone + 'static {
     ) -> BoxFuture<'static, Result<(), IngestMessageError>>;
 }
 
-pub struct DownloadMetadataJsonHandle(Arc<DownloadMetadata>);
+pub struct DownloadMetadataJsonHandle(Arc<DownloadMetadata>, Arc<DownloadMetadataJsonRetryConfig>);
 
 impl MessageHandler for DownloadMetadataJsonHandle {
     fn handle(
@@ -199,33 +202,50 @@ impl MessageHandler for DownloadMetadataJsonHandle {
         input: HashMap<String, RedisValue>,
     ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
         let download_metadata = Arc::clone(&self.0);
+        let download_config = Arc::clone(&self.1);
 
         Box::pin(async move {
             let info = DownloadMetadataInfo::try_parse_msg(input)?;
-            download_metadata
-                .handle_download(&info)
-                .await
-                .map_err(Into::into)
+            let response = download_metadata
+                .handle_download(&info, download_config)
+                .await;
+            let status =
+                if let Err(MetadataJsonTaskError::Fetch(FetchMetadataJsonError::Response {
+                    status: StatusCode::Code(code),
+                    ..
+                })) = response
+                {
+                    code.as_u16()
+                } else {
+                    200
+                };
+
+            download_metadata_json_task_status_count_inc(status);
+
+            response.map_err(IngestMessageError::DownloadMetadataJson)
         })
     }
 }
 
 impl DownloadMetadataJsonHandle {
-    pub fn new(download_metadata: Arc<DownloadMetadata>) -> Self {
-        Self(download_metadata)
+    pub const fn new(
+        download_metadata: Arc<DownloadMetadata>,
+        config: Arc<DownloadMetadataJsonRetryConfig>,
+    ) -> Self {
+        Self(download_metadata, config)
     }
 }
 
 impl Clone for DownloadMetadataJsonHandle {
     fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
+        Self(Arc::clone(&self.0), Arc::clone(&self.1))
     }
 }
 
 pub struct AccountHandle(Arc<ProgramTransformer>);
 
 impl AccountHandle {
-    pub fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
+    pub const fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
         Self(program_transformer)
     }
 }
@@ -255,7 +275,7 @@ impl Clone for AccountHandle {
 pub struct TransactionHandle(Arc<ProgramTransformer>);
 
 impl TransactionHandle {
-    pub fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
+    pub const fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
         Self(program_transformer)
     }
 }
@@ -290,7 +310,7 @@ pub struct Acknowledge {
 }
 
 impl Acknowledge {
-    pub fn new(config: Arc<ConfigIngestStream>, connection: MultiplexedConnection) -> Self {
+    pub const fn new(config: Arc<ConfigIngestStream>, connection: MultiplexedConnection) -> Self {
         Self { config, connection }
     }
 }

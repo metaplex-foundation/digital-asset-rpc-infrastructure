@@ -219,7 +219,6 @@ impl ApiContract for DasApi {
         let GetAssets { ids, options } = payload;
 
         let mut ids: Vec<String> = ids.into_iter().collect();
-        ids.sort();
         ids.dedup();
 
         let batch_size = ids.len();
@@ -379,6 +378,7 @@ impl ApiContract for DasApi {
             negate,
             condition_type,
             interface,
+            token_type,
             owner_address,
             owner_type,
             creator_address,
@@ -408,7 +408,7 @@ impl ApiContract for DasApi {
 
         // Deserialize search assets query
         let spec: Option<(SpecificationVersions, SpecificationAssetClass)> =
-            interface.map(|x| x.into());
+            interface.clone().map(|x| x.into());
         let specification_version = spec.clone().map(|x| x.0);
         let specification_asset_class = spec.map(|x| x.1);
         let condition_type = condition_type.map(|x| match x {
@@ -436,8 +436,10 @@ impl ApiContract for DasApi {
         let saq = SearchAssetsQuery {
             negate,
             condition_type,
+            interface,
             specification_version,
             specification_asset_class,
+            token_type,
             owner_address,
             owner_type,
             creator_address,
