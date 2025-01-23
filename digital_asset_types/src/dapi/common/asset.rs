@@ -503,7 +503,11 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .unwrap_or("".to_string()),
         }),
         supply: match interface {
-            Interface::V1NFT => Some(Supply {
+            Interface::V1NFT
+            | Interface::LEGACY_NFT
+            | Interface::Nft
+            | Interface::ProgrammableNFT
+            | Interface::Custom => Some(Supply {
                 edition_nonce,
                 print_current_supply: 0,
                 print_max_supply: 0,

@@ -69,6 +69,11 @@ snapshot_kind: text
       "ownership_model": "single",
       "owner": "9PacVenjPyQYiWBha89UYRM1nn6mf9bGY7vi32zY6DLn"
     },
+    "supply": {
+      "print_max_supply": 0,
+      "print_current_supply": 0,
+      "edition_nonce": 255
+    },
     "mutable": true,
     "burnt": false
   },
@@ -137,6 +142,11 @@ snapshot_kind: text
       "delegate": "CcYTgeWQhsdyGYbJAzUuuPG6jvNhfyzXmNWVSrxbdC9a",
       "ownership_model": "single",
       "owner": "3H3d3hfpZVVdVwuFAxDtDSFN2AdR7kwiDA3ynbnbkhc9"
+    },
+    "supply": {
+      "print_max_supply": 0,
+      "print_current_supply": 0,
+      "edition_nonce": 255
     },
     "mutable": true,
     "burnt": false
