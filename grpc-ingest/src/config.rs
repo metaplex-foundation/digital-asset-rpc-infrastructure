@@ -156,6 +156,16 @@ pub struct ConfigStream {
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_concurrency: usize,
+    #[serde(
+        default = "ConfigStream::default_pipeline_count",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub pipeline_count: usize,
+    #[serde(
+        default = "ConfigStream::default_pipeline_max_idle",
+        deserialize_with = "deserialize_duration_str"
+    )]
+    pub pipeline_max_idle: Duration,
 }
 
 impl ConfigStream {
@@ -165,6 +175,14 @@ impl ConfigStream {
 
     pub const fn default_max_concurrency() -> usize {
         10
+    }
+
+    pub const fn default_pipeline_count() -> usize {
+        1
+    }
+
+    pub const fn default_pipeline_max_idle() -> Duration {
+        Duration::from_millis(150)
     }
 }
 
@@ -194,17 +212,6 @@ pub struct ConfigGrpc {
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ConfigGrpcRedis {
     pub url: String,
-    #[serde(
-        default = "ConfigGrpcRedis::default_pipeline_max_idle",
-        deserialize_with = "deserialize_duration_str"
-    )]
-    pub pipeline_max_idle: Duration,
-}
-
-impl ConfigGrpcRedis {
-    pub const fn default_pipeline_max_idle() -> Duration {
-        Duration::from_millis(10)
-    }
 }
 
 pub fn deserialize_duration_str<'de, D>(deserializer: D) -> Result<Duration, D::Error>
