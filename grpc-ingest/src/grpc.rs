@@ -12,8 +12,11 @@ use {
     },
     redis::streams::StreamMaxlen,
     std::{collections::HashMap, sync::Arc, time::Duration},
-    tokio::{sync::Mutex, time::sleep},
-    tracing::{debug, error, warn},
+    tokio::{
+        sync::{oneshot, Mutex},
+        time::sleep,
+    },
+    tracing::{debug, warn},
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
         geyser::{SubscribeRequest, SubscribeRequestPing, SubscribeUpdate},
@@ -144,7 +147,9 @@ impl SubscriptionTask {
             ..Default::default()
         };
 
-        let pipe = Arc::new(Mutex::new(TrackedPipeline::default()));
+        let pipes: Vec<_> = (0..stream_config.pipeline_count)
+            .map(|_| Arc::new(Mutex::new(TrackedPipeline::default())))
+            .collect();
         let mut tasks = FuturesUnordered::new();
 
         let mut dragon_mouth_client =
@@ -160,39 +165,56 @@ impl SubscriptionTask {
             .subscribe_with_request(Some(request))
             .await?;
 
-        let deadline_config = Arc::clone(&config);
-
         let control = tokio::spawn({
             async move {
                 tokio::pin!(stream);
 
-                let (flush_tx, mut flush_rx) = tokio::sync::mpsc::channel::<()>(1);
+                let mut flush_handles = Vec::new();
+                let mut shutdown_senders = Vec::new();
 
-                let flush_handle = tokio::spawn({
-                    let pipe = Arc::clone(&pipe);
+                for pipe in &pipes {
+                    let pipe = Arc::clone(pipe);
                     let stream_config = Arc::clone(&stream_config);
                     let label = label.clone();
                     let mut connection = connection.clone();
+                    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 
-                    async move {
-                        while (flush_rx.recv().await).is_some() {
-                            let mut pipe = pipe.lock().await;
-                            let flush = pipe.flush(&mut connection).await;
+                    let flush_handle = tokio::spawn(async move {
+                        loop {
+                            tokio::select! {
+                                _ = sleep(stream_config.pipeline_max_idle) => {
+                                    let mut pipe = pipe.lock().await;
+                                    let flush = pipe.flush(&mut connection).await;
 
-                            let status = flush.as_ref().map(|_| ()).map_err(|_| ());
-                            let count = flush.as_ref().unwrap_or_else(|count| count);
+                                    let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                                    let count = flush.as_ref().unwrap_or_else(|count| count);
 
-                            debug!(target: "grpc2redis", action = "flush_redis_pipe", stream = ?stream_config.name, status = ?status, count = ?count);
-                            redis_xadd_status_inc(&stream_config.name, &label, status, *count);
+                                    debug!(target: "grpc2redis", action = "flush_redis_pip_deadline", stream = ?stream_config.name, status = ?status, count = ?count);
+                                    redis_xadd_status_inc(&stream_config.name, &label, status, *count);
+                                }
+                                _ = &mut shutdown_rx => {
+                                    let mut pipe = pipe.lock().await;
+                                    let flush = pipe.flush(&mut connection).await;
+
+                                    let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                                    let count = flush.as_ref().unwrap_or_else(|count| count);
+
+                                    debug!(target: "grpc2redis", action = "final_flush_redis_pipe", stream = ?stream_config.name, status = ?status, count = ?count);
+                                    redis_xadd_status_inc(&stream_config.name, &label, status, *count);
+                                    break;
+                                }
+                            }
                         }
-                    }
-                });
+                    });
+
+                    flush_handles.push(flush_handle);
+                    shutdown_senders.push(shutdown_tx);
+                }
+
+                let mut current_pipe_index = 0;
 
                 loop {
                     tokio::select! {
-                        _ = sleep(deadline_config.redis.pipeline_max_idle) => {
-                            let _ = flush_tx.send(()).await;
-                        }
                         Some(Ok(msg)) = stream.next() => {
                             match msg.update_oneof {
                                 Some(UpdateOneof::Account(_)) | Some(UpdateOneof::Transaction(_)) => {
@@ -202,7 +224,7 @@ impl SubscriptionTask {
                                     grpc_tasks_total_inc(&label, &stream_config.name);
 
                                     tasks.push(tokio::spawn({
-                                        let pipe = Arc::clone(&pipe);
+                                        let pipe = Arc::clone(&pipes[current_pipe_index]);
                                         let label = label.clone();
                                         let stream_config = Arc::clone(&stream_config);
 
@@ -241,10 +263,12 @@ impl SubscriptionTask {
                                                 }
                                             }
 
+
                                             grpc_tasks_total_dec(&label, &stream_config.name);
                                         }
-                                        }
-                                    ))
+                                    }));
+
+                                    current_pipe_index = (current_pipe_index + 1) % pipes.len();
                                 }
                                 Some(UpdateOneof::Ping(_)) => {
                                     let ping = subscribe_tx
@@ -282,17 +306,16 @@ impl SubscriptionTask {
                     }
                 }
 
+                debug!(target: "grpc2redis", action = "shutdown_subscription_task", message = "Subscription task stopped", ?label);
                 while (tasks.next().await).is_some() {}
 
-                if let Err(err) = flush_tx.send(()).await {
-                    error!(target: "grpc2redis", action = "flush_send_failed", message = "Failed to send flush signal", ?err);
+                for shutdown_tx in shutdown_senders {
+                    debug!(target: "grpc2redis", action = "send_shutdown_signal", message = "Sending shutdown signal to flush handles");
+                    let _ = shutdown_tx.send(());
                 }
 
-                drop(flush_tx);
-
-                if let Err(err) = flush_handle.await {
-                    error!(target: "grpc2redis", action = "flush_failed", message = "Failed to flush", ?err);
-                }
+                debug!(target: "grpc2redis", action = "wait_flush_handles", message = "Waiting for flush handles to complete");
+                futures::future::join_all(flush_handles).await;
             }
         });
 

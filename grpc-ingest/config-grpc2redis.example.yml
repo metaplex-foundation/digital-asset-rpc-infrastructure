@@ -27,6 +27,10 @@ subscriptions:
       max_len: 100_000_000
       # maximum concurrency for processing the stream.
       max_concurrency: 2
+      # maximum idle time (in milliseconds) before the redis pipeline is flushed
+      pipeline_max_idle_ms: 150
+      # number of pipelines that can be processed concurrently
+      pipeline_count: 1
     # filter accounts by owner
     filter:
       accounts:
@@ -65,7 +69,3 @@ subscriptions:
 redis:
   # redis connection url
   url: redis://localhost:6379
-  # maximum size (in bytes) of the Redis pipeline before it is flushed.
-  pipeline_max_size: 1_000
-  # maximum idle time (in milliseconds) before the redis pipeline is flushed
-  pipeline_max_idle_ms: 100_000
