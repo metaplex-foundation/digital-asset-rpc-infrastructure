@@ -262,7 +262,6 @@ impl SubscriptionTask {
                                                                     "*",
                                                                     account.encode_to_vec(),
                                                                 );
-                                                                debug!(target: "grpc2redis", action = "process_account_update", label = ?label, stream = ?stream, maxlen = ?stream_maxlen);
                                                             }
 
                                                             UpdateOneof::Transaction(transaction) => {
@@ -272,7 +271,6 @@ impl SubscriptionTask {
                                                                     "*",
                                                                     transaction.encode_to_vec(),
                                                                 );
-                                                                debug!(target: "grpc2redis", action = "process_transaction_update", label = ?label, stream = ?stream, maxlen = ?stream_maxlen);
                                                             }
                                                             _ => {
                                                                 warn!(target: "grpc2redis", action = "unknown_update_variant", label = ?label, message = "Unknown update variant");
@@ -315,14 +313,17 @@ impl SubscriptionTask {
                                         }
                                     }
                                 }
-                                _ => {
-                                    break;
-                                }
-                            }
+                                None => {
+                                    warn!(target: "grpc2redis", action = "stream_closed", message = "Stream closed, stopping subscription task", ?label);
 
-                            let mut global_shutdown_tx = global_shutdown_tx.lock().await;
-                            if let Some(global_shutdown_tx) = global_shutdown_tx.take() {
-                                let _ = global_shutdown_tx.send(());
+                                    let mut global_shutdown_tx = global_shutdown_tx.lock().await;
+                                    if let Some(global_shutdown_tx) = global_shutdown_tx.take() {
+                                        let _ = global_shutdown_tx.send(());
+                                    }
+                                }
+                                Some(Err(_)) => {
+                                    warn!(target: "grpc2redis", action = "stream_error", message = "Stream error, skipping message", ?label);
+                                }
                             }
                         }
                         _ = &mut shutdown_rx => {
