@@ -313,16 +313,13 @@ impl SubscriptionTask {
                                         }
                                     }
                                 }
-                                None => {
+                                None | Some(Err(_)) => {
                                     warn!(target: "grpc2redis", action = "stream_closed", message = "Stream closed, stopping subscription task", ?label);
 
                                     let mut global_shutdown_tx = global_shutdown_tx.lock().await;
                                     if let Some(global_shutdown_tx) = global_shutdown_tx.take() {
                                         let _ = global_shutdown_tx.send(());
                                     }
-                                }
-                                Some(Err(_)) => {
-                                    warn!(target: "grpc2redis", action = "stream_error", message = "Stream error, skipping message", ?label);
                                 }
                             }
                         }
