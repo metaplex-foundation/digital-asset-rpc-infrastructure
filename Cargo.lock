@@ -1967,6 +1967,7 @@ dependencies = [
  "mpl-bubblegum",
  "mpl-token-metadata",
  "program_transformers",
+ "reqwest",
  "sea-orm",
  "serde_json",
  "solana-account-decoder",

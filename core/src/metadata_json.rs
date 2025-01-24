@@ -87,10 +87,10 @@ pub async fn create_download_metadata_notifier(
 pub struct MetadataJsonDownloadWorkerArgs {
     /// The number of worker threads
     #[arg(long, env, default_value = "25")]
-    metadata_json_download_worker_count: usize,
+    pub metadata_json_download_worker_count: usize,
     /// The request timeout in milliseconds
     #[arg(long, env, default_value = "1000")]
-    metadata_json_download_worker_request_timeout: u64,
+    pub metadata_json_download_worker_request_timeout: u64,
 }
 
 impl MetadataJsonDownloadWorkerArgs {
