@@ -55,5 +55,7 @@ download_metadata:
   retry_max_delay: 10
   # retry min delay in milliseconds
   retry_min_delay: 1
+  # request timeout in milliseconds
+  request_timeout: 5_000
   stream:
     name: METADATA_JSON
