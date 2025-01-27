@@ -8,18 +8,17 @@ use {
         AccountInfo,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
-    digital_asset_types::dao::{
-        token_accounts,
-        tokens::{self},
-    },
+    digital_asset_types::dao::{token_accounts, tokens},
     sea_orm::{
         entity::ActiveValue,
         sea_query::{query::OnConflict, Alias, Condition, Expr},
         ConnectionTrait, DatabaseConnection, EntityTrait, Statement, TransactionTrait,
     },
-    solana_sdk::program_option::COption,
+    solana_sdk::{program_option::COption, pubkey},
     spl_token::state::AccountState,
 };
+
+static WSOL_PUBKEY: pubkey::Pubkey = pubkey!("So11111111111111111111111111111111111111112");
 
 pub async fn handle_token_program_account<'a, 'b>(
     account_info: &AccountInfo,
@@ -51,18 +50,6 @@ pub async fn handle_token_program_account<'a, 'b>(
                 close_authority: ActiveValue::Set(None),
                 extensions: ActiveValue::Set(None),
             };
-
-            let txn = db.begin().await?;
-
-            let set_lock_timeout = "SET LOCAL lock_timeout = '250ms';";
-            let set_local_app_name =
-                "SET LOCAL application_name = 'das::program_transformers::token::token_account';";
-            let set_lock_timeout_stmt =
-                Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
-            let set_local_app_name_stmt =
-                Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
-            txn.execute(set_lock_timeout_stmt).await?;
-            txn.execute(set_local_app_name_stmt).await?;
 
             token_accounts::Entity::insert(model)
                 .on_conflict(
@@ -176,8 +163,24 @@ pub async fn handle_token_program_account<'a, 'b>(
                         )
                         .to_owned(),
                 )
-                .exec_without_returning(&txn)
+                .exec_without_returning(db)
                 .await?;
+
+            if ta.mint == WSOL_PUBKEY {
+                return Ok(());
+            }
+
+            let txn = db.begin().await?;
+
+            let set_lock_timeout = "SET LOCAL lock_timeout = '20ms';";
+            let set_local_app_name =
+                "SET LOCAL application_name = 'das::program_transformers::token::token_account';";
+            let set_lock_timeout_stmt =
+                Statement::from_string(txn.get_database_backend(), set_lock_timeout.to_string());
+            let set_local_app_name_stmt =
+                Statement::from_string(txn.get_database_backend(), set_local_app_name.to_string());
+            txn.execute(set_lock_timeout_stmt).await?;
+            txn.execute(set_local_app_name_stmt).await?;
 
             upsert_assets_token_account_columns(
                 AssetTokenAccountColumns {
