@@ -166,13 +166,13 @@ pub async fn handle_token_program_account<'a, 'b>(
                 .exec_without_returning(db)
                 .await?;
 
-            if ta.mint == WSOL_PUBKEY {
+            if ta.mint == WSOL_PUBKEY || ta.amount != 1 {
                 return Ok(());
             }
 
             let txn = db.begin().await?;
 
-            let set_lock_timeout = "SET LOCAL lock_timeout = '20ms';";
+            let set_lock_timeout = "SET LOCAL lock_timeout = '100ms';";
             let set_local_app_name =
                 "SET LOCAL application_name = 'das::program_transformers::token::token_account';";
             let set_lock_timeout_stmt =
