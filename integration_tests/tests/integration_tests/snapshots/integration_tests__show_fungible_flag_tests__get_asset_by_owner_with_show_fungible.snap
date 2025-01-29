@@ -72,6 +72,11 @@ expression: response
         "ownership_model": "single",
         "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": 255
+      },
       "mutable": true,
       "burnt": false,
       "token_info": {

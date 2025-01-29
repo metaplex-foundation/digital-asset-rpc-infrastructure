@@ -63,6 +63,11 @@ snapshot_kind: text
     "ownership_model": "single",
     "owner": "BzbdvwEkQKeghTY53aZxTYjUienhdbkNVkgrLV6cErke"
   },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 253
+  },
   "mutable": true,
   "burnt": false
 }
