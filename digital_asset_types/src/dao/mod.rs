@@ -110,6 +110,8 @@ impl SearchAssetsQuery {
             Some(ConditionType::Any) => Condition::any(),
         };
 
+        // Joins
+        let mut joins = Vec::new();
         conditions = conditions
             .add_option(
                 self.specification_version
@@ -128,7 +130,17 @@ impl SearchAssetsQuery {
                                 .or(asset::Column::SpecificationAssetClass
                                     .eq(SpecificationAssetClass::ProgrammableNft))
                                 .or(asset::Column::SpecificationAssetClass
-                                    .eq(SpecificationAssetClass::MplCoreCollection)),
+                                    .eq(SpecificationAssetClass::MplCoreCollection))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::NonTransferableNft))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::IdentityNft))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::Print))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::PrintableNft))
+                                .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::TransferRestrictedNft)),
                         )
                     }
                     TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
@@ -143,6 +155,24 @@ impl SearchAssetsQuery {
                     .clone()
                     .map(|x| asset::Column::SpecificationAssetClass.eq(x)),
             )
+            .add_option(self.owner_address.as_ref().map(|o| match self.token_type {
+                Some(TokenTypeClass::Fungible) | Some(TokenTypeClass::All) => {
+                    let rel = extensions::token_accounts::Relation::Asset
+                        .def()
+                        .rev()
+                        .on_condition(|left, right| {
+                            Expr::tbl(right, token_accounts::Column::Mint)
+                                .eq(Expr::tbl(left, asset::Column::Id))
+                                .into_condition()
+                        });
+                    joins.push(rel);
+
+                    asset::Column::Owner
+                        .eq(o.clone())
+                        .or(token_accounts::Column::Owner.eq(o.clone()))
+                }
+                _ => asset::Column::Owner.eq(o.clone()),
+            }))
             .add_option(
                 self.delegate
                     .to_owned()
@@ -231,7 +261,6 @@ impl SearchAssetsQuery {
         }
 
         // If creator_address or creator_verified is set, join with asset_creators
-        let mut joins = Vec::new();
         if self.creator_address.is_some() || self.creator_verified.is_some() {
             let rel = extensions::asset_creators::Relation::Asset
                 .def()
@@ -255,30 +284,6 @@ impl SearchAssetsQuery {
                         .into_condition()
                 });
             joins.push(rel);
-        }
-
-        if let Some(o) = self.owner_address.to_owned() {
-            if self.token_type == Some(TokenTypeClass::Fungible)
-                || self.token_type == Some(TokenTypeClass::All)
-            {
-                conditions = conditions.add(
-                    asset::Column::Owner
-                        .eq(o.clone())
-                        .or(token_accounts::Column::Owner.eq(o)),
-                );
-
-                let rel = extensions::token_accounts::Relation::Asset
-                    .def()
-                    .rev()
-                    .on_condition(|left, right| {
-                        Expr::tbl(right, token_accounts::Column::Mint)
-                            .eq(Expr::tbl(left, asset::Column::Id))
-                            .into_condition()
-                    });
-                joins.push(rel);
-            } else {
-                conditions = conditions.add(asset::Column::Owner.eq(o));
-            }
         }
 
         if let Some(g) = self.grouping.to_owned() {
