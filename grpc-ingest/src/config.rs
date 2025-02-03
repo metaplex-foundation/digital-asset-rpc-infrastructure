@@ -230,6 +230,44 @@ pub struct ConfigIngester {
     pub snapshots: ConfigIngestStream,
     pub accounts: ConfigIngestStream,
     pub transactions: ConfigIngestStream,
+    #[serde(default = "ConfigIngester::default_download_metadata_publish")]
+    pub download_metadata_publish: ConfigDownloadMetadataPublish,
+}
+
+impl ConfigIngester {
+    pub fn default_download_metadata_publish() -> ConfigDownloadMetadataPublish {
+        ConfigDownloadMetadataPublish::default()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfigDownloadMetadataPublish {
+    #[serde(
+        default = "ConfigDownloadMetadataPublish::default_max_concurrency",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_concurrency: usize,
+    #[serde(default = "ConfigDownloadMetadataPublish::default_stream_name")]
+    pub stream_name: String,
+    #[serde(
+        default = "ConfigDownloadMetadataPublish::default_stream_maxlen",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub stream_maxlen: usize,
+}
+
+impl ConfigDownloadMetadataPublish {
+    pub fn default_stream_name() -> String {
+        "METADATA_JSON".to_owned()
+    }
+
+    pub const fn default_max_concurrency() -> usize {
+        10
+    }
+
+    pub const fn default_stream_maxlen() -> usize {
+        10_000_000
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -288,11 +326,6 @@ impl ConfigPostgres {
 pub struct ConfigIngesterDownloadMetadata {
     pub stream: ConfigIngestStream,
     #[serde(
-        default = "ConfigIngesterDownloadMetadata::default_num_threads",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub _num_threads: usize,
-    #[serde(
         default = "ConfigIngesterDownloadMetadata::default_max_attempts",
         deserialize_with = "deserialize_usize_str"
     )]
@@ -303,23 +336,6 @@ pub struct ConfigIngesterDownloadMetadata {
         rename = "request_timeout_ms"
     )]
     pub request_timeout: Duration,
-    #[serde(
-        default = "ConfigIngesterDownloadMetadata::default_stream_maxlen",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub stream_maxlen: usize,
-    #[serde(
-        default = "ConfigIngesterDownloadMetadata::default_stream_max_size",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub _pipeline_max_size: usize,
-    #[serde(
-        default = "ConfigIngesterDownloadMetadata::default_pipeline_max_idle",
-        deserialize_with = "deserialize_duration_str",
-        rename = "pipeline_max_idle_ms"
-    )]
-    pub _pipeline_max_idle: Duration,
-
     #[serde(
         default = "ConfigIngesterDownloadMetadata::default_retry_max_delay_ms",
         deserialize_with = "deserialize_usize_str"
@@ -333,22 +349,6 @@ pub struct ConfigIngesterDownloadMetadata {
 }
 
 impl ConfigIngesterDownloadMetadata {
-    pub const fn default_num_threads() -> usize {
-        2
-    }
-
-    pub const fn default_pipeline_max_idle() -> Duration {
-        Duration::from_millis(10)
-    }
-
-    pub const fn default_stream_max_size() -> usize {
-        10
-    }
-
-    pub const fn default_stream_maxlen() -> usize {
-        10_000_000
-    }
-
     pub const fn default_max_attempts() -> usize {
         3
     }
