@@ -1,60 +1,124 @@
 use {
     crate::{
-        config::{ConfigIngester, REDIS_STREAM_DATA_KEY},
+        config::{ConfigDownloadMetadataPublish, ConfigIngester, REDIS_STREAM_DATA_KEY},
         postgres::{create_pool as pg_create_pool, report_pgpool},
-        prom::redis_xadd_status_inc,
+        prom::{download_metadata_publish_time, redis_xadd_status_inc},
         redis::{AccountHandle, DownloadMetadataJsonHandle, IngestStream, TransactionHandle},
         util::create_shutdown,
     },
     das_core::{
-        DownloadMetadata, DownloadMetadataInfo, DownloadMetadataJsonRetryConfig,
-        DownloadMetadataNotifier,
+        create_download_metadata_notifier, DownloadMetadata, DownloadMetadataInfo,
+        DownloadMetadataJsonRetryConfig,
     },
-    futures::{future::BoxFuture, stream::StreamExt},
+    futures::stream::StreamExt,
     program_transformers::ProgramTransformer,
     redis::aio::MultiplexedConnection,
     std::sync::Arc,
-    tokio::time::{sleep, Duration},
+    tokio::{
+        sync::mpsc::{unbounded_channel, UnboundedSender},
+        task::{JoinHandle, JoinSet},
+        time::{sleep, Duration},
+    },
     tracing::warn,
 };
 
-fn download_metadata_notifier_v2(
-    connection: MultiplexedConnection,
-    stream: String,
-    stream_maxlen: usize,
-) -> anyhow::Result<DownloadMetadataNotifier> {
-    Ok(
-        Box::new(
-            move |info: DownloadMetadataInfo| -> BoxFuture<
-                'static,
-                Result<(), Box<dyn std::error::Error + Send + Sync>>,
-            > {
+pub struct DownloadMetadataPublish {
+    handle: JoinHandle<()>,
+    sender: Option<UnboundedSender<DownloadMetadataInfo>>,
+}
+
+impl DownloadMetadataPublish {
+    pub fn new(handle: JoinHandle<()>, sender: UnboundedSender<DownloadMetadataInfo>) -> Self {
+        Self {
+            handle,
+            sender: Some(sender),
+        }
+    }
+
+    pub fn take_sender(&mut self) -> Option<UnboundedSender<DownloadMetadataInfo>> {
+        self.sender.take()
+    }
+
+    pub async fn stop(self) -> Result<(), tokio::task::JoinError> {
+        self.handle.await
+    }
+}
+
+#[derive(Default)]
+pub struct DownloadMetadataPublishBuilder {
+    config: Option<ConfigDownloadMetadataPublish>,
+    connection: Option<MultiplexedConnection>,
+}
+
+impl DownloadMetadataPublishBuilder {
+    pub fn build() -> DownloadMetadataPublishBuilder {
+        DownloadMetadataPublishBuilder::default()
+    }
+
+    pub fn config(mut self, config: ConfigDownloadMetadataPublish) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    pub fn connection(mut self, connection: MultiplexedConnection) -> Self {
+        self.connection = Some(connection);
+        self
+    }
+
+    pub fn start(self) -> DownloadMetadataPublish {
+        let config = self.config.expect("Config must be set");
+        let connection = self.connection.expect("Connection must be set");
+
+        let (sender, mut rx) = unbounded_channel::<DownloadMetadataInfo>();
+        let stream = config.stream_name;
+        let stream_maxlen = config.stream_maxlen;
+        let worker_count = config.max_concurrency;
+
+        let handle = tokio::spawn(async move {
+            let mut tasks = JoinSet::new();
+
+            while let Some(download_metadata_info) = rx.recv().await {
+                if tasks.len() >= worker_count {
+                    tasks.join_next().await;
+                }
+
                 let mut connection = connection.clone();
                 let stream = stream.clone();
-                Box::pin(async move {
+                let start_time = tokio::time::Instant::now();
 
-                    let info_bytes = serde_json::to_vec(&info)?;
+                tasks.spawn(async move {
+                    match serde_json::to_vec(&download_metadata_info) {
+                        Ok(info_bytes) => {
+                            let xadd = redis::cmd("XADD")
+                                .arg(&stream)
+                                .arg("MAXLEN")
+                                .arg("~")
+                                .arg(stream_maxlen)
+                                .arg("*")
+                                .arg(REDIS_STREAM_DATA_KEY)
+                                .arg(info_bytes)
+                                .query_async::<_, redis::Value>(&mut connection)
+                                .await;
 
-                    let xadd = redis::cmd("XADD")
-                        .arg(&stream)
-                        .arg("MAXLEN")
-                        .arg("~")
-                        .arg(stream_maxlen)
-                        .arg("*")
-                        .arg(REDIS_STREAM_DATA_KEY)
-                        .arg(info_bytes)
-                        .query_async::<_, redis::Value>(&mut connection)
-                        .await;
+                            let status = xadd.map(|_| ()).map_err(|_| ());
 
-                    let status = xadd.map(|_| ()).map_err(|_| ());
+                            redis_xadd_status_inc(&stream, "metadata_json", status, 1);
+                            let elapsed_time = start_time.elapsed().as_secs_f64();
 
-                    redis_xadd_status_inc(&stream, "metadata_notifier",status, 1);
+                            download_metadata_publish_time(elapsed_time);
+                        }
+                        Err(_) => {
+                            tracing::error!("download_metadata_info failed to bytes")
+                        }
+                    }
+                });
+            }
 
-                    Ok(())
-                })
-            },
-        ),
-    )
+            while tasks.join_next().await.is_some() {}
+        });
+
+        DownloadMetadataPublish::new(handle, sender)
+    }
 }
 
 pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
@@ -62,14 +126,18 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let connection = redis_client.get_multiplexed_tokio_connection().await?;
     let pool = pg_create_pool(config.postgres).await?;
 
-    let download_metadata_stream = config.download_metadata.stream.clone();
-    let download_metadata_stream_maxlen = config.download_metadata.stream_maxlen;
+    let mut download_metadata_publish = DownloadMetadataPublishBuilder::build()
+        .connection(connection.clone())
+        .config(config.download_metadata_publish)
+        .start();
 
-    let download_metadata_notifier = download_metadata_notifier_v2(
-        connection.clone(),
-        download_metadata_stream.name.clone(),
-        download_metadata_stream_maxlen,
-    )?;
+    let download_metadata_json_sender = download_metadata_publish
+        .take_sender()
+        .expect("Take ownership of sender");
+
+    let create_download_metadata_sender = download_metadata_json_sender.clone();
+    let download_metadata_notifier =
+        create_download_metadata_notifier(create_download_metadata_sender).await;
 
     let program_transformer = Arc::new(ProgramTransformer::new(
         pool.clone(),
@@ -111,7 +179,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let snapshots = IngestStream::build()
         .config(config.snapshots)
         .connection(connection.clone())
-        .handler(AccountHandle::new(Arc::clone(&program_transformer)))
+        .handler(AccountHandle::new(program_transformer))
         .start()
         .await?;
 
@@ -144,6 +212,9 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     .await
     .into_iter()
     .collect::<anyhow::Result<()>>()?;
+
+    drop(download_metadata_json_sender);
+    download_metadata_publish.stop().await?;
 
     report.abort();
 
