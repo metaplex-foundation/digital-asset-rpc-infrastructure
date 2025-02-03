@@ -19,13 +19,16 @@ use {
 };
 
 use hyper::Method;
-use log::debug;
+use log::{debug, warn};
 use tower_http::cors::{Any, CorsLayer};
 
-use jsonrpsee::server::{
-    logger::{Logger, TransportProtocol},
-    middleware::proxy_get_request::ProxyGetRequestLayer,
-    ServerBuilder,
+use jsonrpsee::{
+    server::{
+        logger::{Logger, TransportProtocol},
+        middleware::proxy_get_request::ProxyGetRequestLayer,
+        ServerBuilder,
+    },
+    types::ErrorResponse,
 };
 
 use cadence_macros::{is_global_default_set, statsd_time};
@@ -105,7 +108,15 @@ impl Logger for MetricMiddleware {
     }
 
     fn on_response(&self, result: &str, _started_at: Self::Instant, _transport: TransportProtocol) {
-        debug!("Response: {}", result);
+        let maybe_err_res: serde_json::Result<ErrorResponse> = serde_json::from_str(result);
+        match maybe_err_res {
+            Ok(_) => {
+                warn!("Error Response: {}", result);
+            }
+            Err(_) => {
+                debug!("Response: {}", result);
+            }
+        }
     }
 
     fn on_disconnect(&self, remote_addr: SocketAddr, _transport: TransportProtocol) {
