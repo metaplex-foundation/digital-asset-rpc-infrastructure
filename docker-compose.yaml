@@ -97,6 +97,20 @@ services:
         "log_destination=stderr",
         "-c",
         "max_connections=200",
+        "-c",
+        "session_preload_libraries=auto_explain",
+        "-c",
+        "auto_explain.log_min_duration=50",
+        "-c",
+        "auto_explain.log_analyze=on",
+        "-c",
+        "auto_explain.log_timing=on",
+        "-c",
+        "auto_explain.log_wal=on",
+        "-c",
+        "auto_explain.log_nested_statements=on",
+        "-c",
+        "auto_explain.log_verbose=on",
       ]
     ports:
       - 5432:5432
