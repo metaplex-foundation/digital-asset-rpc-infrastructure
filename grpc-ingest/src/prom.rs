@@ -102,6 +102,11 @@ lazy_static::lazy_static! {
         Opts::new("bubblegum_tree_corrupt_proofs", "Number of corrupt proofs in the bubblegum tree"),
         &["tree"]
     ).unwrap();
+
+    static ref DOWNLOAD_METADATA_PUBLISH_TIME: HistogramVec = HistogramVec::new(
+        HistogramOpts::new("download_metadata_publish_time", "Time taken for publish download notification to redis"),
+        &[]
+    ).unwrap();
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -132,6 +137,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(BUBBLEGUM_TREE_NOT_FOUND_PROOFS);
         register!(BUBBLEGUM_TREE_CORRECT_PROOFS);
         register!(BUBBLEGUM_TREE_CORRUPT_PROOFS);
+        register!(DOWNLOAD_METADATA_PUBLISH_TIME);
 
         VERSION_INFO_METRIC
             .with_label_values(&[
@@ -265,6 +271,12 @@ pub fn download_metadata_json_task_status_count_inc(status: u16) {
     DOWNLOAD_METADATA_FETCHED_COUNT
         .with_label_values(&[&status.to_string()])
         .inc();
+}
+
+pub fn download_metadata_publish_time(value: f64) {
+    DOWNLOAD_METADATA_PUBLISH_TIME
+        .with_label_values(&[])
+        .observe(value);
 }
 
 #[derive(Debug, Clone, Copy)]
