@@ -76,12 +76,16 @@ impl Logger for MetricMiddleware {
             true => "success",
             false => "failure",
         };
-        debug!(
-            "Call to '{}' {} took {:?}",
-            name,
-            stat,
-            started_at.elapsed()
-        );
+        if success {
+            debug!(
+                "Call to '{}' {} took {:?}",
+                name,
+                stat,
+                started_at.elapsed()
+            );
+        } else {
+            warn!("Error calling method '{}'", name);
+        }
         safe_metric(|| {
             let success = success.to_string();
             statsd_time!("api_call", started_at.elapsed(), "method" => name, "success" => &success);
