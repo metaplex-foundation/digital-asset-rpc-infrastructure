@@ -76,16 +76,14 @@ impl Logger for MetricMiddleware {
             true => "success",
             false => "failure",
         };
-        if success {
-            debug!(
-                "Call to '{}' {} took {:?}",
-                name,
-                stat,
-                started_at.elapsed()
-            );
-        } else {
-            warn!("Error calling method '{}'", name);
-        }
+
+        debug!(
+            "Call to '{}' {} took {:?}",
+            name,
+            stat,
+            started_at.elapsed()
+        );
+
         safe_metric(|| {
             let success = success.to_string();
             statsd_time!("api_call", started_at.elapsed(), "method" => name, "success" => &success);
@@ -108,7 +106,7 @@ impl Logger for MetricMiddleware {
         _kind: jsonrpsee::server::logger::MethodKind,
         _transport: TransportProtocol,
     ) {
-        debug!("Call: {} {:?}", method_name, params);
+        warn!("Call: {} {:?}", method_name, params);
     }
 
     fn on_response(&self, result: &str, _started_at: Self::Instant, _transport: TransportProtocol) {

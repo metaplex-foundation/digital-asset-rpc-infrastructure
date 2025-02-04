@@ -125,6 +125,7 @@ pub struct SearchAssets {
     pub cursor: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
+    #[serde(default)]
     pub token_type: Option<TokenTypeClass>,
 }
 
