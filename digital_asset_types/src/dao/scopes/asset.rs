@@ -652,7 +652,7 @@ pub async fn get_token_accounts(
 
     if owner_address.is_none() && mint_address.is_none() {
         return Err(DbErr::Custom(
-            "Either 'owner_address' or 'mint_address' must be provided".to_string(),
+            "Either 'ownerAddress' or 'mintAddress' must be provided".to_string(),
         ));
     }
 

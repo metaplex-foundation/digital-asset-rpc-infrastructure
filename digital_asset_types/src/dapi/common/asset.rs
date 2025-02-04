@@ -362,9 +362,7 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
         asset
             .specification_asset_class
             .as_ref()
-            .ok_or(DbErr::Custom(
-                "Specification asset class not found".to_string(),
-            ))?,
+            .ok_or(DbErr::Custom("interface not found".to_string()))?,
     )))
 }
 
