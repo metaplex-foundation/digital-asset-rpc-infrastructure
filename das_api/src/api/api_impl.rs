@@ -378,7 +378,6 @@ impl ApiContract for DasApi {
             negate,
             condition_type,
             interface,
-            token_type,
             owner_address,
             owner_type,
             creator_address,
@@ -404,6 +403,7 @@ impl ApiContract for DasApi {
             options,
             cursor,
             name,
+            token_type,
         } = payload;
 
         // Deserialize search assets query
@@ -439,7 +439,6 @@ impl ApiContract for DasApi {
             interface,
             specification_version,
             specification_asset_class,
-            token_type,
             owner_address,
             owner_type,
             creator_address,
@@ -458,6 +457,7 @@ impl ApiContract for DasApi {
             burnt,
             json_uri,
             name,
+            token_type,
         };
         let options = options.unwrap_or_default();
         let sort_by = sort_by.unwrap_or_default();
