@@ -1,6 +1,6 @@
-mod audit;
 mod backfiller;
 mod cmd;
-mod tree;
+mod replay;
+mod verify;
 
 pub use cmd::*;
