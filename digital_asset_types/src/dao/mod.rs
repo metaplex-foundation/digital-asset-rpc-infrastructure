@@ -57,7 +57,6 @@ pub struct SearchAssetsQuery {
     pub interface: Option<Interface>,
     pub specification_version: Option<SpecificationVersions>,
     pub specification_asset_class: Option<SpecificationAssetClass>,
-    pub token_type: Option<TokenTypeClass>,
     pub owner_address: Option<Vec<u8>>,
     pub owner_type: Option<OwnerType>,
     pub creator_address: Option<Vec<u8>>,
@@ -76,6 +75,7 @@ pub struct SearchAssetsQuery {
     pub burnt: Option<bool>,
     pub json_uri: Option<String>,
     pub name: Option<Vec<u8>>,
+    pub token_type: Option<TokenTypeClass>,
 }
 
 impl SearchAssetsQuery {
@@ -83,18 +83,17 @@ impl SearchAssetsQuery {
         if self.token_type.is_some() {
             if self.owner_type.is_some() {
                 return Err(DbErr::Custom(
-                    "`owner_type` is not supported when using `token_type` field".to_string(),
+                    "`ownerType` is not supported when using `tokenType` field".to_string(),
                 ));
             }
             if self.owner_address.is_none() {
                 return Err(DbErr::Custom(
-                    "Must provide `owner_address` when using `token_type` field".to_string(),
+                    "Must provide `ownerAddress` when using `tokenType` field".to_string(),
                 ));
             }
             if self.interface.is_some() {
                 return Err(DbErr::Custom(
-                    "`specification_asset_class` is not supported when using `token_type` field"
-                        .to_string(),
+                    "`interface` is not supported when using `tokenType` field".to_string(),
                 ));
             }
         }
