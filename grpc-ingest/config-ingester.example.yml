@@ -59,3 +59,16 @@ download_metadata:
   request_timeout: 5_000
   stream:
     name: METADATA_JSON
+
+download_metadata_publish:
+  # maximum number of concurrent tasks for processing.
+  max_concurrency: 10
+  # stream name
+  stream_name: METADATA_JSONS
+  # stream max length
+  stream_maxlen: 100_000_000
+  # number of pipelines that can be processed concurrently
+  pipeline_count: 10
+  # pipeline max idle time in milliseconds
+  pipeline_max_idle_ms: 150
+
