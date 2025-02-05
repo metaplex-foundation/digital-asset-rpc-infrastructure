@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 pub mod error;
 pub mod instruction;
 pub mod program_handler;
