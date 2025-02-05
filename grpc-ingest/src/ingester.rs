@@ -1,9 +1,12 @@
 use {
     crate::{
-        config::{ConfigDownloadMetadataPublish, ConfigIngester, REDIS_STREAM_DATA_KEY},
+        config::{ConfigDownloadMetadataPublish, ConfigIngester},
         postgres::{create_pool as pg_create_pool, report_pgpool},
         prom::{download_metadata_publish_time, redis_xadd_status_inc},
-        redis::{AccountHandle, DownloadMetadataJsonHandle, IngestStream, TransactionHandle},
+        redis::{
+            AccountHandle, DownloadMetadataJsonHandle, IngestStream, TrackedPipeline,
+            TransactionHandle,
+        },
         util::create_shutdown,
     },
     das_core::{
@@ -12,14 +15,17 @@ use {
     },
     futures::stream::StreamExt,
     program_transformers::ProgramTransformer,
-    redis::aio::MultiplexedConnection,
+    redis::{aio::MultiplexedConnection, streams::StreamMaxlen},
     std::sync::Arc,
     tokio::{
-        sync::mpsc::{unbounded_channel, UnboundedSender},
+        sync::{
+            mpsc::{unbounded_channel, UnboundedSender},
+            oneshot, Mutex,
+        },
         task::{JoinHandle, JoinSet},
         time::{sleep, Duration},
     },
-    tracing::warn,
+    tracing::{error, warn},
 };
 
 pub struct DownloadMetadataPublish {
@@ -67,57 +73,105 @@ impl DownloadMetadataPublishBuilder {
 
     pub fn start(self) -> DownloadMetadataPublish {
         let config = self.config.expect("Config must be set");
-        let connection = self.connection.expect("Connection must be set");
+
+        let pipes: Vec<_> = (0..config.pipeline_count)
+            .map(|_| Arc::new(Mutex::new(TrackedPipeline::default())))
+            .collect();
 
         let (sender, mut rx) = unbounded_channel::<DownloadMetadataInfo>();
         let stream = config.stream_name;
         let stream_maxlen = config.stream_maxlen;
         let worker_count = config.max_concurrency;
+        let pipeline_max_idle = config.pipeline_max_idle;
+        let connection = self.connection.expect("Connection must be set");
 
-        let handle = tokio::spawn(async move {
-            let mut tasks = JoinSet::new();
+        let control = tokio::spawn({
+            async move {
+                let mut flush_handles = Vec::new();
+                let mut shutdown_senders = Vec::new();
 
-            while let Some(download_metadata_info) = rx.recv().await {
-                if tasks.len() >= worker_count {
-                    tasks.join_next().await;
+                for pipe in &pipes {
+                    let pipe = Arc::clone(pipe);
+
+                    let mut connection = connection.clone();
+                    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+
+                    let stream = stream.clone();
+                    let flush_handle = tokio::spawn(async move {
+                        loop {
+                            tokio::select! {
+                                _ = sleep(pipeline_max_idle) => {
+                                    let mut pipe = pipe.lock().await;
+                                    let flush = pipe.flush(&mut connection).await;
+
+                                    let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                                    let count = flush.as_ref().unwrap_or_else(|count| count);
+
+                                    redis_xadd_status_inc(&stream, "metadata_json", status, *count);
+                                }
+                                _ = &mut shutdown_rx => {
+                                    let mut pipe = pipe.lock().await;
+                                    let flush = pipe.flush(&mut connection).await;
+
+                                    let status = flush.as_ref().map(|_| ()).map_err(|_| ());
+                                    let count = flush.as_ref().unwrap_or_else(|count| count);
+                                    redis_xadd_status_inc(&stream, "metadata_json", status, *count);
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    flush_handles.push(flush_handle);
+                    shutdown_senders.push(shutdown_tx);
                 }
 
-                let mut connection = connection.clone();
-                let stream = stream.clone();
-                let start_time = tokio::time::Instant::now();
+                let mut tasks = JoinSet::new();
+                let mut current_pipe_index = 0;
 
-                tasks.spawn(async move {
-                    match serde_json::to_vec(&download_metadata_info) {
-                        Ok(info_bytes) => {
-                            let xadd = redis::cmd("XADD")
-                                .arg(&stream)
-                                .arg("MAXLEN")
-                                .arg("~")
-                                .arg(stream_maxlen)
-                                .arg("*")
-                                .arg(REDIS_STREAM_DATA_KEY)
-                                .arg(info_bytes)
-                                .query_async::<_, redis::Value>(&mut connection)
-                                .await;
-
-                            let status = xadd.map(|_| ()).map_err(|_| ());
-
-                            redis_xadd_status_inc(&stream, "metadata_json", status, 1);
-                            let elapsed_time = start_time.elapsed().as_secs_f64();
-
-                            download_metadata_publish_time(elapsed_time);
-                        }
-                        Err(_) => {
-                            tracing::error!("download_metadata_info failed to bytes")
-                        }
+                while let Some(download_metadata_info) = rx.recv().await {
+                    if tasks.len() >= worker_count {
+                        tasks.join_next().await;
                     }
-                });
-            }
 
-            while tasks.join_next().await.is_some() {}
+                    let stream = stream.clone();
+                    let start_time = tokio::time::Instant::now();
+                    let pipe = Arc::clone(&pipes[current_pipe_index]);
+                    tasks.spawn(async move {
+                        let mut pipe = pipe.lock().await;
+                        match serde_json::to_vec(&download_metadata_info) {
+                            Ok(info_bytes) => {
+                                pipe.xadd_maxlen(
+                                    &stream.to_string(),
+                                    StreamMaxlen::Approx(stream_maxlen),
+                                    "*",
+                                    info_bytes,
+                                );
+
+                                let elapsed_time = start_time.elapsed().as_secs_f64();
+
+                                download_metadata_publish_time(elapsed_time);
+                            }
+                            Err(_) => {
+                                error!("download_metadata_info failed to bytes")
+                            }
+                        }
+                    });
+
+                    current_pipe_index = (current_pipe_index + 1) % pipes.len();
+                }
+
+                while tasks.join_next().await.is_some() {}
+
+                for shutdown_tx in shutdown_senders {
+                    let _ = shutdown_tx.send(());
+                }
+
+                futures::future::join_all(flush_handles).await;
+            }
         });
 
-        DownloadMetadataPublish::new(handle, sender)
+        DownloadMetadataPublish::new(control, sender)
     }
 }
 
