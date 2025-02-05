@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 use {
     anyhow::Context,
     clap::Parser,
