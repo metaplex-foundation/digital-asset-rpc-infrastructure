@@ -14,8 +14,8 @@ pub struct MetricsArgs {
     pub metrics_prefix: String,
 }
 
-pub fn setup_metrics(config: MetricsArgs) -> Result<()> {
-    let host = (config.metrics_host, config.metrics_port);
+pub fn setup_metrics(config: &MetricsArgs) -> Result<()> {
+    let host = (config.metrics_host.clone(), config.metrics_port);
 
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     socket.set_nonblocking(true)?;
