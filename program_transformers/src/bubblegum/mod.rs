@@ -11,7 +11,7 @@ use {
         token_metadata::types::UseMethod as TokenMetadataUseMethod,
     },
     sea_orm::{ConnectionTrait, TransactionTrait},
-    tracing::{debug, info},
+    tracing::debug,
 };
 
 mod burn;
@@ -58,7 +58,7 @@ where
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
     };
-    info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
+    debug!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     match ix_type {
         InstructionName::Transfer => {
@@ -71,7 +71,8 @@ where
             delegate::delegate(parsing_result, bundle, txn, ix_str).await?;
         }
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
-            if let Some(info) = mint_v1::mint_v1(parsing_result, bundle, txn, ix_str).await? {
+            let mint = mint_v1::mint_v1(parsing_result, bundle, txn, ix_str).await?;
+            if let Some(info) = mint {
                 download_metadata_notifier(info)
                     .await
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;

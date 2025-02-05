@@ -38,7 +38,7 @@ jobs:
         run: |
           cargo tree
           git checkout Cargo.lock
-          cargo tree --frozen
+          cargo tree
 
       # fmt
       - name: Check fmt
