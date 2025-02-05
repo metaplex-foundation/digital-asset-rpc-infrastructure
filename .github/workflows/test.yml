@@ -39,6 +39,7 @@ jobs:
           cargo tree
           git checkout Cargo.lock
           cargo tree --frozen
+
       # fmt
       - name: Check fmt
         run: cargo fmt --all -- --check
@@ -46,3 +47,4 @@ jobs:
       # clippy
       - name: Check clippy
         run: cargo clippy --all-targets --tests -- -Dwarnings
+        

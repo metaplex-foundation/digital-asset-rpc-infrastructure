@@ -42,6 +42,7 @@ jobs:
             key: ${{ matrix.os }}_digital-asset-rpc-infrastructure_${{ hashFiles('digital-asset-rpc-infrastructure/Cargo.lock') }}
             restore-keys: |
               ${{ matrix.os }}_digital-asset-rpc-infrastructure
+
       - name: build digital asset rpc infra
         run: cargo build --verbose --release
 
@@ -52,6 +53,7 @@ jobs:
           mv target/release/fetch_trees target/release/fetch_trees22 
           mv target/release/migration target/release/migration22
           mv target/release/das_api target/release/das_api22
+
       # This steps can be omited to save space, are mostly in place to validate binaries (manually) and path to them 
       # Omiting this will save on storage consumption on the account
       - name: Publish artifact
@@ -109,4 +111,3 @@ jobs:
         with:
           name: fetch-trees
           path: target/release/fetch_trees
-          
