@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
-assertion_line: 187
 expression: response
+snapshot_kind: text
 ---
 {
   "total": 1,
@@ -61,13 +61,13 @@ expression: response
         "ownership_model": "single",
         "owner": "7uScVQiT4vArB88dHrZoeVKWbtsRJmNp9r5Gce5VQpXS"
       },
-      "supply": null,
       "mutable": true,
       "burnt": false,
       "plugins": {},
       "mpl_core_info": {
         "plugins_json_version": 1
-      }
+      },
+      "external_plugins": []
     }
   ]
 }

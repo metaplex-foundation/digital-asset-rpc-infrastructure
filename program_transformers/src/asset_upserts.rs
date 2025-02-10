@@ -10,6 +10,7 @@ use {
         TransactionTrait,
     },
     serde_json::value::Value,
+    sqlx::types::Decimal,
 };
 
 pub struct AssetTokenAccountColumns {
@@ -54,9 +55,9 @@ pub async fn upsert_assets_token_account_columns<T: ConnectionTrait + Transactio
 
 pub struct AssetMintAccountColumns {
     pub mint: Vec<u8>,
-    pub supply: u64,
-    pub supply_mint: Option<Vec<u8>>,
-    pub slot_updated_mint_account: u64,
+    pub supply: Decimal,
+    pub slot_updated_mint_account: i64,
+    pub extensions: Option<Value>,
 }
 
 pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + TransactionTrait>(
@@ -64,10 +65,17 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
     let active_model = asset::ActiveModel {
-        id: Set(columns.mint),
-        supply: Set(columns.supply as i64),
-        supply_mint: Set(columns.supply_mint),
-        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account as i64)),
+        id: Set(columns.mint.clone()),
+        supply: Set(columns.supply),
+        supply_mint: Set(Some(columns.mint.clone())),
+        slot_updated_mint_account: Set(Some(columns.slot_updated_mint_account)),
+        slot_updated: Set(Some(columns.slot_updated_mint_account)),
+        mint_extensions: Set(columns.extensions),
+        asset_data: Set(Some(columns.mint.clone())),
+        // assume every token is a fungible token when mint account is created
+        specification_asset_class: Set(Some(SpecificationAssetClass::FungibleToken)),
+        // // assume multiple ownership as we set asset class to fungible token
+        owner_type: Set(OwnerType::Token),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
@@ -75,8 +83,10 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
                     asset::Column::Supply,
-                    asset::Column::SupplyMint,
                     asset::Column::SlotUpdatedMintAccount,
+                    asset::Column::MintExtensions,
+                    asset::Column::SlotUpdated,
+                    asset::Column::AssetData,
                 ])
                 .to_owned(),
         )
@@ -96,11 +106,13 @@ pub struct AssetMetadataAccountColumns {
     pub royalty_amount: i32,
     pub asset_data: Option<Vec<u8>>,
     pub slot_updated_metadata_account: u64,
-    pub plugins: Option<Value>,
-    pub unknown_plugins: Option<Value>,
+    pub mpl_core_plugins: Option<Value>,
+    pub mpl_core_unknown_plugins: Option<Value>,
     pub mpl_core_collection_num_minted: Option<i32>,
     pub mpl_core_collection_current_size: Option<i32>,
     pub mpl_core_plugins_json_version: Option<i32>,
+    pub mpl_core_external_plugins: Option<Value>,
+    pub mpl_core_unknown_external_plugins: Option<Value>,
 }
 
 pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + TransactionTrait>(
@@ -126,11 +138,13 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
         asset_data: Set(columns.asset_data),
         slot_updated_metadata_account: Set(Some(columns.slot_updated_metadata_account as i64)),
         burnt: Set(false),
-        mpl_core_plugins: Set(columns.plugins),
-        mpl_core_unknown_plugins: Set(columns.unknown_plugins),
+        mpl_core_plugins: Set(columns.mpl_core_plugins),
+        mpl_core_unknown_plugins: Set(columns.mpl_core_unknown_plugins),
         mpl_core_collection_num_minted: Set(columns.mpl_core_collection_num_minted),
         mpl_core_collection_current_size: Set(columns.mpl_core_collection_current_size),
         mpl_core_plugins_json_version: Set(columns.mpl_core_plugins_json_version),
+        mpl_core_external_plugins: Set(columns.mpl_core_external_plugins),
+        mpl_core_unknown_external_plugins: Set(columns.mpl_core_unknown_external_plugins),
         ..Default::default()
     };
     let mut query = asset::Entity::insert(active_model)
@@ -159,6 +173,8 @@ pub async fn upsert_assets_metadata_account_columns<T: ConnectionTrait + Transac
                     asset::Column::MplCoreCollectionNumMinted,
                     asset::Column::MplCoreCollectionCurrentSize,
                     asset::Column::MplCorePluginsJsonVersion,
+                    asset::Column::MplCoreExternalPlugins,
+                    asset::Column::MplCoreUnknownExternalPlugins,
                 ])
                 .to_owned(),
         )

@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/account_update_tests.rs
 expression: response_new_slot
+snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
@@ -62,7 +63,11 @@ expression: response_new_slot
     "ownership_model": "single",
     "owner": "1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM"
   },
-  "supply": null,
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 253
+  },
   "mutable": true,
   "burnt": false
 }

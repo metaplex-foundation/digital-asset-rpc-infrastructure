@@ -4,6 +4,7 @@ use {
         error::{ProgramTransformerError, ProgramTransformerResult},
         mpl_core_program::handle_mpl_core_account,
         token::handle_token_program_account,
+        token_inscription::handle_token_inscription_program_update,
         token_metadata::handle_token_metadata_account,
     },
     blockbuster::{
@@ -11,7 +12,8 @@ use {
         program_handler::ProgramParser,
         programs::{
             bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_metadata::TokenMetadataParser,
+            token_account::TokenAccountParser, token_extensions::Token2022AccountParser,
+            token_inscriptions::TokenInscriptionParser, token_metadata::TokenMetadataParser,
             ProgramParseResult,
         },
     },
@@ -21,12 +23,14 @@ use {
         SqlxPostgresConnector, TransactionTrait,
     },
     serde::Deserialize,
+    serde_json::{Map, Value},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
+    token_extensions::handle_token_extensions_program_account,
     tokio::time::{sleep, Duration},
-    tracing::{debug, error, info},
+    tracing::{debug, error},
 };
 
 mod asset_upserts;
@@ -34,6 +38,8 @@ mod bubblegum;
 pub mod error;
 mod mpl_core_program;
 mod token;
+mod token_extensions;
+mod token_inscription;
 mod token_metadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -58,24 +64,23 @@ pub struct ProgramTransformer {
     download_metadata_notifier: DownloadMetadataNotifier,
     parsers: HashMap<Pubkey, Box<dyn ProgramParser>>,
     key_set: HashSet<Pubkey>,
-    cl_audits: bool,
 }
 
 impl ProgramTransformer {
-    pub fn new(
-        pool: PgPool,
-        download_metadata_notifier: DownloadMetadataNotifier,
-        cl_audits: bool,
-    ) -> Self {
-        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(3);
+    pub fn new(pool: PgPool, download_metadata_notifier: DownloadMetadataNotifier) -> Self {
+        let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(6);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
         let token = TokenAccountParser {};
         let mpl_core = MplCoreParser {};
+        let token_extensions = Token2022AccountParser {};
+        let token_inscription = TokenInscriptionParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
+        parsers.insert(token_extensions.key(), Box::new(token_extensions));
+        parsers.insert(token_inscription.key(), Box::new(token_inscription));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -86,7 +91,6 @@ impl ProgramTransformer {
             download_metadata_notifier,
             parsers,
             key_set: hs,
-            cl_audits,
         }
     }
 
@@ -111,7 +115,6 @@ impl ProgramTransformer {
         &self,
         tx_info: &TransactionInfo,
     ) -> ProgramTransformerResult<()> {
-        info!("Handling Transaction: {:?}", tx_info.signature);
         let instructions = self.break_transaction(tx_info);
         let mut not_impl = 0;
         let ixlen = instructions.len();
@@ -160,7 +163,6 @@ impl ProgramTransformer {
                             &ix,
                             &self.storage,
                             &self.download_metadata_notifier,
-                            self.cl_audits,
                         )
                         .await
                         .map_err(|err| {
@@ -179,7 +181,10 @@ impl ProgramTransformer {
         }
 
         if not_impl == ixlen {
-            debug!("Not imple");
+            debug!(
+                "Not implemented for transaction signature: {:?}",
+                tx_info.signature
+            );
             return Err(ProgramTransformerError::NotImplemented);
         }
         Ok(())
@@ -202,7 +207,10 @@ impl ProgramTransformer {
                     .await
                 }
                 ProgramParseResult::TokenProgramAccount(parsing_result) => {
-                    handle_token_program_account(
+                    handle_token_program_account(account_info, parsing_result, &self.storage).await
+                }
+                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                    handle_token_extensions_program_account(
                         account_info,
                         parsing_result,
                         &self.storage,
@@ -216,6 +224,14 @@ impl ProgramTransformer {
                         parsing_result,
                         &self.storage,
                         &self.download_metadata_notifier,
+                    )
+                    .await
+                }
+                ProgramParseResult::TokenInscriptionAccount(parsing_result) => {
+                    handle_token_inscription_program_update(
+                        account_info,
+                        parsing_result,
+                        &self.storage,
                     )
                     .await
                 }
@@ -256,5 +272,29 @@ fn record_metric(metric_name: &str, success: bool, retries: u32) {
     let success = if success { "true" } else { "false" };
     if cadence_macros::is_global_default_set() {
         cadence_macros::statsd_count!(metric_name, 1, "success" => success, "retry_count" => retry_count);
+    }
+}
+
+pub fn filter_non_null_fields(value: Value) -> Option<Value> {
+    match value {
+        Value::Null => None,
+        Value::Object(map) => {
+            if map.values().all(|v| matches!(v, Value::Null)) {
+                None
+            } else {
+                let filtered_map: Map<String, Value> = map
+                    .into_iter()
+                    .filter(|(_k, v)| !matches!(v, Value::Null))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                if filtered_map.is_empty() {
+                    None
+                } else {
+                    Some(Value::Object(filtered_map))
+                }
+            }
+        }
+        _ => Some(value),
     }
 }

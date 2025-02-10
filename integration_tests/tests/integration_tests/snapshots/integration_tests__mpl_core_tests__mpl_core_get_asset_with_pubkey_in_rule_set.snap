@@ -1,0 +1,95 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "interface": "MplCoreAsset",
+  "id": "8H71x9Bhh9E9o3MZK4QnVC5MRFn1WZRf2Mc9w2wEbG5V",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://arweave.net/JIdaRM9RXQUNhigQ7ochqc3AAVl95uGHAsilhcSMUC4",
+    "files": [],
+    "metadata": {
+      "name": "TestCore",
+      "symbol": ""
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "GNDf9uggWELLWkRQAA62kCbMcATQcPw2Acz7ZnK347wP"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.05,
+    "basis_points": 500,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "8LsUNkb7bLaAcZ7NjRKPuvcyRGTWbm9BxzUpVKjqdV8o",
+      "share": 100,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "8LsUNkb7bLaAcZ7NjRKPuvcyRGTWbm9BxzUpVKjqdV8o"
+  },
+  "mutable": true,
+  "burnt": false,
+  "plugins": {
+    "royalties": {
+      "data": {
+        "creators": [
+          {
+            "address": "8LsUNkb7bLaAcZ7NjRKPuvcyRGTWbm9BxzUpVKjqdV8o",
+            "percentage": 100
+          }
+        ],
+        "rule_set": {
+          "program_deny_list": [
+            "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"
+          ]
+        },
+        "basis_points": 500
+      },
+      "index": 0,
+      "offset": 155,
+      "authority": {
+        "type": "UpdateAuthority",
+        "address": null
+      }
+    }
+  },
+  "mpl_core_info": {
+    "plugins_json_version": 1
+  },
+  "external_plugins": []
+}

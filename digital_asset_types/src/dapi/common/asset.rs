@@ -1,16 +1,21 @@
-use crate::dao::sea_orm_active_enums::SpecificationVersions;
+use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
+use crate::rpc::response::TokenAccountList;
 use crate::rpc::response::TransactionSignatureList;
-use crate::rpc::response::{AssetError, AssetList};
+use crate::rpc::response::{AssetList, DasError};
+use crate::rpc::TokenInfo;
+use crate::rpc::TokenInscriptionInfo;
 use crate::rpc::{
     Asset as RpcAsset, Authority, Compression, Content, Creator, File, Group, Interface,
-    MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, Uses,
+    MetadataMap, MplCoreInfo, Ownership, Royalty, Scope, Supply, TokenAccount as RpcTokenAccount,
+    Uses,
 };
+use blockbuster::programs::token_inscriptions::InscriptionData;
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
@@ -278,14 +283,8 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
     })
 }
 
-pub fn get_content(asset: &asset::Model, data: &asset_data::Model) -> Result<Content, DbErr> {
-    match asset.specification_version {
-        Some(SpecificationVersions::V1) | Some(SpecificationVersions::V0) => {
-            v1_content_from_json(data)
-        }
-        Some(_) => Err(DbErr::Custom("Version Not Implemented".to_string())),
-        None => Err(DbErr::Custom("Specification version not found".to_string())),
-    }
+pub fn get_content(data: &asset_data::Model) -> Option<Content> {
+    v1_content_from_json(data).ok()
 }
 
 pub fn to_authority(authority: Vec<asset_authority::Model>) -> Vec<Authority> {
@@ -310,40 +309,60 @@ pub fn to_creators(creators: Vec<asset_creators::Model>) -> Vec<Creator> {
 }
 
 pub fn to_grouping(
-    groups: Vec<asset_grouping::Model>,
+    groups: Vec<(asset_grouping::Model, Option<asset_data::Model>)>,
     options: &Options,
 ) -> Result<Vec<Group>, DbErr> {
     let result: Vec<Group> = groups
         .iter()
-        .filter_map(|model| {
+        .filter_map(|(asset_group, asset_data)| {
             let verified = match options.show_unverified_collections {
                 // Null verified indicates legacy data, meaning it is verified.
-                true => Some(model.verified),
+                true => Some(asset_group.verified),
                 false => None,
             };
             // Filter out items where group_value is None.
-            model.group_value.clone().map(|group_value| Group {
-                group_key: model.group_key.clone(),
-                group_value: Some(group_value),
-                verified,
+            asset_group.group_value.clone().map(|group_value| {
+                let collection_metadata = asset_data.as_ref().map(|data| {
+                    let mut metadata_selector_fn = jsonpath_lib::selector(&data.metadata);
+                    let metadata_selector = &mut metadata_selector_fn;
+                    let mut meta: MetadataMap = MetadataMap::new();
+
+                    if let Some(name) = safe_select(metadata_selector, "$.name") {
+                        meta.set_item("name", name.clone());
+                    }
+                    if let Some(symbol) = safe_select(metadata_selector, "$.symbol") {
+                        meta.set_item("symbol", symbol.clone());
+                    }
+                    if let Some(image) = safe_select(metadata_selector, "$.image") {
+                        meta.set_item("image", image.clone());
+                    }
+                    if let Some(external_url) = safe_select(metadata_selector, "$.external_url") {
+                        meta.set_item("external_url", external_url.clone());
+                    }
+
+                    meta
+                });
+
+                Group {
+                    group_key: asset_group.group_key.clone(),
+                    group_value: Some(group_value),
+                    verified,
+                    collection_metadata,
+                }
             })
         })
         .collect();
+
     Ok(result)
 }
 
 pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     Ok(Interface::from((
-        asset
-            .specification_version
-            .as_ref()
-            .ok_or(DbErr::Custom("Specification version not found".to_string()))?,
+        asset.specification_version.as_ref(),
         asset
             .specification_asset_class
             .as_ref()
-            .ok_or(DbErr::Custom(
-                "Specification asset class not found".to_string(),
-            ))?,
+            .ok_or(DbErr::Custom("interface not found".to_string()))?,
     )))
 }
 
@@ -355,19 +374,34 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         authorities,
         creators,
         groups,
+        inscription,
+        token_info,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
-    let content = get_content(&asset, &data)?;
+    let content = get_content(&data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
+
+    let edition_nonce =
+        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
     let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let edition_nonce =
-        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+    let mutable = data.chain_data_mutability.clone().into();
+    let uses = data.chain_data.get("uses").map(|u| Uses {
+        use_method: u
+            .get("use_method")
+            .and_then(|s| s.as_str())
+            .unwrap_or("Single")
+            .to_string()
+            .into(),
+        total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+        remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+    });
+
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
             num_minted: asset.mpl_core_collection_num_minted,
@@ -377,12 +411,53 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         _ => None,
     };
 
+    let inscription = if options.show_inscription {
+        inscription
+            .and_then(|i| {
+                i.data.map(|d| -> Result<TokenInscriptionInfo, DbErr> {
+                    let deserialized_data: InscriptionData =
+                        serde_json::from_value(d).map_err(|e| {
+                            DbErr::Custom(format!("Failed to deserialize inscription data: {}", e))
+                        })?;
+                    Ok(TokenInscriptionInfo {
+                        authority: deserialized_data.authority,
+                        root: deserialized_data.root,
+                        content: deserialized_data.content,
+                        encoding: deserialized_data.encoding,
+                        inscription_data: deserialized_data.inscription_data,
+                        order: deserialized_data.order,
+                        size: deserialized_data.size,
+                        validation_hash: deserialized_data.validation_hash,
+                    })
+                })
+            })
+            .and_then(|i| i.ok())
+    } else {
+        None
+    };
+
+    let token_info = if options.show_fungible {
+        token_info.map(|token_info| TokenInfo {
+            supply: token_info.supply.try_into().unwrap_or(0),
+            decimals: token_info.decimals as u8,
+            mint_authority: token_info
+                .mint_authority
+                .map(|s| bs58::encode(s).into_string()),
+            freeze_authority: token_info
+                .freeze_authority
+                .map(|s| bs58::encode(s).into_string()),
+            token_program: bs58::encode(token_info.token_program).into_string(),
+        })
+    } else {
+        None
+    };
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
-        content: Some(content),
+        content,
         authorities: Some(rpc_authorities),
-        mutable: data.chain_data_mutability.into(),
+        mutable,
         compression: Some(Compression {
             eligible: asset.compressible,
             compressed: asset.compressed,
@@ -415,7 +490,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             locked: false,
         }),
         creators: Some(rpc_creators),
-        ownership: Ownership {
+        ownership: Some(Ownership {
             frozen: asset.frozen,
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
@@ -424,47 +499,131 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .owner
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
-        },
+        }),
         supply: match interface {
-            Interface::V1NFT => Some(Supply {
+            Interface::V1NFT
+            | Interface::LEGACY_NFT
+            | Interface::Nft
+            | Interface::ProgrammableNFT
+            | Interface::Custom => Some(Supply {
                 edition_nonce,
                 print_current_supply: 0,
                 print_max_supply: 0,
             }),
             _ => None,
         },
-        uses: data.chain_data.get("uses").map(|u| Uses {
-            use_method: u
-                .get("use_method")
-                .and_then(|s| s.as_str())
-                .unwrap_or("Single")
-                .to_string()
-                .into(),
-            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-        }),
+        uses,
         burnt: asset.burnt,
+        token_info,
+        mint_extensions: asset.mint_extensions,
+        inscription,
         plugins: asset.mpl_core_plugins,
         unknown_plugins: asset.mpl_core_unknown_plugins,
         mpl_core_info,
+        external_plugins: asset.mpl_core_external_plugins,
+        unknown_external_plugins: asset.mpl_core_unknown_external_plugins,
     })
 }
 
 pub fn asset_list_to_rpc(
     asset_list: Vec<FullAsset>,
     options: &Options,
-) -> (Vec<RpcAsset>, Vec<AssetError>) {
+) -> (Vec<RpcAsset>, Vec<DasError>) {
     asset_list
         .into_iter()
         .fold((vec![], vec![]), |(mut assets, mut errors), asset| {
             let id = bs58::encode(asset.asset.id.clone()).into_string();
             match asset_to_rpc(asset, options) {
                 Ok(rpc_asset) => assets.push(rpc_asset),
-                Err(e) => errors.push(AssetError {
+                Err(e) => errors.push(DasError {
                     id,
                     error: e.to_string(),
                 }),
             }
             (assets, errors)
         })
+}
+
+pub fn token_account_to_rpc(
+    token_account: token_accounts::Model,
+    _options: &Options,
+) -> Result<RpcTokenAccount, DbErr> {
+    let address = bs58::encode(token_account.pubkey.clone()).into_string();
+    let mint = bs58::encode(token_account.mint.clone()).into_string();
+    let owner = bs58::encode(token_account.owner.clone()).into_string();
+    let delegate = token_account
+        .delegate
+        .map(|d| bs58::encode(d).into_string());
+    let close_authority = token_account
+        .close_authority
+        .map(|d| bs58::encode(d).into_string());
+
+    Ok(RpcTokenAccount {
+        address,
+        mint,
+        amount: token_account.amount as u64,
+        owner,
+        frozen: token_account.frozen,
+        delegate,
+        delegated_amount: token_account.delegated_amount as u64,
+        close_authority,
+        extensions: None,
+    })
+}
+
+pub fn token_account_list_to_rpc(
+    token_accounts: Vec<token_accounts::Model>,
+    options: &Options,
+) -> (Vec<RpcTokenAccount>, Vec<DasError>) {
+    token_accounts.into_iter().fold(
+        (vec![], vec![]),
+        |(mut accounts, mut errors), token_account| {
+            let id = bs58::encode(token_account.pubkey.clone()).into_string();
+            match token_account_to_rpc(token_account, options) {
+                Ok(rpc_token_account) => accounts.push(rpc_token_account),
+                Err(e) => errors.push(DasError {
+                    id,
+                    error: e.to_string(),
+                }),
+            }
+            (accounts, errors)
+        },
+    )
+}
+
+pub fn build_token_list_response(
+    token_accounts: Vec<token_accounts::Model>,
+    limit: u64,
+    pagination: &Pagination,
+    options: &Options,
+) -> TokenAccountList {
+    let total = token_accounts.len() as u32;
+    let (page, before, after, cursor) = match pagination {
+        Pagination::Keyset { before, after } => {
+            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
+            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            (None, bef, aft, None)
+        }
+        Pagination::Page { page } => (Some(*page as u32), None, None, None),
+        Pagination::Cursor(_) => {
+            if let Some(last_token_account) = token_accounts.last() {
+                let cursor_str = bs58::encode(&last_token_account.pubkey.clone()).into_string();
+                (None, None, None, Some(cursor_str))
+            } else {
+                (None, None, None, None)
+            }
+        }
+    };
+
+    let (items, errors) = token_account_list_to_rpc(token_accounts, options);
+    TokenAccountList {
+        total,
+        limit: limit as u32,
+        page,
+        before,
+        after,
+        token_accounts: items,
+        cursor,
+        errors,
+    }
 }

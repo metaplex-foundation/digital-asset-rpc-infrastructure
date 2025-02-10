@@ -24,9 +24,11 @@ use {
     heck::ToSnakeCase,
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
+        prelude::*,
         query::{JsonValue, QueryFilter, QueryTrait},
         sea_query::query::OnConflict,
-        ConnectionTrait, DbBackend, TransactionTrait,
+        sea_query::Expr,
+        ConnectionTrait, CursorTrait, DbBackend, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -76,8 +78,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     // Note: This indexes both Core Assets and Core Collections.
     let asset = match account_data {
-        MplCoreAccountData::Asset(indexable_asset) => indexable_asset,
-        MplCoreAccountData::Collection(indexable_asset) => indexable_asset,
+        MplCoreAccountData::Asset(indexable_asset)
+        | MplCoreAccountData::Collection(indexable_asset) => indexable_asset,
         _ => return Err(ProgramTransformerError::NotImplemented),
     };
 
@@ -132,6 +134,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     txn.execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+    if matches!(account_data, MplCoreAccountData::Collection(_)) {
+        update_group_asset_authorities(conn, id_vec.clone(), update_authority.clone(), slot_i)
+            .await?;
+    }
 
     //-----------------------
     // asset_data table
@@ -241,7 +248,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
 
     // Improve JSON output.
-    remove_plugins_nesting(&mut plugins_json);
+    remove_plugins_nesting(&mut plugins_json, "data");
     transform_plugins_authority(&mut plugins_json);
     convert_keys_to_snake_case(&mut plugins_json);
 
@@ -259,6 +266,30 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         None
     };
 
+    // Serialize known external plugins into JSON.
+    let mut external_plugins_json = serde_json::to_value(&asset.external_plugins)
+        .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+    // Improve JSON output.
+    remove_plugins_nesting(&mut external_plugins_json, "adapter_config");
+    transform_plugins_authority(&mut external_plugins_json);
+    convert_keys_to_snake_case(&mut external_plugins_json);
+
+    // Serialize any unknown external plugins into JSON.
+    let unknown_external_plugins_json = if !asset.unknown_external_plugins.is_empty() {
+        let mut unknown_external_plugins_json =
+            serde_json::to_value(&asset.unknown_external_plugins)
+                .map_err(|e| ProgramTransformerError::DeserializationError(e.to_string()))?;
+
+        // Improve JSON output.
+        transform_plugins_authority(&mut unknown_external_plugins_json);
+        convert_keys_to_snake_case(&mut unknown_external_plugins_json);
+
+        Some(unknown_external_plugins_json)
+    } else {
+        None
+    };
+
     upsert_assets_metadata_account_columns(
         AssetMetadataAccountColumns {
             mint: id_vec.clone(),
@@ -267,25 +298,27 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             royalty_amount: royalty_amount as i32,
             asset_data: Some(id_vec.clone()),
             slot_updated_metadata_account: slot,
-            plugins: Some(plugins_json),
-            unknown_plugins: unknown_plugins_json,
+            mpl_core_plugins: Some(plugins_json),
+            mpl_core_unknown_plugins: unknown_plugins_json,
             mpl_core_collection_num_minted: asset.num_minted.map(|val| val as i32),
             mpl_core_collection_current_size: asset.current_size.map(|val| val as i32),
             mpl_core_plugins_json_version: Some(1),
+            mpl_core_external_plugins: Some(external_plugins_json),
+            mpl_core_unknown_external_plugins: unknown_external_plugins_json,
         },
         &txn,
     )
     .await?;
 
-    let supply = 1;
+    let supply = Decimal::from(1);
 
     // Note: these need to be separate for Token Metadata but here could be one upsert.
     upsert_assets_mint_account_columns(
         AssetMintAccountColumns {
             mint: id_vec.clone(),
-            supply_mint: None,
             supply,
-            slot_updated_mint_account: slot,
+            slot_updated_mint_account: slot as i64,
+            extensions: None,
         },
         &txn,
     )
@@ -361,7 +394,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             )
             .build(DbBackend::Postgres);
         query.sql = format!(
-            "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
+            "{} WHERE excluded.slot_updated >= asset_grouping.slot_updated",
             query.sql
         );
         txn.execute(query)
@@ -431,33 +464,47 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri, slot_i)))
 }
 
-// Modify the JSON structure to remove the `Plugin`` name and just display its data.
+// Modify the JSON structure to remove the `Plugin` name and just display its data.
 // For example, this will transform `FreezeDelegate` JSON from:
 // "data":{"freeze_delegate":{"frozen":false}}}
 // to:
 // "data":{"frozen":false}
-fn remove_plugins_nesting(plugins_json: &mut Value) {
-    if let Some(plugins) = plugins_json.as_object_mut() {
-        for (_, plugin) in plugins.iter_mut() {
-            if let Some(Value::Object(data)) = plugin.get_mut("data") {
-                // Extract the plugin data and remove it.
-                if let Some((_, inner_plugin_data)) = data.iter().next() {
-                    let inner_plugin_data_clone = inner_plugin_data.clone();
-                    // Clear the "data" object.
-                    data.clear();
-                    // Move the plugin data fields to the top level of "data".
-                    if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
-                        for (field_name, field_value) in inner_plugin_data.iter() {
-                            data.insert(field_name.clone(), field_value.clone());
-                        }
-                    }
+fn remove_plugins_nesting(plugins_json: &mut Value, nested_key: &str) {
+    match plugins_json {
+        Value::Object(plugins) => {
+            // Handle the case where plugins_json is an object.
+            for (_, plugin) in plugins.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        Value::Array(plugins_array) => {
+            // Handle the case where plugins_json is an array.
+            for plugin in plugins_array.iter_mut() {
+                remove_nesting_from_plugin(plugin, nested_key);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn remove_nesting_from_plugin(plugin: &mut Value, nested_key: &str) {
+    if let Some(Value::Object(nested_key)) = plugin.get_mut(nested_key) {
+        // Extract the plugin data and remove it.
+        if let Some((_, inner_plugin_data)) = nested_key.iter().next() {
+            let inner_plugin_data_clone = inner_plugin_data.clone();
+            // Clear the `nested_key` object.
+            nested_key.clear();
+            // Move the plugin data fields to the top level of `nested_key`.
+            if let Value::Object(inner_plugin_data) = inner_plugin_data_clone {
+                for (field_name, field_value) in inner_plugin_data.iter() {
+                    nested_key.insert(field_name.clone(), field_value.clone());
                 }
             }
         }
     }
 }
 
-// Modify the JSON for `PluginAuthority`` to have consistent output no matter the enum type.
+// Modify the JSON for `PluginAuthority` to have consistent output no matter the enum type.
 // For example, from:
 // "authority":{"Address":{"address":"D7whDWAP5gN9x4Ff6T9MyQEkotyzmNWtfYhCEWjbUDBM"}}
 // to:
@@ -473,6 +520,8 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
             for (_, plugin) in plugins.iter_mut() {
                 if let Some(plugin_obj) = plugin.as_object_mut() {
                     transform_authority_in_object(plugin_obj);
+                    transform_data_authority_in_object(plugin_obj);
+                    transform_linked_app_data_parent_key_in_object(plugin_obj);
                 }
             }
         }
@@ -481,6 +530,8 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
             for plugin in plugins_array.iter_mut() {
                 if let Some(plugin_obj) = plugin.as_object_mut() {
                     transform_authority_in_object(plugin_obj);
+                    transform_data_authority_in_object(plugin_obj);
+                    transform_linked_app_data_parent_key_in_object(plugin_obj);
                 }
             }
         }
@@ -488,26 +539,58 @@ fn transform_plugins_authority(plugins_json: &mut Value) {
     }
 }
 
-// Helper for `transform_plugins_authority` logic.
 fn transform_authority_in_object(plugin: &mut Map<String, Value>) {
-    match plugin.get_mut("authority") {
-        Some(Value::Object(authority)) => {
-            if let Some(authority_type) = authority.keys().next().cloned() {
+    if let Some(authority) = plugin.get_mut("authority") {
+        transform_authority(authority);
+    }
+}
+
+fn transform_data_authority_in_object(plugin: &mut Map<String, Value>) {
+    if let Some(adapter_config) = plugin.get_mut("adapter_config") {
+        if let Some(data_authority) = adapter_config
+            .as_object_mut()
+            .and_then(|o| o.get_mut("data_authority"))
+        {
+            transform_authority(data_authority);
+        }
+    }
+}
+
+fn transform_linked_app_data_parent_key_in_object(plugin: &mut Map<String, Value>) {
+    if let Some(adapter_config) = plugin.get_mut("adapter_config") {
+        if let Some(parent_key) = adapter_config
+            .as_object_mut()
+            .and_then(|o| o.get_mut("parent_key"))
+        {
+            if let Some(linked_app_data) = parent_key
+                .as_object_mut()
+                .and_then(|o| o.get_mut("LinkedAppData"))
+            {
+                transform_authority(linked_app_data);
+            }
+        }
+    }
+}
+
+fn transform_authority(authority: &mut Value) {
+    match authority {
+        Value::Object(authority_obj) => {
+            if let Some(authority_type) = authority_obj.keys().next().cloned() {
                 // Replace the nested JSON objects with desired format.
-                if let Some(Value::Object(pubkey_obj)) = authority.remove(&authority_type) {
+                if let Some(Value::Object(pubkey_obj)) = authority_obj.remove(&authority_type) {
                     if let Some(address_value) = pubkey_obj.get("address") {
-                        authority.insert("type".to_string(), Value::from(authority_type));
-                        authority.insert("address".to_string(), address_value.clone());
+                        authority_obj.insert("type".to_string(), Value::from(authority_type));
+                        authority_obj.insert("address".to_string(), address_value.clone());
                     }
                 }
             }
         }
-        Some(Value::String(authority_type)) => {
+        Value::String(authority_type) => {
             // Handle the case where authority is a string.
             let mut authority_obj = Map::new();
             authority_obj.insert("type".to_string(), Value::String(authority_type.clone()));
             authority_obj.insert("address".to_string(), Value::Null);
-            plugin.insert("authority".to_string(), Value::Object(authority_obj));
+            *authority = Value::Object(authority_obj);
         }
         _ => {}
     }
@@ -535,4 +618,62 @@ fn convert_keys_to_snake_case(plugins_json: &mut Value) {
         }
         _ => {}
     }
+}
+
+/// Updates the `asset_authority` for all assets that are part of a collection in a batch.
+/// This function performs a cursor-based paginated read and batch update.
+async fn update_group_asset_authorities<T: ConnectionTrait + TransactionTrait>(
+    conn: &T,
+    group_value: Vec<u8>,
+    authority: Vec<u8>,
+    slot: i64,
+) -> ProgramTransformerResult<()> {
+    let mut after = None;
+
+    let group_key = "collection".to_string();
+    let group_value = bs58::encode(group_value).into_string();
+
+    let mut query = asset_grouping::Entity::find()
+        .filter(asset_grouping::Column::GroupKey.eq(group_key))
+        .filter(asset_grouping::Column::GroupValue.eq(group_value))
+        .cursor_by(asset_grouping::Column::AssetId);
+    let mut query = query.first(1_000);
+
+    loop {
+        if let Some(after) = after.clone() {
+            query = query.after(after);
+        }
+
+        let entries = query.all(conn).await?;
+
+        if entries.is_empty() {
+            break;
+        }
+
+        let asset_ids = entries
+            .clone()
+            .into_iter()
+            .map(|entry| entry.asset_id)
+            .collect::<Vec<_>>();
+
+        asset_authority::Entity::update_many()
+            .col_expr(
+                asset_authority::Column::Authority,
+                Expr::value(authority.clone()),
+            )
+            .col_expr(asset_authority::Column::SlotUpdated, Expr::value(slot))
+            .filter(asset_authority::Column::AssetId.is_in(asset_ids))
+            .filter(asset_authority::Column::Authority.ne(authority.clone()))
+            .filter(Expr::cust_with_values(
+                "asset_authority.slot_updated < $1",
+                vec![slot],
+            ))
+            .exec(conn)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+        after = entries.last().map(|entry| entry.asset_id.clone());
+    }
+
+    Ok(())
 }

@@ -118,7 +118,7 @@ pub fn create_asset(
             owner_type: Set(owner_type.clone()),
             delegate: Set(delegate.clone()),
             frozen: Set(frozen),
-            supply: Set(supply),
+            supply: Set(supply.into()),
             supply_mint: Set(supply_mint.clone()),
             compressed: Set(compressed),
             compressible: Set(compressible),
@@ -137,7 +137,7 @@ pub fn create_asset(
             owner_type,
             delegate,
             frozen,
-            supply,
+            supply: supply.into(),
             supply_mint,
             compressed,
             compressible,
@@ -169,6 +169,9 @@ pub fn create_asset(
             mpl_core_collection_current_size: None,
             mpl_core_collection_num_minted: None,
             mpl_core_plugins_json_version: None,
+            mpl_core_external_plugins: None,
+            mpl_core_unknown_external_plugins: None,
+            mint_extensions: None,
         },
     )
 }
@@ -233,12 +236,12 @@ pub fn create_asset_grouping(
         asset_grouping::ActiveModel {
             asset_id: Set(asset_id.clone()),
             group_key: Set(String::from("collection")),
-            group_value: Set(Some(bs58::encode(collection).into_string())),
+            group_value: Set(Some(collection.to_string())),
             ..Default::default()
         },
         asset_grouping::Model {
             asset_id,
-            group_value: Some(bs58::encode(collection).into_string()),
+            group_value: Some(collection.to_string()),
             seq: Some(0),
             id: row_num,
             group_key: "collection".to_string(),

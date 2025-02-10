@@ -1,0 +1,158 @@
+---
+source: integration_tests/tests/integration_tests/token_type_test.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "total": 2,
+  "limit": 2,
+  "page": 1,
+  "items": [
+    {
+      "interface": "ProgrammableNFT",
+      "id": "8t77ShMViat27Sjphvi1FVPaGrhFcttPAkEnLCFp49Bo",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/1466.json",
+        "files": [],
+        "metadata": {
+          "name": "SILICON #1466",
+          "symbol": "SILI",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "A2QW89tFNDkkdvJv671tdknAyA21u6hvS7HTUyeMWnf3",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "HS1oygRKNBG1nMqjSmaBXSQqQ7apWr14gUU4pW3aDMCP"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "8X2e7Lf3wmA9RPHpPH73kmTqqHHyZE9BcED6Y6TWaZCx",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "5bTgyaCCRNCem3DZXxdRREyesduc6adqwks8rRWGXx8D",
+          "share": 100,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": true,
+        "delegate": "D98f1ebFe6kfZTcztLo1iPeKAwogbWHAgXzgSpdRDiu7",
+        "ownership_model": "single",
+        "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g"
+      },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": 252
+      },
+      "mutable": true,
+      "burnt": false
+    },
+    {
+      "interface": "ProgrammableNFT",
+      "id": "42AYryUGNmJMe9ycBXZekkYvdTehgbtECHs7SLu5JJTB",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/2835.json",
+        "files": [],
+        "metadata": {
+          "name": "SILICON #2835",
+          "symbol": "SILI",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "A2QW89tFNDkkdvJv671tdknAyA21u6hvS7HTUyeMWnf3",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "HS1oygRKNBG1nMqjSmaBXSQqQ7apWr14gUU4pW3aDMCP"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "8X2e7Lf3wmA9RPHpPH73kmTqqHHyZE9BcED6Y6TWaZCx",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "5bTgyaCCRNCem3DZXxdRREyesduc6adqwks8rRWGXx8D",
+          "share": 100,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": true,
+        "delegate": "D98f1ebFe6kfZTcztLo1iPeKAwogbWHAgXzgSpdRDiu7",
+        "ownership_model": "single",
+        "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g"
+      },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": 255
+      },
+      "mutable": true,
+      "burnt": false
+    }
+  ]
+}

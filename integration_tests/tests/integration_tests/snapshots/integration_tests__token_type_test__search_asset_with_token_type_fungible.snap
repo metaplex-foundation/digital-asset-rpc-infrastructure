@@ -1,0 +1,64 @@
+---
+source: integration_tests/tests/integration_tests/token_type_test.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "total": 1,
+  "limit": 1,
+  "page": 1,
+  "items": [
+    {
+      "interface": "FungibleToken",
+      "id": "7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://gateway.irys.xyz/P8X64pGutyX5eyTpQmqZr3H4_Lqhm0IYxr5SyzFFNek",
+        "files": [],
+        "metadata": {
+          "name": "Silly Dragon",
+          "symbol": "SILLY",
+          "token_standard": "Fungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "38qZKCqcphT5wDrVNJGHYcuenjEtEFPitvrqvMFQkPu7",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "token",
+        "owner": ""
+      },
+      "mutable": true,
+      "burnt": false
+    }
+  ]
+}

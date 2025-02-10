@@ -1,0 +1,24 @@
+---
+source: integration_tests/tests/integration_tests/token_accounts_tests.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "total": 1,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "jKLTJu7nE1zLmC2J2xjVVBm4G7vJcKGCGQX36Jrsba2",
+      "mint": "wKocBVvHQoVaiwWoCs9JYSVye4YZRrv5Cucf7fDqnz1",
+      "amount": 1000000000000,
+      "owner": "CeviT1DTQLuicEB7yLeFkkAGmam5GnJssbGb7CML4Tgx",
+      "frozen": false,
+      "delegate": null,
+      "delegated_amount": 0,
+      "close_authority": null,
+      "extensions": null
+    }
+  ],
+  "cursor": null,
+  "errors": []
+}

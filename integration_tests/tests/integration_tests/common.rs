@@ -162,7 +162,7 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
 }
 
 async fn load_ingest_program_transformer(pool: sqlx::Pool<sqlx::Postgres>) -> ProgramTransformer {
-    ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()), false)
+    ProgramTransformer::new(pool, Box::new(|_info| ready(Ok(())).boxed()))
 }
 
 pub async fn get_transaction(

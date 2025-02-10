@@ -21,22 +21,22 @@ pub struct AssetProof {
     pub tree_id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema, Default)]
 pub enum Interface {
     #[serde(rename = "V1_NFT")]
     V1NFT,
     #[serde(rename = "V1_PRINT")]
     V1PRINT,
-    #[serde(rename = "LEGACY_NFT")]
-    // TODO: change on version bump
-    #[allow(non_camel_case_types)]
-    LEGACY_NFT,
     #[serde(rename = "V2_NFT")]
     Nft,
+    // TODO: change on version bump
+    #[serde(rename = "LEGACY_NFT")]
+    #[allow(non_camel_case_types)]
+    LEGACY_NFT,
     #[serde(rename = "FungibleAsset")]
     FungibleAsset,
-    #[serde(rename = "Custom")]
-    Custom,
+    #[serde(rename = "FungibleToken")]
+    FungibleToken,
     #[serde(rename = "Identity")]
     Identity,
     #[serde(rename = "Executable")]
@@ -47,19 +47,28 @@ pub enum Interface {
     MplCoreAsset,
     #[serde(rename = "MplCoreCollection")]
     MplCoreCollection,
+    #[default]
+    #[serde(rename = "Custom")]
+    Custom,
 }
 
-impl From<(&SpecificationVersions, &SpecificationAssetClass)> for Interface {
-    fn from(i: (&SpecificationVersions, &SpecificationAssetClass)) -> Self {
+impl From<(Option<&SpecificationVersions>, &SpecificationAssetClass)> for Interface {
+    fn from(i: (Option<&SpecificationVersions>, &SpecificationAssetClass)) -> Self {
         match i {
-            (SpecificationVersions::V1, SpecificationAssetClass::Nft) => Interface::V1NFT,
-            (SpecificationVersions::V1, SpecificationAssetClass::PrintableNft) => Interface::V1NFT,
-            (SpecificationVersions::V0, SpecificationAssetClass::Nft) => Interface::LEGACY_NFT,
-            (SpecificationVersions::V1, SpecificationAssetClass::ProgrammableNft) => {
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::Nft) => Interface::V1NFT,
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::PrintableNft) => {
+                Interface::V1NFT
+            }
+            (Some(SpecificationVersions::V0), SpecificationAssetClass::Nft) => {
+                Interface::LEGACY_NFT
+            }
+            (Some(SpecificationVersions::V1), SpecificationAssetClass::ProgrammableNft) => {
                 Interface::ProgrammableNFT
             }
             (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
             (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
+            (_, SpecificationAssetClass::FungibleAsset) => Interface::FungibleAsset,
+            (_, SpecificationAssetClass::FungibleToken) => Interface::FungibleToken,
             _ => Interface::Custom,
         }
     }
@@ -86,6 +95,10 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
             Interface::MplCoreCollection => (
                 SpecificationVersions::V1,
                 SpecificationAssetClass::MplCoreCollection,
+            ),
+            Interface::FungibleToken => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::FungibleToken,
             ),
             _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
         }
@@ -219,6 +232,8 @@ pub struct Group {
     pub group_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_metadata: Option<MetadataMap>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
@@ -367,6 +382,29 @@ pub struct MplCoreInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInscriptionInfo {
+    pub authority: String,
+    pub root: String,
+    pub inscription_data: String,
+    pub content: String,
+    pub encoding: String,
+    pub order: u64,
+    pub size: u32,
+    pub validation_hash: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TokenInfo {
+    pub supply: u64,
+    pub decimals: u8,
+    pub token_program: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_authority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freeze_authority: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Asset {
     pub interface: Interface,
     pub id: String,
@@ -382,16 +420,42 @@ pub struct Asset {
     pub royalty: Option<Royalty>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
-    pub ownership: Ownership,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ownership: Option<Ownership>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub supply: Option<Supply>,
     pub mutable: bool,
     pub burnt: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mint_extensions: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inscription: Option<TokenInscriptionInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_info: Option<TokenInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mpl_core_info: Option<MplCoreInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_plugins: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unknown_external_plugins: Option<Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default)]
+pub struct TokenAccount {
+    pub address: String,
+    pub mint: String,
+    pub amount: u64,
+    pub owner: String,
+    pub frozen: bool,
+    pub delegate: Option<String>,
+    pub delegated_amount: u64,
+    pub close_authority: Option<String>,
+    pub extensions: Option<Value>,
 }

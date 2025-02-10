@@ -12,6 +12,7 @@ use {
     mpl_bubblegum::types::{Collection, Creator},
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
+        prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
@@ -26,12 +27,11 @@ pub async fn save_changelog_event<'c, T>(
     txn_id: &str,
     txn: &T,
     instruction: &str,
-    cl_audits: bool,
 ) -> ProgramTransformerResult<u64>
 where
     T: ConnectionTrait + TransactionTrait,
 {
-    insert_change_log(change_log_event, slot, txn_id, txn, instruction, cl_audits).await?;
+    insert_change_log(change_log_event, slot, txn_id, txn, instruction).await?;
     Ok(change_log_event.seq)
 }
 
@@ -45,7 +45,6 @@ pub async fn insert_change_log<'c, T>(
     txn_id: &str,
     txn: &T,
     instruction: &str,
-    cl_audits: bool,
 ) -> ProgramTransformerResult<()>
 where
     T: ConnectionTrait + TransactionTrait,
@@ -99,39 +98,37 @@ where
             .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
     }
 
-    // Insert the audit item after the insert into cl_items have been completed
-    if cl_audits {
-        let tx_id_bytes = bs58::decode(txn_id)
-            .into_vec()
-            .map_err(|_e| ProgramTransformerError::ChangeLogEventMalformed)?;
-        let ix = Instruction::from(instruction);
-        if ix == Instruction::Unknown {
-            error!("Unknown instruction: {}", instruction);
-        }
-        let audit_item_v2 = cl_audits_v2::ActiveModel {
-            tree: ActiveValue::Set(tree_id.to_vec()),
-            leaf_idx: ActiveValue::Set(change_log_event.index as i64),
-            seq: ActiveValue::Set(change_log_event.seq as i64),
-            tx: ActiveValue::Set(tx_id_bytes),
-            instruction: ActiveValue::Set(ix),
-            ..Default::default()
-        };
-        let query = cl_audits_v2::Entity::insert(audit_item_v2)
-            .on_conflict(
-                OnConflict::columns([
-                    cl_audits_v2::Column::Tree,
-                    cl_audits_v2::Column::LeafIdx,
-                    cl_audits_v2::Column::Seq,
-                ])
-                .do_nothing()
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        match txn.execute(query).await {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Error while inserting into cl_audits_v2: {:?}", e);
-            }
+    let tx_id_bytes = bs58::decode(txn_id)
+        .into_vec()
+        .map_err(|_e| ProgramTransformerError::ChangeLogEventMalformed)?;
+    let ix = Instruction::from(instruction);
+    if ix == Instruction::Unknown {
+        error!("Unknown instruction: {}", instruction);
+    }
+    let audit_item_v2 = cl_audits_v2::ActiveModel {
+        tree: ActiveValue::Set(tree_id.to_vec()),
+        leaf_idx: ActiveValue::Set(change_log_event.index as i64),
+        seq: ActiveValue::Set(change_log_event.seq as i64),
+        tx: ActiveValue::Set(tx_id_bytes),
+        instruction: ActiveValue::Set(ix),
+        ..Default::default()
+    };
+
+    let query = cl_audits_v2::Entity::insert(audit_item_v2)
+        .on_conflict(
+            OnConflict::columns([
+                cl_audits_v2::Column::Tree,
+                cl_audits_v2::Column::LeafIdx,
+                cl_audits_v2::Column::Seq,
+            ])
+            .do_nothing()
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
+    match txn.execute(query).await {
+        Ok(_) => {}
+        Err(e) => {
+            error!("Error while inserting into cl_audits_v2: {:?}", e);
         }
     }
 
@@ -274,7 +271,7 @@ pub async fn upsert_asset_with_compression_info<T>(
     id: Vec<u8>,
     compressed: bool,
     compressible: bool,
-    supply: i64,
+    supply: u64,
     supply_mint: Option<Vec<u8>>,
 ) -> ProgramTransformerResult<()>
 where
@@ -284,7 +281,7 @@ where
         id: ActiveValue::Set(id),
         compressed: ActiveValue::Set(compressed),
         compressible: ActiveValue::Set(compressible),
-        supply: ActiveValue::Set(supply),
+        supply: ActiveValue::Set(Decimal::from(supply)),
         supply_mint: ActiveValue::Set(supply_mint),
         ..Default::default()
     };

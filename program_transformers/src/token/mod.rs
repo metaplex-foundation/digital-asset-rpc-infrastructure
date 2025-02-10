@@ -5,15 +5,16 @@ use {
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
         error::ProgramTransformerResult,
-        AccountInfo, DownloadMetadataNotifier,
+        AccountInfo,
     },
     blockbuster::programs::token_account::TokenProgramAccount,
-    digital_asset_types::dao::{asset, sea_orm_active_enums::OwnerType, token_accounts, tokens},
+    digital_asset_types::dao::{
+        token_accounts,
+        tokens::{self, IsNonFungible},
+    },
     sea_orm::{
-        entity::{ActiveValue, ColumnTrait},
-        query::{QueryFilter, QueryTrait},
-        sea_query::query::OnConflict,
-        ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
+        entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
+        DatabaseConnection, DbBackend, EntityTrait, TransactionTrait,
     },
     solana_sdk::program_option::COption,
     spl_token::state::AccountState,
@@ -23,10 +24,10 @@ pub async fn handle_token_program_account<'a, 'b>(
     account_info: &AccountInfo,
     parsing_result: &'a TokenProgramAccount,
     db: &'b DatabaseConnection,
-    _download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
+    let slot = account_info.slot as i64;
     match &parsing_result {
         TokenProgramAccount::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
@@ -44,9 +45,10 @@ pub async fn handle_token_program_account<'a, 'b>(
                 frozen: ActiveValue::Set(frozen),
                 delegated_amount: ActiveValue::Set(ta.delegated_amount as i64),
                 token_program: ActiveValue::Set(account_owner.clone()),
-                slot_updated: ActiveValue::Set(account_info.slot as i64),
+                slot_updated: ActiveValue::Set(slot),
                 amount: ActiveValue::Set(ta.amount as i64),
                 close_authority: ActiveValue::Set(None),
+                extensions: ActiveValue::Set(None),
             };
 
             let mut query = token_accounts::Entity::insert(model)
@@ -71,30 +73,29 @@ pub async fn handle_token_program_account<'a, 'b>(
                 query.sql
             );
             db.execute(query).await?;
-            let txn = db.begin().await?;
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(mint.clone())
-                .filter(asset::Column::OwnerType.eq("single"))
-                .one(&txn)
+
+            let token = tokens::Entity::find_by_id(mint.clone()).one(db).await?;
+
+            let is_non_fungible = token.map(|t| t.is_non_fungible()).unwrap_or(false);
+
+            if is_non_fungible {
+                let txn = db.begin().await?;
+
+                upsert_assets_token_account_columns(
+                    AssetTokenAccountColumns {
+                        mint: mint.clone(),
+                        owner: Some(owner.clone()),
+                        frozen,
+                        delegate,
+                        slot_updated_token_account: Some(slot),
+                    },
+                    &txn,
+                )
                 .await?;
-            if let Some(_asset) = asset_update {
-                // will only update owner if token account balance is non-zero
-                // since the asset is marked as single then the token account balance can only be 1. Greater implies a fungible token in which case no si
-                // TODO: this does not guarantee in case when wallet receives an amount of 1 for a token but its supply is more. is unlikely since mints often have a decimal
-                if ta.amount == 1 {
-                    upsert_assets_token_account_columns(
-                        AssetTokenAccountColumns {
-                            mint: mint.clone(),
-                            owner: Some(owner.clone()),
-                            frozen,
-                            delegate,
-                            slot_updated_token_account: Some(account_info.slot as i64),
-                        },
-                        &txn,
-                    )
-                    .await?;
-                }
+
+                txn.commit().await?;
             }
-            txn.commit().await?;
+
             Ok(())
         }
         TokenProgramAccount::Mint(m) => {
@@ -110,12 +111,13 @@ pub async fn handle_token_program_account<'a, 'b>(
                 mint: ActiveValue::Set(account_key.clone()),
                 token_program: ActiveValue::Set(account_owner),
                 slot_updated: ActiveValue::Set(account_info.slot as i64),
-                supply: ActiveValue::Set(m.supply as i64),
+                supply: ActiveValue::Set(m.supply.into()),
                 decimals: ActiveValue::Set(m.decimals as i32),
                 close_authority: ActiveValue::Set(None),
                 extension_data: ActiveValue::Set(None),
                 mint_authority: ActiveValue::Set(mint_auth),
                 freeze_authority: ActiveValue::Set(freeze_auth),
+                extensions: ActiveValue::Set(None),
             };
 
             let mut query = tokens::Entity::insert(model)
@@ -140,29 +142,20 @@ pub async fn handle_token_program_account<'a, 'b>(
             );
             db.execute(query).await?;
 
-            let asset_update: Option<asset::Model> = asset::Entity::find_by_id(account_key.clone())
-                .filter(
-                    asset::Column::OwnerType
-                        .eq(OwnerType::Single)
-                        .or(asset::Column::OwnerType
-                            .eq(OwnerType::Unknown)
-                            .and(asset::Column::Supply.eq(1))),
-                )
-                .one(db)
-                .await?;
-            if let Some(_asset) = asset_update {
-                upsert_assets_mint_account_columns(
-                    AssetMintAccountColumns {
-                        mint: account_key.clone(),
-                        supply_mint: Some(account_key),
-                        supply: m.supply,
-                        slot_updated_mint_account: account_info.slot,
-                    },
-                    db,
-                )
-                .await?;
-            }
+            let txn = db.begin().await?;
 
+            upsert_assets_mint_account_columns(
+                AssetMintAccountColumns {
+                    mint: account_key.clone(),
+                    supply: m.supply.into(),
+                    slot_updated_mint_account: slot,
+                    extensions: None,
+                },
+                &txn,
+            )
+            .await?;
+
+            txn.commit().await?;
             Ok(())
         }
     }

@@ -1,8 +1,10 @@
 use crate::error::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType};
+use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType, TokenTypeClass};
 use digital_asset_types::rpc::options::Options;
-use digital_asset_types::rpc::response::{AssetList, TransactionSignatureList};
+use digital_asset_types::rpc::response::{
+    AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
+};
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
 use open_rpc_derive::{document_rpc, rpc};
@@ -123,6 +125,7 @@ pub struct SearchAssets {
     pub cursor: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
+    pub token_type: Option<TokenTypeClass>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -147,6 +150,18 @@ pub struct GetGrouping {
     pub group_value: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetNftEditions {
+    pub mint_address: String,
+    pub page: Option<u32>,
+    pub limit: Option<u32>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetSignatures {
@@ -161,6 +176,21 @@ pub struct GetAssetSignatures {
     pub cursor: Option<String>,
     #[serde(default)]
     pub sort_direction: Option<AssetSortDirection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetTokenAccounts {
+    pub owner_address: Option<String>,
+    pub mint_address: Option<String>,
+    pub limit: Option<u32>,
+    pub page: Option<u32>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+    #[serde(default, alias = "displayOptions")]
+    pub options: Option<Options>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[document_rpc]
@@ -251,4 +281,20 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get a list of assets grouped by a specific authority"
     )]
     async fn get_grouping(&self, payload: GetGrouping) -> Result<GetGroupingResponse, DasApiError>;
+
+    #[rpc(
+        name = "getTokenAccounts",
+        params = "named",
+        summary = "Get a list of token accounts by owner or mint"
+    )]
+    async fn get_token_accounts(
+        &self,
+        payload: GetTokenAccounts,
+    ) -> Result<TokenAccountList, DasApiError>;
+    #[rpc(
+        name = "getNftEditions",
+        params = "named",
+        summary = "Get all printable editions for a master edition NFT mint"
+    )]
+    async fn get_nft_editions(&self, payload: GetNftEditions) -> Result<NftEditions, DasApiError>;
 }

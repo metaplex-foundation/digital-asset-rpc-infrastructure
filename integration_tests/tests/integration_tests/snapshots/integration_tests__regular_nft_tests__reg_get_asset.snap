@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
@@ -67,7 +68,11 @@ expression: response
     "ownership_model": "single",
     "owner": "A59E2tNJEqNN9TDnzgGnmLmnTsdRDoPocGx3n1w2dqZw"
   },
-  "supply": null,
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 255
+  },
   "mutable": true,
   "burnt": false
 }
