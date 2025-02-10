@@ -2,10 +2,10 @@ use {
     super::{BgTask, FromTaskData, IngesterError, IntoTaskData, TaskData},
     async_trait::async_trait,
     chrono::{NaiveDateTime, Utc},
-    das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::asset_data,
     futures::future::BoxFuture,
     log::debug,
+    program_transformers::{DownloadMetadataInfo, DownloadMetadataNotifier},
     reqwest::{Client, ClientBuilder},
     sea_orm::*,
     serde::{Deserialize, Serialize},
@@ -25,7 +25,7 @@ pub fn create_download_metadata_notifier(
             'static,
             Result<(), Box<dyn std::error::Error + Send + Sync>>,
         > {
-            let (asset_data_id, uri, _slot) = info.into_inner();
+            let (asset_data_id, uri) = info.into_inner();
             let task = DownloadMetadata {
                 asset_data_id,
                 uri,

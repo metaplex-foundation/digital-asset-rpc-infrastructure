@@ -14,7 +14,6 @@ cadence = { workspace = true }
 cadence-macros = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo"] }
-das-core = { workspace = true }
 digital_asset_types = { workspace = true, features = [
   "json_types",
   "sql_types",

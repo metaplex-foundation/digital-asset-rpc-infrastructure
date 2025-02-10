@@ -1,10 +1,8 @@
-FROM rust:1.79-bullseye AS builder
-RUN cargo install wasm-pack
+FROM rust:1.75-bullseye AS builder
 
 RUN mkdir /rust
 COPY ./Cargo.toml /rust
 COPY ./core /rust/core
-COPY ./backfill /rust/backfill
 COPY ./das_api /rust/das_api
 COPY ./digital_asset_types /rust/digital_asset_types
 COPY ./integration_tests /rust/integration_tests

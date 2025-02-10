@@ -1,6 +1,4 @@
-FROM das-api/builder AS files
-
-FROM rust:1.79-bullseye
+FROM rust:1.75-bullseye
 COPY init.sql /init.sql
 ENV INIT_FILE_PATH=/init.sql
 

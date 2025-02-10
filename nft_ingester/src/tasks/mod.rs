@@ -324,8 +324,8 @@ impl TaskManager {
         tokio::task::spawn(async move {
             while let Some(task) = receiver.recv().await {
                 if let Some(task_created_time) = task.created_at {
-                    let bus_time = Utc::now().timestamp_millis()
-                        - task_created_time.and_utc().timestamp_millis();
+                    let bus_time =
+                        Utc::now().timestamp_millis() - task_created_time.timestamp_millis();
                     metric! {
                         statsd_histogram!("ingester.bgtask.bus_time", bus_time as u64, "type" => task.name);
                     }
