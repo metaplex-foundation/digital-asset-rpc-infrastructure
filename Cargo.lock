@@ -3974,7 +3974,6 @@ dependencies = [
  "cadence-macros",
  "chrono",
  "clap 4.5.26",
- "das-core",
  "digital_asset_types",
  "figment",
  "flatbuffers",

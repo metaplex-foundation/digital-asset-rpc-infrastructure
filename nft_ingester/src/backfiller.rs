@@ -66,7 +66,6 @@ const BLOCK_CACHE_SIZE: usize = 300_000;
 const MAX_CACHE_COST: i64 = 32;
 const BLOCK_CACHE_DURATION: u64 = 172800;
 
-#[allow(dead_code)]
 struct SlotSeq(u64, u64);
 /// Main public entry point for backfiller task.
 pub fn setup_backfiller<T: Messenger>(
@@ -800,7 +799,11 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .build(DbBackend::Postgres);
 
         let start_seq_vec = MaxSeqItem::find_by_statement(query).all(&self.db).await?;
-        let start_seq = start_seq_vec.last().map(|row| row.seq).unwrap_or_default();
+        let start_seq = if let Some(seq) = start_seq_vec.last().map(|row| row.seq) {
+            seq
+        } else {
+            0
+        };
 
         // Get all rows for the tree that have not yet been backfilled.
         let mut query = backfill_items::Entity::find()
