@@ -1802,39 +1802,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "das-bubblegum"
-version = "0.7.2"
-dependencies = [
- "anchor-client",
- "anyhow",
- "blockbuster",
- "borsh 0.10.4",
- "bs58 0.4.0",
- "clap 4.5.28",
- "das-core",
- "digital_asset_types",
- "futures",
- "heck 0.5.0",
- "log",
- "mpl-bubblegum",
- "num-traits",
- "program_transformers",
- "sea-orm",
- "serde_json",
- "sha3 0.10.8",
- "solana-client",
- "solana-program 1.18.22",
- "solana-sdk",
- "solana-transaction-status",
- "spl-account-compression",
- "spl-token",
- "sqlx",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "das-core"
 version = "0.7.2"
 dependencies = [
@@ -1877,7 +1844,6 @@ dependencies = [
  "cargo-lock",
  "chrono",
  "clap 4.5.28",
- "das-bubblegum",
  "das-core",
  "digital_asset_types",
  "futures",
@@ -1918,35 +1884,30 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
+ "backon",
  "borsh 0.10.4",
- "bs58 0.4.0",
  "cadence",
  "cadence-macros",
  "clap 4.5.28",
- "das-bubblegum",
  "das-core",
  "digital_asset_types",
  "env_logger 0.10.2",
  "figment",
+ "flatbuffers",
  "futures",
  "indicatif",
  "log",
  "mpl-bubblegum",
- "mpl-token-metadata",
- "program_transformers",
- "reqwest",
+ "plerkle_messenger",
+ "plerkle_serialization",
  "sea-orm",
- "serde_json",
  "solana-account-decoder",
  "solana-client",
- "solana-program 1.18.22",
  "solana-sdk",
  "solana-transaction-status",
  "spl-account-compression",
- "sqlx",
  "thiserror 1.0.69",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -3987,6 +3948,7 @@ dependencies = [
  "cadence-macros",
  "chrono",
  "clap 4.5.28",
+ "das-core",
  "digital_asset_types",
  "figment",
  "flatbuffers",

@@ -9,7 +9,6 @@ publish = { workspace = true }
 anyhow = { workspace = true }
 async-stream = { workspace = true }
 atty = { workspace = true }
-das-bubblegum = { workspace = true }
 sqlx = { workspace = true, features = [
   "macros",
   "runtime-tokio-rustls",

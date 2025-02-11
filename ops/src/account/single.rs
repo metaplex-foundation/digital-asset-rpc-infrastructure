@@ -1,24 +1,23 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 
-use super::account_info;
+use super::account_details::AccountDetails;
 use clap::Parser;
-use das_core::{
-    connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
-    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
+use das_core::{MetricsArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs};
+use flatbuffers::FlatBufferBuilder;
+use plerkle_serialization::{
+    serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
 };
-use program_transformers::ProgramTransformer;
 use solana_sdk::pubkey::Pubkey;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
-    /// Database configuration
+    /// Redis configuration
     #[clap(flatten)]
-    pub database: PoolArgs,
+    pub queue: QueueArgs,
 
+    /// Metrics configuration
     #[clap(flatten)]
-    pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
+    pub metrics: MetricsArgs,
 
     /// Solana configuration
     #[clap(flatten)]
@@ -33,30 +32,30 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 }
 
 pub async fn run(config: Args) -> Result<()> {
-    let rpc = Rpc::from_config(&config.solana);
-    let pool = connect_db(&config.database).await?;
-    let metadata_json_download_db_pool = pool.clone();
+    let rpc = Rpc::from_config(config.solana);
+    let queue = QueuePool::try_from_config(config.queue).await?;
 
-    let (metadata_json_download_worker, metadata_json_download_sender) =
-        config.metadata_json_download_worker.start(
-            metadata_json_download_db_pool,
-            Arc::new(DownloadMetadataJsonRetryConfig::default()),
-        )?;
+    let AccountDetails {
+        account,
+        slot,
+        pubkey,
+    } = AccountDetails::fetch(&rpc, &config.account).await?;
+    let builder = FlatBufferBuilder::new();
+    let account_info = ReplicaAccountInfoV2 {
+        pubkey: &pubkey.to_bytes(),
+        lamports: account.lamports,
+        owner: &account.owner.to_bytes(),
+        executable: account.executable,
+        rent_epoch: account.rent_epoch,
+        data: &account.data,
+        write_version: 0,
+        txn_signature: None,
+    };
 
-    {
-        let download_metadata_notifier =
-            create_download_metadata_notifier(metadata_json_download_sender).await;
+    let fbb = serialize_account(builder, &account_info, slot, false);
+    let bytes = fbb.finished_data();
 
-        let program_transformer = ProgramTransformer::new(pool, download_metadata_notifier);
-
-        let account_info = account_info::fetch(&rpc, config.account).await?;
-
-        program_transformer
-            .handle_account_update(&account_info)
-            .await?;
-    }
-
-    metadata_json_download_worker.await?;
+    queue.push_account_backfill(bytes).await?;
 
     Ok(())
 }

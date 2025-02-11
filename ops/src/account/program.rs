@@ -1,20 +1,24 @@
-use super::account_info;
 use anyhow::Result;
+
+use super::account_details::AccountDetails;
 use clap::Parser;
-use das_core::{
-    connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
-    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
+use das_core::{MetricsArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs};
+use flatbuffers::FlatBufferBuilder;
+use plerkle_serialization::{
+    serializer::serialize_account, solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
 };
-use futures::{stream::FuturesUnordered, StreamExt};
-use log::error;
-use program_transformers::{AccountInfo, ProgramTransformer};
 use solana_sdk::pubkey::Pubkey;
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::task;
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
+    /// Redis configuration
+    #[clap(flatten)]
+    pub queue: QueueArgs,
+
+    /// Metrics configuration
+    #[clap(flatten)]
+    pub metrics: MetricsArgs,
+
     /// Solana configuration
     #[clap(flatten)]
     pub solana: SolanaRpcArgs,
@@ -26,22 +30,6 @@ pub struct Args {
     /// The public key of the program to backfill
     #[clap(value_parser = parse_pubkey)]
     pub program: Pubkey,
-
-    /// The maximum buffer size for accounts
-    #[arg(long, env, default_value = "10000")]
-    pub max_buffer_size: usize,
-
-    /// The number of worker threads
-    #[arg(long, env, default_value = "1000")]
-    pub account_worker_count: usize,
-
-    /// Metadata JSON download worker configuration
-    #[clap(flatten)]
-    pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
-
-    /// Database configuration
-    #[clap(flatten)]
-    pub database: PoolArgs,
 }
 
 fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
@@ -49,70 +37,45 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 }
 
 pub async fn run(config: Args) -> Result<()> {
-    let rpc = Rpc::from_config(&config.solana);
-    let pool = connect_db(&config.database).await?;
-    let num_workers = config.account_worker_count;
-
-    let metadata_json_download_db_pool = pool.clone();
-
-    let (metadata_json_download_worker, metadata_json_download_sender) =
-        config.metadata_json_download_worker.start(
-            metadata_json_download_db_pool,
-            Arc::new(DownloadMetadataJsonRetryConfig::default()),
-        )?;
-
-    let (tx, mut rx) = mpsc::channel::<Vec<AccountInfo>>(config.max_buffer_size);
-    let download_metadata_notifier =
-        create_download_metadata_notifier(metadata_json_download_sender.clone()).await;
-
-    let mut workers = FuturesUnordered::new();
-    let program_transformer = Arc::new(ProgramTransformer::new(pool, download_metadata_notifier));
-
-    let account_info_worker_manager = tokio::spawn(async move {
-        while let Some(account_infos) = rx.recv().await {
-            if workers.len() >= num_workers {
-                workers.next().await;
-            }
-
-            for account_info in account_infos {
-                let program_transformer = Arc::clone(&program_transformer);
-
-                let worker = task::spawn(async move {
-                    if let Err(e) = program_transformer
-                        .handle_account_update(&account_info)
-                        .await
-                    {
-                        error!("Failed to handle account update: {:?}", e);
-                    }
-                });
-
-                workers.push(worker);
-            }
-        }
-
-        while (workers.next().await).is_some() {}
-    });
+    let rpc = Rpc::from_config(config.solana);
+    let queue = QueuePool::try_from_config(config.queue).await?;
 
     let accounts = rpc.get_program_accounts(&config.program, None).await?;
+
     let accounts_chunks = accounts.chunks(config.batch_size);
 
     for batch in accounts_chunks {
         let results = futures::future::try_join_all(
             batch
                 .iter()
-                .cloned()
-                .map(|(pubkey, _account)| account_info::fetch(&rpc, pubkey)),
+                .map(|(pubkey, _account)| AccountDetails::fetch(&rpc, pubkey)),
         )
         .await?;
 
-        tx.send(results).await?;
+        for account_detail in results {
+            let AccountDetails {
+                account,
+                slot,
+                pubkey,
+            } = account_detail;
+            let builder = FlatBufferBuilder::new();
+            let account_info = ReplicaAccountInfoV2 {
+                pubkey: &pubkey.to_bytes(),
+                lamports: account.lamports,
+                owner: &account.owner.to_bytes(),
+                executable: account.executable,
+                rent_epoch: account.rent_epoch,
+                data: &account.data,
+                write_version: 0,
+                txn_signature: None,
+            };
+
+            let fbb = serialize_account(builder, &account_info, slot, false);
+            let bytes = fbb.finished_data();
+
+            queue.push_account_backfill(bytes).await?;
+        }
     }
-
-    account_info_worker_manager.await?;
-
-    drop(metadata_json_download_sender);
-
-    metadata_json_download_worker.await?;
 
     Ok(())
 }

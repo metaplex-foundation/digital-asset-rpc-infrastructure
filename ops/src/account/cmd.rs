@@ -10,9 +10,6 @@ pub enum Commands {
     /// The 'single' command is used to backfill the index against a single account.
     #[clap(name = "single")]
     Single(single::Args),
-    /// The 'nft' command is used to backfill the index against an NFT mint, token metadata, and token account.
-    #[clap(name = "nft")]
-    Nft(nft::Args),
 }
 
 #[derive(Debug, Clone, Args)]

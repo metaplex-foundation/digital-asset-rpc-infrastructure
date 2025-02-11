@@ -65,7 +65,7 @@ pub struct QueuePool {
 }
 
 impl QueuePool {
-    pub async fn try_from_config(config: &QueueArgs) -> anyhow::Result<Self, QueuePoolError> {
+    pub async fn try_from_config(config: QueueArgs) -> anyhow::Result<Self, QueuePoolError> {
         let size = usize::try_from(config.messenger_queue_connections)?;
         let (tx, rx) = mpsc::channel(size);
 

@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "bubblegum",
   "blockbuster",
   "core",
   "das_api",
@@ -49,7 +48,6 @@ cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-core = { path = "core" }
-das-bubblegum = { path = "bubblegum" }
 das_api = { path = "das_api" }
 derive_more = { version = "0.99.17" }
 digital_asset_types = { path = "digital_asset_types" }

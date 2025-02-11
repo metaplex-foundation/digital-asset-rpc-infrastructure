@@ -384,35 +384,3 @@ impl ConfigIngesterDownloadMetadata {
         1
     }
 }
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConfigMonitor {
-    pub postgres: ConfigPostgres,
-    pub rpc: String,
-    pub bubblegum: ConfigBubblegumVerify,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConfigBubblegumVerify {
-    #[serde(
-        default = "ConfigBubblegumVerify::default_report_interval",
-        deserialize_with = "deserialize_duration_str"
-    )]
-    pub _report_interval: Duration,
-    #[serde(default)]
-    pub only_trees: Option<Vec<String>>,
-    #[serde(
-        default = "ConfigBubblegumVerify::default_max_concurrency",
-        deserialize_with = "deserialize_usize_str"
-    )]
-    pub max_concurrency: usize,
-}
-
-impl ConfigBubblegumVerify {
-    pub const fn default_report_interval() -> Duration {
-        Duration::from_millis(5 * 60 * 1000)
-    }
-    pub const fn default_max_concurrency() -> usize {
-        20
-    }
-}

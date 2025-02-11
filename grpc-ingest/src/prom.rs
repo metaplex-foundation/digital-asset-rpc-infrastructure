@@ -1,6 +1,5 @@
 use {
     crate::{redis::RedisStreamMessageError, version::VERSION as VERSION_INFO},
-    das_bubblegum::ProofReport,
     das_core::MetadataJsonTaskError,
     hyper::{
         server::conn::AddrStream,
@@ -391,26 +390,4 @@ pub fn program_transformer_task_status_inc(
     PROGRAM_TRANSFORMER_TASK_STATUS_COUNT
         .with_label_values(&[stream, consumer, kind.to_str()])
         .inc()
-}
-
-pub fn update_tree_proof_report(report: &ProofReport) {
-    BUBBLEGUM_TREE_TOTAL_LEAVES
-        .with_label_values(&[&report.tree_pubkey.to_string()])
-        .set(report.total_leaves as i64);
-
-    BUBBLEGUM_TREE_INCORRECT_PROOFS
-        .with_label_values(&[&report.tree_pubkey.to_string()])
-        .set(report.incorrect_proofs as i64);
-
-    BUBBLEGUM_TREE_NOT_FOUND_PROOFS
-        .with_label_values(&[&report.tree_pubkey.to_string()])
-        .set(report.not_found_proofs as i64);
-
-    BUBBLEGUM_TREE_CORRECT_PROOFS
-        .with_label_values(&[&report.tree_pubkey.to_string()])
-        .set(report.correct_proofs as i64);
-
-    BUBBLEGUM_TREE_CORRUPT_PROOFS
-        .with_label_values(&[&report.tree_pubkey.to_string()])
-        .set(report.corrupt_proofs as i64);
 }
