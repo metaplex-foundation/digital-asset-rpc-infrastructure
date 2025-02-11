@@ -10,7 +10,7 @@ Command line arguments can also be set through environment variables.
 
 The `backfill` command initiates the crawling and backfilling process. It requires the Solana RPC URL, the database URL, and the messenger Redis URL.
 
-**warning**: The command expects full archive access to transactions. Before proceeding ensure your RPC is able to serve complete transaction history for Solana.
+**warning**: The command expects full archive access to transactions. Before proceeding ensure your RPC is able to serve complete transaction history for Solana.  
 
 ```mermaid
 flowchart
@@ -73,14 +73,14 @@ Options:
 
 The bubblegum command provides several metrics for monitoring performance and status:
 
-| Metric                | Description                              |
-| --------------------- | ---------------------------------------- |
-| transaction.failed    | Count of failed transaction              |
-| transaction.succeeded | Count of successfully queued transaction |
-| transaction.queued    | Time for a transaction to be queued      |
-| gap.failed            | Count of failed gap crawling             |
-| gap.succeeded         | Count of successfully crawled gaps       |
-| gap.queued            | Time for a gap to be queued              |
-| tree.succeeded        | Count of completed tree crawl            |
-| tree.crawled          | Time to crawl a tree                     |
-| job.completed         | Time to complete the job                 |
+Metric | Description
+--- | ---
+transaction.failed | Count of failed transaction
+transaction.succeeded | Count of successfully queued transaction
+transaction.queued | Time for a transaction to be queued
+gap.failed | Count of failed gap crawling
+gap.succeeded | Count of successfully crawled gaps
+gap.queued | Time for a gap to be queued
+tree.succeeded | Count of completed tree crawl
+tree.crawled | Time to crawl a tree
+job.completed | Time to complete the job
