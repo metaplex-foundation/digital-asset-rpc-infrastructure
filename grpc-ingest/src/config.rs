@@ -254,11 +254,22 @@ pub struct ConfigDownloadMetadataPublish {
         deserialize_with = "deserialize_usize_str"
     )]
     pub stream_maxlen: usize,
+    #[serde(
+        default = "ConfigDownloadMetadataPublish::default_pipeline_count",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub pipeline_count: usize,
+
+    #[serde(
+        default = "ConfigDownloadMetadataPublish::default_pipeline_max_idle",
+        deserialize_with = "deserialize_duration_str"
+    )]
+    pub pipeline_max_idle: Duration,
 }
 
 impl ConfigDownloadMetadataPublish {
     pub fn default_stream_name() -> String {
-        "METADATA_JSON".to_owned()
+        "METADATA_JSONS".to_owned()
     }
 
     pub const fn default_max_concurrency() -> usize {
@@ -267,6 +278,14 @@ impl ConfigDownloadMetadataPublish {
 
     pub const fn default_stream_maxlen() -> usize {
         10_000_000
+    }
+
+    pub const fn default_pipeline_count() -> usize {
+        10
+    }
+
+    pub const fn default_pipeline_max_idle() -> Duration {
+        Duration::from_millis(150)
     }
 }
 
