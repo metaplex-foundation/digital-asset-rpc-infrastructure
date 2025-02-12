@@ -1,4 +1,4 @@
-use super::{audit, backfiller};
+use super::{backfiller, replay, verify};
 use anyhow::Result;
 use clap::{Args, Subcommand};
 
@@ -8,9 +8,10 @@ pub enum Commands {
     /// It crawls through trees and backfills any missed tree transactions.
     #[clap(name = "backfill")]
     Backfill(backfiller::Args),
-    /// The `audit` commands checks `cl_audits_v2` for any failed transactions and logs them to stdout.
-    #[clap(name = "audit")]
-    Audit(audit::Args),
+    #[clap(name = "replay")]
+    Replay(replay::Args),
+    /// The 'verify' command is used to verify the integrity of the bubblegum index.
+    Verify(verify::Args),
 }
 
 #[derive(Debug, Clone, Args)]
@@ -18,14 +19,16 @@ pub struct BubblegumCommand {
     #[clap(subcommand)]
     pub action: Commands,
 }
-
 pub async fn subcommand(subcommand: BubblegumCommand) -> Result<()> {
     match subcommand.action {
         Commands::Backfill(args) => {
             backfiller::run(args).await?;
         }
-        Commands::Audit(args) => {
-            audit::run(args).await?;
+        Commands::Replay(args) => {
+            replay::run(args).await?;
+        }
+        Commands::Verify(args) => {
+            verify::run(args).await?;
         }
     }
 

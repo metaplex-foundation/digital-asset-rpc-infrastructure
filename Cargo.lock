@@ -18,7 +18,7 @@ version = "0.7.12"
 dependencies = [
  "anyhow",
  "bs58 0.4.0",
- "clap 4.5.28",
+ "clap 4.5.29",
  "env_logger 0.10.2",
  "figment",
  "flatbuffers",
@@ -944,7 +944,7 @@ name = "bgtask_creator"
 version = "0.7.12"
 dependencies = [
  "anyhow",
- "clap 4.5.28",
+ "clap 4.5.29",
  "digital_asset_types",
  "futures",
  "lazy_static",
@@ -1443,9 +1443,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.28"
+version = "4.5.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e77c3243bd94243c03672cb5154667347c457ca271254724f9f393aee1c05ff"
+checksum = "8acebd8ad879283633b343856142139f2da2317c96b05b4dd6181c61e2480184"
 dependencies = [
  "clap_builder",
  "clap_derive 4.5.28",
@@ -1453,9 +1453,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.27"
+version = "4.5.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b26884eb4b57140e4d2d93652abfa49498b938b3c9179f9fc487b0acc3edad7"
+checksum = "f6ba32cbda51c7e1dfd49acc1457ba1a7dec5b64fe360e828acb13ca8dc9c2f9"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1802,6 +1802,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "das-bubblegum"
+version = "0.7.2"
+dependencies = [
+ "anchor-client",
+ "anyhow",
+ "blockbuster",
+ "borsh 0.10.4",
+ "bs58 0.4.0",
+ "clap 4.5.29",
+ "das-core",
+ "digital_asset_types",
+ "futures",
+ "heck 0.5.0",
+ "log",
+ "mpl-bubblegum",
+ "num-traits",
+ "program_transformers",
+ "sea-orm",
+ "serde_json",
+ "sha3 0.10.8",
+ "solana-client",
+ "solana-program 1.18.22",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-account-compression",
+ "spl-token",
+ "sqlx",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "das-core"
 version = "0.7.2"
 dependencies = [
@@ -1811,7 +1844,7 @@ dependencies = [
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
- "clap 4.5.28",
+ "clap 4.5.29",
  "derive_more",
  "digital_asset_types",
  "figment",
@@ -1843,7 +1876,7 @@ dependencies = [
  "atty",
  "cargo-lock",
  "chrono",
- "clap 4.5.28",
+ "clap 4.5.29",
  "das-core",
  "digital_asset_types",
  "futures",
@@ -1884,30 +1917,35 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
- "backon",
  "borsh 0.10.4",
+ "bs58 0.4.0",
  "cadence",
  "cadence-macros",
- "clap 4.5.28",
+ "clap 4.5.29",
+ "das-bubblegum",
  "das-core",
  "digital_asset_types",
  "env_logger 0.10.2",
  "figment",
- "flatbuffers",
  "futures",
  "indicatif",
  "log",
  "mpl-bubblegum",
- "plerkle_messenger",
- "plerkle_serialization",
+ "mpl-token-metadata",
+ "program_transformers",
+ "reqwest",
  "sea-orm",
+ "serde_json",
  "solana-account-decoder",
  "solana-client",
+ "solana-program 1.18.22",
  "solana-sdk",
  "solana-transaction-status",
  "spl-account-compression",
+ "sqlx",
  "thiserror 1.0.69",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2347,7 +2385,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "borsh 0.10.4",
- "clap 4.5.28",
+ "clap 4.5.29",
  "mpl-bubblegum",
  "solana-account-decoder",
  "solana-client",
@@ -3804,9 +3842,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8402cab7aefae129c6977bb0ff1b8fd9a04eb5b51efc50a70bea51cda0c7924"
+checksum = "b3b1c9bd4fe1f0f8b387f6eb9eb3b4a1aa26185e5750efb9140301703f62cd1b"
 dependencies = [
  "adler2",
 ]
@@ -3947,7 +3985,7 @@ dependencies = [
  "cadence",
  "cadence-macros",
  "chrono",
- "clap 4.5.28",
+ "clap 4.5.29",
  "das-core",
  "digital_asset_types",
  "figment",
@@ -4786,7 +4824,7 @@ version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecf48c7ca261d60b74ab1a7b20da18bede46776b2e55535cb958eb595c5fa7b"
 dependencies = [
- "toml_edit 0.22.23",
+ "toml_edit 0.22.24",
 ]
 
 [[package]]
@@ -8678,7 +8716,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.23",
+ "toml_edit 0.22.24",
 ]
 
 [[package]]
@@ -8705,15 +8743,15 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.23"
+version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02a8b472d1a3d7c18e2d61a489aee3453fd9031c33e4f55bd533f4a7adca1bee"
+checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
  "indexmap 2.7.1",
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.7.1",
+ "winnow 0.7.2",
 ]
 
 [[package]]
@@ -8924,7 +8962,7 @@ dependencies = [
  "anchor-client",
  "anyhow",
  "bs58 0.4.0",
- "clap 4.5.28",
+ "clap 4.5.29",
  "digital_asset_types",
  "env_logger 0.10.2",
  "flatbuffers",
@@ -8988,7 +9026,7 @@ name = "txn_forwarder"
 version = "0.7.12"
 dependencies = [
  "anyhow",
- "clap 4.5.28",
+ "clap 4.5.29",
  "env_logger 0.10.2",
  "figment",
  "flatbuffers",
@@ -9644,9 +9682,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e376c75f4f43f44db463cf729e0d3acbf954d13e22c51e26e4c264b4ab545f"
+checksum = "59690dea168f2198d1a3b0cac23b8063efcd11012f10ae4698f284808c8ef603"
 dependencies = [
  "memchr",
 ]
@@ -9768,7 +9806,7 @@ dependencies = [
  "async-trait",
  "atty",
  "cargo-lock",
- "clap 4.5.28",
+ "clap 4.5.29",
  "futures",
  "git-version",
  "hyper",

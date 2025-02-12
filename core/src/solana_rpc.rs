@@ -3,7 +3,10 @@ use backon::ExponentialBuilder;
 use backon::Retryable;
 use clap::Parser;
 use solana_account_decoder::UiAccountEncoding;
+use solana_client::rpc_request::RpcRequest;
+use solana_client::rpc_response::Response as RpcResponse;
 use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
+use solana_client::rpc_response::RpcTokenAccountBalance;
 use solana_client::{
     client_error::ClientError,
     nonblocking::rpc_client::RpcClient,
@@ -31,8 +34,8 @@ pub struct SolanaRpcArgs {
 pub struct Rpc(Arc<RpcClient>);
 
 impl Rpc {
-    pub fn from_config(config: SolanaRpcArgs) -> Self {
-        Rpc(Arc::new(RpcClient::new(config.solana_rpc_url)))
+    pub fn from_config(config: &SolanaRpcArgs) -> Self {
+        Rpc(Arc::new(RpcClient::new(config.solana_rpc_url.clone())))
     }
 
     pub async fn get_transaction(
@@ -156,5 +159,27 @@ impl Rpc {
         .retry(&ExponentialBuilder::default())
         .await?
         .value)
+    }
+
+    pub async fn get_token_largest_account(&self, mint: Pubkey) -> anyhow::Result<Pubkey> {
+        Ok((|| async {
+            self.0
+                .send::<RpcResponse<Vec<RpcTokenAccountBalance>>>(
+                    RpcRequest::Custom {
+                        method: "getTokenLargestAccounts",
+                    },
+                    serde_json::json!([mint.to_string(),]),
+                )
+                .await
+        })
+        .retry(&ExponentialBuilder::default())
+        .await?
+        .value
+        .first()
+        .ok_or(anyhow::anyhow!(format!(
+            "no token accounts for mint {mint}: burned nft?"
+        )))?
+        .address
+        .parse::<Pubkey>()?)
     }
 }

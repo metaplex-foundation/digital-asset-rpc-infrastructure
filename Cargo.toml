@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "blockbuster",
+  "bubblegum",
   "core",
   "das_api",
   "digital_asset_types",
@@ -28,7 +29,6 @@ version = "0.7.2"
 
 [workspace.dependencies]
 
-backon = "0.4.1"
 heck = "0.5.0"
 anchor-client = "0.29.0"
 anchor-lang = "0.29.0"
@@ -36,8 +36,9 @@ anyhow = "1.0.75"
 async-std = "1.0.0"
 async-stream = "0.3.5"
 async-trait = "0.1.60"
-blockbuster = { path = "blockbuster" }
 atty = "0.2.14"
+backon = "0.4.1"
+blockbuster = { path = "blockbuster" }
 borsh = "~0.10.3"
 borsh-derive = "~0.10.3"
 bs58 = "0.4.0"
@@ -48,6 +49,7 @@ cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-core = { path = "core" }
+das-bubblegum = { path = "bubblegum" }
 das_api = { path = "das_api" }
 derive_more = { version = "0.99.17" }
 digital_asset_types = { path = "digital_asset_types" }
