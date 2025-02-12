@@ -460,11 +460,7 @@ where
         .map_err(|db_err| ProgramTransformerError::StorageWriteError(db_err.to_string()))?;
 
     if result.rows_affected() > 0 {
-        Ok(Some(DownloadMetadataInfo::new(
-            id,
-            metadata_url,
-            slot_updated,
-        )))
+        Ok(Some(DownloadMetadataInfo::new(id, metadata_url)))
     } else {
         Ok(None)
     }

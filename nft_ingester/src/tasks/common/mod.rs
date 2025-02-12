@@ -25,7 +25,7 @@ pub fn create_download_metadata_notifier(
             'static,
             Result<(), Box<dyn std::error::Error + Send + Sync>>,
         > {
-            let (asset_data_id, uri,_slot) = info.into_inner();
+            let (asset_data_id, uri) = info.into_inner();
             let task = DownloadMetadata {
                 asset_data_id,
                 uri,

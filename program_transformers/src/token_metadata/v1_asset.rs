@@ -97,11 +97,11 @@ pub async fn index_and_fetch_mint_data<T: ConnectionTrait + TransactionTrait>(
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
         Ok(Some(token))
     } else {
-        // warn!(
-        //     target: "Mint not found",
-        //     "Mint not found in 'tokens' table for mint {}",
-        //     bs58::encode(&mint_pubkey_vec).into_string()
-        // );
+        warn!(
+            target: "Mint not found",
+            "Mint not found in 'tokens' table for mint {}",
+            bs58::encode(&mint_pubkey_vec).into_string()
+        );
         Ok(None)
     }
 }
@@ -423,11 +423,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         return Ok(None);
     }
 
-    Ok(Some(DownloadMetadataInfo::new(
-        mint_pubkey_vec,
-        uri,
-        slot_i,
-    )))
+    Ok(Some(DownloadMetadataInfo::new(mint_pubkey_vec, uri)))
 }
 
 async fn upsert_asset_v1_account_attachments<T: ConnectionTrait + TransactionTrait>(
