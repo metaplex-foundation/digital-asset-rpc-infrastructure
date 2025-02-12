@@ -529,7 +529,7 @@ where
 pub async fn upsert_asset_creators<T>(
     txn: &T,
     id: Vec<u8>,
-    creators: &Vec<Creator>,
+    creators: &[Creator],
     slot_updated: i64,
     seq: i64,
 ) -> ProgramTransformerResult<()>
