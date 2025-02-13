@@ -1,4 +1,4 @@
-use super::model::table::Asset;
+use super::model::table::TokenAccounts;
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
@@ -12,7 +12,7 @@ impl MigrationTrait for Migration {
 
         conn.execute(Statement::from_string(
             DatabaseBackend::Postgres,
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS asset_owner_type_supply_burnt_idx ON asset (owner_type, supply, burnt);"
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS token_accounts_owner_idx ON token_accounts (owner);"
                 .to_string(),
         ))
         .await?;
@@ -24,8 +24,8 @@ impl MigrationTrait for Migration {
         manager
             .drop_index(
                 Index::drop()
-                    .name("asset_owner_type_supply_burnt_idx")
-                    .table(Asset::Table)
+                    .name("token_accounts_owner_idx")
+                    .table(TokenAccounts::Table)
                     .to_owned(),
             )
             .await?;
