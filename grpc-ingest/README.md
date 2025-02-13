@@ -26,7 +26,7 @@ Copy these files and modify them as needed to setup the project.
 
 ### Run grpc2redis service
 
-This service will listen to geyser gRPC account and transaction updates. It makes multiple subscriptions to the gRPC stream and filter the data based on the config. The data (vec of bytes) is pushed to a pipeline and then flushed to redis at regular intervals.
+This service will listen to geyser gRPC account and transaction updates from triton's Dragon's Mouth gRPC. It makes multiple subscriptions to the gRPC stream and filter the data based on the config. The data (vec of bytes) is pushed to a pipeline and then flushed to redis at regular intervals.
 
 > **Note:** Log level can be set to `info`, `debug`, `warn`, `error`
 
@@ -40,7 +40,7 @@ RUST_LOG=info cargo run --bin das-grpc-ingest  -- --config grpc-ingest/config-gr
 
 This service performs many concurrent tasks
 
-- Fetch account updates from redis and process them using using program_transformer
+- Fetch account updates from redis and process them using the `program_transformer` crate
 - Fetch transaction updates from redis and processe them
 - Fetch snapshots from redis and process them
 - download token metedata json and store them in postgres db

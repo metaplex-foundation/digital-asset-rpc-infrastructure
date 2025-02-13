@@ -434,7 +434,6 @@ where
                     asset_data::Column::ChainData,
                     asset_data::Column::MetadataUrl,
                     asset_data::Column::MetadataMutability,
-                    asset_data::Column::Metadata,
                     asset_data::Column::SlotUpdated,
                     asset_data::Column::Reindex,
                     asset_data::Column::RawName,

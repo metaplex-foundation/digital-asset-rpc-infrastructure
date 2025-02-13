@@ -17,14 +17,7 @@ This spec is what providers of this api must implement against.
 
 #### GRPC-INGEST [/grpc-ingest/README.md](/grpc-ingest/README.md)
 
-This repo also houses the GRPC-INGEST component. This is a reimplementation of nft-ingester
-This components separates grpc and ingester into two separate components. This is to allow for more flexibility in the future also increases the performance of the system.
-
-The two components are:
-
-- grpc2redis - This component listens to a gRPC stream (triton's Dragon's Mouth gRPC) for account and transaction updates and pushes them to a pipeline that flushes data to redis at regular intervals in real time.
-
-- ingester - This component listens to the redis stream and processes the data using program transformers. It also downloads token metadata json and stores them in a postgres db using sea-orm.
+The grc ingester allows the DAS index stack to receive solana change events from a Yellowstone GRPC endpoint. All the largest RPC providers offer this API so you are able to use a shared event stream instead of running a dedicated validator like you have to with the plerkle geyser plugin.
 
 ### Infrastructure and Deployment Examples
 
