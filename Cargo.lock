@@ -3170,11 +3170,12 @@ dependencies = [
 
 [[package]]
 name = "kaigan"
-version = "0.2.2"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a26f49495f94a283312e7ef45a243540ef20c9356bb01c8d84a61ac8ba5339b"
+checksum = "b6dd100976df9dd59d0c3fecf6f9ad3f161a087374d1b2a77ebb4ad8920f11bb"
 dependencies = [
  "borsh 0.10.3",
+ "serde",
 ]
 
 [[package]]
@@ -3519,12 +3520,13 @@ dependencies = [
 
 [[package]]
 name = "mpl-core"
-version = "0.8.0-beta.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1178d8a405352e2a2478abf5b62e2a4d6a91ed6f0470307ab6732614662dbf85"
+checksum = "dcef44f3d345b5b28c7584b1d86c3212ccc54f1611b27748bbbaabfe588ae83a"
 dependencies = [
  "base64 0.22.0",
  "borsh 0.10.3",
+ "kaigan",
  "modular-bitfield",
  "num-derive 0.3.3",
  "num-traits",
