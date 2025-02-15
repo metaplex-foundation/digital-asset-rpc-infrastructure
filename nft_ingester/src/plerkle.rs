@@ -17,7 +17,7 @@ pub enum PlerkleDeserializerError {
 
 pub struct PlerkleAccountInfo<'a>(pub plerkle_serialization::AccountInfo<'a>);
 
-impl<'a> TryFrom<PlerkleAccountInfo<'a>> for AccountInfo {
+impl TryFrom<PlerkleAccountInfo<'_>> for AccountInfo {
     type Error = PlerkleDeserializerError;
 
     fn try_from(value: PlerkleAccountInfo) -> Result<Self, Self::Error> {

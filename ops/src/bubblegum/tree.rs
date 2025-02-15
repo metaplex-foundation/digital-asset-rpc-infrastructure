@@ -171,6 +171,7 @@ impl TreeGapFill {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TreeHeaderResponse {
     pub max_depth: u32,
     pub max_buffer_size: u32,
@@ -196,6 +197,7 @@ impl TryFrom<ConcurrentMerkleTreeHeader> for TreeHeaderResponse {
 #[derive(Debug, Clone)]
 pub struct TreeResponse {
     pub pubkey: Pubkey,
+    #[allow(dead_code)]
     pub tree_header: TreeHeaderResponse,
     pub seq: u64,
 }
