@@ -1,0 +1,20 @@
+# this file is used to configure the monitor service for bubblegum merkle trees.
+
+# prometheus metrics are pushed to this endpoint
+prometheus: 0.0.0.0:8876
+
+# rpc endpoint
+rpc: http://127.0.0.1:8899
+
+# postgres configuration
+postgres:
+  # connection url
+  url: postgres://solana:solana@localhost/solana
+  # min connections
+  min_connections: 10
+  # maximum allowed connections
+  max_connections: 50
+
+# bubblegum merkle tree configuration
+bubblegum:
+  only_trees: null
