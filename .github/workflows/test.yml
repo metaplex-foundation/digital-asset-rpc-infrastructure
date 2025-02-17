@@ -8,7 +8,7 @@ on:
   pull_request:
   push:
     branches:
-      - "main"
+      - 'main'
   workflow_dispatch:
 
 env:
@@ -38,7 +38,7 @@ jobs:
         run: |
           cargo tree
           git checkout Cargo.lock
-          cargo tree --frozen
+          cargo tree
 
       # fmt
       - name: Check fmt
