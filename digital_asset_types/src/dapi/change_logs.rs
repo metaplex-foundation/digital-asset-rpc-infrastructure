@@ -200,22 +200,18 @@ fn build_asset_proof(
     tree_id: Vec<u8>,
     leaf_node_idx: i64,
     leaf_hash: Vec<u8>,
-    req_indexes: &Vec<i64>,
+    req_indexes: &[i64],
     required_nodes: &[SimpleChangeLog],
 ) -> AssetProof {
     let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
     for node in required_nodes.iter() {
         if node.level < final_node_list.len().try_into().unwrap() {
-            final_node_list[node.level as usize] = node.to_owned();
+            node.clone_into(&mut final_node_list[node.level as usize])
         }
     }
-    for (i, (n, nin)) in final_node_list
-        .iter_mut()
-        .zip(req_indexes.clone())
-        .enumerate()
-    {
+    for (i, (n, nin)) in final_node_list.iter_mut().zip(req_indexes).enumerate() {
         if *n == SimpleChangeLog::default() {
-            *n = make_empty_node(i as i64, nin, tree_id.clone());
+            *n = make_empty_node(i as i64, *nin, tree_id.clone());
         }
     }
     AssetProof {
