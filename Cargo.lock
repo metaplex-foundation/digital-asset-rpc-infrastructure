@@ -1786,6 +1786,7 @@ dependencies = [
  "solana-sdk",
  "solana-transaction-status",
  "spl-account-compression",
+ "sqlx",
  "thiserror",
  "tokio",
 ]

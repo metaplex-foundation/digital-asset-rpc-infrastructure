@@ -35,3 +35,4 @@ solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+sqlx = { workspace = true }
