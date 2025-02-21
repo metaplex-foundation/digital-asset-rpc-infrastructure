@@ -65,11 +65,15 @@ impl TreeWorkerArgs {
             {
                 let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(db_pool);
 
-                let mut gaps = TreeGapModel::find(&conn, tree.pubkey)
-                    .await?
-                    .into_iter()
-                    .map(TryInto::try_into)
-                    .collect::<Result<Vec<_>, _>>()?;
+                let mut gaps = TreeGapModel::find(
+                    &conn,
+                    tree.pubkey,
+                    gap_worker_args.overfetch_args.overfetch_lookup_limit,
+                )
+                .await?
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?;
 
                 let upper_known_seq = if force {
                     None
@@ -93,16 +97,16 @@ impl TreeWorkerArgs {
 
                 if let Some(upper_seq) = upper_known_seq {
                     let signature = Signature::try_from(upper_seq.tx.as_ref())?;
-                    gaps.push(TreeGapFill::new(tree.pubkey, None, Some(signature)));
+                    gaps.push(TreeGapFill::new(tree.pubkey, None, Some(signature), None));
                 // Reprocess the entire tree if force is true or if the tree has a seq of 0 to keep the current behavior
                 } else if force || tree.seq > 0 {
-                    gaps.push(TreeGapFill::new(tree.pubkey, None, None));
+                    gaps.push(TreeGapFill::new(tree.pubkey, None, None, None));
                 }
 
                 if let Some(lower_seq) = lower_known_seq.filter(|seq| seq.seq > 1) {
                     let signature = Signature::try_from(lower_seq.tx.as_ref())?;
 
-                    gaps.push(TreeGapFill::new(tree.pubkey, Some(signature), None));
+                    gaps.push(TreeGapFill::new(tree.pubkey, Some(signature), None, None));
                 }
 
                 for gap in gaps {

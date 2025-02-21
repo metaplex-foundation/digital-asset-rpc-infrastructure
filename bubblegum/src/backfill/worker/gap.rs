@@ -1,3 +1,7 @@
+use crate::{
+    backfill::gap::{OverfetchArgs, TreeGapFill},
+    BubblegumContext,
+};
 use anyhow::Result;
 use clap::Parser;
 use das_core::Rpc;
@@ -9,8 +13,6 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{backfill::gap::TreeGapFill, BubblegumContext};
-
 #[derive(Parser, Debug, Clone)]
 pub struct GapWorkerArgs {
     /// The size of the signature channel.
@@ -20,6 +22,9 @@ pub struct GapWorkerArgs {
     /// The number of gap workers.
     #[arg(long, env, default_value = "25")]
     pub gap_worker_count: usize,
+
+    #[clap(flatten)]
+    pub overfetch_args: OverfetchArgs,
 }
 
 impl GapWorkerArgs {
@@ -30,6 +35,7 @@ impl GapWorkerArgs {
     ) -> Result<(JoinHandle<()>, Sender<TreeGapFill>)> {
         let (gap_sender, mut gap_receiver) = channel::<TreeGapFill>(self.gap_channel_size);
         let gap_worker_count = self.gap_worker_count;
+        let overfetch_args = self.overfetch_args.clone();
 
         let handler = tokio::spawn(async move {
             let mut handlers = FuturesUnordered::new();
@@ -43,7 +49,7 @@ impl GapWorkerArgs {
                 let client = context.solana_rpc.clone();
                 let sender = sender.clone();
 
-                let handle = spawn_crawl_worker(client, sender, gap);
+                let handle = spawn_crawl_worker(client, sender, gap, overfetch_args.clone());
 
                 handlers.push(handle);
             }
@@ -55,9 +61,14 @@ impl GapWorkerArgs {
     }
 }
 
-fn spawn_crawl_worker(client: Rpc, sender: Sender<Signature>, gap: TreeGapFill) -> JoinHandle<()> {
+fn spawn_crawl_worker(
+    client: Rpc,
+    sender: Sender<Signature>,
+    gap: TreeGapFill,
+    overfetch_args: OverfetchArgs,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
-        if let Err(e) = gap.crawl(client, sender).await {
+        if let Err(e) = gap.crawl(client, sender, overfetch_args).await {
             error!("tree transaction: {:?}", e);
         }
     })

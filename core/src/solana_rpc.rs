@@ -65,6 +65,7 @@ impl Rpc {
         pubkey: &Pubkey,
         before: Option<Signature>,
         until: Option<Signature>,
+        limit: Option<usize>,
     ) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>, ClientError> {
         (|| async {
             self.0
@@ -73,10 +74,10 @@ impl Rpc {
                     GetConfirmedSignaturesForAddress2Config {
                         before,
                         until,
+                        limit,
                         commitment: Some(CommitmentConfig {
                             commitment: CommitmentLevel::Finalized,
                         }),
-                        ..GetConfirmedSignaturesForAddress2Config::default()
                     },
                 )
                 .await
