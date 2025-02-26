@@ -449,7 +449,7 @@ where
     // Do not update the record if the incoming slot is larger than the current or if it's null.
     // Update if the current slot on the record is null.
     query.sql = format!(
-        "{} WHERE ((asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL) AND (excluded.slot_updated <= asset_data.slot_updated OR asset_data.slot_updated IS NULL)",
+       "{} WHERE (asset_data.base_info_seq != 0 AND excluded.base_info_seq >= asset_data.base_info_seq) OR asset_data.base_info_seq IS NULL",
         query.sql
     );
 

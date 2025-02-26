@@ -34,7 +34,10 @@ pub struct DownloadMetadataPublish {
 }
 
 impl DownloadMetadataPublish {
-    pub fn new(handle: JoinHandle<()>, sender: UnboundedSender<DownloadMetadataInfo>) -> Self {
+    pub const fn new(
+        handle: JoinHandle<()>,
+        sender: UnboundedSender<DownloadMetadataInfo>,
+    ) -> Self {
         Self {
             handle,
             sender: Some(sender),

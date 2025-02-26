@@ -1,4 +1,4 @@
-FROM rust:1.76-bullseye AS builder
+FROM rust:1.81-bullseye AS builder
 RUN cargo install wasm-pack
 
 RUN mkdir /rust
@@ -6,6 +6,7 @@ COPY ./Cargo.toml /rust
 COPY ./core /rust/core
 COPY ./das_api /rust/das_api
 COPY ./digital_asset_types /rust/digital_asset_types
+COPY ./grpc-ingest /rust/grpc-ingest
 COPY ./integration_tests /rust/integration_tests
 COPY ./metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY ./migration /rust/migration

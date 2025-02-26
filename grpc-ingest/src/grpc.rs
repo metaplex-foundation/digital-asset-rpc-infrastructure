@@ -265,6 +265,14 @@ impl SubscriptionTask {
                                                             }
 
                                                             UpdateOneof::Transaction(transaction) => {
+                                                                if let Some(transaction) = &transaction.transaction {
+                                                                    if let Some(meta) = &transaction.meta {
+                                                                        if meta.err.is_some() {
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                }
+
                                                                 pipe.xadd_maxlen(
                                                                     &stream.to_string(),
                                                                     StreamMaxlen::Approx(stream_maxlen),
