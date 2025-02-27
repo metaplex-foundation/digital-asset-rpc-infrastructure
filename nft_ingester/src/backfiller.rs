@@ -801,7 +801,6 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
 
         let start_seq_vec = MaxSeqItem::find_by_statement(query).all(&self.db).await?;
         let start_seq = start_seq_vec.last().map(|row| row.seq).unwrap_or_default();
-
         // Get all rows for the tree that have not yet been backfilled.
         let mut query = backfill_items::Entity::find()
             .select_only()

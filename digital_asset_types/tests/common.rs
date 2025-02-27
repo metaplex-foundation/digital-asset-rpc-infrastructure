@@ -36,6 +36,7 @@ pub struct MockMetadataArgs {
     /// Uses
     #[allow(dead_code)]
     pub uses: Option<Uses>,
+    /// Creators
     pub creators: Vec<Creator>,
 }
 
