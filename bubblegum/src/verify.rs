@@ -1,4 +1,5 @@
 use super::BubblegumContext;
+use crate::backfill::worker::ProofRepairArgs;
 use crate::error::ErrorKind;
 use crate::tree::TreeResponse;
 use anyhow::{anyhow, Result};
@@ -71,7 +72,7 @@ fn verify_merkle_proof(proof: &ProveLeafArgs) -> bool {
     node == proof.current_root
 }
 
-fn leaf_proof_result(proof: AssetProof) -> Result<ProofResult, anyhow::Error> {
+pub fn leaf_proof_result(proof: AssetProof) -> Result<ProofResult, anyhow::Error> {
     match ProveLeafArgs::try_from_asset_proof(proof) {
         Ok(proof) if verify_merkle_proof(&proof) => Ok(ProofResult::Correct),
         Ok(_) => Ok(ProofResult::Incorrect),
@@ -90,7 +91,7 @@ pub struct ProofReport {
 }
 
 #[derive(Debug)]
-enum ProofResult {
+pub enum ProofResult {
     Correct,
     Incorrect,
     NotFound,
@@ -112,6 +113,7 @@ pub async fn check(
     context: BubblegumContext,
     tree: TreeResponse,
     max_concurrency: usize,
+    proof_repair_worker: ProofRepairArgs,
 ) -> Result<ProofReport> {
     let (tree_config_pubkey, _) = TreeConfig::find_pda(&tree.pubkey);
 
@@ -132,6 +134,9 @@ pub async fn check(
 
     let mut tasks = FuturesUnordered::new();
 
+    let (metadata_json_download_worker, proof_repair_worker) =
+        proof_repair_worker.start(context, tree.pubkey).await?;
+
     for i in 0..tree_config.num_minted {
         if tasks.len() >= max_concurrency {
             tasks.next().await;
@@ -140,6 +145,7 @@ pub async fn check(
         let db = SqlxPostgresConnector::from_sqlx_postgres_pool(pool.clone());
         let tree_pubkey = tree.pubkey;
         let report = Arc::clone(&report);
+        let proof_repair_worker = proof_repair_worker.clone();
 
         tasks.push(tokio::spawn(async move {
             let (asset, _) = Pubkey::find_program_address(
@@ -150,6 +156,8 @@ pub async fn check(
                 get_proof_for_asset(&db, asset.to_bytes().to_vec())
                     .await
                     .map_or_else(|_| Ok(ProofResult::NotFound), leaf_proof_result);
+
+            let proof_lookup = proof_repair_worker.try_repair(proof_lookup, i, asset).await;
 
             if let Ok(proof_result) = proof_lookup {
                 let mut report = report.lock().await;
@@ -173,6 +181,14 @@ pub async fn check(
     }
 
     while tasks.next().await.is_some() {}
+
+    drop(proof_repair_worker);
+
+    if let Some(metadata_json_download_worker) = metadata_json_download_worker {
+        if let Err(e) = metadata_json_download_worker.await {
+            tracing::error!("Failed metadata_json_download_worker: {:?}", e);
+        }
+    }
 
     let final_report = Arc::try_unwrap(report)
         .expect("Failed to unwrap Arc")

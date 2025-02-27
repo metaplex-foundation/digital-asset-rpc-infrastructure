@@ -18,3 +18,4 @@ postgres:
 # bubblegum merkle tree configuration
 bubblegum:
   only_trees: null
+  repair: false

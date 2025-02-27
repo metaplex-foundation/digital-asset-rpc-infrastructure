@@ -24,6 +24,8 @@ use std::sync::Arc;
 use tracing::error;
 use tree::TreeResponse;
 
+pub use backfill::worker::tree::ProofRepairArgs;
+
 #[derive(Clone)]
 pub struct BubblegumContext {
     pub database_pool: sqlx::PgPool,
@@ -163,6 +165,9 @@ pub struct VerifyArgs {
 
     #[arg(long, env, default_value = "20")]
     pub max_concurrency: usize,
+
+    #[clap(flatten)]
+    pub proof_repair_args: ProofRepairArgs,
 }
 
 pub async fn verify_bubblegum(
@@ -179,7 +184,14 @@ pub async fn verify_bubblegum(
 
     tokio::spawn(async move {
         for tree in trees {
-            if let Ok(report) = verify::check(context.clone(), tree, args.max_concurrency).await {
+            if let Ok(report) = verify::check(
+                context.clone(),
+                tree,
+                args.max_concurrency,
+                args.proof_repair_args.clone(),
+            )
+            .await
+            {
                 if sender.send(report).await.is_err() {
                     error!("Failed to send report");
                 }

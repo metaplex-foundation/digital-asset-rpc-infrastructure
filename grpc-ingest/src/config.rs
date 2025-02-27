@@ -406,6 +406,17 @@ pub struct ConfigBubblegumVerify {
         deserialize_with = "deserialize_usize_str"
     )]
     pub max_concurrency: usize,
+
+    #[serde(default = "ConfigBubblegumVerify::default_repair")]
+    pub repair: bool,
+
+    #[serde(default = "ConfigBubblegumVerify::default_metadata_json_download_worker_count")]
+    pub metadata_json_download_worker_count: usize,
+
+    #[serde(
+        default = "ConfigBubblegumVerify::default_metadata_json_download_worker_request_timeout"
+    )]
+    pub metadata_json_download_worker_request_timeout: u64,
 }
 
 impl ConfigBubblegumVerify {
@@ -414,5 +425,17 @@ impl ConfigBubblegumVerify {
     }
     pub const fn default_max_concurrency() -> usize {
         20
+    }
+
+    pub const fn default_repair() -> bool {
+        false
+    }
+
+    pub const fn default_metadata_json_download_worker_count() -> usize {
+        25
+    }
+
+    pub const fn default_metadata_json_download_worker_request_timeout() -> u64 {
+        1000
     }
 }
