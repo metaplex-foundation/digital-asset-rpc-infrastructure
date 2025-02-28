@@ -23,6 +23,8 @@ pub enum BlockbusterError {
     UninitializedAccount,
     #[error("Account Type Not implemented")]
     AccountTypeNotImplemented,
+    #[error("Instruction Type Not implemented")]
+    InstructionTypeNotImplemented,
     #[error("Could not deserialize data: {0}")]
     CustomDeserializationError(String),
 }

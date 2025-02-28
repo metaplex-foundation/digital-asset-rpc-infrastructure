@@ -1,6 +1,7 @@
 pub mod extension;
 use crate::{
     error::BlockbusterError,
+    instruction::InstructionBundle,
     program_handler::{ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
@@ -116,16 +117,16 @@ pubkeys!(
     "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 );
 
-pub struct Token2022AccountParser;
+pub struct Token2022ProgramParser;
 
 #[allow(clippy::large_enum_variant)]
-pub enum TokenExtensionsProgramAccount {
+pub enum TokenExtensionsProgramEntity {
     TokenAccount(TokenAccount),
     MintAccount(MintAccount),
-    EmptyAccount,
+    CloseIx(Pubkey),
 }
 
-impl ParseResult for TokenExtensionsProgramAccount {
+impl ParseResult for TokenExtensionsProgramEntity {
     fn result(&self) -> &Self
     where
         Self: Sized,
@@ -133,11 +134,11 @@ impl ParseResult for TokenExtensionsProgramAccount {
         self
     }
     fn result_type(&self) -> ProgramParseResult {
-        ProgramParseResult::TokenExtensionsProgramAccount(self)
+        ProgramParseResult::TokenExtensionsProgramEntity(self)
     }
 }
 
-impl ProgramParser for Token2022AccountParser {
+impl ProgramParser for Token2022ProgramParser {
     fn key(&self) -> Pubkey {
         token_program_id()
     }
@@ -149,18 +150,14 @@ impl ProgramParser for Token2022AccountParser {
     }
 
     fn handles_instructions(&self) -> bool {
-        false
+        true
     }
 
     fn handle_account(
         &self,
         account_data: &[u8],
     ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
-        if account_data.is_empty() {
-            return Ok(Box::new(TokenExtensionsProgramAccount::EmptyAccount));
-        }
-
-        let result: TokenExtensionsProgramAccount;
+        let result: TokenExtensionsProgramEntity;
 
         if let Ok(account) = StateWithExtensions::<Account>::unpack(account_data) {
             let confidential_transfer = account
@@ -195,7 +192,7 @@ impl ProgramParser for Token2022AccountParser {
                 },
             };
 
-            result = TokenExtensionsProgramAccount::TokenAccount(structured_account);
+            result = TokenExtensionsProgramEntity::TokenAccount(structured_account);
         } else if let Ok(mint) = StateWithExtensions::<Mint>::unpack(account_data) {
             let confidential_transfer_mint = mint
                 .get_extension::<ConfidentialTransferMint>()
@@ -256,11 +253,35 @@ impl ProgramParser for Token2022AccountParser {
                     immutable_owner,
                 },
             };
-            result = TokenExtensionsProgramAccount::MintAccount(structured_mint);
+            result = TokenExtensionsProgramEntity::MintAccount(structured_mint);
         } else {
             return Err(BlockbusterError::InvalidDataLength);
         };
 
         Ok(Box::new(result))
+    }
+
+    fn handle_instruction(
+        &self,
+        bundle: &crate::instruction::InstructionBundle,
+    ) -> Result<Box<dyn ParseResult>, BlockbusterError> {
+        let InstructionBundle {
+            txn_id: _,
+            program: _,
+            keys,
+            instruction,
+            inner_ix: _,
+            slot: _,
+        } = bundle;
+
+        if let Some(ix) = instruction {
+            if !ix.data.is_empty() && ix.data[0] == 9 && !keys.is_empty() {
+                return Ok(Box::new(TokenExtensionsProgramEntity::CloseIx(keys[0])));
+            } else {
+                return Err(BlockbusterError::InstructionTypeNotImplemented);
+            }
+        }
+
+        Err(BlockbusterError::InstructionParsingError)
     }
 }
