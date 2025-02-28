@@ -1,5 +1,6 @@
 use crate::{
     error::BlockbusterError,
+    instruction::InstructionBundle,
     program_handler::{ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
@@ -11,14 +12,15 @@ pubkeys!(
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 );
 
-pub struct TokenAccountParser;
+pub struct TokenProgramParser;
 
-pub enum TokenProgramAccount {
+pub enum TokenProgramEntity {
     Mint(Mint),
     TokenAccount(TokenAccount),
+    CloseIx(Pubkey),
 }
 
-impl ParseResult for TokenProgramAccount {
+impl ParseResult for TokenProgramEntity {
     fn result(&self) -> &Self
     where
         Self: Sized,
@@ -26,11 +28,11 @@ impl ParseResult for TokenProgramAccount {
         self
     }
     fn result_type(&self) -> ProgramParseResult {
-        ProgramParseResult::TokenProgramAccount(self)
+        ProgramParseResult::TokenProgramEntity(self)
     }
 }
 
-impl ProgramParser for TokenAccountParser {
+impl ProgramParser for TokenProgramParser {
     fn key(&self) -> Pubkey {
         token_program_id()
     }
@@ -42,7 +44,7 @@ impl ProgramParser for TokenAccountParser {
     }
 
     fn handles_instructions(&self) -> bool {
-        false
+        true
     }
     fn handle_account(
         &self,
@@ -56,7 +58,7 @@ impl ProgramParser for TokenAccountParser {
                     )
                 })?;
 
-                TokenProgramAccount::TokenAccount(token_account)
+                TokenProgramEntity::TokenAccount(token_account)
             }
             82 => {
                 let mint = Mint::unpack(account_data).map_err(|_| {
@@ -65,7 +67,7 @@ impl ProgramParser for TokenAccountParser {
                     )
                 })?;
 
-                TokenProgramAccount::Mint(mint)
+                TokenProgramEntity::Mint(mint)
             }
             _ => {
                 return Err(BlockbusterError::InvalidDataLength);
@@ -73,5 +75,29 @@ impl ProgramParser for TokenAccountParser {
         };
 
         Ok(Box::new(account_type))
+    }
+
+    fn handle_instruction(
+        &self,
+        bundle: &crate::instruction::InstructionBundle,
+    ) -> Result<Box<dyn ParseResult>, BlockbusterError> {
+        let InstructionBundle {
+            txn_id: _,
+            program: _,
+            keys,
+            instruction,
+            inner_ix: _,
+            slot: _,
+        } = bundle;
+
+        if let Some(ix) = instruction {
+            if !ix.data.is_empty() && ix.data[0] == 9 && !keys.is_empty() {
+                return Ok(Box::new(TokenProgramEntity::CloseIx(keys[0])));
+            } else {
+                return Err(BlockbusterError::InstructionTypeNotImplemented);
+            }
+        }
+
+        Err(BlockbusterError::InstructionParsingError)
     }
 }

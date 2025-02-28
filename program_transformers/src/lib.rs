@@ -11,16 +11,23 @@ use {
         instruction::{order_instructions, InstructionBundle, IxPair},
         program_handler::ProgramParser,
         programs::{
-            bubblegum::BubblegumParser, mpl_core_program::MplCoreParser,
-            token_account::TokenAccountParser, token_extensions::Token2022AccountParser,
-            token_inscriptions::TokenInscriptionParser, token_metadata::TokenMetadataParser,
+            bubblegum::BubblegumParser,
+            mpl_core_program::MplCoreParser,
+            token_account::{TokenProgramEntity, TokenProgramParser},
+            token_extensions::{Token2022ProgramParser, TokenExtensionsProgramEntity},
+            token_inscriptions::TokenInscriptionParser,
+            token_metadata::TokenMetadataParser,
             ProgramParseResult,
         },
     },
+    digital_asset_types::dao::{asset, token_accounts, tokens},
     futures::future::BoxFuture,
     sea_orm::{
-        entity::EntityTrait, query::Select, ConnectionTrait, DatabaseConnection, DbErr,
-        SqlxPostgresConnector, TransactionTrait,
+        entity::{EntityTrait, *},
+        query::Select,
+        sea_query::Expr,
+        ConnectionTrait, DatabaseConnection, DbErr, QueryFilter, SqlxPostgresConnector,
+        TransactionTrait,
     },
     serde_json::{Map, Value},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
@@ -97,9 +104,9 @@ impl ProgramTransformer {
         let mut parsers: HashMap<Pubkey, Box<dyn ProgramParser>> = HashMap::with_capacity(6);
         let bgum = BubblegumParser {};
         let token_metadata = TokenMetadataParser {};
-        let token = TokenAccountParser {};
+        let token = TokenProgramParser {};
         let mpl_core = MplCoreParser {};
-        let token_extensions = Token2022AccountParser {};
+        let token_extensions = Token2022ProgramParser {};
         let token_inscription = TokenInscriptionParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
@@ -145,10 +152,6 @@ impl ProgramTransformer {
         let mut not_impl = 0;
         let ixlen = instructions.len();
         debug!("Instructions: {}", ixlen);
-        let contains = instructions
-            .iter()
-            .filter(|(ib, _inner)| ib.0 == mpl_bubblegum::ID);
-        debug!("Instructions bgum: {}", contains.count());
         for (outer_ix, inner_ix) in instructions {
             let (program, instruction) = outer_ix;
             let ix_accounts = &instruction.accounts;
@@ -199,6 +202,17 @@ impl ProgramTransformer {
                             err
                         })?;
                     }
+                    ProgramParseResult::TokenProgramEntity(parsing_result) => {
+                        if let TokenProgramEntity::CloseIx(acc_to_close) = parsing_result {
+                            handle_token_program_close_ix(acc_to_close, &self.storage).await;
+                        }
+                    }
+                    ProgramParseResult::TokenExtensionsProgramEntity(parsing_result) => {
+                        if let TokenExtensionsProgramEntity::CloseIx(acc_to_close) = parsing_result
+                        {
+                            handle_token_program_close_ix(acc_to_close, &self.storage).await;
+                        }
+                    }
                     _ => {
                         not_impl += 1;
                     }
@@ -232,10 +246,10 @@ impl ProgramTransformer {
                     )
                     .await
                 }
-                ProgramParseResult::TokenProgramAccount(parsing_result) => {
+                ProgramParseResult::TokenProgramEntity(parsing_result) => {
                     handle_token_program_account(account_info, parsing_result, &self.storage).await
                 }
-                ProgramParseResult::TokenExtensionsProgramAccount(parsing_result) => {
+                ProgramParseResult::TokenExtensionsProgramEntity(parsing_result) => {
                     handle_token_extensions_program_account(
                         account_info,
                         parsing_result,
@@ -322,5 +336,71 @@ pub fn filter_non_null_fields(value: Value) -> Option<Value> {
             }
         }
         _ => Some(value),
+    }
+}
+
+pub async fn handle_token_program_close_ix(acc_to_close: &Pubkey, db: &DatabaseConnection) {
+    let mint = tokens::Entity::find_by_id(acc_to_close.as_ref().to_vec())
+        .one(db)
+        .await
+        .ok()
+        .flatten();
+
+    if mint.is_some() {
+        let (token_res, asset_res) = tokio::join!(
+            tokens::Entity::delete_by_id(acc_to_close.as_ref().to_vec()).exec(db),
+            asset::Entity::update_many()
+                .filter(asset::Column::Id.is_in([acc_to_close.as_ref().to_vec()]))
+                .col_expr(asset::Column::Burnt, Expr::value(true))
+                .exec(db),
+        );
+
+        token_res
+            .map_err(|err| {
+                error!("Failed to delete mint: {:?}", err);
+            })
+            .map(|r| {
+                if r.rows_affected == 1 {
+                    debug!("Deleted mint: {:?}", acc_to_close);
+                } else {
+                    error!("Failed to delete mint no rows affected: {:?}", acc_to_close);
+                }
+            })
+            .ok();
+
+        asset_res
+            .map_err(|err| {
+                error!("Failed to update asset: {:?}", err);
+            })
+            .map(|r| {
+                if r.rows_affected == 1 {
+                    debug!("Updated asset: {:?}", acc_to_close);
+                } else {
+                    error!(
+                        "Failed to update asset no rows affected: {:?}",
+                        acc_to_close
+                    );
+                }
+            })
+            .ok();
+    } else {
+        let res = token_accounts::Entity::delete_by_id(acc_to_close.as_ref().to_vec())
+            .exec(db)
+            .await;
+
+        res.map(|res| {
+            if res.rows_affected == 1 {
+                debug!("Deleted token account: {:?}", acc_to_close);
+            } else {
+                error!(
+                    "Failed to delete token account no rows affected: {:?}",
+                    acc_to_close
+                );
+            }
+        })
+        .map_err(|err| {
+            error!("Failed to delete token account: {:?}", err);
+        })
+        .ok();
     }
 }
