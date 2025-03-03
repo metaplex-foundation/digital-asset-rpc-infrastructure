@@ -1,0 +1,65 @@
+[package]
+name = "das-grpc-ingest"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+async-stream = { workspace = true }
+atty = { workspace = true }
+sqlx = { workspace = true, features = [
+  "macros",
+  "runtime-tokio-rustls",
+  "postgres",
+  "uuid",
+  "offline",
+  "json",
+] }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["cargo", "derive"] }
+thiserror = { workspace = true }
+das-core = { workspace = true }
+digital_asset_types = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+hyper = { workspace = true, features = ["server"] }
+json5 = { workspace = true }
+lazy_static = { workspace = true }
+lru = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-jaeger = { workspace = true, features = ["rt-tokio"] }
+opentelemetry_sdk = { workspace = true, features = ["trace"] }
+program_transformers = { workspace = true }
+prometheus = { workspace = true }
+redis = { workspace = true, features = ["tokio-comp", "tokio-native-tls-comp"] }
+reqwest = { workspace = true }
+rust-crypto = { workspace = true }
+sea-orm = { workspace = true, features = ["sqlx-postgres"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+solana-sdk = { workspace = true } # only prom rn
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "time",
+  "fs",
+  "tracing",
+] }
+tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+yellowstone-grpc-client = { workspace = true }
+yellowstone-grpc-proto = { workspace = true }
+yellowstone-grpc-tools = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+cargo-lock = { workspace = true }
+git-version = { workspace = true }
+vergen = { workspace = true, features = ["build", "rustc"] }
+
+[lints]
+workspace = true
