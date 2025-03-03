@@ -38,7 +38,7 @@ WITH sequenced_data AS (
         LEAD(seq) OVER (ORDER BY seq ASC) AS next_seq,
         tx AS current_tx,
         LEAD(tx) OVER (ORDER BY seq ASC) AS next_tx,
-        LEAD(tx, $2) OVER (ORDER BY seq ASC) AS overfetch_tx
+        LEAD(tx, $2, tx) OVER (ORDER BY seq ASC) AS overfetch_tx
     FROM
         cl_audits_v2
     WHERE
@@ -115,7 +115,14 @@ impl TryFrom<TreeGapModel> for TreeGapFill {
 
         let overfetch = if model.gap_end_seq - model.gap_start_seq < GAP_LIMIT {
             match Signature::try_from(model.overfetch_tx) {
-                Ok(sig) => Some(sig),
+                Ok(sig) => {
+                    // Account for overfetch tx falling back to its default value
+                    if sig == lower {
+                        None
+                    } else {
+                        Some(sig)
+                    }
+                }
                 Err(_) => None,
             }
         } else {
