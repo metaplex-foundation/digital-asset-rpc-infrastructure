@@ -292,7 +292,7 @@ fn spawn_crawl_worker(
     })
 }
 
-async fn queue_transaction<'a>(
+async fn queue_transaction(
     client: Rpc,
     queue: QueuePool,
     signature: Signature,

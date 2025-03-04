@@ -8,6 +8,9 @@ publish.workspace = true
 [[bin]]
 name = "das-ops"
 
+[lib]
+name = "das_ops"
+
 [dependencies]
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
