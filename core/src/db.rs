@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clap::Parser;
+use sea_orm::{DatabaseConnection, MockDatabase, MockDatabaseConnection, SqlxPostgresConnector};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
-    PgPool,
+    PgPool, Pool, Postgres,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -35,4 +38,59 @@ pub async fn connect_db(config: PoolArgs) -> Result<PgPool, sqlx::Error> {
         .max_connections(config.database_max_connections)
         .connect_with(options)
         .await
+}
+
+pub trait DbConn: Clone + Send + 'static {
+    fn get_db_conn(&self) -> DatabaseConnection;
+}
+
+#[derive(Clone)]
+pub struct DbPool<P: DbConn> {
+    pub pool: P,
+}
+
+impl DbPool<PostgresPool> {
+    pub const fn from(pool: Pool<Postgres>) -> DbPool<PostgresPool> {
+        DbPool {
+            pool: PostgresPool::new(pool),
+        }
+    }
+}
+
+impl DbPool<MockDb> {
+    pub fn from(mock_db: MockDatabase) -> DbPool<MockDb> {
+        DbPool {
+            pool: MockDb(Arc::new(MockDatabaseConnection::new(mock_db))),
+        }
+    }
+}
+
+impl<P: DbConn> DbPool<P> {
+    pub fn get_db_conn(&self) -> DatabaseConnection {
+        self.pool.get_db_conn()
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresPool(sqlx::PgPool);
+
+impl PostgresPool {
+    pub const fn new(pool: sqlx::PgPool) -> Self {
+        Self(pool)
+    }
+}
+
+#[derive(Clone)]
+pub struct MockDb(Arc<MockDatabaseConnection>);
+
+impl DbConn for MockDb {
+    fn get_db_conn(&self) -> DatabaseConnection {
+        DatabaseConnection::MockDatabaseConnection(Arc::clone(&self.0))
+    }
+}
+
+impl DbConn for PostgresPool {
+    fn get_db_conn(&self) -> DatabaseConnection {
+        SqlxPostgresConnector::from_sqlx_postgres_pool(self.0.clone())
+    }
 }

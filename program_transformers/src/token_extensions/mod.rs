@@ -27,10 +27,10 @@ use {
     tracing::warn,
 };
 
-pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
-    account_info: &'a AccountInfo,
-    parsing_result: &'b TokenExtensionsProgramAccount,
-    db: &'c DatabaseConnection,
+pub async fn handle_token_extensions_program_account(
+    account_info: &AccountInfo,
+    parsing_result: &TokenExtensionsProgramAccount,
+    db: &DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();

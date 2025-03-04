@@ -18,10 +18,10 @@ use {
 mod master_edition;
 mod v1_asset;
 
-pub async fn handle_token_metadata_account<'a, 'b>(
+pub async fn handle_token_metadata_account(
     account_info: &AccountInfo,
-    parsing_result: &'a TokenMetadataAccountState,
-    db: &'b DatabaseConnection,
+    parsing_result: &TokenMetadataAccountState,
+    db: &DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     match &parsing_result.data {
