@@ -28,7 +28,7 @@ where
         // automatically rolled back.
         let multi_txn = txn.begin().await?;
 
-        let set_lock_timeout = "SET LOCAL lock_timeout = '1s';";
+        let set_lock_timeout = "SET LOCAL lock_timeout = '5s';";
         let set_local_app_name =
             "SET LOCAL application_name = 'das::program_transformers::bubblegum::transfer';";
         let set_lock_timeout_stmt = Statement::from_string(
