@@ -177,16 +177,17 @@ impl TreeGapFill {
             let sig_count = sigs.len();
 
             let successful_transactions = sigs
-                .into_iter()
+                .iter()
                 .filter(|transaction| transaction.err.is_none())
-                .collect::<Vec<RpcConfirmedTransactionStatusWithSignature>>();
+                .collect::<Vec<&RpcConfirmedTransactionStatusWithSignature>>();
 
             for sig in successful_transactions.iter() {
                 let sig = Signature::from_str(&sig.signature)?;
-
                 sender.send(sig).await?;
+            }
 
-                before = Some(sig);
+            if let Some(last_sig) = sigs.last() {
+                before = Some(Signature::from_str(&last_sig.signature)?);
             }
 
             if sig_count < GET_SIGNATURES_FOR_ADDRESS_LIMIT {
