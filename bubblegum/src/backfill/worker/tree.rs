@@ -17,7 +17,7 @@ use log::error;
 use program_transformers::{ProgramTransformer, TransactionInfo};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector};
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use tokio::task::JoinHandle;
+use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 use super::{
     FetchedEncodedTransactionWithStatusMeta, GapWorkerArgs, ProgramTransformerWorkerArgs,
@@ -42,32 +42,17 @@ pub struct TreeWorkerArgs {
     pub force: bool,
 }
 impl TreeWorkerArgs {
-    pub fn start(&self, context: BubblegumContext, tree: TreeResponse) -> JoinHandle<Result<()>> {
+    pub fn start(
+        &self,
+        context: BubblegumContext,
+        tree: TreeResponse,
+        signature_sender: Sender<Signature>,
+    ) -> JoinHandle<Result<()>> {
         let db_pool = context.database_pool.clone();
-        let metadata_json_download_db_pool = context.database_pool.clone();
-
-        let program_transformer_context = context.clone();
-        let signature_context = context.clone();
-
-        let metadata_json_download_worker_args = self.metadata_json_download_worker.clone();
-        let program_transformer_worker_args = self.program_transformer_worker.clone();
-        let signature_worker_args = self.signature_worker.clone();
         let gap_worker_args = self.gap_worker.clone();
         let force = self.force;
-        let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
 
         tokio::spawn(async move {
-            let (metadata_json_download_worker, metadata_json_download_sender) =
-                metadata_json_download_worker_args
-                    .start(metadata_json_download_db_pool, download_config)?;
-
-            let (program_transformer_worker, transaction_info_sender) =
-                program_transformer_worker_args
-                    .start(program_transformer_context, metadata_json_download_sender)?;
-
-            let (signature_worker, signature_sender) =
-                signature_worker_args.start(signature_context, transaction_info_sender)?;
-
             let (gap_worker, tree_gap_sender) = gap_worker_args.start(context, signature_sender)?;
 
             {
@@ -126,13 +111,7 @@ impl TreeWorkerArgs {
 
             drop(tree_gap_sender);
 
-            futures::future::try_join4(
-                gap_worker,
-                signature_worker,
-                program_transformer_worker,
-                metadata_json_download_worker,
-            )
-            .await?;
+            gap_worker.await?;
 
             Ok(())
         })

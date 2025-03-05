@@ -64,17 +64,45 @@ pub async fn start_backfill(context: BubblegumContext, args: BackfillArgs) -> Re
 
     let mut crawl_handles = FuturesUnordered::new();
 
+    let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
+
+    let (metadata_json_download_worker, metadata_json_download_sender) = args
+        .tree_worker
+        .metadata_json_download_worker
+        .start(context.database_pool.clone(), download_config)?;
+
+    let (program_transformer_worker, transaction_info_sender) = args
+        .tree_worker
+        .program_transformer_worker
+        .start(context.clone(), metadata_json_download_sender)?;
+
+    let (signature_worker, signature_sender) = args
+        .tree_worker
+        .signature_worker
+        .start(context.clone(), transaction_info_sender)?;
+
     for tree in trees {
         if crawl_handles.len() >= args.tree_crawler_count {
             crawl_handles.next().await;
         }
         let context = context.clone();
-        let handle = args.tree_worker.start(context, tree);
+        let handle = args
+            .tree_worker
+            .start(context, tree, signature_sender.clone());
 
         crawl_handles.push(handle);
     }
 
+    drop(signature_sender);
+
     futures::future::try_join_all(crawl_handles).await?;
+
+    futures::future::try_join3(
+        signature_worker,
+        program_transformer_worker,
+        metadata_json_download_worker,
+    )
+    .await?;
 
     Ok(())
 }
