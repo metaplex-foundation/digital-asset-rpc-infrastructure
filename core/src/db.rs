@@ -41,7 +41,7 @@ pub async fn connect_db(config: PoolArgs) -> Result<PgPool, sqlx::Error> {
 }
 
 pub trait DbConn: Clone + Send + 'static {
-    fn get_db_conn(&self) -> DatabaseConnection;
+    fn connection(&self) -> DatabaseConnection;
 }
 
 #[derive(Clone)]
@@ -66,8 +66,8 @@ impl DbPool<MockDb> {
 }
 
 impl<P: DbConn> DbPool<P> {
-    pub fn get_db_conn(&self) -> DatabaseConnection {
-        self.pool.get_db_conn()
+    pub fn connection(&self) -> DatabaseConnection {
+        self.pool.connection()
     }
 }
 
@@ -84,13 +84,13 @@ impl PostgresPool {
 pub struct MockDb(Arc<MockDatabaseConnection>);
 
 impl DbConn for MockDb {
-    fn get_db_conn(&self) -> DatabaseConnection {
+    fn connection(&self) -> DatabaseConnection {
         DatabaseConnection::MockDatabaseConnection(Arc::clone(&self.0))
     }
 }
 
 impl DbConn for PostgresPool {
-    fn get_db_conn(&self) -> DatabaseConnection {
+    fn connection(&self) -> DatabaseConnection {
         SqlxPostgresConnector::from_sqlx_postgres_pool(self.0.clone())
     }
 }
