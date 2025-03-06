@@ -1,20 +1,20 @@
 use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Parser;
-use das_core::Rpc;
-use das_core::{DbConn, DbPool};
-use digital_asset_types::dao::{asset, token_accounts, tokens};
+use das_core::{DbConn, DbPool, Rpc};
+use digital_asset_types::dao::{token_accounts, tokens};
 use log::{debug, error};
-use sea_orm::{entity::*, sea_query::Expr};
-use sea_orm::{DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::FromQueryResult;
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use std::marker::{Send, Sync};
 
 use solana_sdk::{bs58, pubkey};
 
 use solana_sdk::pubkey::Pubkey;
 
+use sea_orm::QuerySelect;
 use tokio::sync::mpsc::unbounded_channel;
-use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::task::JoinHandle;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinSet;
 
 pub const TOKEN_PROGRAM_ID: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -23,178 +23,162 @@ pub const TOKEN_2022_PROGRAM_ID: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1
 
 pub const MAX_GET_MULTIPLE_ACCOUNTS: usize = 100;
 
-#[derive(Debug, Clone)]
-pub enum PurgeTable {
-    TokenAccounts,
-    Tokens,
+// Define a trait for accessing a specific column
+trait ColumnAccess {
+    type ColumnType: ColumnTrait;
+    fn column() -> Self::ColumnType;
 }
 
-pub struct DbEntriesBatchSender {
-    pub db: DatabaseConnection,
-    pub purge_table: PurgeTable,
-}
+// Implement the trait for specific columns
+impl ColumnAccess for token_accounts::Entity {
+    type ColumnType = token_accounts::Column;
 
-impl DbEntriesBatchSender {
-    pub fn new(db: DatabaseConnection, purge_table: PurgeTable) -> Self {
-        Self { db, purge_table }
+    fn column() -> Self::ColumnType {
+        token_accounts::Column::Pubkey
     }
 }
 
-pub struct RpcBatchFetcherAndPurger {
-    pub rpc: Rpc,
-    pub db: DatabaseConnection,
-    pub purge_table: PurgeTable,
+impl ColumnAccess for tokens::Entity {
+    type ColumnType = tokens::Column;
+
+    fn column() -> Self::ColumnType {
+        tokens::Column::Mint
+    }
 }
 
-impl RpcBatchFetcherAndPurger {
-    pub fn new(rpc: Rpc, db: DatabaseConnection, purge_table: PurgeTable) -> Self {
+struct Paginate<E: EntityTrait + ColumnAccess, P: DbConn> {
+    pool: DbPool<P>,
+    batch_size: u64,
+    sender: UnboundedSender<Vec<Pubkey>>,
+    _e_type: std::marker::PhantomData<E>,
+}
+
+#[derive(FromQueryResult)]
+struct PubkeyResult {
+    pubkey: Vec<u8>,
+}
+
+impl<E: EntityTrait + ColumnAccess, P: DbConn + Send> Paginate<E, P> {
+    fn new(pool: DbPool<P>, batch_size: u64, sender: UnboundedSender<Vec<Pubkey>>) -> Self {
         Self {
-            rpc,
-            db,
-            purge_table,
+            pool,
+            batch_size,
+            sender,
+            _e_type: std::marker::PhantomData,
+        }
+    }
+
+    async fn page(&self) {
+        let conn = self.pool.connection();
+        let mut paginator = E::find()
+            .column_as(E::column(), "pubkey")
+            .into_model::<PubkeyResult>()
+            .paginate(&conn, self.batch_size);
+
+        while let Ok(Some(records)) = paginator.fetch_and_next().await {
+            let keys = records
+                .iter()
+                .filter_map(|row| Pubkey::try_from_slice(&row.pubkey).ok())
+                .collect::<Vec<Pubkey>>();
+
+            if self.sender.send(keys).is_err() {
+                error!("Failed to send keys");
+            }
         }
     }
 }
 
-pub trait PurgeHandler<I, O> {
-    fn handle(self, input: I) -> O;
+struct MarkDeletion {
+    rpc: Rpc,
+    receiver: UnboundedReceiver<Vec<Pubkey>>,
+    sender: UnboundedSender<Vec<Pubkey>>,
 }
 
-impl PurgeHandler<u64, (JoinHandle<()>, UnboundedReceiver<Vec<Pubkey>>)> for DbEntriesBatchSender {
-    fn handle(self, batch_size: u64) -> (JoinHandle<()>, UnboundedReceiver<Vec<Pubkey>>) {
-        let (batch_sender, batch_receiver) = unbounded_channel::<Vec<Pubkey>>();
-        let purge_table = self.purge_table.clone();
+impl MarkDeletion {
+    fn new(
+        rpc: Rpc,
+        receiver: UnboundedReceiver<Vec<Pubkey>>,
+        sender: UnboundedSender<Vec<Pubkey>>,
+    ) -> Self {
+        Self {
+            rpc,
+            receiver,
+            sender,
+        }
+    }
 
-        let db = self.db;
-        let control = tokio::spawn(async move {
-            match purge_table {
-                PurgeTable::TokenAccounts => {
-                    let mut paginator = token_accounts::Entity::find().paginate(&db, batch_size);
-                    while let Ok(Some(ta)) = paginator.fetch_and_next().await {
-                        let ta_keys = ta
-                            .iter()
-                            .filter_map(|ta| Pubkey::try_from_slice(ta.pubkey.as_slice()).ok())
-                            .collect::<Vec<Pubkey>>();
+    async fn mark(&mut self) {
+        while let Some(keys) = self.receiver.recv().await {
+            for chunk in keys.chunks(MAX_GET_MULTIPLE_ACCOUNTS) {
+                let rpc = self.rpc.clone();
+                let sender = self.sender.clone();
+                let chunk = chunk.to_vec();
 
-                        if batch_sender.send(ta_keys).is_err() {
-                            error!("Failed to send mint keys");
+                tokio::spawn(async move {
+                    if let Ok(accounts) = rpc.get_multiple_accounts(&chunk).await {
+                        let mut remove = Vec::new();
+
+                        for (key, acc) in chunk.iter().zip(accounts.iter()) {
+                            match acc {
+                                Some(acc) => {
+                                    if acc.owner.ne(&TOKEN_PROGRAM_ID)
+                                        && acc.owner.ne(&TOKEN_2022_PROGRAM_ID)
+                                    {
+                                        remove.push(*key);
+                                    }
+                                }
+                                None => {
+                                    remove.push(*key);
+                                }
+                            }
+                        }
+
+                        if sender.send(remove).is_err() {
+                            error!("Failed send marked keys");
                         }
                     }
-                }
-                PurgeTable::Tokens => {
-                    let mut paginator = tokens::Entity::find().paginate(&db, batch_size);
-                    while let Ok(Some(ta)) = paginator.fetch_and_next().await {
-                        let ta_keys = ta
-                            .iter()
-                            .filter_map(|ta| Pubkey::try_from_slice(ta.mint.as_slice()).ok())
-                            .collect::<Vec<Pubkey>>();
-
-                        if batch_sender.send(ta_keys).is_err() {
-                            error!("Failed to send mint keys");
-                        }
-                    }
-                }
+                });
             }
-        });
-
-        (control, batch_receiver)
+        }
     }
 }
 
-impl PurgeHandler<Vec<Pubkey>, JoinHandle<()>> for RpcBatchFetcherAndPurger {
-    fn handle(self, input: Vec<Pubkey>) -> JoinHandle<()> {
-        let control = tokio::spawn(async move {
-            if let Ok(accounts) = self.rpc.get_multiple_accounts(&input).await {
-                let mut accounts_to_purge = Vec::new();
-                for (key, acc) in input.iter().zip(accounts.iter()) {
-                    match acc {
-                        Some(acc) => {
-                            if acc.owner.ne(&TOKEN_PROGRAM_ID)
-                                && acc.owner.ne(&TOKEN_2022_PROGRAM_ID)
-                            {
-                                accounts_to_purge.push(*key);
-                            }
-                        }
-                        None => {
-                            accounts_to_purge.push(*key);
-                        }
-                    }
-                }
+#[derive(Clone)]
+struct Purge<E: EntityTrait + ColumnAccess, P: DbConn + Send + Sync + 'static> {
+    pool: DbPool<P>,
+    _e_type: std::marker::PhantomData<E>,
+}
 
-                let accounts_to_purge = accounts_to_purge
-                    .iter()
-                    .map(|a| a.to_bytes().to_vec())
-                    .collect::<Vec<Vec<u8>>>();
+impl<E: EntityTrait + ColumnAccess, P: DbConn + Send + Sync + 'static> Purge<E, P> {
+    fn new(pool: DbPool<P>) -> Self {
+        Self {
+            pool,
+            _e_type: std::marker::PhantomData,
+        }
+    }
 
-                debug!("accounts to purge len: {:?}", accounts_to_purge.len());
+    async fn purge(&self, keys: Vec<Pubkey>) {
+        let keys = keys
+            .iter()
+            .map(|k| k.to_bytes().to_vec())
+            .collect::<Vec<Vec<u8>>>();
 
-                if !accounts_to_purge.is_empty() {
-                    match self.purge_table {
-                        PurgeTable::TokenAccounts => {
-                            let delete_res = token_accounts::Entity::delete_many()
-                                .filter(
-                                    token_accounts::Column::Pubkey
-                                        .is_in(accounts_to_purge.iter().map(|a| a.as_slice())),
-                                )
-                                .exec(&self.db)
-                                .await;
+        let conn = self.pool.connection();
 
-                            if let Ok(res) = delete_res {
-                                debug!(
-                                    "Successfully purged token accounts: {:?}",
-                                    res.rows_affected
-                                );
-                            } else {
-                                let accounts_to_purge = accounts_to_purge
-                                    .iter()
-                                    .map(|a| bs58::encode(a).into_string())
-                                    .collect::<Vec<String>>();
-                                error!("Failed to purge token accounts: {:?}", accounts_to_purge);
-                            }
-                        }
-                        PurgeTable::Tokens => {
-                            let (delete_res, update_res) = tokio::join!(
-                                tokens::Entity::delete_many()
-                                    .filter(
-                                        tokens::Column::Mint
-                                            .is_in(accounts_to_purge.iter().map(|a| a.as_slice())),
-                                    )
-                                    .exec(&self.db),
-                                asset::Entity::update_many()
-                                    .filter(
-                                        asset::Column::Id
-                                            .is_in(accounts_to_purge.iter().map(|a| a.as_slice()))
-                                            .and(asset::Column::Burnt.eq(false),),
-                                    )
-                                    .col_expr(asset::Column::Burnt, Expr::value(true))
-                                    .exec(&self.db),
-                            );
+        let delete_res = E::delete_many()
+            .filter(E::column().is_in(keys.iter().map(|a| a.as_slice())))
+            .exec(&conn)
+            .await;
 
-                            let accounts_to_purge = accounts_to_purge
-                                .iter()
-                                .map(|a| bs58::encode(a).into_string())
-                                .collect::<Vec<String>>();
-                            if let Ok(res) = update_res {
-                                debug!(
-                                    "Successfully marked assets as burnt: {:?}",
-                                    res.rows_affected
-                                );
-                            } else {
-                                error!("Failed to update assets: {:?}", accounts_to_purge);
-                            }
-
-                            if let Ok(res) = delete_res {
-                                debug!("Successfully purged tokens: {:?}", res.rows_affected);
-                            } else {
-                                error!("Failed to purge tokens: {:?}", accounts_to_purge);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        control
+        if let Ok(res) = delete_res {
+            debug!("Successfully purged: {:?}", res.rows_affected);
+        } else {
+            let keys = keys
+                .iter()
+                .map(|a| bs58::encode(a).into_string())
+                .collect::<Vec<String>>();
+            error!("Failed to purge: {:?}", keys);
+        }
     }
 }
 
@@ -215,52 +199,59 @@ pub struct Args {
     pub config: ConfigArgs,
 }
 
-pub async fn start_ta_purge<P: DbConn>(args: Args, db_pool: DbPool<P>, rpc: Rpc) -> Result<()> {
+pub async fn start_ta_purge<P: DbConn + Send + Sync + 'static>(
+    args: Args,
+    db_pool: DbPool<P>,
+    rpc: Rpc,
+) -> Result<()> {
     let worker_count = args.config.workers as usize;
 
     let start = tokio::time::Instant::now();
 
-    let conn = db_pool.get_db_conn();
+    let (paginate_sender, paginate_receiver) = unbounded_channel::<Vec<Pubkey>>();
+    let (mark_sender, mut mark_receiver) = unbounded_channel::<Vec<Pubkey>>();
 
-    let db_batch_sender = DbEntriesBatchSender::new(conn, PurgeTable::TokenAccounts);
+    let paginate_db_pool = db_pool.clone();
+    let paginate_handle = tokio::spawn(async move {
+        let paginate = Paginate::<token_accounts::Entity, P>::new(
+            paginate_db_pool,
+            args.config.batch_size,
+            paginate_sender,
+        );
 
-    let (control, mut batch_receiver) = db_batch_sender.handle(args.config.batch_size);
+        paginate.page().await;
+    });
 
-    let mut tasks = JoinSet::new();
-    while let Some(ta_keys) = batch_receiver.recv().await {
-        if tasks.len() >= worker_count {
-            tasks.join_next().await;
+    let mark_handle = tokio::spawn(async move {
+        let mut mark = MarkDeletion::new(rpc, paginate_receiver, mark_sender);
+
+        mark.mark().await;
+    });
+
+    let purge_handle = tokio::spawn(async move {
+        let mut tasks = JoinSet::new();
+        let purge = Purge::<token_accounts::Entity, P>::new(db_pool);
+
+        while let Some(addresses) = mark_receiver.recv().await {
+            if tasks.len() >= worker_count {
+                tasks.join_next().await;
+            }
+
+            let purge = purge.clone();
+
+            tasks.spawn(async move {
+                purge.purge(addresses).await;
+            });
         }
-        tasks.spawn(fetch_and_purge_ta(db_pool.clone(), ta_keys, rpc.clone()));
-    }
 
-    control.await?;
+        while tasks.join_next().await.is_some() {}
+    });
 
-    while tasks.join_next().await.is_some() {}
+    futures::future::join3(paginate_handle, mark_handle, purge_handle).await;
 
     debug!("Purge took: {:?}", start.elapsed());
 
     Ok(())
-}
-
-async fn fetch_and_purge_ta<P: DbConn>(pool: DbPool<P>, acc_keys: Vec<Pubkey>, rpc: Rpc) {
-    let acc_keys_chuncks = acc_keys.chunks(MAX_GET_MULTIPLE_ACCOUNTS);
-
-    let mut tasks = Vec::with_capacity(acc_keys_chuncks.len());
-
-    for chunk in acc_keys_chuncks {
-        debug!("chunk len: {:?}", chunk.len());
-        let keys = chunk.to_vec();
-        let conn = pool.get_db_conn();
-        let rpc_batch_fetcher_and_sender =
-            RpcBatchFetcherAndPurger::new(rpc.clone(), conn, PurgeTable::TokenAccounts);
-
-        let control = rpc_batch_fetcher_and_sender.handle(keys);
-
-        tasks.push(control);
-    }
-
-    futures::future::join_all(tasks).await;
 }
 
 pub async fn start_mint_purge<P: DbConn>(args: Args, db_pool: DbPool<P>, rpc: Rpc) -> Result<()> {
@@ -293,26 +284,4 @@ pub async fn start_mint_purge<P: DbConn>(args: Args, db_pool: DbPool<P>, rpc: Rp
     debug!("Purge took: {:?}", start.elapsed());
 
     Ok(())
-}
-
-async fn fetch_and_purge_assets<P: DbConn>(pool: DbPool<P>, acc_keys: Vec<Pubkey>, rpc: Rpc) {
-    let acc_keys_chuncks = acc_keys.chunks(MAX_GET_MULTIPLE_ACCOUNTS);
-
-    let mut tasks = Vec::with_capacity(acc_keys_chuncks.len());
-
-    for chunk in acc_keys_chuncks {
-        debug!("chunk len: {:?}", chunk.len());
-        let keys = chunk.to_vec();
-
-        let conn = pool.get_db_conn();
-
-        let rpc_batch_fetcher_and_sender =
-            RpcBatchFetcherAndPurger::new(rpc.clone(), conn, PurgeTable::Tokens);
-
-        let control = rpc_batch_fetcher_and_sender.handle(keys);
-
-        tasks.push(control);
-    }
-
-    futures::future::join_all(tasks).await;
 }

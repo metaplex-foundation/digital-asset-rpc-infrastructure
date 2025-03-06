@@ -1756,6 +1756,7 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
+ "async-trait",
  "backon",
  "borsh 0.10.4",
  "cadence",

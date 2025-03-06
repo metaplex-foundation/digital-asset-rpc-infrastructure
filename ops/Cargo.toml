@@ -12,6 +12,7 @@ name = "das-ops"
 name = "das_ops"
 
 [dependencies]
+async-trait = { workspace = true }
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
 backon = { workspace = true }
