@@ -20,6 +20,10 @@ plerkle_messenger = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
+sea-orm = { workspace = true }
+
+[features]
+rpc-mock = []
 
 [lints]
 workspace = true
