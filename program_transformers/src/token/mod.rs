@@ -20,10 +20,10 @@ use {
     spl_token::state::AccountState,
 };
 
-pub async fn handle_token_program_account(
+pub async fn handle_token_program_account<'a, 'b>(
     account_info: &AccountInfo,
-    parsing_result: &TokenProgramAccount,
-    db: &DatabaseConnection,
+    parsing_result: &'a TokenProgramAccount,
+    db: &'b DatabaseConnection,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();

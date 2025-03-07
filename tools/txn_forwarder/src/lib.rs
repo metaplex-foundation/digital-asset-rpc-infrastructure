@@ -26,7 +26,6 @@ use {
     tokio_stream::wrappers::LinesStream,
 };
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug, thiserror::Error)]
 pub enum FindSignaturesError {
     #[error("Failed to fetch signatures: {0}")]

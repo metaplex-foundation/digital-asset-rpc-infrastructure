@@ -70,6 +70,7 @@ pub struct TokenAccountList {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
 #[serde(default)]
+
 pub struct NftEdition {
     pub mint_address: String,
     pub edition_address: String,

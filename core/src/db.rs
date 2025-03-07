@@ -5,7 +5,7 @@ use clap::Parser;
 use sea_orm::{DatabaseConnection, MockDatabase, MockDatabaseConnection, SqlxPostgresConnector};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
-    PgPool, Pool, Postgres,
+    PgPool,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -40,57 +40,27 @@ pub async fn connect_db(config: PoolArgs) -> Result<PgPool, sqlx::Error> {
         .await
 }
 
-pub trait DbConn: Clone + Send + 'static {
+pub trait DatabasePool: Clone + Send + Sync + 'static {
     fn connection(&self) -> DatabaseConnection;
 }
 
-#[derive(Clone)]
-pub struct DbPool<P: DbConn> {
-    pub pool: P,
-}
-
-impl DbPool<PostgresPool> {
-    pub const fn from(pool: Pool<Postgres>) -> DbPool<PostgresPool> {
-        DbPool {
-            pool: PostgresPool::new(pool),
-        }
-    }
-}
-
-impl DbPool<MockDb> {
-    pub fn from(mock_db: MockDatabase) -> DbPool<MockDb> {
-        DbPool {
-            pool: MockDb(Arc::new(MockDatabaseConnection::new(mock_db))),
-        }
-    }
-}
-
-impl<P: DbConn> DbPool<P> {
-    pub fn connection(&self) -> DatabaseConnection {
-        self.pool.connection()
+impl DatabasePool for sqlx::PgPool {
+    fn connection(&self) -> DatabaseConnection {
+        SqlxPostgresConnector::from_sqlx_postgres_pool(self.clone())
     }
 }
 
 #[derive(Clone)]
-pub struct PostgresPool(sqlx::PgPool);
+pub struct MockDatabasePool(Arc<MockDatabaseConnection>);
 
-impl PostgresPool {
-    pub const fn new(pool: sqlx::PgPool) -> Self {
-        Self(pool)
+impl MockDatabasePool {
+    pub fn from(mock_db: MockDatabase) -> Self {
+        Self(Arc::new(MockDatabaseConnection::new(mock_db)))
     }
 }
 
-#[derive(Clone)]
-pub struct MockDb(Arc<MockDatabaseConnection>);
-
-impl DbConn for MockDb {
+impl DatabasePool for Arc<MockDatabasePool> {
     fn connection(&self) -> DatabaseConnection {
         DatabaseConnection::MockDatabaseConnection(Arc::clone(&self.0))
-    }
-}
-
-impl DbConn for PostgresPool {
-    fn connection(&self) -> DatabaseConnection {
-        SqlxPostgresConnector::from_sqlx_postgres_pool(self.0.clone())
     }
 }

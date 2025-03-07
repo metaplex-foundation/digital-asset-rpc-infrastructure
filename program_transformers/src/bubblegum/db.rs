@@ -20,7 +20,7 @@ use {
     tracing::{debug, error, info},
 };
 
-pub async fn save_changelog_event<T>(
+pub async fn save_changelog_event<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn_id: &str,
@@ -38,7 +38,7 @@ const fn node_idx_to_leaf_idx(index: i64, tree_height: u32) -> i64 {
     index - 2i64.pow(tree_height)
 }
 
-pub async fn insert_change_log<T>(
+pub async fn insert_change_log<'c, T>(
     change_log_event: &ChangeLogEventV1,
     slot: u64,
     txn_id: &str,

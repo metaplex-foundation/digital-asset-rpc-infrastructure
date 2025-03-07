@@ -3,8 +3,6 @@ use backon::ExponentialBuilder;
 use backon::Retryable;
 use clap::Parser;
 use solana_account_decoder::UiAccountEncoding;
-#[cfg(feature = "rpc-mock")]
-use solana_client::rpc_client::Mocks;
 use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
 use solana_client::{
     client_error::ClientError,
@@ -38,7 +36,7 @@ impl Rpc {
     }
 
     #[cfg(feature = "rpc-mock")]
-    pub fn from_mocks(mocks: Mocks, rpc_result: String) -> Self {
+    pub fn from_mocks(mocks: solana_client::rpc_client::Mocks, rpc_result: String) -> Self {
         Rpc(Arc::new(RpcClient::new_mock_with_mocks(rpc_result, mocks)))
     }
 

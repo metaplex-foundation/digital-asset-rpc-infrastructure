@@ -10,10 +10,10 @@ use {
 
 mod v1_asset;
 
-pub async fn handle_mpl_core_account(
+pub async fn handle_mpl_core_account<'a, 'b, 'c>(
     account_info: &AccountInfo,
-    parsing_result: &MplCoreAccountState,
-    db: &DatabaseConnection,
+    parsing_result: &'a MplCoreAccountState,
+    db: &'b DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     match &parsing_result.data {

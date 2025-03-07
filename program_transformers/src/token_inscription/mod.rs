@@ -12,10 +12,10 @@ use solana_sdk::pubkey::Pubkey;
 
 use crate::error::{ProgramTransformerError, ProgramTransformerResult};
 
-pub async fn handle_token_inscription_program_update(
+pub async fn handle_token_inscription_program_update<'a, 'b>(
     account_info: &AccountInfo,
-    parsing_result: &TokenInscriptionAccount,
-    db: &DatabaseConnection,
+    parsing_result: &'a TokenInscriptionAccount,
+    db: &'b DatabaseConnection,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
 

@@ -1,7 +1,7 @@
 use crate::purge::{start_mint_purge, start_ta_purge, Args as PurgeArgs};
 use anyhow::{Ok, Result};
 use clap::{Args, Subcommand};
-use das_core::{connect_db, DbPool, PoolArgs, PostgresPool, Rpc, SolanaRpcArgs};
+use das_core::{connect_db, PoolArgs, Rpc, SolanaRpcArgs};
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
@@ -28,11 +28,10 @@ pub struct PurgeCommand {
 
 pub async fn subcommand(subcommand: PurgeCommand) -> Result<()> {
     let pg_pool = connect_db(subcommand.database).await?;
-    let db_pool = DbPool::<PostgresPool>::from(pg_pool);
     let rpc = Rpc::from_config(subcommand.solana);
     match subcommand.action {
-        Commands::TokenAccount(args) => start_ta_purge(args, db_pool, rpc).await?,
-        Commands::Mint(args) => start_mint_purge(args, db_pool, rpc).await?,
+        Commands::TokenAccount(args) => start_ta_purge(args, pg_pool, rpc).await?,
+        Commands::Mint(args) => start_mint_purge(args, pg_pool, rpc).await?,
     };
 
     Ok(())
