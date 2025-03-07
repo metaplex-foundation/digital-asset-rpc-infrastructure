@@ -40,7 +40,7 @@ pub async fn connect_db(config: PoolArgs) -> Result<PgPool, sqlx::Error> {
         .await
 }
 
-pub trait DbConn: Clone + Send + 'static {
+pub trait DbConn: Clone + Send + Sync + 'static {
     fn connection(&self) -> DatabaseConnection;
 }
 

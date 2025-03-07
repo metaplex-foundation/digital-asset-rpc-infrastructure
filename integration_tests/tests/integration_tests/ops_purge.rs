@@ -1,5 +1,5 @@
 #[cfg(test)]
-use das_ops::purge::{start_mint_purge, start_ta_purge, Args, ConfigArgs, TOKEN_2022_PROGRAM_ID};
+use das_ops::purge::{start_mint_purge, start_ta_purge, Args, TOKEN_2022_PROGRAM_ID};
 use digital_asset_types::dao::{token_accounts, tokens};
 use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
 use solana_account_decoder::{UiAccount, UiAccountData};
@@ -134,10 +134,9 @@ async fn test_purging_token_accounts() {
 
     let res = start_ta_purge(
         Args {
-            config: ConfigArgs {
-                workers: 10,
-                batch_size: 10,
-            },
+            purge_worker_count: 10,
+            mark_deletion_worker_count: 10,
+            batch_size: 10,
         },
         db_pool,
         rpc,
@@ -211,10 +210,9 @@ async fn test_purging_mints() {
 
     let res = start_mint_purge(
         Args {
-            config: ConfigArgs {
-                workers: 10,
-                batch_size: 10,
-            },
+            purge_worker_count: 10,
+            mark_deletion_worker_count: 10,
+            batch_size: 10,
         },
         db_pool,
         rpc,
