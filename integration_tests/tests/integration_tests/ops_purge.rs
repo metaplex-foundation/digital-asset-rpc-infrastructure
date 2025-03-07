@@ -1,12 +1,12 @@
 #[cfg(test)]
-use das_ops::purge::{start_mint_purge, start_ta_purge, Args, ConfigArgs, TOKEN_2022_PROGRAM_ID};
+use das_ops::purge::{start_mint_purge, start_ta_purge, Args, TOKEN_2022_PROGRAM_ID};
 use digital_asset_types::dao::{token_accounts, tokens};
-use sea_orm::{DatabaseBackend, MockDatabase, MockExecResult};
+use sea_orm::{DatabaseBackend, MockDatabase, MockDatabaseTrait, MockExecResult};
 use solana_account_decoder::{UiAccount, UiAccountData};
 use sqlx::types::Decimal;
 use std::{collections::HashMap, sync::Once};
 
-use das_core::{DbPool, MockDb, Rpc};
+use das_core::{MockDatabasePool, Rpc};
 
 use serial_test::serial;
 use solana_client::{
@@ -101,7 +101,7 @@ async fn test_purging_token_accounts() {
         .append_query_results(vec![mock_query_res])
         .append_exec_results(vec![mock_exec_res]);
 
-    let db_pool = DbPool::<MockDb>::from(mock_db);
+    let db = MockDatabasePool::from(mock_db);
 
     let mut rpc_mock_responses = HashMap::new();
 
@@ -134,12 +134,11 @@ async fn test_purging_token_accounts() {
 
     let res = start_ta_purge(
         Args {
-            config: ConfigArgs {
-                workers: 10,
-                batch_size: 10,
-            },
+            purge_worker_count: 10,
+            mark_deletion_worker_count: 10,
+            batch_size: 10,
         },
-        db_pool,
+        db,
         rpc,
     )
     .await;
@@ -178,7 +177,7 @@ async fn test_purging_mints() {
         .append_exec_results(vec![mock_exec_res_1])
         .append_exec_results(vec![mock_exec_res_2]);
 
-    let db_pool = DbPool::<MockDb>::from(mock_db);
+    let db = MockDatabasePool::from(mock_db);
 
     let mut rpc_mock_responses = HashMap::new();
 
@@ -211,12 +210,11 @@ async fn test_purging_mints() {
 
     let res = start_mint_purge(
         Args {
-            config: ConfigArgs {
-                workers: 10,
-                batch_size: 10,
-            },
+            purge_worker_count: 10,
+            mark_deletion_worker_count: 10,
+            batch_size: 10,
         },
-        db_pool,
+        db,
         rpc,
     )
     .await;
