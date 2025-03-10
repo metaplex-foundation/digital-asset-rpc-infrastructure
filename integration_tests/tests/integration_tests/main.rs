@@ -5,6 +5,7 @@ mod fungibles_and_token_extensions_tests;
 mod general_scenario_tests;
 mod mpl_core_tests;
 mod nft_editions_tests;
+mod ops_purge;
 mod regular_nft_tests;
 mod show_collection_metadata_option_tests;
 mod show_fungible_flag_tests;

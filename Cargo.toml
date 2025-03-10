@@ -32,18 +32,18 @@ anyhow = "1.0.75"
 async-std = "1.0.0"
 async-trait = "0.1.60"
 backon = "0.4.1"
-blockbuster = {path = "blockbuster"}
+blockbuster = { path = "blockbuster" }
 borsh = "~0.10.3"
 borsh-derive = "~0.10.3"
 bs58 = "0.4.0"
-bytemuck = {version = "1.14.0", features = ["derive"]}
+bytemuck = { version = "1.14.0", features = ["derive"] }
 cadence = "0.29.0"
 cadence-macros = "0.29.0"
 chrono = "0.4.19"
 clap = "4.2.2"
-das-core = {path = "core"}
-das_api = {path = "das_api"}
-digital_asset_types = {path = "digital_asset_types"}
+das-core = { path = "core" }
+das_api = { path = "das_api" }
+digital_asset_types = { path = "digital_asset_types" }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
 env_logger = "0.10.0"
@@ -65,14 +65,14 @@ jsonrpsee-core = "0.16.2"
 lazy_static = "1.4.0"
 log = "0.4.17"
 metrics = "0.20.1"
-migration = {path = "migration"}
+migration = { path = "migration" }
 mime_guess = "2.0.4"
 mpl-bubblegum = "1.2.0"
 mpl-account-compression = "0.4.2"
-mpl-core = {version = "0.9.0", features = ["serde"]}
+mpl-core = { version = "0.9.0", features = ["serde"] }
 mpl-noop = "0.2.1"
 mpl-token-metadata = "4.1.1"
-nft_ingester = {path = "nft_ingester"}
+nft_ingester = { path = "nft_ingester" }
 num-derive = "0.3.3"
 num-traits = "0.2.15"
 once_cell = "1.19.0"
@@ -80,7 +80,7 @@ open-rpc-derive = "0.0.4"
 open-rpc-schema = "0.0.4"
 plerkle_messenger = "1.6.0"
 plerkle_serialization = "1.8.0"
-program_transformers = {path = "program_transformers"}
+program_transformers = { path = "program_transformers" }
 prometheus = "0.13.3"
 proxy-wasm = "0.2.0"
 rand = "0.8.5"
@@ -89,7 +89,7 @@ reqwest = "0.11.13"
 rust-crypto = "0.2.36"
 schemars = "0.8.6"
 schemars_derive = "0.8.6"
-sea-orm = "0.10.6"
+sea-orm = { version = "0.10.6", features = ["mock"] }
 sea-orm-migration = "0.10.6"
 sea-query = "0.28.1"
 serde = "1.0.137"
@@ -106,9 +106,9 @@ spl-account-compression = "0.4.2"
 spl-associated-token-account = ">= 1.1.3, < 3.0"
 spl-concurrent-merkle-tree = "0.4.1"
 spl-noop = "0.2.0"
-spl-pod = {version = "0.1.0", features = ["serde-traits"]}
+spl-pod = { version = "0.1.0", features = ["serde-traits"] }
 spl-token = ">= 3.5.0, < 5.0"
-spl-token-2022 = {version = "1.0", features = ["no-entrypoint"]}
+spl-token-2022 = { version = "1.0", features = ["no-entrypoint"] }
 spl-token-group-interface = "0.1.0"
 spl-token-metadata-interface = "0.2.0"
 sqlx = "0.6.2"
@@ -120,10 +120,11 @@ tower = "0.4.13"
 tower-http = "0.3.5"
 tracing = "0.1.35"
 tracing-subscriber = "0.3.16"
-txn_forwarder = {path = "tools/txn_forwarder"}
+txn_forwarder = { path = "tools/txn_forwarder" }
 url = "2.3.1"
 wasi = "0.7.0"
 wasm-bindgen = "0.2.83"
+das-ops = { path = "ops" }
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"
