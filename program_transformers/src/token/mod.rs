@@ -4,10 +4,10 @@ use {
             upsert_assets_mint_account_columns, upsert_assets_token_account_columns,
             AssetMintAccountColumns, AssetTokenAccountColumns,
         },
-        error::ProgramTransformerResult,
+        error::{ProgramTransformerError, ProgramTransformerResult},
         AccountInfo,
     },
-    blockbuster::programs::token_account::TokenProgramAccount,
+    blockbuster::programs::token_account::TokenProgramEntity,
     digital_asset_types::dao::{
         token_accounts,
         tokens::{self, IsNonFungible},
@@ -22,14 +22,14 @@ use {
 
 pub async fn handle_token_program_account<'a, 'b>(
     account_info: &AccountInfo,
-    parsing_result: &'a TokenProgramAccount,
+    parsing_result: &'a TokenProgramEntity,
     db: &'b DatabaseConnection,
 ) -> ProgramTransformerResult<()> {
     let account_key = account_info.pubkey.to_bytes().to_vec();
     let account_owner = account_info.owner.to_bytes().to_vec();
     let slot = account_info.slot as i64;
     match &parsing_result {
-        TokenProgramAccount::TokenAccount(ta) => {
+        TokenProgramEntity::TokenAccount(ta) => {
             let mint = ta.mint.to_bytes().to_vec();
             let delegate: Option<Vec<u8>> = match ta.delegate {
                 COption::Some(d) => Some(d.to_bytes().to_vec()),
@@ -98,7 +98,7 @@ pub async fn handle_token_program_account<'a, 'b>(
 
             Ok(())
         }
-        TokenProgramAccount::Mint(m) => {
+        TokenProgramEntity::Mint(m) => {
             let freeze_auth: Option<Vec<u8>> = match m.freeze_authority {
                 COption::Some(d) => Some(d.to_bytes().to_vec()),
                 COption::None => None,
@@ -158,5 +158,6 @@ pub async fn handle_token_program_account<'a, 'b>(
             txn.commit().await?;
             Ok(())
         }
+        _ => Err(ProgramTransformerError::NotImplemented),
     }
 }
