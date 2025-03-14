@@ -10,13 +10,13 @@ snapshot_kind: text
   "items": [
     {
       "interface": "ProgrammableNFT",
-      "id": "8t77ShMViat27Sjphvi1FVPaGrhFcttPAkEnLCFp49Bo",
+      "id": "42AYryUGNmJMe9ycBXZekkYvdTehgbtECHs7SLu5JJTB",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/1466.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/2835.json",
         "files": [],
         "metadata": {
-          "name": "SILICON #1466",
+          "name": "SILICON #2835",
           "symbol": "SILI",
           "token_standard": "ProgrammableNonFungible"
         },
@@ -83,13 +83,13 @@ snapshot_kind: text
     },
     {
       "interface": "ProgrammableNFT",
-      "id": "42AYryUGNmJMe9ycBXZekkYvdTehgbtECHs7SLu5JJTB",
+      "id": "8t77ShMViat27Sjphvi1FVPaGrhFcttPAkEnLCFp49Bo",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/2835.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/1466.json",
         "files": [],
         "metadata": {
-          "name": "SILICON #2835",
+          "name": "SILICON #1466",
           "symbol": "SILI",
           "token_standard": "ProgrammableNonFungible"
         },
