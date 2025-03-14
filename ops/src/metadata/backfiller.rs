@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::Parser;
 use das_core::{
     connect_db, perform_metadata_json_task, DownloadMetadataInfo, DownloadMetadataJsonRetryConfig,
@@ -9,30 +9,43 @@ use digital_asset_types::dao::asset_data;
 use indicatif::HumanDuration;
 use log::{debug, error};
 use reqwest::Client;
-use sea_orm::{ColumnTrait, EntityTrait, JsonValue, QueryFilter, SqlxPostgresConnector};
+use sea_orm::{
+    ColumnTrait, EntityTrait, JsonValue, PaginatorTrait, QueryFilter, SqlxPostgresConnector,
+};
 use std::sync::Arc;
-use tokio::{task::JoinHandle, time::Instant};
+use tokio::{sync::mpsc::unbounded_channel, task::JoinSet, time::Instant};
+
+#[derive(Parser, Clone, Debug)]
+pub struct ConfigArgs {
+    /// The number of db entries to process in a single batch
+    #[arg(long, env, default_value = "10")]
+    pub batch_size: u64,
+}
 
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
+    /// Metadata JSON download worker configuration
     #[clap(flatten)]
     pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
+    // Configuration arguments
+    #[clap(flatten)]
+    pub config: ConfigArgs,
     /// Database configuration
     #[clap(flatten)]
     pub database: PoolArgs,
 }
 
-pub const DEFAULT_METADATA_JSON_DOWNLOAD_WORKER_COUNT: usize = 25;
-
 #[derive(Debug, Clone)]
 pub struct MetadataJsonBackfillerContext {
     pub database_pool: sqlx::PgPool,
+    pub batch_size: u64,
     pub metadata_json_download_worker: MetadataJsonDownloadWorkerArgs,
 }
 
 pub async fn start_backfill(context: MetadataJsonBackfillerContext) -> Result<()> {
     let MetadataJsonBackfillerContext {
         database_pool,
+        batch_size,
         metadata_json_download_worker:
             MetadataJsonDownloadWorkerArgs {
                 metadata_json_download_worker_count,
@@ -40,118 +53,117 @@ pub async fn start_backfill(context: MetadataJsonBackfillerContext) -> Result<()
             },
     } = context;
 
-    let mut worker_count = if metadata_json_download_worker_count > 0 {
-        metadata_json_download_worker_count
-    } else {
-        DEFAULT_METADATA_JSON_DOWNLOAD_WORKER_COUNT
-    };
-    let database_pool = database_pool.clone();
-    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
+    let worker_count = metadata_json_download_worker_count;
 
-    let download_metadata_info_vec = asset_data::Entity::find()
-        .filter(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
-        .all(&conn)
-        .await?
-        .iter()
-        .map(|d| DownloadMetadataInfo::new(d.id.clone(), d.metadata_url.clone(), d.slot_updated))
-        .collect::<Vec<DownloadMetadataInfo>>();
+    let db_pool = database_pool.clone();
 
-    let metadata_vec_len = download_metadata_info_vec.len();
-    debug!(
-        "Found {} assets to download",
-        download_metadata_info_vec.len()
-    );
+    let (batch_sender, mut batch_receiver) = unbounded_channel::<Vec<DownloadMetadataInfo>>();
 
-    if metadata_vec_len == 0 {
-        return Ok(());
-    }
+    let control = tokio::spawn(async move {
+        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(db_pool);
 
-    if worker_count > metadata_vec_len {
-        if metadata_vec_len == 1 {
-            worker_count = 1;
-        } else {
-            // If the number of assets is less than the number of workers, we assume each worker will handle 2 assets
-            worker_count = metadata_vec_len / 2;
+        let mut paginator = asset_data::Entity::find()
+            .filter(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+            .paginate(&conn, batch_size);
+
+        debug!(
+            "download metadata json len: {}",
+            paginator.num_items().await.unwrap_or(0)
+        );
+
+        while let Ok(Some(dm)) = paginator.fetch_and_next().await {
+            let download_metadata_info_vec: Vec<DownloadMetadataInfo> = dm
+                .into_iter()
+                .map(|asset_data| DownloadMetadataInfo {
+                    asset_data_id: asset_data.id,
+                    uri: asset_data.metadata_url,
+                    slot: asset_data.slot_updated,
+                })
+                .collect();
+
+            if batch_sender.send(download_metadata_info_vec).is_err() {
+                error!("Failed to send batch to worker");
+            }
         }
-    }
+    });
 
-    let excess_tasks = metadata_vec_len % worker_count;
-    let mut current_tasks_per_worker = if excess_tasks > 0 {
-        metadata_vec_len / worker_count + 1
-    } else {
-        metadata_vec_len / worker_count
-    };
+    let mut tasks = JoinSet::new();
 
-    let mut handlers: Vec<JoinHandle<()>> = Vec::with_capacity(metadata_json_download_worker_count);
-
-    let mut curr_start = 0;
     let client = Client::builder()
         .timeout(std::time::Duration::from_millis(
             metadata_json_download_worker_request_timeout,
         ))
         .build()?;
 
-    debug!("worker_count: {}", worker_count);
-    for _ in 0..worker_count {
-        let start = curr_start;
+    while let Some(dm_vec) = batch_receiver.recv().await {
+        let pool = database_pool.clone();
+        if tasks.len() >= worker_count {
+            tasks.join_next().await;
+        }
 
-        let end = start + current_tasks_per_worker;
-
-        let handler = spawn_metadata_fetch_task(
+        tasks.spawn(fetch_metadata_and_process(
             client.clone(),
-            database_pool.clone(),
-            &download_metadata_info_vec[start..end],
-        );
-
-        handlers.push(handler);
-
-        current_tasks_per_worker = current_tasks_per_worker.saturating_sub(1);
-
-        curr_start = end;
+            pool.clone(),
+            dm_vec,
+        ));
     }
 
-    futures::future::join_all(handlers).await;
+    control.await?;
+
+    while tasks.join_next().await.is_some() {}
+
+    let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(database_pool.clone());
+    let remaining = asset_data::Entity::find()
+        .filter(asset_data::Column::Metadata.eq(JsonValue::String("processing".to_string())))
+        .count(&conn)
+        .await?;
+
+    debug!("Remaining metadata json: {}", remaining);
 
     Ok(())
 }
 
-fn spawn_metadata_fetch_task(
+async fn fetch_metadata_and_process(
     client: reqwest::Client,
     pool: sqlx::PgPool,
-    download_metadata_info: &[DownloadMetadataInfo],
-) -> JoinHandle<()> {
+    download_metadata_info: Vec<DownloadMetadataInfo>,
+) {
     let download_metadata_info = download_metadata_info.to_vec();
-    tokio::spawn(async move {
-        for d in download_metadata_info.iter() {
-            let timing = Instant::now();
-            let asset_data_id = bs58::encode(d.asset_data_id.clone()).into_string();
+    debug!(
+        "Spawning metadata fetch task for {} assets",
+        download_metadata_info.len()
+    );
 
-            if let Err(e) = perform_metadata_json_task(
-                client.clone(),
-                pool.clone(),
-                d,
-                Arc::new(DownloadMetadataJsonRetryConfig::default()),
-            )
-            .await
-            {
-                error!("Asset {} failed: {}", asset_data_id, e);
-            }
+    for d in download_metadata_info.iter() {
+        let timing = Instant::now();
+        let asset_data_id = bs58::encode(d.asset_data_id.clone()).into_string();
 
-            debug!(
-                "Asset {} finished in {}",
-                asset_data_id,
-                HumanDuration(timing.elapsed())
-            );
+        if let Err(e) = perform_metadata_json_task(
+            client.clone(),
+            pool.clone(),
+            d,
+            Arc::new(DownloadMetadataJsonRetryConfig::default()),
+        )
+        .await
+        {
+            error!("Asset {} failed: {}", asset_data_id, e);
         }
-    })
+
+        debug!(
+            "Asset {} finished in {}",
+            asset_data_id,
+            HumanDuration(timing.elapsed())
+        );
+    }
 }
 
-pub async fn run(config: Args) -> Result<()> {
-    let database_pool = connect_db(&config.database).await?;
+pub async fn run(args: Args) -> Result<()> {
+    let database_pool = connect_db(&args.database).await?;
 
     let context = MetadataJsonBackfillerContext {
         database_pool,
-        metadata_json_download_worker: config.metadata_json_download_worker,
+        batch_size: args.config.batch_size,
+        metadata_json_download_worker: args.metadata_json_download_worker,
     };
 
     start_backfill(context).await?;
