@@ -1,7 +1,7 @@
 use crate::{
     error::BlockbusterError,
     instruction::InstructionBundle,
-    program_handler::{ParseResult, ProgramParser},
+    program_handler::{NotUsed, ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, pubkeys};
@@ -93,11 +93,9 @@ impl ProgramParser for TokenProgramParser {
         if let Some(ix) = instruction {
             if !ix.data.is_empty() && ix.data[0] == 9 && !keys.is_empty() {
                 return Ok(Box::new(TokenProgramEntity::CloseIx(keys[0])));
-            } else {
-                return Err(BlockbusterError::InstructionTypeNotImplemented);
             }
         }
 
-        Err(BlockbusterError::InstructionParsingError)
+        Ok(Box::new(NotUsed::new()))
     }
 }

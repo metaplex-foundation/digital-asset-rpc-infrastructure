@@ -2,7 +2,7 @@ pub mod extension;
 use crate::{
     error::BlockbusterError,
     instruction::InstructionBundle,
-    program_handler::{ParseResult, ProgramParser},
+    program_handler::{NotUsed, ParseResult, ProgramParser},
     programs::ProgramParseResult,
 };
 
@@ -277,11 +277,9 @@ impl ProgramParser for Token2022ProgramParser {
         if let Some(ix) = instruction {
             if !ix.data.is_empty() && ix.data[0] == 9 && !keys.is_empty() {
                 return Ok(Box::new(TokenExtensionsProgramEntity::CloseIx(keys[0])));
-            } else {
-                return Err(BlockbusterError::InstructionTypeNotImplemented);
             }
         }
 
-        Err(BlockbusterError::InstructionParsingError)
+        Ok(Box::new(NotUsed::new()))
     }
 }

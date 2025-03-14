@@ -340,7 +340,8 @@ pub fn filter_non_null_fields(value: Value) -> Option<Value> {
 }
 
 pub async fn handle_token_program_close_ix(acc_to_close: &Pubkey, db: &DatabaseConnection) {
-    let mint = tokens::Entity::find_by_id(acc_to_close.as_ref().to_vec())
+    let acc_to_close_bytes = acc_to_close.to_bytes().to_vec();
+    let mint = tokens::Entity::find_by_id(acc_to_close_bytes.clone())
         .one(db)
         .await
         .ok()
@@ -348,9 +349,9 @@ pub async fn handle_token_program_close_ix(acc_to_close: &Pubkey, db: &DatabaseC
 
     if mint.is_some() {
         let (token_res, asset_res) = tokio::join!(
-            tokens::Entity::delete_by_id(acc_to_close.as_ref().to_vec()).exec(db),
+            tokens::Entity::delete_by_id(acc_to_close_bytes.clone()).exec(db),
             asset::Entity::update_many()
-                .filter(asset::Column::Id.is_in([acc_to_close.as_ref().to_vec()]))
+                .filter(asset::Column::Id.is_in([acc_to_close_bytes.clone()]))
                 .col_expr(asset::Column::Burnt, Expr::value(true))
                 .exec(db),
         );
@@ -384,7 +385,7 @@ pub async fn handle_token_program_close_ix(acc_to_close: &Pubkey, db: &DatabaseC
             })
             .ok();
     } else {
-        let res = token_accounts::Entity::delete_by_id(acc_to_close.as_ref().to_vec())
+        let res = token_accounts::Entity::delete_by_id(acc_to_close_bytes)
             .exec(db)
             .await;
 
