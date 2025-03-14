@@ -1,5 +1,6 @@
 mod account;
 mod bubblegum;
+mod purge;
 
 use account::{subcommand as account_subcommand, AccountCommand};
 use anyhow::Result;
@@ -19,6 +20,8 @@ enum Command {
     Bubblegum(BubblegumCommand),
     #[clap(name = "account")]
     Account(AccountCommand),
+    #[clap(name = "purge")]
+    Purge(purge::PurgeCommand),
 }
 
 #[tokio::main]
@@ -30,6 +33,7 @@ async fn main() -> Result<()> {
     match args.command {
         Command::Bubblegum(subcommand) => bubblegum_subcommand(subcommand).await?,
         Command::Account(subcommand) => account_subcommand(subcommand).await?,
+        Command::Purge(subcommand) => purge::subcommand(subcommand).await?,
     }
 
     Ok(())

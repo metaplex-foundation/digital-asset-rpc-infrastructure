@@ -8,7 +8,11 @@ publish.workspace = true
 [[bin]]
 name = "das-ops"
 
+[lib]
+name = "das_ops"
+
 [dependencies]
+async-trait = { workspace = true }
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
 backon = { workspace = true }
@@ -35,3 +39,4 @@ solana-transaction-status = { workspace = true }
 spl-account-compression = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+sqlx = { workspace = true }
