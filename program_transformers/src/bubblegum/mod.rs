@@ -57,22 +57,36 @@ where
         InstructionName::SetAndVerifyCollection => "SetAndVerifyCollection",
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
+        InstructionName::BurnV2 => "BurnV2",
+        InstructionName::DelegateV2 => "DelegateV2",
+        InstructionName::DelegateAndFreezeV2 => "DelegateAndFreezeV2",
+        InstructionName::FreezeV2 => "FreezeV2",
+        InstructionName::MintV2 => "MintV2",
+        InstructionName::SetCollectionV2 => "SetCollectionV2",
+        InstructionName::SetNonTransferableV2 => "SetNonTransferableV2",
+        InstructionName::ThawV2 => "ThawV2",
+        InstructionName::ThawAndRevokeV2 => "ThawAndRevokeV2",
+        InstructionName::TransferV2 => "TransferV2",
+        InstructionName::UnverifyCreatorV2 => "UnverifyCreatorV2",
+        InstructionName::VerifyCreatorV2 => "VerifyCreatorV2",
+        InstructionName::UpdateMetadataV2 => "UpdateMetadataV2",
+        InstructionName::UpdateAssetDataV2 => "UpdateAssetDataV2",
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
     // TODO Route TransferV2 to Transfer, etc.  Need updated verison of Bubblegum crate to do this.
 
     match ix_type {
-        InstructionName::Transfer => {
+        InstructionName::Transfer | InstructionName::TransferV2 => {
             transfer::transfer(parsing_result, bundle, txn, ix_str).await?;
         }
-        InstructionName::Burn => {
+        InstructionName::Burn | InstructionName::BurnV2 => {
             burn::burn(parsing_result, bundle, txn, ix_str).await?;
         }
-        InstructionName::Delegate => {
+        InstructionName::Delegate | InstructionName::DelegateV2 => {
             delegate::delegate(parsing_result, bundle, txn, ix_str).await?;
         }
-        InstructionName::MintV1 | InstructionName::MintToCollectionV1 => {
+        InstructionName::MintV1 | InstructionName::MintToCollectionV1 | InstructionName::MintV2 => {
             if let Some(info) = mint_v1::mint_v1(parsing_result, bundle, txn, ix_str).await? {
                 download_metadata_notifier(info)
                     .await
@@ -88,7 +102,10 @@ where
         InstructionName::DecompressV1 => {
             debug!("No action necessary for decompression")
         }
-        InstructionName::VerifyCreator | InstructionName::UnverifyCreator => {
+        InstructionName::VerifyCreator
+        | InstructionName::UnverifyCreator
+        | InstructionName::VerifyCreatorV2
+        | InstructionName::UnverifyCreatorV2 => {
             creator_verification::process(parsing_result, bundle, txn, ix_str).await?;
         }
         InstructionName::VerifyCollection
@@ -97,7 +114,7 @@ where
             collection_verification::process(parsing_result, bundle, txn, ix_str).await?;
         }
         InstructionName::SetDecompressibleState => (), // Nothing to index.
-        InstructionName::UpdateMetadata => {
+        InstructionName::UpdateMetadata | InstructionName::UpdateMetadataV2 => {
             if let Some(info) =
                 update_metadata::update_metadata(parsing_result, bundle, txn, ix_str).await?
             {
@@ -106,6 +123,13 @@ where
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
+        InstructionName::DelegateAndFreezeV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::FreezeV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::SetCollectionV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::SetNonTransferableV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::ThawV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::ThawAndRevokeV2 => debug!("Bubblegum: Not Implemented Instruction"),
+        InstructionName::UpdateAssetDataV2 => debug!("Bubblegum: Not Implemented Instruction"),
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }
     Ok(())
