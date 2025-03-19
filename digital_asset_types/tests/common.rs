@@ -173,6 +173,9 @@ pub fn create_asset(
             mpl_core_external_plugins: None,
             mpl_core_unknown_external_plugins: None,
             mint_extensions: None,
+            asset_data_hash: None,
+            bubblegum_flags: None,
+            non_transferable: None,
         },
     )
 }
