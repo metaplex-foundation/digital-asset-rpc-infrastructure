@@ -3639,12 +3639,13 @@ dependencies = [
 
 [[package]]
 name = "mpl-bubblegum"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a26670110ff400c7b2370714406dd99f993f36947a75b869b608f237810995ca"
+checksum = "f167e7af50bea282e8c9c85928d4917a83c7dd8e2f2037c377b3ad40090b662b"
 dependencies = [
  "borsh 0.10.4",
  "kaigan",
+ "modular-bitfield",
  "num-derive 0.3.3",
  "num-traits",
  "solana-program 1.18.26",

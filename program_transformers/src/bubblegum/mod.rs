@@ -74,7 +74,7 @@ where
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
-    // TODO Route TransferV2 to Transfer, etc.  Need updated verison of Bubblegum crate to do this.
+    // TODO fix complete instruction routing and update parsing.
 
     match ix_type {
         InstructionName::Transfer | InstructionName::TransferV2 => {
