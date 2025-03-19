@@ -46,6 +46,11 @@ where
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
+            LeafSchema::V2 { .. } => {
+                return Err(ProgramTransformerError::ParsingError(
+                    "LeafSchema V2 not possible for ix".to_string(),
+                ));
+            }
         };
 
         let tree_id = cl.id.to_bytes();
@@ -65,6 +70,8 @@ where
             le.leaf_hash.to_vec(),
             le.schema.data_hash(),
             le.schema.creator_hash(),
+            None,
+            None,
             seq as i64,
         )
         .await?;

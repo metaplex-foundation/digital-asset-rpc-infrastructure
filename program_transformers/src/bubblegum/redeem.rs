@@ -51,6 +51,8 @@ where
             vec![0; 32],
             [0; 32],
             [0; 32],
+            None,
+            None,
             seq as i64,
         )
         .await?;

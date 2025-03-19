@@ -174,6 +174,8 @@ pub async fn upsert_asset_with_leaf_info<T>(
     leaf: Vec<u8>,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
+    _asset_data_hash: Option<[u8; 32]>,
+    _flags: Option<u8>,
     seq: i64,
 ) -> ProgramTransformerResult<()>
 where
@@ -181,6 +183,7 @@ where
 {
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
+
     let model = asset::ActiveModel {
         id: ActiveValue::Set(id),
         nonce: ActiveValue::Set(Some(nonce)),
