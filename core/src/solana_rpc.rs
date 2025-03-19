@@ -38,6 +38,11 @@ impl Rpc {
         Rpc(Arc::new(RpcClient::new(config.solana_rpc_url.clone())))
     }
 
+    #[cfg(feature = "rpc-mock")]
+    pub fn from_mocks(mocks: solana_client::rpc_client::Mocks, rpc_result: String) -> Self {
+        Rpc(Arc::new(RpcClient::new_mock_with_mocks(rpc_result, mocks)))
+    }
+
     pub async fn get_transaction(
         &self,
         signature: &Signature,

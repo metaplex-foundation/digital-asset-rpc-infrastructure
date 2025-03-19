@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clap::Parser;
+use sea_orm::{DatabaseConnection, MockDatabase, MockDatabaseConnection, SqlxPostgresConnector};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     PgPool,
@@ -35,4 +38,29 @@ pub async fn connect_db(config: &PoolArgs) -> Result<PgPool, sqlx::Error> {
         .max_connections(config.database_max_connections)
         .connect_with(options)
         .await
+}
+
+pub trait DatabasePool: Clone + Send + Sync + 'static {
+    fn connection(&self) -> DatabaseConnection;
+}
+
+impl DatabasePool for sqlx::PgPool {
+    fn connection(&self) -> DatabaseConnection {
+        SqlxPostgresConnector::from_sqlx_postgres_pool(self.clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct MockDatabasePool(Arc<MockDatabaseConnection>);
+
+impl MockDatabasePool {
+    pub fn from(mock_db: MockDatabase) -> Self {
+        Self(Arc::new(MockDatabaseConnection::new(mock_db)))
+    }
+}
+
+impl DatabasePool for Arc<MockDatabasePool> {
+    fn connection(&self) -> DatabaseConnection {
+        DatabaseConnection::MockDatabaseConnection(Arc::clone(&self.0))
+    }
 }

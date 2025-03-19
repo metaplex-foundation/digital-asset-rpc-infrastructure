@@ -1952,6 +1952,7 @@ version = "0.7.2"
 dependencies = [
  "anchor-client",
  "anyhow",
+ "async-trait",
  "borsh 0.10.4",
  "bs58 0.4.0",
  "cadence",
@@ -3348,8 +3349,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "borsh 0.10.4",
+ "das-core",
+ "das-ops",
  "das_api",
  "digital_asset_types",
+ "env_logger 0.10.2",
  "flatbuffers",
  "function_name",
  "futures",

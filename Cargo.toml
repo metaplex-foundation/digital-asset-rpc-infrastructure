@@ -148,6 +148,7 @@ wasm-bindgen = "0.2.83"
 yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22" }                          # tag is geyser plugin
 yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22" }                           # tag is geyser plugin
 yellowstone-grpc-tools = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22", default-features = false } # tag is geyser plugin
+das-ops = { path = "ops" }
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"
