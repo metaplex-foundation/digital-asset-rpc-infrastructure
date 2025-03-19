@@ -60,6 +60,8 @@ where
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
+    // TODO Route TransferV2 to Transfer, etc.  Need updated verison of Bubblegum crate to do this.
+
     match ix_type {
         InstructionName::Transfer => {
             transfer::transfer(parsing_result, bundle, txn, ix_str).await?;

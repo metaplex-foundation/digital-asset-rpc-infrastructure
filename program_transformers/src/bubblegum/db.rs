@@ -174,8 +174,8 @@ pub async fn upsert_asset_with_leaf_info<T>(
     leaf: Vec<u8>,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
-    _asset_data_hash: Option<[u8; 32]>,
-    _flags: Option<u8>,
+    asset_data_hash: Option<[u8; 32]>,
+    flags: Option<u8>,
     seq: i64,
 ) -> ProgramTransformerResult<()>
 where
@@ -183,6 +183,10 @@ where
 {
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
+    let asset_data_hash = asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
+    let flags = flags.map(Into::into);
+
+    // TODO check flag bits and set frozen or non-transferrable based on the flags.
 
     let model = asset::ActiveModel {
         id: ActiveValue::Set(id),
@@ -191,6 +195,8 @@ where
         leaf: ActiveValue::Set(Some(leaf)),
         data_hash: ActiveValue::Set(Some(data_hash)),
         creator_hash: ActiveValue::Set(Some(creator_hash)),
+        asset_data_hash: ActiveValue::Set(asset_data_hash),
+        bubblegum_flags: ActiveValue::Set(flags),
         leaf_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
