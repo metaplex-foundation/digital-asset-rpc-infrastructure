@@ -8,7 +8,10 @@ use {
             SpecificationAssetClass, SpecificationVersions,
         },
     },
-    mpl_bubblegum::types::{Collection, Creator},
+    mpl_bubblegum::{
+        types::{Collection, Creator},
+        Flags,
+    },
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
@@ -184,11 +187,8 @@ where
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
     let asset_data_hash = asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
-    let flags = flags.map(Into::into);
 
-    // TODO check flag bits and set frozen or non-transferrable based on the flags.
-
-    let model = asset::ActiveModel {
+    let mut model = asset::ActiveModel {
         id: ActiveValue::Set(id),
         nonce: ActiveValue::Set(Some(nonce)),
         tree_id: ActiveValue::Set(Some(tree_id)),
@@ -196,9 +196,19 @@ where
         data_hash: ActiveValue::Set(Some(data_hash)),
         creator_hash: ActiveValue::Set(Some(creator_hash)),
         asset_data_hash: ActiveValue::Set(asset_data_hash),
-        bubblegum_flags: ActiveValue::Set(flags),
+        bubblegum_flags: ActiveValue::Set(flags.map(Into::into)),
         leaf_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
+    };
+
+    if let Some(flags) = flags {
+        let flags_bitfield = Flags::from_bytes([flags]);
+        let frozen = flags_bitfield.asset_lvl_frozen() || flags_bitfield.permanent_lvl_frozen();
+        model.frozen = ActiveValue::Set(frozen);
+
+        if flags_bitfield.non_transferable() {
+            model.non_transferable = ActiveValue::Set(Some(true));
+        }
     };
 
     let mut query = asset::Entity::insert(model)
