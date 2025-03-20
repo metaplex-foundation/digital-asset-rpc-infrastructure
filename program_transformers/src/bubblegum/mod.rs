@@ -20,7 +20,7 @@ mod collection_verification;
 mod creator_verification;
 mod db;
 mod delegate;
-mod mint_v1;
+mod mint;
 mod redeem;
 mod transfer;
 mod update_metadata;
@@ -74,8 +74,6 @@ where
     };
     info!("BGUM instruction txn={:?}: {:?}", ix_str, bundle.txn_id);
 
-    // TODO fix complete instruction routing and update parsing.
-
     match ix_type {
         InstructionName::Transfer | InstructionName::TransferV2 => {
             transfer::transfer(parsing_result, bundle, txn, ix_str).await?;
@@ -83,11 +81,18 @@ where
         InstructionName::Burn | InstructionName::BurnV2 => {
             burn::burn(parsing_result, bundle, txn, ix_str).await?;
         }
-        InstructionName::Delegate | InstructionName::DelegateV2 => {
-            delegate::delegate(parsing_result, bundle, txn, ix_str).await?;
+        InstructionName::Delegate
+        | InstructionName::DelegateV2
+        | InstructionName::DelegateAndFreezeV2
+        | InstructionName::FreezeV2
+        | InstructionName::SetNonTransferableV2
+        | InstructionName::ThawV2
+        | InstructionName::ThawAndRevokeV2 => {
+            delegate::delegation_freezing_nontransferability(parsing_result, bundle, txn, ix_str)
+                .await?;
         }
         InstructionName::MintV1 | InstructionName::MintToCollectionV1 | InstructionName::MintV2 => {
-            if let Some(info) = mint_v1::mint_v1(parsing_result, bundle, txn, ix_str).await? {
+            if let Some(info) = mint::mint(parsing_result, bundle, txn, ix_str).await? {
                 download_metadata_notifier(info)
                     .await
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
@@ -110,7 +115,8 @@ where
         }
         InstructionName::VerifyCollection
         | InstructionName::UnverifyCollection
-        | InstructionName::SetAndVerifyCollection => {
+        | InstructionName::SetAndVerifyCollection
+        | InstructionName::SetCollectionV2 => {
             collection_verification::process(parsing_result, bundle, txn, ix_str).await?;
         }
         InstructionName::SetDecompressibleState => (), // Nothing to index.
@@ -123,12 +129,6 @@ where
                     .map_err(ProgramTransformerError::DownloadMetadataNotify)?;
             }
         }
-        InstructionName::DelegateAndFreezeV2 => debug!("Bubblegum: Not Implemented Instruction"),
-        InstructionName::FreezeV2 => debug!("Bubblegum: Not Implemented Instruction"),
-        InstructionName::SetCollectionV2 => debug!("Bubblegum: Not Implemented Instruction"),
-        InstructionName::SetNonTransferableV2 => debug!("Bubblegum: Not Implemented Instruction"),
-        InstructionName::ThawV2 => debug!("Bubblegum: Not Implemented Instruction"),
-        InstructionName::ThawAndRevokeV2 => debug!("Bubblegum: Not Implemented Instruction"),
         InstructionName::UpdateAssetDataV2 => debug!("Bubblegum: Not Implemented Instruction"),
         _ => debug!("Bubblegum: Not Implemented Instruction"),
     }

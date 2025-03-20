@@ -13,7 +13,7 @@ use {
     sea_orm::{ConnectionTrait, TransactionTrait},
 };
 
-pub async fn delegate<'c, T>(
+pub async fn delegation_freezing_nontransferability<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,

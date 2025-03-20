@@ -28,7 +28,7 @@ use {
     tracing::warn,
 };
 
-pub async fn mint_v1<'c, T>(
+pub async fn mint<'c, T>(
     parsing_result: &BubblegumInstruction,
     bundle: &InstructionBundle<'c>,
     txn: &'c T,
@@ -40,7 +40,7 @@ where
     if let (
         Some(le),
         Some(cl),
-        Some(Payload::MintV1 {
+        Some(Payload::Mint {
             args,
             authority,
             tree_id,

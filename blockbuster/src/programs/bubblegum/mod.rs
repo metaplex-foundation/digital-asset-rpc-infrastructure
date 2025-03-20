@@ -13,7 +13,6 @@ use mpl_bubblegum::{
         UpdateMetadataInstructionArgs, UpdateMetadataV2InstructionArgs,
         VerifyCreatorInstructionArgs, VerifyCreatorV2InstructionArgs,
     },
-    programs::MPL_BUBBLEGUM_ID,
     types::{BubblegumEventType, MetadataArgs, MetadataArgsV2, UpdateArgs},
 };
 pub use mpl_bubblegum::{
@@ -25,7 +24,7 @@ use solana_sdk::pubkey::Pubkey;
 #[derive(Eq, PartialEq)]
 pub enum Payload {
     Unknown,
-    MintV1 {
+    Mint {
         args: MetadataArgs,
         authority: Pubkey,
         tree_id: Pubkey,
@@ -47,24 +46,6 @@ pub enum Payload {
     },
     UpdateMetadata {
         current_metadata: MetadataArgs,
-        update_args: UpdateArgs,
-        tree_id: Pubkey,
-    },
-    MintV2 {
-        args: MetadataArgsV2,
-        authority: Pubkey,
-        tree_id: Pubkey,
-    },
-    SetCollectionV2 {
-        collection: Pubkey,
-    },
-    CreatorVerificationV2 {
-        metadata: MetadataArgsV2,
-        creator: Pubkey,
-        verify: bool,
-    },
-    UpdateMetadataV2 {
-        current_metadata: MetadataArgsV2,
         update_args: UpdateArgs,
         tree_id: Pubkey,
     },
@@ -257,7 +238,7 @@ impl ProgramParser for BubblegumParser {
                     InstructionName::UpdateMetadataV2 => {
                         b_inst.payload = Some(build_update_metadata_v2_payload(keys, ix_data)?);
                     }
-                    InstructionName::UpdateAssetDataV2 => {} // Not supported.
+                    InstructionName::UpdateAssetDataV2 => {} // Not supported
                     _ => {}
                 };
             }
@@ -359,7 +340,7 @@ fn build_mint_v1_payload(
         .get(3)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
-    Ok(Payload::MintV1 {
+    Ok(Payload::Mint {
         args,
         authority,
         tree_id,
@@ -398,8 +379,8 @@ fn build_mint_v2_payload(keys: &[Pubkey], ix_data: &[u8]) -> Result<Payload, Blo
         .get(6)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
-    Ok(Payload::MintV2 {
-        args,
+    Ok(Payload::Mint {
+        args: args.into(),
         authority,
         tree_id,
     })
@@ -412,7 +393,10 @@ fn build_set_collection_v2_payload(keys: &[Pubkey]) -> Result<Payload, Blockbust
     let collection = *keys
         .get(8)
         .ok_or(BlockbusterError::InstructionParsingError)?;
-    Ok(Payload::SetCollectionV2 { collection })
+    Ok(Payload::CollectionVerification {
+        collection,
+        verify: true,
+    })
 }
 
 // See Bubblegum documentation for offsets and positions:
@@ -438,14 +422,14 @@ fn build_creator_verification_v2_payload(
 
     // Creator is optional in V2, None being signfied by the program ID.
     // Creator defaults to the payer.
-    let creator = if creator == MPL_BUBBLEGUM_ID {
+    let creator = if creator == mpl_bubblegum::ID {
         payer
     } else {
         creator
     };
 
-    Ok(Payload::CreatorVerificationV2 {
-        metadata,
+    Ok(Payload::CreatorVerification {
+        metadata: metadata.into(),
         creator,
         verify,
     })
@@ -463,8 +447,8 @@ fn build_update_metadata_v2_payload(
         .get(8)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
-    Ok(Payload::UpdateMetadataV2 {
-        current_metadata: args.current_metadata,
+    Ok(Payload::UpdateMetadata {
+        current_metadata: args.current_metadata.into(),
         update_args: args.update_args,
         tree_id,
     })
