@@ -9,9 +9,12 @@ use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
     instructions::{
-        UnverifyCreatorInstructionArgs, UpdateMetadataInstructionArgs, VerifyCreatorInstructionArgs,
+        UnverifyCreatorInstructionArgs, UnverifyCreatorV2InstructionArgs,
+        UpdateMetadataInstructionArgs, UpdateMetadataV2InstructionArgs,
+        VerifyCreatorInstructionArgs, VerifyCreatorV2InstructionArgs,
     },
-    types::{BubblegumEventType, MetadataArgs, UpdateArgs},
+    programs::MPL_BUBBLEGUM_ID,
+    types::{BubblegumEventType, MetadataArgs, MetadataArgsV2, UpdateArgs},
 };
 pub use mpl_bubblegum::{
     types::{LeafSchema, UseMethod},
@@ -44,6 +47,24 @@ pub enum Payload {
     },
     UpdateMetadata {
         current_metadata: MetadataArgs,
+        update_args: UpdateArgs,
+        tree_id: Pubkey,
+    },
+    MintV2 {
+        args: MetadataArgsV2,
+        authority: Pubkey,
+        tree_id: Pubkey,
+    },
+    SetCollectionV2 {
+        collection: Pubkey,
+    },
+    CreatorVerificationV2 {
+        metadata: MetadataArgsV2,
+        creator: Pubkey,
+        verify: bool,
+    },
+    UpdateMetadataV2 {
+        current_metadata: MetadataArgsV2,
         update_args: UpdateArgs,
         tree_id: Pubkey,
     },
@@ -219,6 +240,24 @@ impl ProgramParser for BubblegumParser {
                     InstructionName::UpdateMetadata => {
                         b_inst.payload = Some(build_update_metadata_payload(keys, ix_data)?);
                     }
+                    InstructionName::MintV2 => {
+                        b_inst.payload = Some(build_mint_v2_payload(keys, ix_data)?);
+                    }
+                    InstructionName::SetCollectionV2 => {
+                        b_inst.payload = Some(build_set_collection_v2_payload(keys)?);
+                    }
+                    InstructionName::VerifyCreatorV2 => {
+                        b_inst.payload =
+                            Some(build_creator_verification_v2_payload(keys, ix_data, true)?);
+                    }
+                    InstructionName::UnverifyCreatorV2 => {
+                        b_inst.payload =
+                            Some(build_creator_verification_v2_payload(keys, ix_data, false)?);
+                    }
+                    InstructionName::UpdateMetadataV2 => {
+                        b_inst.payload = Some(build_update_metadata_v2_payload(keys, ix_data)?);
+                    }
+                    InstructionName::UpdateAssetDataV2 => {} // Not supported.
                     _ => {}
                 };
             }
@@ -340,6 +379,91 @@ fn build_update_metadata_payload(
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
     Ok(Payload::UpdateMetadata {
+        current_metadata: args.current_metadata,
+        update_args: args.update_args,
+        tree_id,
+    })
+}
+
+// See Bubblegum for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md
+fn build_mint_v2_payload(keys: &[Pubkey], ix_data: &[u8]) -> Result<Payload, BlockbusterError> {
+    let args: MetadataArgsV2 = MetadataArgsV2::try_from_slice(ix_data)?;
+
+    let authority = *keys
+        .first()
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    let tree_id = *keys
+        .get(6)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    Ok(Payload::MintV2 {
+        args,
+        authority,
+        tree_id,
+    })
+}
+
+// See Bubblegum for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md#-verify_collection-unverify_collection-and-set_and_verify_collection
+// This uses the account.  The collection is only provided as an argument for `set_and_verify_collection`.
+fn build_set_collection_v2_payload(keys: &[Pubkey]) -> Result<Payload, BlockbusterError> {
+    let collection = *keys
+        .get(8)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+    Ok(Payload::SetCollectionV2 { collection })
+}
+
+// See Bubblegum documentation for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md#-verify_creator-and-unverify_creator
+fn build_creator_verification_v2_payload(
+    keys: &[Pubkey],
+    ix_data: &[u8],
+    verify: bool,
+) -> Result<Payload, BlockbusterError> {
+    let metadata = if verify {
+        VerifyCreatorV2InstructionArgs::try_from_slice(ix_data)?.metadata
+    } else {
+        UnverifyCreatorV2InstructionArgs::try_from_slice(ix_data)?.metadata
+    };
+
+    let payer = *keys
+        .get(1)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    let creator = *keys
+        .get(2)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    // Creator is optional in V2, None being signfied by the program ID.
+    // Creator defaults to the payer.
+    let creator = if creator == MPL_BUBBLEGUM_ID {
+        payer
+    } else {
+        creator
+    };
+
+    Ok(Payload::CreatorVerificationV2 {
+        metadata,
+        creator,
+        verify,
+    })
+}
+
+// See Bubblegum for offsets and positions:
+// https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md
+fn build_update_metadata_v2_payload(
+    keys: &[Pubkey],
+    ix_data: &[u8],
+) -> Result<Payload, BlockbusterError> {
+    let args = UpdateMetadataV2InstructionArgs::try_from_slice(ix_data)?;
+
+    let tree_id = *keys
+        .get(8)
+        .ok_or(BlockbusterError::InstructionParsingError)?;
+
+    Ok(Payload::UpdateMetadataV2 {
         current_metadata: args.current_metadata,
         update_args: args.update_args,
         tree_id,
