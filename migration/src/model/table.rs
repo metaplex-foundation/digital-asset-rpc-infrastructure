@@ -91,6 +91,7 @@ pub enum Asset {
     MplCorePluginsJsonVersion,
     MplCoreExternalPlugins,
     MplCoreUnknownExternalPlugins,
+    CollectionHash,
     AssetDataHash,
     BubblegumFlags,
     NonTransferable,

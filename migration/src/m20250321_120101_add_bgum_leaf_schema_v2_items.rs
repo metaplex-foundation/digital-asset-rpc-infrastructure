@@ -12,6 +12,14 @@ impl MigrationTrait for Migration {
             .alter_table(
                 sea_query::Table::alter()
                     .table(Asset::Table)
+                    .add_column(ColumnDef::new(Asset::CollectionHash).string().char_len(50))
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .alter_table(
+                sea_query::Table::alter()
+                    .table(Asset::Table)
                     .add_column(ColumnDef::new(Asset::AssetDataHash).string().char_len(50))
                     .to_owned(),
             )
@@ -36,6 +44,14 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .alter_table(
+                sea_query::Table::alter()
+                    .table(Asset::Table)
+                    .drop_column(Asset::CollectionHash)
+                    .to_owned(),
+            )
+            .await?;
         manager
             .alter_table(
                 sea_query::Table::alter()

@@ -48,7 +48,7 @@ mod m20241119_060310_add_token_inscription_enum_variant;
 mod m20250213_053451_add_idx_token_accounts_owner;
 mod m20250313_105132_drop_idx_token_accounts_owner_and_idx_ta_mint;
 mod m20250313_105206_add_idx_ta_owner_amount_and_idx_ta_mint_amount;
-mod m20250318_120101_add_bgum_leaf_schema_v2_items;
+mod m20250321_120101_add_bgum_leaf_schema_v2_items;
 
 pub mod model;
 
@@ -106,7 +106,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250213_053451_add_idx_token_accounts_owner::Migration),
             Box::new(m20250313_105132_drop_idx_token_accounts_owner_and_idx_ta_mint::Migration),
             Box::new(m20250313_105206_add_idx_ta_owner_amount_and_idx_ta_mint_amount::Migration),
-            Box::new(m20250318_120101_add_bgum_leaf_schema_v2_items::Migration),
+            Box::new(m20250321_120101_add_bgum_leaf_schema_v2_items::Migration),
         ]
     }
 }
