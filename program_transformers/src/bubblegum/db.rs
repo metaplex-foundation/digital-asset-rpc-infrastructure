@@ -186,7 +186,6 @@ where
 {
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
-    let asset_data_hash = asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
 
     let mut model = asset::ActiveModel {
         id: ActiveValue::Set(id),
@@ -195,33 +194,45 @@ where
         leaf: ActiveValue::Set(Some(leaf)),
         data_hash: ActiveValue::Set(Some(data_hash)),
         creator_hash: ActiveValue::Set(Some(creator_hash)),
-        asset_data_hash: ActiveValue::Set(asset_data_hash),
-        bubblegum_flags: ActiveValue::Set(flags.map(Into::into)),
         leaf_seq: ActiveValue::Set(Some(seq)),
         ..Default::default()
     };
 
+    let mut update_columns = vec![
+        asset::Column::Nonce,
+        asset::Column::TreeId,
+        asset::Column::Leaf,
+        asset::Column::DataHash,
+        asset::Column::CreatorHash,
+        asset::Column::LeafSeq,
+    ];
+
+    // Add V2 updates
     if let Some(flags) = flags {
+        // Asset data hash
+        let asset_data_hash =
+            asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
+        model.asset_data_hash = ActiveValue::Set(asset_data_hash);
+        update_columns.push(asset::Column::AssetDataHash);
+
+        // Flags
+        model.bubblegum_flags = ActiveValue::Set(Some(flags.into()));
+        update_columns.push(asset::Column::BubblegumFlags);
+
+        // Frozen
         let flags_bitfield = Flags::from_bytes([flags]);
         let frozen = flags_bitfield.asset_lvl_frozen() || flags_bitfield.permanent_lvl_frozen();
         model.frozen = ActiveValue::Set(frozen);
+        update_columns.push(asset::Column::Frozen);
 
-        if flags_bitfield.non_transferable() {
-            model.non_transferable = ActiveValue::Set(Some(true));
-        }
-    };
-
+        // Non-transferable
+        model.non_transferable = ActiveValue::Set(Some(flags_bitfield.non_transferable()));
+        update_columns.push(asset::Column::NonTransferable);
+    }
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
-                .update_columns([
-                    asset::Column::Nonce,
-                    asset::Column::TreeId,
-                    asset::Column::Leaf,
-                    asset::Column::DataHash,
-                    asset::Column::CreatorHash,
-                    asset::Column::LeafSeq,
-                ])
+                .update_columns(update_columns)
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
