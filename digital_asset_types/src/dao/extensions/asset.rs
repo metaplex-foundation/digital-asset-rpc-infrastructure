@@ -123,6 +123,7 @@ impl Default for asset::Model {
             mpl_core_plugins_json_version: None,
             mpl_core_external_plugins: None,
             mpl_core_unknown_external_plugins: None,
+            collection_hash: None,
             asset_data_hash: None,
             bubblegum_flags: None,
             non_transferable: None,
