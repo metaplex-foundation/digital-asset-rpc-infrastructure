@@ -6,13 +6,14 @@ use {
                 save_changelog_event, upsert_asset_base_info, upsert_asset_creators,
                 upsert_asset_data, upsert_asset_with_leaf_info, upsert_asset_with_seq,
             },
+            NormalizedLeafFields,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
         DownloadMetadataInfo,
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        programs::bubblegum::{BubblegumInstruction, Payload},
         token_metadata::types::{TokenStandard, Uses},
     },
     digital_asset_types::{
@@ -50,52 +51,9 @@ where
     ) {
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
 
-        let (id, _owner, _delegate, nonce, data_hash, creator_hash, asset_data_hash, flags) =
-            match le.schema {
-                LeafSchema::V1 {
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    ..
-                } => (
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    None,
-                    None,
-                ),
-                LeafSchema::V2 {
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    asset_data_hash,
-                    flags,
-                    ..
-                } => (
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    Some(asset_data_hash),
-                    Some(flags),
-                ),
-            };
+        let leaf = NormalizedLeafFields::from(&le.schema);
 
-        // #[allow(unreachable_patterns)]
-        // return match le.schema {
-        //     LeafSchema::V1 { id, nonce, .. } => {
-        let id_bytes = id.to_bytes();
+        let id_bytes = leaf.id.to_bytes();
         let slot_i = bundle.slot as i64;
 
         let uri = if let Some(uri) = &update_args.uri {
@@ -205,13 +163,14 @@ where
         upsert_asset_with_leaf_info(
             &multi_txn,
             id_bytes.to_vec(),
-            nonce as i64,
+            leaf.nonce as i64,
             tree_id.to_bytes().to_vec(),
             le.leaf_hash.to_vec(),
-            data_hash,
-            creator_hash,
-            asset_data_hash,
-            flags,
+            leaf.data_hash,
+            leaf.creator_hash,
+            leaf.collection_hash,
+            leaf.asset_data_hash,
+            leaf.flags,
             seq as i64,
         )
         .await?;
@@ -226,7 +185,7 @@ where
         if uri.is_empty() {
             warn!(
                 "URI is empty for mint {}. Skipping background task.",
-                bs58::encode(id).into_string()
+                bs58::encode(leaf.id).into_string()
             );
             return Ok(None);
         }

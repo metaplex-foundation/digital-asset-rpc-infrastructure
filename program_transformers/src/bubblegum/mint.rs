@@ -8,13 +8,14 @@ use {
                 upsert_asset_with_leaf_info, upsert_asset_with_owner_and_delegate_info,
                 upsert_asset_with_seq, upsert_collection_info,
             },
+            NormalizedLeafFields,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
         DownloadMetadataInfo,
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        programs::bubblegum::{BubblegumInstruction, Payload},
         token_metadata::types::{TokenStandard, Uses},
     },
     digital_asset_types::{
@@ -53,49 +54,9 @@ where
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
         let metadata = args;
 
-        let (id, owner, delegate, nonce, data_hash, creator_hash, asset_data_hash, flags) =
-            match le.schema {
-                LeafSchema::V1 {
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    ..
-                } => (
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    None,
-                    None,
-                ),
-                LeafSchema::V2 {
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    asset_data_hash,
-                    flags,
-                    ..
-                } => (
-                    id,
-                    owner,
-                    delegate,
-                    nonce,
-                    data_hash,
-                    creator_hash,
-                    Some(asset_data_hash),
-                    Some(flags),
-                ),
-            };
+        let leaf = NormalizedLeafFields::from(&le.schema);
 
-        let id_bytes = id.to_bytes();
+        let id_bytes = leaf.id.to_bytes();
         let slot_i = bundle.slot as i64;
         let uri = metadata.uri.replace('\0', "");
         let name = metadata.name.clone().into_bytes();
@@ -142,10 +103,10 @@ where
         .await?;
 
         // Upsert `asset` table base info.
-        let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
+        let delegate = if leaf.owner == leaf.delegate || leaf.delegate.to_bytes() == [0; 32] {
             None
         } else {
-            Some(delegate.to_bytes().to_vec())
+            Some(leaf.delegate.to_bytes().to_vec())
         };
 
         // Upsert `asset` table base info and `asset_creators` table.
@@ -172,13 +133,14 @@ where
         upsert_asset_with_leaf_info(
             &multi_txn,
             id_bytes.to_vec(),
-            nonce as i64,
+            leaf.nonce as i64,
             tree_id.to_bytes().to_vec(),
             le.leaf_hash.to_vec(),
-            data_hash,
-            creator_hash,
-            asset_data_hash,
-            flags,
+            leaf.data_hash,
+            leaf.creator_hash,
+            leaf.collection_hash,
+            leaf.asset_data_hash,
+            leaf.flags,
             seq as i64,
         )
         .await?;
@@ -187,7 +149,7 @@ where
         upsert_asset_with_owner_and_delegate_info(
             &multi_txn,
             id_bytes.to_vec(),
-            owner.to_bytes().to_vec(),
+            leaf.owner.to_bytes().to_vec(),
             delegate,
             seq as i64,
         )
@@ -231,7 +193,7 @@ where
         if uri.is_empty() {
             warn!(
                 "URI is empty for mint {}. Skipping background task.",
-                bs58::encode(id).into_string()
+                bs58::encode(leaf.id).into_string()
             );
             return Ok(None);
         }

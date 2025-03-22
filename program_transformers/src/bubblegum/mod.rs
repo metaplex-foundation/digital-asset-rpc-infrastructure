@@ -6,11 +6,12 @@ use {
     blockbuster::{
         instruction::InstructionBundle,
         programs::bubblegum::{
-            BubblegumInstruction, InstructionName, UseMethod as BubblegumUseMethod,
+            BubblegumInstruction, InstructionName, LeafSchema, UseMethod as BubblegumUseMethod,
         },
         token_metadata::types::UseMethod as TokenMetadataUseMethod,
     },
     sea_orm::{ConnectionTrait, TransactionTrait},
+    solana_sdk::pubkey::Pubkey,
     tracing::{debug, info},
 };
 
@@ -150,5 +151,70 @@ const fn bgum_use_method_to_token_metadata_use_method(
         BubblegumUseMethod::Burn => TokenMetadataUseMethod::Burn,
         BubblegumUseMethod::Multiple => TokenMetadataUseMethod::Multiple,
         BubblegumUseMethod::Single => TokenMetadataUseMethod::Single,
+    }
+}
+
+/// A normalized representation of both V1 and V2 leaf schemas,
+/// providing a unified view of all fields.
+///
+/// Fields that are only present in V2 (i.e. `collection_hash`, `asset_data_hash`, `flags`)
+/// are represented as `Option`s and will be `None` when derived from a LeafSchema V1 struct.
+pub(crate) struct NormalizedLeafFields {
+    id: Pubkey,
+    owner: Pubkey,
+    delegate: Pubkey,
+    nonce: u64,
+    data_hash: [u8; 32],
+    creator_hash: [u8; 32],
+    collection_hash: Option<[u8; 32]>,
+    asset_data_hash: Option<[u8; 32]>,
+    flags: Option<u8>,
+}
+
+impl From<&LeafSchema> for NormalizedLeafFields {
+    fn from(leaf_schema: &LeafSchema) -> Self {
+        match leaf_schema {
+            LeafSchema::V1 {
+                id,
+                owner,
+                delegate,
+                nonce,
+                data_hash,
+                creator_hash,
+                ..
+            } => Self {
+                id: *id,
+                owner: *owner,
+                delegate: *delegate,
+                nonce: *nonce,
+                data_hash: *data_hash,
+                creator_hash: *creator_hash,
+                collection_hash: None,
+                asset_data_hash: None,
+                flags: None,
+            },
+            LeafSchema::V2 {
+                id,
+                owner,
+                delegate,
+                nonce,
+                data_hash,
+                creator_hash,
+                collection_hash,
+                asset_data_hash,
+                flags,
+                ..
+            } => Self {
+                id: *id,
+                owner: *owner,
+                delegate: *delegate,
+                nonce: *nonce,
+                data_hash: *data_hash,
+                creator_hash: *creator_hash,
+                collection_hash: Some(*collection_hash),
+                asset_data_hash: Some(*asset_data_hash),
+                flags: Some(*flags),
+            },
+        }
     }
 }

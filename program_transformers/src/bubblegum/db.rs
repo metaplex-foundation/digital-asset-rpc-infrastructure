@@ -177,6 +177,7 @@ pub async fn upsert_asset_with_leaf_info<T>(
     leaf: Vec<u8>,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
+    collection_hash: Option<[u8; 32]>,
     asset_data_hash: Option<[u8; 32]>,
     flags: Option<u8>,
     seq: i64,
@@ -209,6 +210,12 @@ where
 
     // Add V2 updates
     if let Some(flags) = flags {
+        // Collection hash
+        let collection_hash =
+            collection_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
+        model.asset_data_hash = ActiveValue::Set(collection_hash);
+        update_columns.push(asset::Column::CollectionHash);
+
         // Asset data hash
         let asset_data_hash =
             asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());

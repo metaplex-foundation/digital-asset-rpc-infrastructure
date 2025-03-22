@@ -4,11 +4,12 @@ use {
             save_changelog_event, upsert_asset_creators, upsert_asset_with_leaf_info,
             upsert_asset_with_owner_and_delegate_info, upsert_asset_with_seq,
         },
+        bubblegum::NormalizedLeafFields,
         error::{ProgramTransformerError, ProgramTransformerResult},
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        programs::bubblegum::{BubblegumInstruction, Payload},
     },
     mpl_bubblegum::types::Creator,
     sea_orm::{ConnectionTrait, TransactionTrait},
@@ -61,42 +62,14 @@ where
         );
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
 
-        let (id, owner, delegate, data_hash, creator_hash, asset_data_hash, flags) = match le.schema
-        {
-            LeafSchema::V1 {
-                id,
-                owner,
-                delegate,
-                data_hash,
-                creator_hash,
-                ..
-            } => (id, owner, delegate, data_hash, creator_hash, None, None),
-            LeafSchema::V2 {
-                id,
-                owner,
-                delegate,
-                data_hash,
-                creator_hash,
-                asset_data_hash,
-                flags,
-                ..
-            } => (
-                id,
-                owner,
-                delegate,
-                data_hash,
-                creator_hash,
-                Some(asset_data_hash),
-                Some(flags),
-            ),
-        };
+        let leaf = NormalizedLeafFields::from(&le.schema);
 
-        let id_bytes = id.to_bytes();
-        let owner_bytes = owner.to_bytes().to_vec();
-        let delegate = if owner == delegate || delegate.to_bytes() == [0; 32] {
+        let id_bytes = leaf.id.to_bytes();
+        let owner_bytes = leaf.owner.to_bytes().to_vec();
+        let delegate = if leaf.owner == leaf.delegate || leaf.delegate.to_bytes() == [0; 32] {
             None
         } else {
-            Some(delegate.to_bytes().to_vec())
+            Some(leaf.delegate.to_bytes().to_vec())
         };
         let tree_id = cl.id.to_bytes();
         let nonce = cl.index as i64;
@@ -113,10 +86,11 @@ where
             nonce,
             tree_id.to_vec(),
             le.leaf_hash.to_vec(),
-            data_hash,
-            creator_hash,
-            asset_data_hash,
-            flags,
+            leaf.data_hash,
+            leaf.creator_hash,
+            leaf.collection_hash,
+            leaf.asset_data_hash,
+            leaf.flags,
             seq as i64,
         )
         .await?;
