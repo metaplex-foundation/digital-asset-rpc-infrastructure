@@ -1,5 +1,6 @@
 mod account_update_tests;
 mod cnft_tests;
+mod cnft_tests_v2_leaf_schema;
 mod common;
 mod fungibles_and_token_extensions_tests;
 mod general_scenario_tests;

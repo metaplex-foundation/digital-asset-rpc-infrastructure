@@ -213,7 +213,7 @@ where
         // Collection hash
         let collection_hash =
             collection_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
-        model.asset_data_hash = ActiveValue::Set(collection_hash);
+        model.collection_hash = ActiveValue::Set(collection_hash);
         update_columns.push(asset::Column::CollectionHash);
 
         // Asset data hash

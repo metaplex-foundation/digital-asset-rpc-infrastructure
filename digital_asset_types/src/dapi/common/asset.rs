@@ -479,6 +479,9 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .creator_hash
                 .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
+            collection_hash: asset
+                .collection_hash
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string()),
             asset_data_hash: asset
                 .asset_data_hash
                 .map(|e| if asset.compressed { e.trim() } else { "" }.to_string()),
