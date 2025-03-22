@@ -71,7 +71,7 @@ impl ColumnTrait for Column {
             Self::DelegatedAmount => ColumnType::BigInteger.def(),
             Self::SlotUpdated => ColumnType::BigInteger.def(),
             Self::TokenProgram => ColumnType::Binary.def(),
-            Self::Extensions => ColumnType::Json.def().null(),
+            Self::Extensions => ColumnType::JsonBinary.def().null(),
         }
     }
 }
