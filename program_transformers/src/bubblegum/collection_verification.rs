@@ -44,13 +44,10 @@ where
             collection, verify, bundle.txn_id
         );
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
+
         let id_bytes = match le.schema {
             LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
-            LeafSchema::V2 { .. } => {
-                return Err(ProgramTransformerError::ParsingError(
-                    "LeafSchema V2 not possible for ix".to_string(),
-                ));
-            }
+            LeafSchema::V2 { id, .. } => id.to_bytes().to_vec(),
         };
 
         let tree_id = cl.id.to_bytes();
