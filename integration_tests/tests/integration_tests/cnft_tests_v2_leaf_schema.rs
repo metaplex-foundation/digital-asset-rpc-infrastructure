@@ -1,13 +1,10 @@
 use function_name::named;
-use std::str::FromStr;
 
 use das_api::api::{self, ApiContract};
 
 use itertools::Itertools;
 
 use serial_test::serial;
-
-use solana_sdk::signature::Signature;
 
 use super::common::*;
 
@@ -90,7 +87,7 @@ async fn test_mint_v2_to_collection_burn_v2() {
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_mint_v2_delegate_and_freeze_v2() {
+async fn test_delegate_and_freeze_v2() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
         name.clone(),
@@ -112,182 +109,81 @@ async fn test_mint_v2_delegate_and_freeze_v2() {
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_cnft_scenario_mint_update_metadata() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_thaw_and_revoke_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     // Mint a compressed NFT and then update its metadata. Verify correct state regardless of order.
-//     let asset_id = "FLFoCw2RBbxiw9rbEeqPWJ5rasArD9kTCKWEJirTexsU";
-//     let seeds: Vec<SeedEvent> = vec![
-//         // mint cNFT
-//         seed_txn("2DP84v6Pi3e4v5i7KSvzmK4Ufbzof3TAiEqDbm9gg8jZpBRF9f1Cy6x54kvZoHPX9k1XfqbsG1FTv2KVP9fvNrN6"),
-//         // update metadata
-//         seed_txn("3bsL5zmLKvhN9Je4snTKxjFSpmXEEg2cvMHm2rCNgaEYkNXBqJTA4N7QmvBSWPiNUQPtzJSYzpQYX92NowV3L7vN"),
-//     ];
+    let asset_id = "E59c8LNXhYD9Gh93UqKoQXdKD7qCUmKnzT3p3EQLYeHj";
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "rBMrxLUJqy2veGRSy82MLEYqcAo6FrvsovSkFTwRoKWJJXjzgZkrrU7YqGXitLNAaPoiaf7ETCyENcQdxe3qyfL",
+        // delegate_and_freeze_v2
+        "3bMpRY9Eq8eLMsq4WzpVTPXM8PHFauPH7DjNQCQca8qtrRihmSgCUrsUaVx7Nydn76m2mCUzDMKs327TeQps2jdP",
+        // thaw_and_revoke_v2
+        "5QMtikA2DUNWrAESBgwvS8zTHhj6rAejpgQg3HCuURiYdAB4XLvJT7xrj9NkKPN7vTXcDjXWzLP9J4oxiW2JipMJ",
+    ]);
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_cnft_scenario_mint_update_metadata_remove_creators() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-//     // Mint a compressed NFT and then update its metadata to remove creators.
-//     // Creator removal inserts a placeholder creator to handle out-of-order updates.
-//     // This test explicitly verifies this behaviour.
-//     let asset_id = "Gi4fAXJdnWYrEPjQm3wnW9ctgG7zJjB67zHDQtRGRWyZ";
-//     let seeds: Vec<SeedEvent> = vec![
-//         // mint cNFT
-//         seed_txn("2qMQrXfRE7pdnjwobWeqDkEhsv6MYmv3JdgvNxTVaL1VrMCZ4JYkUnu7jiJb2etX3W9WyQgSxktUgn9skxCeqTo5"),
-//         // update metadata (no creators)
-//         seed_txn("41YW187sn6Z2dXfqz6zSbnPtQoE826cCSgTLnMLKa9rH1xrCqAXBQNwKnzjGc9wjU5RtMCqKhy2eMN2TjuYC8veB"),
-//     ];
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_delegate_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    let asset_id = "YnBykqbzHvNsC4q3L9DK1W9J1te57FV3eB3NMERvyB8";
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_cnft_owners_table() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new(name.clone()).await;
-//     apply_migrations_and_delete_data(setup.db.clone()).await;
-//     let transactions = vec![
-//         "25djDqCTka7wEnNMRVwsqSsVHqQMknPReTUCmvF4XGD9bUD494jZ1FsPaPjbAK45TxpdVuF2RwVCK9Jq7oxZAtMB",
-//         "3UrxyfoJKH2jvVkzZZuCMXxtyaFUtgjhoQmirwhyiFjZXA8oM3QCBixCSBj9b53t5scvsm3qpuq5Qm4cGbNuwQP7",
-//         "4fzBjTaXmrrJReLLSYPzn1fhPfuiU2EU1hGUddtHV1B49pvRewGyyzvMMpssi7K4Y5ZYj5xS9DrJuxqJDZRMZqY1",
-//     ];
-//     for txn in transactions {
-//         index_transaction(&setup, Signature::from_str(txn).unwrap()).await;
-//     }
-//     for (request, individual_test_name) in [
-//         (
-//             api::SearchAssets {
-//                 owner_address: Some("F3MdnVQkRSy56FSKroYawfMk1RJFo42Quzz8VTmFzPVz".to_string()),
-//                 page: Some(1),
-//                 limit: Some(5),
-//                 ..api::SearchAssets::default()
-//             },
-//             "base",
-//         ),
-//         (
-//             api::SearchAssets {
-//                 owner_address: Some("3jnP4utL1VvjNhkxstYJ5MNayZfK4qHjFBDHNKEBpXCH".to_string()),
-//                 page: Some(1),
-//                 limit: Some(5),
-//                 ..api::SearchAssets::default()
-//             },
-//             "with_different_owner",
-//         ),
-//     ] {
-//         let response = setup.das_api.search_assets(request.clone()).await.unwrap();
-//         insta::assert_json_snapshot!(format!("{}-{}", name, individual_test_name), response);
-//     }
-// }
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "2sZbpWUHiL2TEA48CsYGKwYBeefo54PTMVT8Pc9PMrRNnPBpJm4uUHUsfob6FtU58pEpnYhrKmhqEcYwDJYjntW7",
+        // delegate_v2
+        "38ErTmuwXXX3NZ3pwK81hTzjHyMQH7yC65mppPHUMW83KE6cSZrYtp23nmv58U7QUMQy4WmfvEQZ8GHQibt1y2hz",
+    ]);
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_mint_no_json_uri() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new(name.clone()).await;
-//     let seeds = vec![seed_txn(
-//         "4ASu45ELoTmvwhNqokGQrh2VH8p5zeUepYLbkcULMeXSCZJGrJa7ojgdVh5JUxBjAMF9Lrp55EgUUFPaPeWKejNQ",
-//     )];
-//     run_get_asset_scenario_test(
-//         &setup,
-//         "DFRJ4PwAze1mMQccRmdyc46yQpEVd4FPiwtAVgzGCs7g",
-//         seeds,
-//         Order::Forward,
-//     )
-//     .await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_mint_verify_creator() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_freeze_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "5rmTyghEuZhRTB77L3KqGMy6h5RpSNWNLj14avbxGNKB";
+    let asset_id = "CTs4CB81qEZCfkJeBNc4K4XyRKvAGQK5mQmmfdLenqVP";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         "37ts5SqpNazPTp26VfC4oeuXpXezKYkD9oarczPNaE8TUGG8msifnTYTBJiBZNBeAUGrNw85EEfwnR1t9SieKTdq",
-//         "4xrw5UwQSxxPzVxge6fbtmgLNsT2amaGrwpZFE95peRbnHGpxWtS2fF7whXW2xma4i2KDXdneztJZCAtgGZKTw11",
-//     ]);
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "4xRavuyJ8Sa1nEhyqrUeNpYHgopkpnEWWSYYoTut48CDJRrT46aN1CnU2KCgNUBfpLngNvG9SUkMfHGGNR5x5pZa",
+        // delegate_v2
+        "7z3eHy8z6UsGLedCxPihTdUtpQS14Fd9aLkKbRZfjcZRCf9nX2x8cyvtV9QGQJTkhpmk11HoYpzF26AvSwuUpQx",
+        // freeze_v2
+        "5tRgiuLGebPVQu6ytPNsW6RVWyvM3pkvSPgRc72Qkdvu7rwoBKvaenHkND4qD3JQAWL1CkuCMwnAm91w42tUYg77",
+    ]);
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
-
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_mint_verify_collection() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
-
-//     let asset_id = "2WjoMU1hBGXv8sKcxQDGnu1tgMduzdZEmEEGjh8MZYfC";
-
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         "63xhs5bXcuMR3uMACXWkkFMm7BJ9Thknh7WNMPzV8HJBNwpyxJTr98NrLFHnTZDHdSUFD42VFQx8rjSaGynWbaRs",
-//         "5ZKjPxm3WAZzuqqkCDjgKpm9b5XjB9cuvv68JvXxWThvJaJxcMJgpSbYs4gDA9dGJyeLzsgNtnS6oubANF1KbBmt",
-//     ]);
-
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
-
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_mint_transfer_mpl_programs() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
-
-//     let asset_id = "ZzTjJVwo66cRyBB5zNWNhUWDdPB6TqzyXDcwjUnpSJC";
-
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         "3iJ6XzhUXxGQYEEUnfkbZGdrkgS2o9vXUpsXALet3Co6sFQ2h7J21J4dTgSka8qoKiUFUzrXZFHfkqss1VFivnAG",
-//         "4gV14HQBm8GCXjSTHEXjrhUNGmsBiyNdWY9hhCapH9cshmqbPKxn2kUU1XbajZ9j1Pxng95onzR6dx5bYqxQRh2a",
-//         "T571TWE76frw6mWxYoHDrTdxYq7hJSyCtVEG4qmemPPtsc1CCKdknn9rTMAVcdeukLfwB1G97LZLH8eHLvuByoA",
-//     ]);
-
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
