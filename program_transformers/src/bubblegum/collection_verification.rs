@@ -8,7 +8,7 @@ use {
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload, ID as MPL_BUBBLEGUM_ID},
     },
     mpl_bubblegum::types::Collection,
     sea_orm::{ConnectionTrait, TransactionTrait},
@@ -76,13 +76,22 @@ where
 
         upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-        upsert_collection_info(
-            &multi_txn,
-            id_bytes.to_vec(),
+        // If the collection ID is the MPL Bubblegum program ID, it means the new MPL Core
+        // collection was set to `Option::None` in the `SetCollectionV2` account validation
+        // struct, and thus the asset as been removed from any collection.
+        let collection = if collection == &MPL_BUBBLEGUM_ID {
+            None
+        } else {
             Some(Collection {
                 key: *collection,
                 verified: *verify,
-            }),
+            })
+        };
+
+        upsert_collection_info(
+            &multi_txn,
+            id_bytes.to_vec(),
+            collection,
             bundle.slot as i64,
             seq as i64,
         )
