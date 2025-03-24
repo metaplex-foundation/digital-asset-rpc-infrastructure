@@ -148,7 +148,6 @@ where
             &multi_txn,
             id_bytes.to_vec(),
             OwnerType::Single,
-            false,
             SpecificationVersions::V1,
             SpecificationAssetClass::Nft,
             RoyaltyTargetType::Creators,

@@ -206,6 +206,7 @@ where
         asset::Column::DataHash,
         asset::Column::CreatorHash,
         asset::Column::LeafSeq,
+        asset::Column::Frozen,
     ];
 
     // Add V2 updates
@@ -226,16 +227,19 @@ where
         model.bubblegum_flags = ActiveValue::Set(Some(flags.into()));
         update_columns.push(asset::Column::BubblegumFlags);
 
-        // Frozen
-        let flags_bitfield = Flags::from_bytes([flags]);
-        let frozen = flags_bitfield.asset_lvl_frozen() || flags_bitfield.permanent_lvl_frozen();
-        model.frozen = ActiveValue::Set(frozen);
-        update_columns.push(asset::Column::Frozen);
-
         // Non-transferable
+        let flags_bitfield = Flags::from_bytes([flags]);
         model.non_transferable = ActiveValue::Set(Some(flags_bitfield.non_transferable()));
         update_columns.push(asset::Column::NonTransferable);
+
+        // Frozen
+        let frozen = flags_bitfield.asset_lvl_frozen() || flags_bitfield.permanent_lvl_frozen();
+        model.frozen = ActiveValue::Set(frozen);
+    } else {
+        // Default frozen to false.
+        model.frozen = ActiveValue::Set(false)
     }
+
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
@@ -503,7 +507,6 @@ pub async fn upsert_asset_base_info<T>(
     txn: &T,
     id: Vec<u8>,
     owner_type: OwnerType,
-    frozen: bool,
     specification_version: SpecificationVersions,
     specification_asset_class: SpecificationAssetClass,
     royalty_target_type: RoyaltyTargetType,
@@ -519,7 +522,6 @@ where
     let asset_model = asset::ActiveModel {
         id: ActiveValue::Set(id.clone()),
         owner_type: ActiveValue::Set(owner_type),
-        frozen: ActiveValue::Set(frozen),
         specification_version: ActiveValue::Set(Some(specification_version)),
         specification_asset_class: ActiveValue::Set(Some(specification_asset_class)),
         royalty_target_type: ActiveValue::Set(royalty_target_type),
@@ -537,7 +539,6 @@ where
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
                     asset::Column::OwnerType,
-                    asset::Column::Frozen,
                     asset::Column::SpecificationVersion,
                     asset::Column::SpecificationAssetClass,
                     asset::Column::RoyaltyTargetType,
