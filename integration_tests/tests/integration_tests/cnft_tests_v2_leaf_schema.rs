@@ -216,6 +216,52 @@ async fn test_freeze_v2_using_permanent_delegate() {
 #[tokio::test]
 #[serial]
 #[named]
+async fn test_mint_v2_not_to_collection() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "CbECnkXvuNBoLsLXyo2ui3LgeZBWRoPQ4eosXoGWRYrD";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "s8xQ2krANSLnxsT5Kjpyi5hfC5WL5TEHWmZJrLhe7xDUhYnDwuGx9xeRFJEFUMEtbeztzZucCgPNPxUgpXsrPF1",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mint_v2_to_collection_only() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "D3DM89kvKqYhnnjqF8G5PYoEvtFZd2QP1ShCsNjuYhDY";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2 to collection
+        "5dVi4vSqCxQej1x82FUStsXjS7yGUNzx5v82FnKMMNX4VYf5NUxJeVRyshB37tDh62c6fAEMGJYphGh9ofz366FT",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
 async fn remove_from_collection_using_set_collection_v2() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
@@ -233,6 +279,106 @@ async fn remove_from_collection_using_set_collection_v2() {
         "4mSnGCxijXiLySxnotCDgVfU8b3xh6zskKvRiHktDxaJ38SnKpvtosz6vKNNqMAYRHTmtnkhS6LFN6hQYVYyM6pp",
         // set_collection_v2
         "3LEkoAGe5ZL2bN2BbiV2np66X15Zr1TfzBGXG9fMXwBRswFL5GLHGSZvBFjpzJKxtQutMh5sVbuZcKgdbgckym8n",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn add_asset_to_collection_using_set_collection_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "9HYtHehrvfADZzzqWy7uYGPPK1xsYRHAyXo6z89Pxsd7";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "648K759Xvk2vW195qTc7B99tadL2AeyXVV31sd72cUwGMKRG6tUcR1mrMhZJXddZwvNiQxwY8wEYE5XHscRrsHU6",
+        // set_collection_v2
+        "2xgp6N8KJwbxtPeqam8xVQJweCgQw52f8eJc8FY9sBbZmFFMhLYZzSC7whqhsxBkN2iYwD8dftbusDSQkP46hCgv",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn change_collection_using_set_collection_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "DBLxvRsN2awoW2ybGxuAupFxq5dna2CCXHqvv2MdfsM";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "4DLwTikgbXfo77QABqVXLxESDEeKFwgBf7fVbSQ8seedPkYTEs151N2L91GJr192NGmzV2NpqDG6C1QxY1CnJf94",
+        // set_collection_v2
+        "is5PvsVrXuJz8iYPNudTd7WHRomuG3aCuQoepwQtJaenjcsrf7v3XDFz9Nh5wyjkCzSxV21QNHznXgoPJrjoU3N",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_set_non_transferable_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "D519CjLrU3c24j2fmKXaraBbUYMN2tYZZHJzE3NpJBa9";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "3SqRh3aaXM2mj6DNTCNcHbcbc957qCatXuYS6QpZfhz7hpYMUEA7tTUGT2wFusCeXpVEYX7jyTB5YKQyy3jFZ4P8",
+        // set_non_transferable_v2
+        "2URh6VofoPcPmKm7a5KsYwu3NociNZZdsxeaMUHQhz9D4am5YLhdkkpr5myx47bfp3AaBngzMsMSCPbN4W6xYN53",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_mint_v2_transfer_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "6H3vEmt8dy8cZnsikDzkZSSvuH7yJvbeKAWTYYvvt2es";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "LAfk7AmWYGV7UC3vGnWok1ctFSDWT4Extch7YQzTbeX8LFp52UkceMavzqnqN3fxHakKfiFHbcnLjpJi9nwLzTo",
+        // transfer_v2
+        "3puKBnzpwnG7FcyAanib3MTHimz3hdSjBVUhQXMGiW4Jj79V2WaMHVp83D9E2HrCiNvkrjxq1Po17rAVHAp1NLGG",
     ]);
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
