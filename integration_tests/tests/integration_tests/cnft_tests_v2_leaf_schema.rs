@@ -383,3 +383,80 @@ async fn test_mint_v2_transfer_v2() {
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_verify_creator_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "xBSehSHSvAFfyFfKNVdUnfKAQRT6yWvhbKogJTsGDDS";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "3WnSUUv3w3abdRiEKoxxnNV2CEoSFA7uxQRQHPPmi917AS5vea6d8XeioGXok9eUsxxNEW7ZXPpAvEJxMjjMPCgq",
+        // verify_creator_v2
+        "Z8cRXqVVKuTe25xkFFwkPYB5hCoFgGZC4vZRuVsUp8LdKSczBqJaDESZgs4BJQAnPJzySwrSja9xevSfiqcjRxp",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_unverify_creator_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "AmV5tqeSncCzdMVQPFVBz9q1Jh6VgCv6WDBAMwKGgBsh";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "31eEawaWc6NffQr4w1fKrtjBqjjNFyFHUnnBxox4vap5M7kqC6z1QH3EMCserGPVWd5yu8nYPSy5nUbd5u4d43Pf",
+        // Two verifyCreatorV2
+        "3yerUamgZLAsDHbp4WuPcBxpjfEbFtkUXuum1GgHdPKk2hKb7auPYb7i6gVJmHNeQ9ocMW1JFN5pY9hucssP6y4B",
+        // unverify_creator_v2
+        "27dyWCkK9z6KfY6Z1EP2Bkw7uR1JqFyGpnAQPDvFL7SYiRDvA231idzVMHAiMGsRtcjBwJd7tJe3dbcqGTeufwYa",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_update_metadata_v2_new_name_new_uri() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+
+    let asset_id = "4TBxZUkV9eDjFoi4HeJX924fkExCFXLSTKkdoNy7iiT8";
+
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // mint_v2
+        "3t9a7eknQGqqtcHvQuEhPr388RsMqqCQToYbCPm9vkyQFusaT7EqyNc4wakmF1LDYWDV46BtGSmSdYSZivKXuh2o",
+        // update_metadata_v2
+        "5vJJgNV4tbS3ChjwGZg5SzM21K1xNA5wRH3xtbc2nifEDDv6CWP64ocE6Qgqk6f4gGEWWZEWLXz2qbUJCzQGLCie",
+    ]);
+
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
