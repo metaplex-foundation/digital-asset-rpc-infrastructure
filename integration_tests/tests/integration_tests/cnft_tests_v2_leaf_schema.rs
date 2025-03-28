@@ -272,13 +272,13 @@ async fn remove_from_collection_using_set_collection_v2() {
     )
     .await;
 
-    let asset_id = "Beter35aQLYBh1JbaNX8XM4qiTpwHDRiAxCCNKcS3goF";
+    let asset_id = "GiDMyLuE1atPPvXHQSsCJ5T8Jdx7S3B3eD98WTQYVEXw";
 
     let seeds: Vec<SeedEvent> = seed_txns([
         // mint_v2
-        "4mSnGCxijXiLySxnotCDgVfU8b3xh6zskKvRiHktDxaJ38SnKpvtosz6vKNNqMAYRHTmtnkhS6LFN6hQYVYyM6pp",
+        "CaZKRiS7uqe5oA6puGFYzkhQhK6KdxnjBMxff63yPAv2Vv6MDKqLWeuMK81dEVyFQAXYQfA4noe8LB6aU3zBB9j",
         // set_collection_v2
-        "3LEkoAGe5ZL2bN2BbiV2np66X15Zr1TfzBGXG9fMXwBRswFL5GLHGSZvBFjpzJKxtQutMh5sVbuZcKgdbgckym8n",
+        "4A1XJgXsPpBDEN5p8p6zfZA6QsirhvUtJtM2VW1CrNkUhL73gguJt5HooCYQMX9L7nVtPEwfmhSyqjUBqXFGmhds",
     ]);
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
@@ -297,13 +297,13 @@ async fn add_asset_to_collection_using_set_collection_v2() {
     )
     .await;
 
-    let asset_id = "9HYtHehrvfADZzzqWy7uYGPPK1xsYRHAyXo6z89Pxsd7";
+    let asset_id = "H8aUdS5GPKtEt75nt4rrSc5SzkUZWxMfujYs2ZNfEXpp";
 
     let seeds: Vec<SeedEvent> = seed_txns([
         // mint_v2
-        "648K759Xvk2vW195qTc7B99tadL2AeyXVV31sd72cUwGMKRG6tUcR1mrMhZJXddZwvNiQxwY8wEYE5XHscRrsHU6",
+        "48TH8Tffc2pi2my17gv2uc3a4dzqdgfvZmte3BUjJox1o75yUkTa7QYPFfYrMb2CR6Hc3w5qFLSvEemafvpn2s79",
         // set_collection_v2
-        "2xgp6N8KJwbxtPeqam8xVQJweCgQw52f8eJc8FY9sBbZmFFMhLYZzSC7whqhsxBkN2iYwD8dftbusDSQkP46hCgv",
+        "2XVxLofFvhymE9zHvEYckikBSfwDukmEFDgQqLNBMbrf6UJxnLVNR55N7ompAu2cp3WENBh53vxY7iUmKWyQwJeX",
     ]);
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
@@ -322,13 +322,13 @@ async fn change_collection_using_set_collection_v2() {
     )
     .await;
 
-    let asset_id = "DBLxvRsN2awoW2ybGxuAupFxq5dna2CCXHqvv2MdfsM";
+    let asset_id = "CHj5SK2Hmd5qpSxtf4UK93wAm93NFVRc27C2LafkP9tA";
 
     let seeds: Vec<SeedEvent> = seed_txns([
         // mint_v2
-        "4DLwTikgbXfo77QABqVXLxESDEeKFwgBf7fVbSQ8seedPkYTEs151N2L91GJr192NGmzV2NpqDG6C1QxY1CnJf94",
+        "2kcu2LCRRdBNTkejqVJRuPMKGsi3bGjFAhy2G2BmkqR4RpevWmQRg82caUAddZ1CpVPkqc215eosemAnvCH4o5bV",
         // set_collection_v2
-        "is5PvsVrXuJz8iYPNudTd7WHRomuG3aCuQoepwQtJaenjcsrf7v3XDFz9Nh5wyjkCzSxV21QNHznXgoPJrjoU3N",
+        "65PHY53oRZkqPGfaXpy47MKV9nS5v6kDHdJd2apxVPPsYhcAoTNPzfyYsiuawRmYLqot1av6sb4EK8F1p3jiq1pQ",
     ]);
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
