@@ -8,7 +8,10 @@ use {
             SpecificationAssetClass, SpecificationVersions,
         },
     },
-    mpl_bubblegum::types::{Collection, Creator},
+    mpl_bubblegum::{
+        types::{Collection, Creator},
+        Flags,
+    },
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
@@ -174,6 +177,9 @@ pub async fn upsert_asset_with_leaf_info<T>(
     leaf: Vec<u8>,
     data_hash: [u8; 32],
     creator_hash: [u8; 32],
+    collection_hash: Option<[u8; 32]>,
+    asset_data_hash: Option<[u8; 32]>,
+    flags: Option<u8>,
     seq: i64,
 ) -> ProgramTransformerResult<()>
 where
@@ -181,7 +187,8 @@ where
 {
     let data_hash = bs58::encode(data_hash).into_string().trim().to_string();
     let creator_hash = bs58::encode(creator_hash).into_string().trim().to_string();
-    let model = asset::ActiveModel {
+
+    let mut model = asset::ActiveModel {
         id: ActiveValue::Set(id),
         nonce: ActiveValue::Set(Some(nonce)),
         tree_id: ActiveValue::Set(Some(tree_id)),
@@ -192,17 +199,51 @@ where
         ..Default::default()
     };
 
+    let mut update_columns = vec![
+        asset::Column::Nonce,
+        asset::Column::TreeId,
+        asset::Column::Leaf,
+        asset::Column::DataHash,
+        asset::Column::CreatorHash,
+        asset::Column::LeafSeq,
+        asset::Column::Frozen,
+    ];
+
+    // Add V2 updates
+    if let Some(flags) = flags {
+        // Collection hash
+        let collection_hash =
+            collection_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
+        model.collection_hash = ActiveValue::Set(collection_hash);
+        update_columns.push(asset::Column::CollectionHash);
+
+        // Asset data hash
+        let asset_data_hash =
+            asset_data_hash.map(|a| bs58::encode(a).into_string().trim().to_string());
+        model.asset_data_hash = ActiveValue::Set(asset_data_hash);
+        update_columns.push(asset::Column::AssetDataHash);
+
+        // Flags
+        model.bubblegum_flags = ActiveValue::Set(Some(flags.into()));
+        update_columns.push(asset::Column::BubblegumFlags);
+
+        // Non-transferable
+        let flags_bitfield = Flags::from_bytes([flags]);
+        model.non_transferable = ActiveValue::Set(Some(flags_bitfield.non_transferable()));
+        update_columns.push(asset::Column::NonTransferable);
+
+        // Frozen
+        let frozen = flags_bitfield.asset_lvl_frozen() || flags_bitfield.permanent_lvl_frozen();
+        model.frozen = ActiveValue::Set(frozen);
+    } else {
+        // Default frozen to false.
+        model.frozen = ActiveValue::Set(false)
+    }
+
     let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::column(asset::Column::Id)
-                .update_columns([
-                    asset::Column::Nonce,
-                    asset::Column::TreeId,
-                    asset::Column::Leaf,
-                    asset::Column::DataHash,
-                    asset::Column::CreatorHash,
-                    asset::Column::LeafSeq,
-                ])
+                .update_columns(update_columns)
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
@@ -466,7 +507,6 @@ pub async fn upsert_asset_base_info<T>(
     txn: &T,
     id: Vec<u8>,
     owner_type: OwnerType,
-    frozen: bool,
     specification_version: SpecificationVersions,
     specification_asset_class: SpecificationAssetClass,
     royalty_target_type: RoyaltyTargetType,
@@ -482,7 +522,6 @@ where
     let asset_model = asset::ActiveModel {
         id: ActiveValue::Set(id.clone()),
         owner_type: ActiveValue::Set(owner_type),
-        frozen: ActiveValue::Set(frozen),
         specification_version: ActiveValue::Set(Some(specification_version)),
         specification_asset_class: ActiveValue::Set(Some(specification_asset_class)),
         royalty_target_type: ActiveValue::Set(royalty_target_type),
@@ -500,7 +539,6 @@ where
             OnConflict::columns([asset::Column::Id])
                 .update_columns([
                     asset::Column::OwnerType,
-                    asset::Column::Frozen,
                     asset::Column::SpecificationVersion,
                     asset::Column::SpecificationAssetClass,
                     asset::Column::RoyaltyTargetType,

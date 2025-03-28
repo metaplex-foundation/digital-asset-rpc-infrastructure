@@ -60,7 +60,7 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Mint => ColumnType::Binary.def(),
-            Self::Supply => ColumnType::BigInteger.def(),
+            Self::Supply => ColumnType::Decimal(Some((20u32, 0u32))).def(),
             Self::Decimals => ColumnType::Integer.def(),
             Self::TokenProgram => ColumnType::Binary.def(),
             Self::MintAuthority => ColumnType::Binary.def().null(),
