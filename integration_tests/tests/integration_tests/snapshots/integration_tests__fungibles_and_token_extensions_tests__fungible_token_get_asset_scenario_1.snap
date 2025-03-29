@@ -50,6 +50,11 @@ expression: response
     "ownership_model": "token",
     "owner": ""
   },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 252
+  },
   "mutable": true,
   "burnt": false
 }

@@ -43,6 +43,11 @@ expression: response
     "ownership_model": "single",
     "owner": ""
   },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": null
+  },
   "mutable": true,
   "burnt": false,
   "mint_extensions": {

@@ -1,16 +1,15 @@
 ---
 source: integration_tests/tests/integration_tests/token_accounts_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 2,
   "limit": 1000,
   "token_accounts": [
     {
-      "address": "jKLTJu7nE1zLmC2J2xjVVBm4G7vJcKGCGQX36Jrsba2",
-      "mint": "wKocBVvHQoVaiwWoCs9JYSVye4YZRrv5Cucf7fDqnz1",
-      "amount": 1000000000000,
+      "address": "3Pv9H5UzU8T9BwgutXrcn2wLohS1JUZuk3x8paiRyzui",
+      "mint": "F3D8Priw3BRecH36BuMubQHrTUn1QxmupLHEmmbZ4LXW",
+      "amount": 10000,
       "owner": "CeviT1DTQLuicEB7yLeFkkAGmam5GnJssbGb7CML4Tgx",
       "frozen": false,
       "delegate": null,
@@ -19,9 +18,9 @@ snapshot_kind: text
       "extensions": null
     },
     {
-      "address": "3Pv9H5UzU8T9BwgutXrcn2wLohS1JUZuk3x8paiRyzui",
-      "mint": "F3D8Priw3BRecH36BuMubQHrTUn1QxmupLHEmmbZ4LXW",
-      "amount": 10000,
+      "address": "jKLTJu7nE1zLmC2J2xjVVBm4G7vJcKGCGQX36Jrsba2",
+      "mint": "wKocBVvHQoVaiwWoCs9JYSVye4YZRrv5Cucf7fDqnz1",
+      "amount": 1000000000000,
       "owner": "CeviT1DTQLuicEB7yLeFkkAGmam5GnJssbGb7CML4Tgx",
       "frozen": false,
       "delegate": null,

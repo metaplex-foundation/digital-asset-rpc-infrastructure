@@ -205,11 +205,15 @@ fn build_asset_proof(
 ) -> AssetProof {
     let mut final_node_list = vec![SimpleChangeLog::default(); req_indexes.len()];
     for node in required_nodes.iter() {
-        if node.level < final_node_list.len().try_into().unwrap() {
+        if (node.level as usize) < final_node_list.len() {
             node.clone_into(&mut final_node_list[node.level as usize])
         }
     }
-    for (i, (n, nin)) in final_node_list.iter_mut().zip(req_indexes).enumerate() {
+    for (i, (n, nin)) in final_node_list
+        .iter_mut()
+        .zip(req_indexes.iter())
+        .enumerate()
+    {
         if *n == SimpleChangeLog::default() {
             *n = make_empty_node(i as i64, *nin, tree_id.clone());
         }
