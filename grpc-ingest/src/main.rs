@@ -2,7 +2,6 @@ use {
     crate::{
         config::{load as config_load, ConfigGrpc, ConfigIngester, ConfigPrometheus},
         prom::run_server as prometheus_run_server,
-        tracing::init as tracing_init,
     },
     anyhow::Context,
     clap::{Parser, Subcommand},
@@ -17,7 +16,6 @@ mod monitor;
 mod postgres;
 mod prom;
 mod redis;
-mod tracing;
 mod util;
 mod version;
 
@@ -50,8 +48,6 @@ enum ArgsAction {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_init()?;
-
     let args = Args::parse();
 
     // Run prometheus server
