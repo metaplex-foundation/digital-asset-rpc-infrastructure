@@ -25,8 +25,8 @@ async fn test_get_asset_with_show_collection_metadata_option() {
 
     let seeds: Vec<SeedEvent> = seed_accounts([
         "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
         "3crBqZZsHhoLphM55MG4KRW6SbNzFEBFnehw7PW7ZRKt",
+        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;

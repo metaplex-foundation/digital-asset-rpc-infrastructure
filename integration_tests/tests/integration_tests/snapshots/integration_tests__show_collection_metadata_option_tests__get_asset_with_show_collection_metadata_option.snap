@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/show_collection_metadata_option_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
