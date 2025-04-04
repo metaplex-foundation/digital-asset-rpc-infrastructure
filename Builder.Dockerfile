@@ -5,6 +5,7 @@ RUN apt-get update -y && \
 RUN mkdir /rust
 RUN mkdir /rust/bins
 COPY Cargo.toml /rust
+COPY Cargo.lock /rust
 COPY core /rust/core
 COPY das_api /rust/das_api
 COPY digital_asset_types /rust/digital_asset_types

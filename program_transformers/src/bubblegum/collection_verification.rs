@@ -1,14 +1,17 @@
 use {
     crate::{
-        bubblegum::db::{
-            save_changelog_event, upsert_asset_with_leaf_info, upsert_asset_with_seq,
-            upsert_collection_info,
+        bubblegum::{
+            db::{
+                save_changelog_event, upsert_asset_with_leaf_info, upsert_asset_with_seq,
+                upsert_collection_info,
+            },
+            NormalizedLeafFields,
         },
         error::{ProgramTransformerError, ProgramTransformerResult},
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, LeafSchema, Payload},
+        programs::bubblegum::{BubblegumInstruction, Payload, ID as MPL_BUBBLEGUM_ID},
     },
     mpl_bubblegum::types::Collection,
     sea_orm::{ConnectionTrait, TransactionTrait},
@@ -44,10 +47,10 @@ where
             collection, verify, bundle.txn_id
         );
         let seq = save_changelog_event(cl, bundle.slot, bundle.txn_id, txn, instruction).await?;
-        let id_bytes = match le.schema {
-            LeafSchema::V1 { id, .. } => id.to_bytes().to_vec(),
-        };
 
+        let leaf = NormalizedLeafFields::from(&le.schema);
+
+        let id_bytes = leaf.id.to_bytes();
         let tree_id = cl.id.to_bytes();
         let nonce = cl.index as i64;
 
@@ -63,21 +66,33 @@ where
             nonce,
             tree_id.to_vec(),
             le.leaf_hash.to_vec(),
-            le.schema.data_hash(),
-            le.schema.creator_hash(),
+            leaf.data_hash,
+            leaf.creator_hash,
+            leaf.collection_hash,
+            leaf.asset_data_hash,
+            leaf.flags,
             seq as i64,
         )
         .await?;
 
         upsert_asset_with_seq(&multi_txn, id_bytes.to_vec(), seq as i64).await?;
 
-        upsert_collection_info(
-            &multi_txn,
-            id_bytes.to_vec(),
+        // If the collection ID is the MPL Bubblegum program ID, it means the new MPL Core
+        // collection was set to `Option::None` in the `SetCollectionV2` account validation
+        // struct, and thus the asset as been removed from any collection.
+        let collection = if collection == &MPL_BUBBLEGUM_ID {
+            None
+        } else {
             Some(Collection {
                 key: *collection,
                 verified: *verify,
-            }),
+            })
+        };
+
+        upsert_collection_info(
+            &multi_txn,
+            id_bytes.to_vec(),
+            collection,
             bundle.slot as i64,
             seq as i64,
         )
