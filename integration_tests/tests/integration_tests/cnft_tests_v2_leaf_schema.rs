@@ -49,12 +49,14 @@ async fn test_mint_v2_to_collection_transfer_v2() {
 
     let asset_id = "75YC6nCeRDTQcHyPiXAXC3qov4u8gyBYCR4tci3ZrCPt";
 
-    let seeds: Vec<SeedEvent> = seed_txns([
-        // mint_v2 to collection
-        "WsRbKgNXubCZUB4Pv9QmZDnxFJeZWxcvwbCnUUG7KgbByRML6pAosSYTdFddNkU1puqRG3E3evNqmWNB5EX4m2g",
+    let seeds: Vec<SeedEvent> = vec![
+        // mpl-core collection
+        seed_account("ETCx9sWCTbnkACKpCVHDaZjGn1SpwixxwqG4FfBPjjGf"),
+         // mint_v2 to collection
+        seed_txn("WsRbKgNXubCZUB4Pv9QmZDnxFJeZWxcvwbCnUUG7KgbByRML6pAosSYTdFddNkU1puqRG3E3evNqmWNB5EX4m2g"),
         // transfer_v2
-        "4MxRc1TakjW3cDtX7ZSMdGu5owDTSWTvfFepBLi3x9SE6xfeD1parzQC7hmfN664NgLocPdfpHTADNWg3n8VbatZ",
-    ]);
+        seed_txn("4MxRc1TakjW3cDtX7ZSMdGu5owDTSWTvfFepBLi3x9SE6xfeD1parzQC7hmfN664NgLocPdfpHTADNWg3n8VbatZ"),
+    ];
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
@@ -74,12 +76,14 @@ async fn test_mint_v2_to_collection_burn_v2() {
 
     let asset_id = "74jWt9uZrs6aJ1eEqswhSMSbJYTnysiAuBjYgh6ikcAD";
 
-    let seeds: Vec<SeedEvent> = seed_txns([
-        // mint_v2 to collection
-        "29Sfa4vsABmq8PAgoNmAmJ3ittgJGjNjoZa5hnwPwwsm7ctdnFLa2ug81whhiN7mXyvwFZWyGzNU7n8dd55ktn3H",
+    let seeds: Vec<SeedEvent> = vec![
+        // mpl-core collection
+        seed_account("Cg66mzkLNEGo4ijY9rs5SgsUCq1dxKrAv8XFuTGTzGxt"),
+         // mint_v2 to collection
+        seed_txn("29Sfa4vsABmq8PAgoNmAmJ3ittgJGjNjoZa5hnwPwwsm7ctdnFLa2ug81whhiN7mXyvwFZWyGzNU7n8dd55ktn3H"),
         // burn_v2
-        "utGWqqYXpU2XjNPHyfP8t3J5CYLyfEEpiXrNrvtDdoUQLcA6uB1zkXwNcPGydckdZWXnsS3TRkE5d2TV9GGjK8E",
-    ]);
+        seed_txn("utGWqqYXpU2XjNPHyfP8t3J5CYLyfEEpiXrNrvtDdoUQLcA6uB1zkXwNcPGydckdZWXnsS3TRkE5d2TV9GGjK8E"),
+    ];
 
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
