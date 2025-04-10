@@ -478,3 +478,16 @@ pub struct RpcTokenAccountBalance {
     #[serde(flatten)]
     pub amount: UiTokenAmount,
 }
+
+#[derive(Serialize, Default, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(default)]
+pub struct SolanaRpcContext {
+    pub slot: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct SolanaRpcResponseAndContext<T: Default> {
+    pub value: T,
+    pub context: SolanaRpcContext,
+}

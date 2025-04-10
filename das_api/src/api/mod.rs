@@ -9,7 +9,9 @@ use digital_asset_types::rpc::response::{
 };
 use digital_asset_types::rpc::RpcTokenAccountBalance;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
-use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
+use digital_asset_types::rpc::{
+    Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel, SolanaRpcResponseAndContext,
+};
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -312,5 +314,5 @@ pub trait ApiContract: Send + Sync + 'static {
     async fn get_token_largest_accounts(
         &self,
         payload: GetTokenLargestAccounts,
-    ) -> Result<Vec<RpcTokenAccountBalance>, DasApiError>;
+    ) -> Result<SolanaRpcResponseAndContext<Vec<RpcTokenAccountBalance>>, DasApiError>;
 }

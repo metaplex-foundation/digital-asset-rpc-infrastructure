@@ -11,7 +11,7 @@ use crate::{
         filter::AssetSortDirection,
         options::Options,
         response::{NftEdition, NftEditions},
-        RpcTokenAccountBalance, UiTokenAmount,
+        RpcTokenAccountBalance, SolanaRpcContext, SolanaRpcResponseAndContext, UiTokenAmount,
     },
 };
 use indexmap::IndexMap;
@@ -682,7 +682,7 @@ pub async fn get_token_accounts(
 pub async fn get_token_largest_accounts(
     conn: &impl ConnectionTrait,
     mint_address: Vec<u8>,
-) -> Result<Vec<RpcTokenAccountBalance>, DbErr> {
+) -> Result<SolanaRpcResponseAndContext<Vec<RpcTokenAccountBalance>>, DbErr> {
     let mint_acc = tokens::Entity::find()
         .filter(tokens::Column::Mint.eq(mint_address.clone()))
         .one(conn)
@@ -696,7 +696,7 @@ pub async fn get_token_largest_accounts(
         .all(conn)
         .await?;
 
-    let rpc_tokens_balance = largest_token_accounts
+    let value = largest_token_accounts
         .into_iter()
         .map(|ta| {
             let ui_amount: f64 = (ta.amount as f64).div(10u64.pow(mint_acc.decimals as u32) as f64);
@@ -712,7 +712,10 @@ pub async fn get_token_largest_accounts(
         })
         .collect();
 
-    Ok(rpc_tokens_balance)
+    Ok(SolanaRpcResponseAndContext {
+        value,
+        context: SolanaRpcContext::default(),
+    })
 }
 
 fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {

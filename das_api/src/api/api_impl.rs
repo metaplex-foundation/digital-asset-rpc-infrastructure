@@ -16,7 +16,7 @@ use digital_asset_types::{
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
         response::{GetGroupingResponse, TokenAccountList},
-        OwnershipModel, RoyaltyModel,
+        OwnershipModel, RoyaltyModel, SolanaRpcResponseAndContext,
     },
 };
 use open_rpc_derive::document_rpc;
@@ -584,7 +584,7 @@ impl ApiContract for DasApi {
     async fn get_token_largest_accounts(
         self: &DasApi,
         payload: GetTokenLargestAccounts,
-    ) -> Result<Vec<RpcTokenAccountBalance>, DasApiError> {
+    ) -> Result<SolanaRpcResponseAndContext<Vec<RpcTokenAccountBalance>>, DasApiError> {
         let GetTokenLargestAccounts(mint_address, _d) = payload;
         let mint_address = validate_pubkey(mint_address.clone())?;
 
