@@ -11,6 +11,7 @@ use crate::{
         filter::AssetSortDirection,
         options::Options,
         response::{NftEdition, NftEditions},
+        RpcTokenAccountBalance, UiTokenAmount,
     },
 };
 use indexmap::IndexMap;
@@ -21,7 +22,7 @@ use sea_orm::{
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Div};
 
 pub fn paginate<T, C>(
     pagination: &Pagination,
@@ -676,6 +677,42 @@ pub async fn get_token_accounts(
     .await?;
 
     Ok(token_accounts)
+}
+
+pub async fn get_token_largest_accounts(
+    conn: &impl ConnectionTrait,
+    mint_address: Vec<u8>,
+) -> Result<Vec<RpcTokenAccountBalance>, DbErr> {
+    let mint_acc = tokens::Entity::find()
+        .filter(tokens::Column::Mint.eq(mint_address.clone()))
+        .one(conn)
+        .await?
+        .ok_or(DbErr::RecordNotFound("Mint Account Not Found".to_string()))?;
+
+    let largest_token_accounts = token_accounts::Entity::find()
+        .filter(token_accounts::Column::Mint.eq(mint_address))
+        .order_by_desc(token_accounts::Column::Amount)
+        .limit(20) // Select the top 20 largest token accounts
+        .all(conn)
+        .await?;
+
+    let rpc_tokens_balance = largest_token_accounts
+        .into_iter()
+        .map(|ta| {
+            let ui_amount: f64 = (ta.amount as f64).div(10u64.pow(mint_acc.decimals as u32) as f64);
+            RpcTokenAccountBalance {
+                address: bs58::encode(ta.pubkey).into_string(),
+                amount: UiTokenAmount {
+                    ui_amount: Some(ui_amount),
+                    decimals: mint_acc.decimals as u8,
+                    amount: ta.amount.to_string(),
+                    ui_amount_string: ui_amount.to_string(),
+                },
+            }
+        })
+        .collect();
+
+    Ok(rpc_tokens_balance)
 }
 
 fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {

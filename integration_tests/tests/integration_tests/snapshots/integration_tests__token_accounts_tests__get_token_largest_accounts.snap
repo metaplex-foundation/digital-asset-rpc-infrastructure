@@ -1,0 +1,77 @@
+---
+source: integration_tests/tests/integration_tests/token_accounts_tests.rs
+expression: response
+snapshot_kind: text
+---
+[
+  {
+    "address": "WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS",
+    "amount": "321851507839982",
+    "decimals": 6,
+    "uiAmount": 321851507.839982,
+    "uiAmountString": "321851507.839982"
+  },
+  {
+    "address": "FzbcyEZ9m8xjtergWgWDq7mfPoHEbboBF791B6cTpzbq",
+    "amount": "257623136897569",
+    "decimals": 6,
+    "uiAmount": 257623136.897569,
+    "uiAmountString": "257623136.897569"
+  },
+  {
+    "address": "81BadRGfaHFpAmuXpJ65k8tYtUWsZ54EFSmsVo1rbDTV",
+    "amount": "202007574148089",
+    "decimals": 6,
+    "uiAmount": 202007574.148089,
+    "uiAmountString": "202007574.148089"
+  },
+  {
+    "address": "GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg",
+    "amount": "125177051743653",
+    "decimals": 6,
+    "uiAmount": 125177051.743653,
+    "uiAmountString": "125177051.743653"
+  },
+  {
+    "address": "GENey8es3EgGiNTM8H8gzA3vf98haQF8LHiYFyErjgrv",
+    "amount": "90589501992509",
+    "decimals": 6,
+    "uiAmount": 90589501.992509,
+    "uiAmountString": "90589501.992509"
+  },
+  {
+    "address": "ESDXSfcVfDhPFDNqH7qMXVcC5fEiVpcQcqxuNjKYjx9m",
+    "amount": "67814802222107",
+    "decimals": 6,
+    "uiAmount": 67814802.222107,
+    "uiAmountString": "67814802.222107"
+  },
+  {
+    "address": "Bgq7trRgVMeq33yt235zM2onQ4bRDBsY5EWiTetF4qw6",
+    "amount": "53506169941362",
+    "decimals": 6,
+    "uiAmount": 53506169.941362,
+    "uiAmountString": "53506169.941362"
+  },
+  {
+    "address": "GiMk2kEib3P3FqUwkiwTky4JwxChrwgvVo7HGTJT4Z7z",
+    "amount": "26091846050053",
+    "decimals": 6,
+    "uiAmount": 26091846.050053,
+    "uiAmountString": "26091846.050053"
+  },
+  {
+    "address": "7jaiZR5Sk8hdYN9MxTpczTcwbWpb5WEoxSANuUwveuat",
+    "amount": "23978128059959",
+    "decimals": 6,
+    "uiAmount": 23978128.059959,
+    "uiAmountString": "23978128.059959"
+  },
+  {
+    "address": "8SheGtsopRUDzdiD6v6BR9a6bqZ9QwywYQY99Fp5meNf",
+    "amount": "19638157840595",
+    "decimals": 6,
+    "uiAmount": 19638157.840595,
+    "uiAmountString": "19638157.840595"
+  }
+]

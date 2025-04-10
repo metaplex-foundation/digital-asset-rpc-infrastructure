@@ -1,10 +1,13 @@
 use crate::error::DasApiError;
 use async_trait::async_trait;
-use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType, TokenTypeClass};
+use digital_asset_types::rpc::filter::{
+    AssetSortDirection, CommitmentConfig, SearchConditionType, TokenTypeClass,
+};
 use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{
     AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
 };
+use digital_asset_types::rpc::RpcTokenAccountBalance;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
 use open_rpc_derive::{document_rpc, rpc};
@@ -194,6 +197,9 @@ pub struct GetTokenAccounts {
     pub cursor: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetTokenLargestAccounts(pub String, #[serde(default)] pub Option<CommitmentConfig>);
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -298,4 +304,13 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get all printable editions for a master edition NFT mint"
     )]
     async fn get_nft_editions(&self, payload: GetNftEditions) -> Result<NftEditions, DasApiError>;
+    #[rpc(
+        name = "getTokenLargestAccounts",
+        params = "named",
+        summary = "Get the 20 largest token accounts for a mint"
+    )]
+    async fn get_token_largest_accounts(
+        &self,
+        payload: GetTokenLargestAccounts,
+    ) -> Result<Vec<RpcTokenAccountBalance>, DasApiError>;
 }

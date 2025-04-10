@@ -459,3 +459,22 @@ pub struct TokenAccount {
     pub close_authority: Option<String>,
     pub extensions: Option<Value>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default)]
+pub struct UiTokenAmount {
+    pub amount: String,
+    pub decimals: u8,
+    #[serde(rename = "uiAmount")]
+    pub ui_amount: Option<f64>,
+    #[serde(rename = "uiAmountString")]
+    pub ui_amount_string: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcTokenAccountBalance {
+    pub address: String,
+    #[serde(flatten)]
+    pub amount: UiTokenAmount,
+}

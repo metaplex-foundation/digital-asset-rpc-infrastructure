@@ -546,7 +546,6 @@ pub fn asset_list_to_rpc(
 
 pub fn token_account_to_rpc(
     token_account: token_accounts::Model,
-    _options: &Options,
 ) -> Result<RpcTokenAccount, DbErr> {
     let address = bs58::encode(token_account.pubkey.clone()).into_string();
     let mint = bs58::encode(token_account.mint.clone()).into_string();
@@ -573,13 +572,12 @@ pub fn token_account_to_rpc(
 
 pub fn token_account_list_to_rpc(
     token_accounts: Vec<token_accounts::Model>,
-    options: &Options,
 ) -> (Vec<RpcTokenAccount>, Vec<DasError>) {
     token_accounts.into_iter().fold(
         (vec![], vec![]),
         |(mut accounts, mut errors), token_account| {
             let id = bs58::encode(token_account.pubkey.clone()).into_string();
-            match token_account_to_rpc(token_account, options) {
+            match token_account_to_rpc(token_account) {
                 Ok(rpc_token_account) => accounts.push(rpc_token_account),
                 Err(e) => errors.push(DasError {
                     id,
@@ -595,7 +593,6 @@ pub fn build_token_list_response(
     token_accounts: Vec<token_accounts::Model>,
     limit: u64,
     pagination: &Pagination,
-    options: &Options,
 ) -> TokenAccountList {
     let total = token_accounts.len() as u32;
     let (page, before, after, cursor) = match pagination {
@@ -615,7 +612,7 @@ pub fn build_token_list_response(
         }
     };
 
-    let (items, errors) = token_account_list_to_rpc(token_accounts, options);
+    let (items, errors) = token_account_list_to_rpc(token_accounts);
     TokenAccountList {
         total,
         limit: limit as u32,

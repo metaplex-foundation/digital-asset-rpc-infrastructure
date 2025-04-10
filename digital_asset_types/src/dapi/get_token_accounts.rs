@@ -30,6 +30,5 @@ pub async fn get_token_accounts(
         token_accounts,
         page_options.limit,
         &pagination,
-        options,
     ))
 }

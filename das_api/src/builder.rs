@@ -139,6 +139,19 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getNftEditions", "get_nft_editions")?;
 
+        module.register_async_method(
+            "get_token_largest_accounts",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetTokenLargestAccounts>()?;
+                rpc_context
+                    .get_token_largest_accounts(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+
+        module.register_alias("getTokenLargestAccounts", "get_token_largest_accounts")?;
+
         Ok(module)
     }
 }
