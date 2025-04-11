@@ -1,0 +1,16 @@
+---
+source: integration_tests/tests/integration_tests/token_accounts_tests.rs
+expression: response
+snapshot_kind: text
+---
+{
+  "context": {
+    "slot": 0
+  },
+  "value": {
+    "amount": "9881568297101298",
+    "decimals": 6,
+    "uiAmount": 9881568297.101297,
+    "uiAmountString": "9881568297.101297"
+  }
+}

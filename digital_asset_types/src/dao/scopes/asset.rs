@@ -11,11 +11,13 @@ use crate::{
         filter::AssetSortDirection,
         options::Options,
         response::{NftEdition, NftEditions},
-        RpcTokenAccountBalance, SolanaRpcContext, SolanaRpcResponseAndContext, UiTokenAmount,
+        RpcTokenAccountBalance, RpcTokenSupply, SolanaRpcContext, SolanaRpcResponseAndContext,
+        UiTokenAmount,
     },
 };
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
+use num_traits::ToPrimitive;
 use sea_orm::{
     entity::*, prelude::Decimal, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order,
 };
@@ -711,6 +713,34 @@ pub async fn get_token_largest_accounts(
             }
         })
         .collect();
+
+    Ok(SolanaRpcResponseAndContext {
+        value,
+        context: SolanaRpcContext::default(),
+    })
+}
+
+pub async fn get_token_supply(
+    conn: &impl ConnectionTrait,
+    mint_address: Vec<u8>,
+) -> Result<SolanaRpcResponseAndContext<RpcTokenSupply>, DbErr> {
+    let token = tokens::Entity::find()
+        .filter(tokens::Column::Mint.eq(mint_address))
+        .one(conn)
+        .await?
+        .ok_or(DbErr::RecordNotFound("Token Not Found".to_string()))?;
+
+    let ui_supply = token
+        .supply
+        .to_f64()
+        .map_or(0f64, |s| s.div(10u64.pow(token.decimals as u32) as f64));
+
+    let value = RpcTokenSupply {
+        amount: token.supply.to_string(),
+        decimals: token.decimals as u8,
+        ui_amount: Some(ui_supply),
+        ui_amount_string: ui_supply.to_string(),
+    };
 
     Ok(SolanaRpcResponseAndContext {
         value,

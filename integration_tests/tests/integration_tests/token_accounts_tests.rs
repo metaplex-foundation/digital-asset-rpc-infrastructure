@@ -122,3 +122,37 @@ async fn test_get_token_largest_accounts() {
 
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_token_supply() {
+    let name = trim_test_name(function_name!());
+
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Mainnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts(["EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    [
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      {
+        "commitment": "confirmed"
+      }
+    ]
+    "#;
+
+    let request: api::GetTokenSupply = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_token_supply(request).await.unwrap();
+
+    insta::assert_json_snapshot!(name, response);
+}

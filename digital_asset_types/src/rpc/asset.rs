@@ -479,6 +479,17 @@ pub struct RpcTokenAccountBalance {
     pub amount: UiTokenAmount,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcTokenSupply {
+    pub amount: String,
+    pub decimals: u8,
+    #[serde(rename = "uiAmount")]
+    pub ui_amount: Option<f64>,
+    #[serde(rename = "uiAmountString")]
+    pub ui_amount_string: String,
+}
+
 #[derive(Serialize, Default, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(default)]
 pub struct SolanaRpcContext {
@@ -488,6 +499,6 @@ pub struct SolanaRpcContext {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 #[serde(default)]
 pub struct SolanaRpcResponseAndContext<T: Default> {
-    pub value: T,
     pub context: SolanaRpcContext,
+    pub value: T,
 }

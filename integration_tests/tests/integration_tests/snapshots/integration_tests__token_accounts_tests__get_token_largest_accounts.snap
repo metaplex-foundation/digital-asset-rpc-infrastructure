@@ -1,8 +1,12 @@
 ---
 source: integration_tests/tests/integration_tests/token_accounts_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
+  "context": {
+    "slot": 0
+  },
   "value": [
     {
       "address": "WzWUoCmtVv7eqAbU3BfKPU3fhLP6CXR8NCJH78UK9VS",
@@ -74,8 +78,5 @@ expression: response
       "uiAmount": 19638157.840595,
       "uiAmountString": "19638157.840595"
     }
-  ],
-  "context": {
-    "slot": 0
-  }
+  ]
 }

@@ -7,11 +7,11 @@ use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{
     AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
 };
-use digital_asset_types::rpc::RpcTokenAccountBalance;
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{
     Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel, SolanaRpcResponseAndContext,
 };
+use digital_asset_types::rpc::{RpcTokenAccountBalance, RpcTokenSupply};
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -202,6 +202,9 @@ pub struct GetTokenAccounts {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct GetTokenLargestAccounts(pub String, #[serde(default)] pub Option<CommitmentConfig>);
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetTokenSupply(pub String, #[serde(default)] pub Option<CommitmentConfig>);
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -315,4 +318,9 @@ pub trait ApiContract: Send + Sync + 'static {
         &self,
         payload: GetTokenLargestAccounts,
     ) -> Result<SolanaRpcResponseAndContext<Vec<RpcTokenAccountBalance>>, DasApiError>;
+
+    async fn get_token_supply(
+        &self,
+        payload: GetTokenSupply,
+    ) -> Result<SolanaRpcResponseAndContext<RpcTokenSupply>, DasApiError>;
 }
