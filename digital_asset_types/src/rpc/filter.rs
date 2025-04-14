@@ -34,10 +34,15 @@ pub enum AssetSortBy {
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, Serialize, Deserialize, JsonSchema)]
 pub enum TokenTypeClass {
+    #[serde(rename = "fungible")]
     Fungible,
+    #[serde(rename = "nonFungible")]
     NonFungible,
-    Compressed,
+    #[serde(rename = "regularNFT")]
     Nft,
+    #[serde(rename = "compressedNFT")]
+    Compressed,
+    #[serde(rename = "all")]
     All,
 }
 

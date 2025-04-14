@@ -34,7 +34,7 @@ async fn test_search_asset_with_token_type_regular_nft() {
     "ownerAddress": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
     "page": 1,
     "limit": 2,
-    "tokenType": "Nft"
+    "tokenType": "regularNFT"
     }
     "#;
 
@@ -69,7 +69,7 @@ async fn test_search_asset_with_token_type_non_fungible() {
     "ownerAddress": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
     "page": 1,
     "limit": 2,
-    "tokenType": "NonFungible"
+    "tokenType": "nonFungible"
     }
     "#;
 
@@ -104,7 +104,7 @@ async fn test_search_asset_with_token_type_compressed() {
     "ownerAddress": "53VVFtLzzi3nL2p1QF591PAB8rbcbsirYepwUphtHU9Q",
     "page": 1,
     "limit": 2,
-    "tokenType": "Compressed"
+    "tokenType": "compressedNFT"
     }
     "#;
 
@@ -139,7 +139,7 @@ async fn test_search_asset_with_token_type_all_scenario_1() {
     "ownerAddress": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
     "page": 1,
     "limit": 2,
-    "tokenType": "All"
+    "tokenType": "all"
     }
     "#;
 
@@ -174,7 +174,7 @@ async fn test_search_asset_with_token_type_all_scenario_2() {
     "ownerAddress": "53VVFtLzzi3nL2p1QF591PAB8rbcbsirYepwUphtHU9Q",
     "page": 1,
     "limit": 2,
-    "tokenType": "All"
+    "tokenType": "all"
     }
     "#;
 
@@ -210,7 +210,7 @@ async fn test_search_asset_with_token_type_fungible() {
     "ownerAddress": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
     "page": 1,
     "limit": 1,
-    "tokenType": "Fungible"
+    "tokenType": "fungible"
     }
     "#;
 
