@@ -3639,9 +3639,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-bubblegum"
-version = "2.0.0-beta.5"
+version = "2.0.0-beta.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d831dedcf01883068a9c758f93924c74fd4df995d743023a4bfe2614e85241"
+checksum = "02a35a1eed4c4095b03ee568ddfb6d8c1269b9f874db2b4757ff0d898cd88e83"
 dependencies = [
  "borsh 0.10.4",
  "kaigan",
