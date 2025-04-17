@@ -58,6 +58,10 @@ pub struct Model {
     pub mpl_core_plugins_json_version: Option<i32>,
     pub mpl_core_external_plugins: Option<Json>,
     pub mpl_core_unknown_external_plugins: Option<Json>,
+    pub collection_hash: Option<String>,
+    pub asset_data_hash: Option<String>,
+    pub bubblegum_flags: Option<i16>,
+    pub non_transferable: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -102,6 +106,10 @@ pub enum Column {
     MplCorePluginsJsonVersion,
     MplCoreExternalPlugins,
     MplCoreUnknownExternalPlugins,
+    CollectionHash,
+    AssetDataHash,
+    BubblegumFlags,
+    NonTransferable,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -131,7 +139,7 @@ impl ColumnTrait for Column {
             Self::OwnerType => OwnerType::db_type(),
             Self::Delegate => ColumnType::Binary.def().null(),
             Self::Frozen => ColumnType::Boolean.def(),
-            Self::Supply => ColumnType::BigInteger.def(),
+            Self::Supply => ColumnType::Decimal(Some((20u32, 0u32))).def(),
             Self::SupplyMint => ColumnType::Binary.def().null(),
             Self::Compressed => ColumnType::Boolean.def(),
             Self::Compressible => ColumnType::Boolean.def(),
@@ -163,6 +171,10 @@ impl ColumnTrait for Column {
             Self::MplCorePluginsJsonVersion => ColumnType::Integer.def().null(),
             Self::MplCoreExternalPlugins => ColumnType::JsonBinary.def().null(),
             Self::MplCoreUnknownExternalPlugins => ColumnType::JsonBinary.def().null(),
+            Self::CollectionHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::AssetDataHash => ColumnType::Char(Some(50u32)).def().null(),
+            Self::BubblegumFlags => ColumnType::SmallInteger.def().null(),
+            Self::NonTransferable => ColumnType::Boolean.def().null(),
         }
     }
 }
