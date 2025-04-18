@@ -20,7 +20,6 @@ use {
 pub struct DownloadMetadataInfo {
     pub asset_data_id: Vec<u8>,
     pub uri: String,
-    pub slot: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,16 +50,15 @@ impl DownloadMetadataJsonRetryConfig {
 }
 
 impl DownloadMetadataInfo {
-    pub fn new(asset_data_id: Vec<u8>, uri: String, slot: i64) -> Self {
+    pub fn new(asset_data_id: Vec<u8>, uri: String) -> Self {
         Self {
             asset_data_id,
             uri: uri.trim().replace('\0', ""),
-            slot,
         }
     }
 
-    pub fn into_inner(self) -> (Vec<u8>, String, i64) {
-        (self.asset_data_id, self.uri, self.slot)
+    pub fn into_inner(self) -> (Vec<u8>, String) {
+        (self.asset_data_id, self.uri)
     }
 }
 

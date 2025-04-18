@@ -77,7 +77,6 @@ pub async fn start_backfill(context: MetadataJsonBackfillerContext) -> Result<()
                 .map(|asset_data| DownloadMetadataInfo {
                     asset_data_id: asset_data.id,
                     uri: asset_data.metadata_url,
-                    slot: asset_data.slot_updated,
                 })
                 .collect();
 

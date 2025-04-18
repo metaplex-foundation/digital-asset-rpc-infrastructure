@@ -3,6 +3,7 @@ RUN cargo install wasm-pack
 
 RUN mkdir /rust
 COPY ./Cargo.toml /rust
+COPY ./Cargo.lock /rust
 COPY ./core /rust/core
 COPY ./backfill /rust/backfill
 COPY ./das_api /rust/das_api

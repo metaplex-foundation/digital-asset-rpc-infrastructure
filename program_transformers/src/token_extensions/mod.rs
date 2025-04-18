@@ -277,7 +277,6 @@ where
     Ok(Some(DownloadMetadataInfo::new(
         key_bytes,
         metadata.uri.clone(),
-        slot,
     )))
 }
 

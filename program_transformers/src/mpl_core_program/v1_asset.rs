@@ -21,9 +21,9 @@ use {
     sea_orm::{
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
-        query::{JsonValue, QueryFilter},
-        sea_query::{query::OnConflict, Alias, Condition, Expr},
-        ConnectionTrait, CursorTrait, Statement, TransactionTrait,
+        query::{JsonValue, QueryFilter, QuerySelect},
+        sea_query::{query::OnConflict, Alias, Expr},
+        Condition, ConnectionTrait, CursorTrait, Statement, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -812,7 +812,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     }
 
     // Otherwise return with info for background downloading.
-    Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri, slot_i)))
+    Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
 }
 
 // Modify the JSON structure to remove the `Plugin` name and just display its data.
@@ -971,8 +971,8 @@ fn convert_keys_to_snake_case(plugins_json: &mut Value) {
     }
 }
 
-/// Updates the `asset_authority` for all assets that are part of a collection in a batch.
-/// This function performs a cursor-based paginated read and batch update.
+/// Updates the `asset_authority` for all assets that are part of a collection in a batch,
+/// but only for assets where `compressed = false`.
 async fn update_group_asset_authorities<T: ConnectionTrait + TransactionTrait>(
     conn: &T,
     group_value: Vec<u8>,
@@ -1007,21 +1007,37 @@ async fn update_group_asset_authorities<T: ConnectionTrait + TransactionTrait>(
             .map(|entry| entry.asset_id)
             .collect::<Vec<_>>();
 
-        asset_authority::Entity::update_many()
-            .col_expr(
-                asset_authority::Column::Authority,
-                Expr::value(authority.clone()),
-            )
-            .col_expr(asset_authority::Column::SlotUpdated, Expr::value(slot))
-            .filter(asset_authority::Column::AssetId.is_in(asset_ids))
-            .filter(asset_authority::Column::Authority.ne(authority.clone()))
-            .filter(Expr::cust_with_values(
-                "asset_authority.slot_updated < $1",
-                vec![slot],
-            ))
-            .exec(conn)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+        // Only include assets where compressed = false
+        let filtered_assets = asset::Entity::find()
+            .select_only()
+            .column(asset::Column::Id)
+            .filter(asset::Column::Id.is_in(asset_ids))
+            .filter(asset::Column::Compressed.eq(false))
+            .all(conn)
+            .await?;
+
+        let filtered_asset_ids = filtered_assets
+            .into_iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>();
+
+        if !filtered_asset_ids.is_empty() {
+            asset_authority::Entity::update_many()
+                .col_expr(
+                    asset_authority::Column::Authority,
+                    Expr::value(authority.clone()),
+                )
+                .col_expr(asset_authority::Column::SlotUpdated, Expr::value(slot))
+                .filter(asset_authority::Column::AssetId.is_in(filtered_asset_ids))
+                .filter(asset_authority::Column::Authority.ne(authority.clone()))
+                .filter(Expr::cust_with_values(
+                    "asset_authority.slot_updated < $1",
+                    vec![slot],
+                ))
+                .exec(conn)
+                .await
+                .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+        }
 
         after = entries.last().map(|entry| entry.asset_id.clone());
     }

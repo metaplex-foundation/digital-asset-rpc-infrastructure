@@ -5,6 +5,7 @@ RUN apt-get update -y && \
 RUN mkdir /rust
 RUN mkdir /rust/bins
 COPY Cargo.toml /rust
+COPY Cargo.lock /rust
 COPY core /rust/core
 COPY backfill /rust/backfill
 COPY das_api /rust/das_api
@@ -20,11 +21,7 @@ COPY blockbuster rust/blockbuster
 WORKDIR /rust
 RUN --mount=type=cache,target=/rust/target,id=das-rust \
   cargo build --release --bins && cp `find /rust/target/release -maxdepth 1 -type f | sed 's/^\.\///' | grep -v "\." ` /rust/bins
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> main
 FROM rust:1.81-slim-bullseye as final
 COPY --from=builder /rust/bins /das/
 CMD echo "Built the DAS API bins!"

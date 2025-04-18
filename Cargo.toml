@@ -30,6 +30,11 @@ version = "0.7.2"
 
 [workspace.dependencies]
 
+
+das-metadata-json = { path = "metadata_json" }
+digital_asset_types = { path = "digital_asset_types" }
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22" }                          # tag is geyser plugin
+das-ops = { path = "ops" }
 anchor-client = "0.29.0"
 anchor-lang = "0.29.0"
 anyhow = "1.0.75"
@@ -49,11 +54,9 @@ cargo-lock = "9.0.0"
 chrono = "0.4.19"
 clap = "4.2.2"
 das-core = { path = "core" }
-das-metadata-json = { path = "metadata_json" }
 das-bubblegum = { path = "bubblegum" }
 das_api = { path = "das_api" }
 derive_more = { version = "0.99.17" }
-digital_asset_types = { path = "digital_asset_types" }
 enum-iterator = "1.2.0"
 enum-iterator-derive = "1.1.0"
 env_logger = "0.10.0"
@@ -80,9 +83,9 @@ lru = "0.12.3"
 metrics = "0.20.1"
 migration = { path = "migration" }
 mime_guess = "2.0.4"
+mpl-bubblegum = "2.0.0-beta.6"
 mpl-account-compression = "0.4.2"
-mpl-bubblegum = "1.4.0"
-mpl-core = { version = "0.9.0", features = ["serde"] }
+mpl-core = { version = "0.10.0-alpha.1", features = ["serde"] }
 mpl-noop = "0.2.1"
 mpl-token-metadata = "4.1.1"
 nft_ingester = { path = "nft_ingester" }
@@ -145,10 +148,8 @@ url = "2.3.1"
 vergen = "8.2.1"
 wasi = "0.7.0"
 wasm-bindgen = "0.2.83"
-yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22" }                          # tag is geyser plugin
 yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22" }                           # tag is geyser plugin
 yellowstone-grpc-tools = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.15.1+solana.1.18.22", default-features = false } # tag is geyser plugin
-das-ops = { path = "ops" }
 
 [workspace.lints.clippy]
 clone_on_ref_ptr = "deny"
