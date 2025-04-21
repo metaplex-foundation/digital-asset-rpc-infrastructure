@@ -141,9 +141,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
         slot_updated: Set(Some(columns.slot_updated_mint_account)),
         mint_extensions: Set(columns.extensions),
         asset_data: Set(Some(columns.mint.clone())),
-        // assume every token is a fungible token when mint account is created
         specification_asset_class: Set(Some(specification_asset_class)),
-        // // assume multiple ownership as we set asset class to fungible token
         owner_type: Set(owner_type),
         ..Default::default()
     };
@@ -157,6 +155,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                     asset::Column::MintExtensions,
                     asset::Column::AssetData,
                     asset::Column::OwnerType,
+                    asset::Column::SpecificationAssetClass,
                 ])
                 .action_cond_where(
                     Condition::any()
@@ -217,6 +216,18 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                                                 asset::Column::OwnerType,
                                             )
                                             .ne(Expr::tbl(asset::Entity, asset::Column::OwnerType)),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                asset::Column::SpecificationAssetClass,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    asset::Entity,
+                                                    asset::Column::SpecificationAssetClass,
+                                                ),
+                                            ),
                                         ),
                                 )
                                 .add(
