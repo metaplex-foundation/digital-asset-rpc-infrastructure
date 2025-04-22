@@ -1,10 +1,9 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
-  "interface": "Custom",
+  "interface": "V1_NFT",
   "id": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",

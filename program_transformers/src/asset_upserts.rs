@@ -126,11 +126,19 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
     columns: AssetMintAccountColumns,
     txn_or_conn: &T,
 ) -> Result<(), DbErr> {
-    let (specification_asset_class, owner_type) =
+    let (specification_asset_class, specification_version, owner_type) =
         if columns.supply == Decimal::from(1) && columns.decimals == 0 {
-            (SpecificationAssetClass::Nft, OwnerType::Single)
+            (
+                SpecificationAssetClass::Nft,
+                Some(SpecificationVersions::V1),
+                OwnerType::Single,
+            )
         } else {
-            (SpecificationAssetClass::FungibleToken, OwnerType::Token)
+            (
+                SpecificationAssetClass::FungibleToken,
+                None,
+                OwnerType::Token,
+            )
         };
 
     let active_model = asset::ActiveModel {
@@ -142,6 +150,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
         mint_extensions: Set(columns.extensions),
         asset_data: Set(Some(columns.mint.clone())),
         specification_asset_class: Set(Some(specification_asset_class)),
+        specification_version: Set(specification_version),
         owner_type: Set(owner_type),
         ..Default::default()
     };
@@ -155,7 +164,7 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                     asset::Column::MintExtensions,
                     asset::Column::AssetData,
                     asset::Column::OwnerType,
-                    asset::Column::SpecificationAssetClass,
+                    asset::Column::SpecificationVersion,
                 ])
                 .action_cond_where(
                     Condition::any()
@@ -220,12 +229,12 @@ pub async fn upsert_assets_mint_account_columns<T: ConnectionTrait + Transaction
                                         .add(
                                             Expr::tbl(
                                                 Alias::new("excluded"),
-                                                asset::Column::SpecificationAssetClass,
+                                                asset::Column::SpecificationVersion,
                                             )
                                             .ne(
                                                 Expr::tbl(
                                                     asset::Entity,
-                                                    asset::Column::SpecificationAssetClass,
+                                                    asset::Column::SpecificationVersion,
                                                 ),
                                             ),
                                         ),
