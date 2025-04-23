@@ -17,9 +17,11 @@ use {
         tokens::{self, IsNonFungible as IsNonFungibleModel},
     },
     sea_orm::{
-        entity::ActiveValue, query::QueryTrait, sea_query::query::OnConflict, ConnectionTrait,
-        DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, EntityTrait, Set,
-        TransactionTrait,
+        entity::ActiveValue,
+        query::QueryTrait,
+        sea_query::{query::OnConflict, Alias, Expr},
+        Condition, ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr,
+        EntityTrait, Set, TransactionTrait,
     },
     serde_json::Value,
     solana_sdk::program_option::COption,
@@ -75,7 +77,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             };
             let txn = db.begin().await?;
 
-            let mut query = token_accounts::Entity::insert(model)
+            token_accounts::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([token_accounts::Column::Pubkey])
                         .update_columns([
@@ -90,20 +92,133 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                             token_accounts::Column::SlotUpdated,
                             token_accounts::Column::Extensions,
                         ])
+                        .action_cond_where(
+                            Condition::all()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        token_accounts::Column::SlotUpdated,
+                                    )
+                                    .lte(slot),
+                                )
+                                .add(
+                                    Condition::any()
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Mint,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Mint,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::DelegatedAmount,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::DelegatedAmount,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Delegate,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Delegate,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Amount,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Amount,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Frozen,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Frozen,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::TokenProgram,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::TokenProgram,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Owner,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Owner,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::CloseAuthority,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::CloseAuthority,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                token_accounts::Column::Extensions,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    token_accounts::Entity,
+                                                    token_accounts::Column::Extensions,
+                                                ),
+                                            ),
+                                        ),
+                                ),
+                        )
                         .to_owned(),
                 )
-                .build(DbBackend::Postgres);
-            query.sql = format!(
-                "{} WHERE excluded.slot_updated > token_accounts.slot_updated",
-                query.sql
-            );
-            db.execute(query).await?;
+                .exec_without_returning(db)
+                .await?;
 
-            let token = tokens::Entity::find_by_id(mint.clone()).one(db).await?;
-
-            let is_non_fungible = token.map(|t| t.is_non_fungible()).unwrap_or(false);
-
-            if is_non_fungible {
+            if ta.amount == 1 {
                 upsert_assets_token_account_columns(
                     AssetTokenAccountColumns {
                         mint: mint.clone(),
@@ -159,7 +274,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
             };
             let txn: DatabaseTransaction = db.begin().await?;
 
-            let mut query = tokens::Entity::insert(model)
+            tokens::Entity::insert(model)
                 .on_conflict(
                     OnConflict::columns([tokens::Column::Mint])
                         .update_columns([
@@ -173,14 +288,108 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
                             tokens::Column::FreezeAuthority,
                             tokens::Column::Extensions,
                         ])
+                        .action_cond_where(
+                            Condition::all()
+                                .add(
+                                    Condition::any()
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::Supply,
+                                            )
+                                            .ne(Expr::tbl(tokens::Entity, tokens::Column::Supply)),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::TokenProgram,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::TokenProgram,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::MintAuthority,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::MintAuthority,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::CloseAuthority,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::CloseAuthority,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::ExtensionData,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::ExtensionData,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::Decimals,
+                                            )
+                                            .ne(
+                                                Expr::tbl(tokens::Entity, tokens::Column::Decimals),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::FreezeAuthority,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::FreezeAuthority,
+                                                ),
+                                            ),
+                                        )
+                                        .add(
+                                            Expr::tbl(
+                                                Alias::new("excluded"),
+                                                tokens::Column::Extensions,
+                                            )
+                                            .ne(
+                                                Expr::tbl(
+                                                    tokens::Entity,
+                                                    tokens::Column::Extensions,
+                                                ),
+                                            ),
+                                        ),
+                                )
+                                .add(
+                                    Expr::tbl(Alias::new("excluded"), tokens::Column::SlotUpdated)
+                                        .lte(slot),
+                                ),
+                        )
                         .to_owned(),
                 )
-                .build(DbBackend::Postgres);
-            query.sql = format!(
-                "{} WHERE excluded.slot_updated >= tokens.slot_updated",
-                query.sql
-            );
-            txn.execute(query).await?;
+                .exec_without_returning(&txn)
+                .await?;
 
             upsert_assets_mint_account_columns(
                 AssetMintAccountColumns {
@@ -236,7 +445,7 @@ where
         ..Default::default()
     };
 
-    let mut asset_data_query = asset_data::Entity::insert(asset_data_model)
+    asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -248,23 +457,106 @@ where
                     asset_data::Column::RawName,
                     asset_data::Column::RawSymbol,
                 ])
+                .action_cond_where(
+                    Condition::all()
+                        .add(
+                            Condition::any()
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::ChainDataMutability,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::ChainDataMutability,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::ChainData,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::ChainData,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::MetadataUrl,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::MetadataUrl,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::BaseInfoSeq,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::BaseInfoSeq,
+                                    )),
+                                )
+                                .add(
+                                    Expr::tbl(Alias::new("excluded"), asset_data::Column::RawName)
+                                        .ne(Expr::tbl(
+                                            asset_data::Entity,
+                                            asset_data::Column::RawName,
+                                        )),
+                                )
+                                .add(
+                                    Expr::tbl(
+                                        Alias::new("excluded"),
+                                        asset_data::Column::RawSymbol,
+                                    )
+                                    .ne(Expr::tbl(
+                                        asset_data::Entity,
+                                        asset_data::Column::RawSymbol,
+                                    )),
+                                ),
+                        )
+                        .add(
+                            Expr::tbl(Alias::new("excluded"), asset_data::Column::SlotUpdated)
+                                .lte(slot),
+                        ),
+                )
                 .to_owned(),
         )
-        .build(DbBackend::Postgres);
-    asset_data_query.sql = format!(
-        "{} WHERE excluded.slot_updated >= asset_data.slot_updated",
-        asset_data_query.sql
-    );
-    db.execute(asset_data_query).await?;
+        .exec_without_returning(db)
+        .await?;
 
-    upsert_assets_metadata_cols(
-        AssetMetadataAccountCols {
-            mint: key_bytes.clone(),
-            slot_updated_metadata_account: slot,
-        },
-        db,
-    )
-    .await?;
+    let asset = asset::ActiveModel {
+        id: ActiveValue::Set(key_bytes.clone()),
+        slot_updated_metadata_account: Set(Some(slot)),
+        ..Default::default()
+    };
+
+    asset::Entity::insert(asset)
+        .on_conflict(
+            OnConflict::columns([asset::Column::Id])
+                .update_columns([asset::Column::SlotUpdatedMetadataAccount])
+                .action_cond_where(
+                    Condition::any()
+                        .add(
+                            Expr::tbl(
+                                Alias::new("excluded"),
+                                asset::Column::SlotUpdatedMetadataAccount,
+                            )
+                            .lte(slot),
+                        )
+                        .add(
+                            Expr::tbl(asset::Entity, asset::Column::SlotUpdatedMetadataAccount)
+                                .is_null(),
+                        ),
+                )
+                .to_owned(),
+        )
+        .exec_without_returning(db)
+        .await?;
 
     if metadata.uri.is_empty() {
         warn!(
@@ -278,40 +570,4 @@ where
         key_bytes,
         metadata.uri.clone(),
     )))
-}
-
-struct AssetMetadataAccountCols {
-    mint: Vec<u8>,
-    slot_updated_metadata_account: i64,
-}
-
-async fn upsert_assets_metadata_cols<T>(
-    metadata: AssetMetadataAccountCols,
-    db: &T,
-) -> Result<(), DbErr>
-where
-    T: ConnectionTrait + TransactionTrait,
-{
-    let asset = asset::ActiveModel {
-        id: ActiveValue::Set(metadata.mint.clone()),
-        slot_updated_metadata_account: Set(Some(metadata.slot_updated_metadata_account)),
-        ..Default::default()
-    };
-
-    let mut asset_query = asset::Entity::insert(asset)
-        .on_conflict(
-            OnConflict::columns([asset::Column::Id])
-                .update_columns([asset::Column::SlotUpdatedMetadataAccount])
-                .to_owned(),
-        )
-        .build(DbBackend::Postgres);
-
-    asset_query.sql = format!(
-        "{} WHERE excluded.slot_updated_metadata_account >= asset.slot_updated_metadata_account OR asset.slot_updated_metadata_account IS NULL",
-        asset_query.sql
-    );
-
-    db.execute(asset_query).await?;
-
-    Ok(())
 }
