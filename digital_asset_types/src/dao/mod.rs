@@ -176,6 +176,7 @@ impl SearchAssetsQuery {
                                     .select_only()
                                     .column(token_accounts::Column::Mint)
                                     .filter(token_accounts::Column::Owner.eq(o.clone()))
+                                    .filter(token_accounts::Column::Amount.gt(0))
                                     .into_query(),
                             ))
                     }
