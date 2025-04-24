@@ -175,57 +175,63 @@ async fn test_delegate_v2() {
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_freeze_v2() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_freeze_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "CTs4CB81qEZCfkJeBNc4K4XyRKvAGQK5mQmmfdLenqVP";
+    let asset_id = "4ynkSgr8S9pq3a2ynNHVfJbAcBrBxJUFkRCkwmjEc3TS";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"4xRavuyJ8Sa1nEhyqrUeNpYHgopkpnEWWSYYoTut48CDJRrT46aN1CnU2KCgNUBfpLngNvG9SUkMfHGGNR5x5pZa",
-//         // delegate_v2
-//         //"7z3eHy8z6UsGLedCxPihTdUtpQS14Fd9aLkKbRZfjcZRCf9nX2x8cyvtV9QGQJTkhpmk11HoYpzF26AvSwuUpQx",
-//         // freeze_v2
-//         //"5tRgiuLGebPVQu6ytPNsW6RVWyvM3pkvSPgRc72Qkdvu7rwoBKvaenHkND4qD3JQAWL1CkuCMwnAm91w42tUYg77",
-//     ]);
+    let seeds: Vec<SeedEvent> = seed_txns([
+        // create_tree_v2
+        "5a2F9FDRPJQGZCKTWabBM6seHph5gkhTh3cVg5GFTnvzHz7uJEfkYK5tSb88KFpzLhxgRkiPY68Fo6qBC3xG8NjZ",
+        // mint_v2
+        "5hYjCyZERQ5yfNqop8TbehaGWPLGnSYFkFe4oDQEXPLEHpnjagZbzG4V88pcZdubxs9fK2Wu44VQfkbrUMoi7rE",
+        // delegate_v2
+        "5Hf1xFwVce9C3VqxdXsPZnUXU2EkoQ6x4LADXhPcbPR1yFkkPq6b3irvwLL5vgRbffTWaNq5SR4nuKdvsZbRDHr9",
+        // freeze_v2
+        "k2HvVWRq9ctFaGrJURNipaTFMXZQH9AScqKxJFHQdpdeF4umWd5y2XbE1WCMP8Pe8gpQdLTeZsurpUA9wiwt4YX",
+    ]);
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_freeze_v2_using_permanent_delegate() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_freeze_v2_using_permanent_delegate() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "GE4t6bZza7p8dx7aRmR6S5NcbNjmZ8SePZwgoSVSuWds";
+    let asset_id = "9j8QfKwJvzjiHwcRyi1TCK7sZgm8iEBpGn8sRyGF5Wy8";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"256W5Pf9mvKEnLZdFZCZiXaLhLUveJw8KYxUz7pj4AGAvNV1G8XsuFL99PTKSjJg8VaNfuEG3ybkah2D6xBWszDp",
-//         // freeze_v2
-//         //"3ScdX5stXc8xvLRdQdVVZxms1iqC9srVEGiRbJsEGM5nieizCvpCSJx1Fgz53DBt34ZxcX7T1ePbDtCmVTVfZ374",
-//     ]);
+    let seeds: Vec<SeedEvent> = vec![
+        // mpl-core collection
+        seed_account("4GkzAdHxkE5txX8rLBKJebKzswcyM6LKGMi5J1joqdmg"),
+        // create_tree_v2
+        seed_txn("4VJEGTrFtjrs8zovYWPtm86a9fEojZryD3UR34uiHKerbkYggt3YWbXurC7z7k3pT8u9gFmS5SJMLGPRR8vUWZeF"),
+        // mint_v2 to collection
+        seed_txn("3Dyx2b37moZUuzUeT6ieoWKgUdZ88MeeXyB21VzijUQhaCtMz9akUxVmKQyjgsEWB3iCrvPvK9LNH6aTHsnQqqCz"),
+        // freeze_v2
+        seed_txn("35PfMghxXF4emD2vx8FsfHNzXLpCbcENRJoqyBNHtMBsZeges1NjRM34UuUBXHwc8XGUqfVip9TSVrxqjhkb9hPk"),
+    ];
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
 #[tokio::test]
 #[serial]
@@ -279,105 +285,123 @@ async fn test_mint_v2_to_collection_only() {
     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 }
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn remove_from_collection_using_set_collection_v2() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn remove_from_collection_using_set_collection_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "GiDMyLuE1atPPvXHQSsCJ5T8Jdx7S3B3eD98WTQYVEXw";
+    let asset_id = "HN6V2risGpYADNKyRoceBwgrUJDnSm6h21uSTLbLVaPY";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"CaZKRiS7uqe5oA6puGFYzkhQhK6KdxnjBMxff63yPAv2Vv6MDKqLWeuMK81dEVyFQAXYQfA4noe8LB6aU3zBB9j",
-//         // set_collection_v2
-//         //"4A1XJgXsPpBDEN5p8p6zfZA6QsirhvUtJtM2VW1CrNkUhL73gguJt5HooCYQMX9L7nVtPEwfmhSyqjUBqXFGmhds",
-//     ]);
+    let seeds: Vec<SeedEvent> = vec![
+        // mpl-core collection
+        seed_account("3qVHqRQLt2QRRLiorv4YtJDdeJxLv8kf5ZxPWnVatUES"),
+        // create_tree_v2
+        seed_txn("2yd7zctRbpevqdCsKWwUX1W8CeXngQ9cphk9nMTpQK4ifLXoEjbkiD8eQWWhZn28rGHHjzZ6N2tEgEWQThodeN2Q"),
+        // mint_v2 to collection
+        seed_txn("5uAg2XeFEhTD5VV73VVMRX4QHbdonmH5aB1YkQ5kbHoENkmqrb2CJaRMeWb2xE76zMi95Hv9HxS9Ea2xyTanfSfE"),
+        // set_collection_v2
+        seed_txn("3qpp1MZNxLW8PQcfjKz3hniVc34CktHnVmRzG7jak8PayfZHJqzh5BArC8ZRN7uyXcq9BdU6Leyfzt1SsKNAqrVM"),
+    ];
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn add_asset_to_collection_using_set_collection_v2() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn add_asset_to_collection_using_set_collection_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "H8aUdS5GPKtEt75nt4rrSc5SzkUZWxMfujYs2ZNfEXpp";
+    let asset_id = "HDR3U2QDqdcqthjb12j8tCaY1wag5VeuYWzfnDPAE8R4";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"48TH8Tffc2pi2my17gv2uc3a4dzqdgfvZmte3BUjJox1o75yUkTa7QYPFfYrMb2CR6Hc3w5qFLSvEemafvpn2s79",
-//         // set_collection_v2
-//         //"2XVxLofFvhymE9zHvEYckikBSfwDukmEFDgQqLNBMbrf6UJxnLVNR55N7ompAu2cp3WENBh53vxY7iUmKWyQwJeX",
-//     ]);
+    let seeds: Vec<SeedEvent> = vec![
+        // create_tree_v2
+        seed_txn("3iQzpK6NFMg2DbTENnnZT4hEUs7rvPGTKJqYHQrspJNrvMmfB8TDmmGL54KSs173FrG9iUeSE2C3FSQMBQhDPiV3"),
+        // mint_v2
+        seed_txn("tQGLJD3FYZysC8T9jY4UWjofH3fSrGusHjrXgUQSbzW52WaL5CSf2MEu5ZWzdyQvrwfhWA9Jsnaa1nqMQ5RuU6s"),
+        // mpl-core collection
+        seed_account("8NWssmU4xYJd926xsmr2x7LWdgh4rf5HCdGZqENw3JnW"),
+        // set_collection_v2
+        seed_txn("2GhsVk993pXqzith6sK5QrMxojNVceeNM6EYFpDF12yfJRr5BpvJvJAqJPGc81VkC2E5zx3Cq2pN9wiESTBFThdK"),
+    ];
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn change_collection_using_set_collection_v2() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn change_collection_using_set_collection_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "CHj5SK2Hmd5qpSxtf4UK93wAm93NFVRc27C2LafkP9tA";
+    let asset_id = "7xNZ8rh4zH9EoACqEWymt5FSwgjbkDM1uFQ6MSB6kwc8";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"2kcu2LCRRdBNTkejqVJRuPMKGsi3bGjFAhy2G2BmkqR4RpevWmQRg82caUAddZ1CpVPkqc215eosemAnvCH4o5bV",
-//         // set_collection_v2
-//         //"65PHY53oRZkqPGfaXpy47MKV9nS5v6kDHdJd2apxVPPsYhcAoTNPzfyYsiuawRmYLqot1av6sb4EK8F1p3jiq1pQ",
-//     ]);
+    let seeds: Vec<SeedEvent> = vec![
+        // create_tree_v2
+        seed_txn("5dizJkarp8HnDVuruziQZ8DJaguFmWddvkijq6RRM8uGfVW96woGcSusMpvBFQBFDquEcD4VzrDNE7pcEmy7any2"),
+        // original mpl-core collection
+        seed_account("H3jL76p7G1yRkBWo41Ymp9xk6oG4xiGw5xvAPgu54ees"),
+        // mint_v2
+        seed_txn("4Ym9s4n7FASrVerN4iDcyKZvxBLEsemW84o9PKwMwmTQ81TRePmVn21XKfeMeUtFJ7vdW5MXVUc8MH4XmnBpPdPU"),
+        // new mpl-core collection
+        seed_account("4hxACbE2jHf8uCaRAhnUxAEZ6NrwS9SBNJqGm8LbBiwE"),
+        // set_collection_v2
+        seed_txn("ZmdGG5drfsPbvVLU1Fin2FLxD9gWhDPsqRYjGnD99pLr6Q1NVNTiKhJGWfNGbC2UTomibCp8FrMUFKBncDB3nXs"),
+    ];
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_set_non_transferable_v2() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_set_non_transferable_v2() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
 
-//     let asset_id = "D519CjLrU3c24j2fmKXaraBbUYMN2tYZZHJzE3NpJBa9";
+    let asset_id = "9JZWk34GEsxNWRF6XRxL6LYDhs5W7AuUVX2VHo9UV7ds";
 
-//     let seeds: Vec<SeedEvent> = seed_txns([
-//         // mint_v2
-//         //"3SqRh3aaXM2mj6DNTCNcHbcbc957qCatXuYS6QpZfhz7hpYMUEA7tTUGT2wFusCeXpVEYX7jyTB5YKQyy3jFZ4P8",
-//         // set_non_transferable_v2
-//         //"2URh6VofoPcPmKm7a5KsYwu3NociNZZdsxeaMUHQhz9D4am5YLhdkkpr5myx47bfp3AaBngzMsMSCPbN4W6xYN53",
-//     ]);
+    let seeds: Vec<SeedEvent> = vec![
+        // create_tree_v2
+        seed_txn("62hqBJ52oPg8WdR6jR6LNqw2mFsai9Q6K6iLoYLnr1yF4rki8xajxSbycuDCQpyXaCZjuShnhgtekn1cr134qc8G"),
+        // mpl-core collection
+        seed_account("CFBZCGCs61JzV2FbMucP5uGMN7tjJ3Rt3gjGAVt8J6SR"),
+        // mint_v2
+        seed_txn("5MbALbTYQXsfN9eQ76zBFpAPGzAod3dQPDFNiPBNYQovh8Grj9g3oANQKyC7gceRi5c8fqqYPGMLgeeq7M9N6U1e"),
+        // set_non_transferable_v2
+        seed_txn("5G7q1VYG1Rg7Lu2M9NjidYj4HFNHEhpqsok3ph4URuawAhtNpNUf563FXuxfyG1oGekVUfVQVcExnroKB2gHYyHL"),
+    ];
 
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
+    run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
+}
 
 // #[tokio::test]
 // #[serial]
@@ -477,33 +501,6 @@ async fn test_mint_v2_to_collection_only() {
 //         // update_metadata_v2
 //         //"5vJJgNV4tbS3ChjwGZg5SzM21K1xNA5wRH3xtbc2nifEDDv6CWP64ocE6Qgqk6f4gGEWWZEWLXz2qbUJCzQGLCie",
 //     ]);
-
-//     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
-// }
-
-// #[tokio::test]
-// #[serial]
-// #[named]
-// async fn test_mint_v2_to_collection_transfer_v2_mpl_account_compression() {
-//     let name = trim_test_name(function_name!());
-//     let setup = TestSetup::new_with_options(
-//         name.clone(),
-//         TestSetupOptions {
-//             network: Some(Network::Devnet),
-//         },
-//     )
-//     .await;
-
-//     let asset_id = "JCLoUck9M22zMZVpygMkDkECk8xnHc1aRHgHigEqp2jD";
-
-//     let seeds: Vec<SeedEvent> = vec![
-//         // mpl-core collection
-//         //seed_account("247DBFyKV41na1fPYNX3nSeBc4S6dPFR4s7K7wy9itw1"),
-//         // mint_v2 to collection
-//         //seed_txn("2WgBmzbdeLpEh1VsatQWY9XVrPGPbB9JWubKr7rHYgrDzv9rqrKNCBW6BikPWJzxM3mNZXPXvsovr6mkEPf4Nicc"),
-//         // transfer_v2
-//         //seed_txn("58RL8d1rU7gxkBaY11z4ktf2z6hpqRFJKTFJpRXX7Vc7o6L4GQFEk5zJxBQrQXWA4nSDyFfVPRasuZEy7zYfWsx1"),
-//     ];
 
 //     run_get_asset_scenario_test(&setup, asset_id, seeds, Order::AllPermutations).await;
 // }
