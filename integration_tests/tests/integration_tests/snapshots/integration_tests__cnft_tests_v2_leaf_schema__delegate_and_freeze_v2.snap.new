@@ -5,7 +5,7 @@ expression: response
 ---
 {
   "interface": "V1_NFT",
-  "id": "8FD8ZTQtPzPzADnSUs1sb3vb54MxQ29mJkcEDTGzDANA",
+  "id": "5ryKjZ554B9aSKWyEH4kprdjQSvRk3ioAVPgsxRqcDAf",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/my-nft.json",
@@ -19,7 +19,7 @@ expression: response
   },
   "authorities": [
     {
-      "address": "ANPJ84rieU7ED7AmcKLPx9py1BonC1Gvj6bp9MekvU9N",
+      "address": "9PHCCyytnspbBBnrBZ4W7fGUcrjaP6fr7pnDeXmT3zdM",
       "scopes": [
         "full"
       ]
@@ -32,10 +32,10 @@ expression: response
     "creator_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
     "collection_hash": "3mG2ogUZaUxX7TKRbDNDUPnesYghsd87YFAduqs4TETk",
     "asset_data_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
-    "flags": 0,
-    "asset_hash": "EENMEgcifc3hBRFgssTvAJb2AMKvDpnENMfQsVc8VZjL",
-    "tree": "Dw2hqfc1HVCV19aHRjTyAaqcTRjYRzz6HS6tkvxWVxXV",
-    "seq": 1,
+    "flags": 1,
+    "asset_hash": "cmJWfjcsnnGtVUMeiM9S4BwynSYkBcDPUFUbAsWn1D6",
+    "tree": "6bwDGu5LpTwAQapLRy9ZDDighQmz3P5JYdP8nQYrgHdZ",
+    "seq": 2,
     "leaf_id": 0
   },
   "grouping": [],
@@ -49,12 +49,12 @@ expression: response
   },
   "creators": [],
   "ownership": {
-    "frozen": false,
+    "frozen": true,
     "non_transferable": false,
-    "delegated": false,
-    "delegate": null,
+    "delegated": true,
+    "delegate": "2h2PPdqXdAh5XwkK8getg7mPNiSTtVXLc4dBhvTWygUQ",
     "ownership_model": "single",
-    "owner": "4gVsmvXifKWFwkMC8hGsefNFrpaU5ARvq2mELNBg4AHy"
+    "owner": "5TAcMpLvid9E2SW9uyXWKPmNoJvT34EcrYbhNMU4QV95"
   },
   "supply": {
     "print_max_supply": 0,
