@@ -13,6 +13,7 @@ use {
         programs::{
             bubblegum::BubblegumParser,
             mpl_core_program::MplCoreParser,
+            system::SystemProgramParser,
             token_account::{TokenProgramEntity, TokenProgramParser},
             token_extensions::{Token2022ProgramParser, TokenExtensionsProgramEntity},
             token_inscriptions::TokenInscriptionParser,
@@ -32,6 +33,7 @@ use {
     solana_transaction_status::InnerInstructions,
     sqlx::PgPool,
     std::collections::{HashMap, HashSet, VecDeque},
+    system::handle_system_program_account,
     token_extensions::handle_token_extensions_program_account,
     tokio::time::{sleep, Duration},
     tracing::{debug, error},
@@ -41,6 +43,7 @@ mod asset_upserts;
 pub mod bubblegum;
 pub mod error;
 mod mpl_core_program;
+mod system;
 mod token;
 mod token_extensions;
 mod token_inscription;
@@ -79,12 +82,14 @@ impl ProgramTransformer {
         let mpl_core = MplCoreParser {};
         let token_extensions = Token2022ProgramParser {};
         let token_inscription = TokenInscriptionParser {};
+        let system = SystemProgramParser {};
         parsers.insert(bgum.key(), Box::new(bgum));
         parsers.insert(token_metadata.key(), Box::new(token_metadata));
         parsers.insert(token.key(), Box::new(token));
         parsers.insert(mpl_core.key(), Box::new(mpl_core));
         parsers.insert(token_extensions.key(), Box::new(token_extensions));
         parsers.insert(token_inscription.key(), Box::new(token_inscription));
+        parsers.insert(system.key(), Box::new(system));
         let hs = parsers.iter().fold(HashSet::new(), |mut acc, (k, _)| {
             acc.insert(*k);
             acc
@@ -211,7 +216,6 @@ impl ProgramTransformer {
         if let Some(program) = self.match_program(&account_info.owner) {
             let result = program.handle_account(&account_info.data)?;
             let db = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
-
             match result.result_type() {
                 ProgramParseResult::TokenMetadata(parsing_result) => {
                     handle_token_metadata_account(
@@ -245,6 +249,10 @@ impl ProgramTransformer {
                 }
                 ProgramParseResult::TokenInscriptionAccount(parsing_result) => {
                     handle_token_inscription_program_update(account_info, parsing_result, &db).await
+                }
+                // handle close Accounts through the system program
+                ProgramParseResult::SystemProgramAccount(_) => {
+                    handle_system_program_account(account_info, &db).await
                 }
                 _ => Err(ProgramTransformerError::NotImplemented),
             }?;

@@ -11,6 +11,7 @@ use {
         SinkExt,
     },
     redis::streams::StreamMaxlen,
+    solana_sdk::system_program::ID as system_program_id,
     std::{collections::HashMap, sync::Arc, time::Duration},
     tokio::{
         sync::{oneshot, Mutex},
@@ -256,6 +257,12 @@ impl SubscriptionTask {
                                                     if let Some(update) = update_oneof {
                                                         match update {
                                                             UpdateOneof::Account(account) => {
+                                                                if let Some(ref acc) = account.account {
+                                                                    if acc.owner == system_program_id.to_bytes().to_vec() && (acc.lamports != 0 || !acc.data.is_empty()) {
+                                                                        return;
+                                                                    }
+                                                                }
+
                                                                 pipe.xadd_maxlen(
                                                                     &stream.to_string(),
                                                                     StreamMaxlen::Approx(stream_maxlen),
