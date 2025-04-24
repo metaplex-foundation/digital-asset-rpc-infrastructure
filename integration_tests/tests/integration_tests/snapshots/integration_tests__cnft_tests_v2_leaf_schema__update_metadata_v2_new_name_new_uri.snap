@@ -5,7 +5,7 @@ expression: response
 ---
 {
   "interface": "V1_NFT",
-  "id": "4TBxZUkV9eDjFoi4HeJX924fkExCFXLSTKkdoNy7iiT8",
+  "id": "38pabFkaBAVUBwPotd1Wync8ECDbVe8iZLxJyDgZG8jo",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://updated-example.com/my-nft.json",
@@ -19,7 +19,7 @@ expression: response
   },
   "authorities": [
     {
-      "address": "FBeDz4ZzMcPawJUdXTKJhQszMsQVnzsg2V86GbGhDufB",
+      "address": "5Uc5xgiNuuSSe9k9LgfHy3mvVyyum9iH8ULEAg82KWA4",
       "scopes": [
         "full"
       ]
@@ -33,8 +33,8 @@ expression: response
     "collection_hash": "3mG2ogUZaUxX7TKRbDNDUPnesYghsd87YFAduqs4TETk",
     "asset_data_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
     "flags": 0,
-    "asset_hash": "48gENMUA4WcweeuzbSJW8nrasEAxsG6RTdS5Q1jwnzaV",
-    "tree": "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK",
+    "asset_hash": "2yaBLMDY5DHNKMNkAgHwvNeEe2SmmAj8PaNEA1z8ob85",
+    "tree": "mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW",
     "seq": 2,
     "leaf_id": 0
   },
@@ -54,7 +54,7 @@ expression: response
     "delegated": false,
     "delegate": null,
     "ownership_model": "single",
-    "owner": "3Re9T27Z3cZU341e7Ag7xUusjTuNvKNZAeE31BwZerdL"
+    "owner": "CDfvLy21AxAPWoxQkzMiVbboMdgvGtMhsKoWsdr9XyaH"
   },
   "supply": {
     "print_max_supply": 0,
