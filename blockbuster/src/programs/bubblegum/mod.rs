@@ -420,7 +420,7 @@ fn build_creator_verification_v2_payload(
         .get(2)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
-    // Creator is optional in V2, None being signfied by the program ID.
+    // Creator is optional in V2, None being signified by the program ID.
     // Creator defaults to the payer.
     let creator = if creator == mpl_bubblegum::ID {
         payer
@@ -444,7 +444,7 @@ fn build_update_metadata_v2_payload(
     let args = UpdateMetadataV2InstructionArgs::try_from_slice(ix_data)?;
 
     let tree_id = *keys
-        .get(8)
+        .get(5)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
     Ok(Payload::UpdateMetadata {
