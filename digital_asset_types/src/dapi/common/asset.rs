@@ -479,6 +479,13 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .creator_hash
                 .map(|e| if asset.compressed { e.trim() } else { "" }.to_string())
                 .unwrap_or_default(),
+            collection_hash: asset
+                .collection_hash
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string()),
+            asset_data_hash: asset
+                .asset_data_hash
+                .map(|e| if asset.compressed { e.trim() } else { "" }.to_string()),
+            flags: asset.bubblegum_flags.and_then(|val| val.try_into().ok()),
         }),
         grouping: Some(rpc_groups),
         royalty: Some(Royalty {
@@ -492,6 +499,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         creators: Some(rpc_creators),
         ownership: Some(Ownership {
             frozen: asset.frozen,
+            non_transferable: asset.non_transferable,
             delegated: asset.delegate.is_some(),
             delegate: asset.delegate.map(|s| bs58::encode(s).into_string()),
             ownership_model: asset.owner_type.into(),

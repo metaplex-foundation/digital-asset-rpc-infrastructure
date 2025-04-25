@@ -118,7 +118,7 @@ fn helium_nested() {
         if let (
             Some(_le),
             Some(_cl),
-            Some(Payload::MintV1 {
+            Some(Payload::Mint {
                 args: _,
                 authority: _,
                 tree_id: _,
