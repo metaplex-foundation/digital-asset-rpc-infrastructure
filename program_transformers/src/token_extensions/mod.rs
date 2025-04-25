@@ -8,7 +8,7 @@ use {
         filter_non_null_fields, AccountInfo, DownloadMetadataInfo, DownloadMetadataNotifier,
     },
     blockbuster::programs::token_extensions::{
-        extension::ShadowMetadata, MintAccount, TokenAccount, TokenExtensionsProgramAccount,
+        extension::ShadowMetadata, MintAccount, TokenAccount, TokenExtensionsProgramEntity,
     },
     digital_asset_types::dao::{
         asset, asset_data,
@@ -29,7 +29,7 @@ use {
 
 pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
     account_info: &'a AccountInfo,
-    parsing_result: &'b TokenExtensionsProgramAccount,
+    parsing_result: &'b TokenExtensionsProgramEntity,
     db: &'c DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
@@ -37,7 +37,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
     let account_owner = account_info.owner.to_bytes().to_vec();
     let slot = account_info.slot as i64;
     match parsing_result {
-        TokenExtensionsProgramAccount::TokenAccount(ta) => {
+        TokenExtensionsProgramEntity::TokenAccount(ta) => {
             let TokenAccount {
                 account,
                 extensions,
@@ -122,7 +122,7 @@ pub async fn handle_token_extensions_program_account<'a, 'b, 'c>(
 
             Ok(())
         }
-        TokenExtensionsProgramAccount::MintAccount(m) => {
+        TokenExtensionsProgramEntity::MintAccount(m) => {
             let MintAccount {
                 account,
                 extensions,

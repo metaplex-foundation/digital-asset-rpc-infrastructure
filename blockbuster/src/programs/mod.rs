@@ -1,7 +1,7 @@
 use bubblegum::BubblegumInstruction;
 use mpl_core_program::MplCoreAccountState;
-use token_account::TokenProgramAccount;
-use token_extensions::TokenExtensionsProgramAccount;
+use token_account::TokenProgramEntity;
+use token_extensions::TokenExtensionsProgramEntity;
 use token_inscriptions::TokenInscriptionAccount;
 use token_metadata::TokenMetadataAccountState;
 
@@ -30,8 +30,8 @@ pub enum ProgramParseResult<'a> {
     Bubblegum(&'a BubblegumInstruction),
     MplCore(&'a MplCoreAccountState),
     TokenMetadata(&'a TokenMetadataAccountState),
-    TokenProgramAccount(&'a TokenProgramAccount),
-    TokenExtensionsProgramAccount(&'a TokenExtensionsProgramAccount),
+    TokenProgramEntity(&'a TokenProgramEntity),
+    TokenExtensionsProgramEntity(&'a TokenExtensionsProgramEntity),
     TokenInscriptionAccount(&'a TokenInscriptionAccount),
     Unknown,
 }
