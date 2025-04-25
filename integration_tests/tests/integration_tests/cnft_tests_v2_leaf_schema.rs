@@ -50,10 +50,10 @@ async fn test_mint_v2_to_collection_transfer_v2() {
     let asset_id = "86c2p9hZJTPWmFRKz1znX3yx9E8vhESk9wr9soTMET8Y";
 
     let seeds: Vec<SeedEvent> = vec![
-        // mpl-core collection
-        seed_account("9r8CKUNFd3zGV5cDcQNf9iiMgkavYqGLBFLLiT4bgwA9"),
         // create_tree_v2
         seed_txn("3YhVTyruarmcBkXqLnsayvWnTdr4mePotTMoZpbR1zCwwPRjpWeKyhsyZghRwreFb6tWWW7fDwKEhVAfgutdfytB"),
+        // mpl-core collection
+        seed_account("9r8CKUNFd3zGV5cDcQNf9iiMgkavYqGLBFLLiT4bgwA9"),
         // mint_v2 to collection
         seed_txn("5cGMXY7TtktrjWqCvLCfj7c9dLK3tLBEpRfE8z5z5z9y2nGrtDy2LiHWhD8F2Rrw1kzyJp8M6DMM1W9jGX18uWe6"),
         // transfer_v2
@@ -79,10 +79,10 @@ async fn test_mint_v2_to_collection_burn_v2() {
     let asset_id = "FJDXSjkTpx7zZm3mcxzFzHPJ4EMLzgU9DaMtMvHPY6em";
 
     let seeds: Vec<SeedEvent> = vec![
-        // mpl-core collection
-        seed_account("4eej2HLDBinhs3z8im3gZXAxXCaMYRWvWvKh8krYfks1"),
         // create_tree_v2
         seed_txn("3A7Dz5FKNG8W66oEhtgCeSiZ8sK6ccGX1VEj2Y8eQgqNpaC5dX3mTUH2kPDJU6P1ffCp8A8nGg6AZi29Pk1tna7C"),
+        // mpl-core collection
+        seed_account("4eej2HLDBinhs3z8im3gZXAxXCaMYRWvWvKh8krYfks1"),
          // mint_v2 to collection
         seed_txn("KKhuXFHtCVLHzoxxcbfwbihMWymGkhmk8E3ziFVxU8PnMAyzdumoQxwWWF5iWs6HBGpUYqBT4Qu8iqVpheJRzaR"),
         // burn_v2
@@ -220,10 +220,10 @@ async fn test_freeze_v2_using_permanent_delegate() {
     let asset_id = "9j8QfKwJvzjiHwcRyi1TCK7sZgm8iEBpGn8sRyGF5Wy8";
 
     let seeds: Vec<SeedEvent> = vec![
-        // mpl-core collection
-        seed_account("4GkzAdHxkE5txX8rLBKJebKzswcyM6LKGMi5J1joqdmg"),
         // create_tree_v2
         seed_txn("4VJEGTrFtjrs8zovYWPtm86a9fEojZryD3UR34uiHKerbkYggt3YWbXurC7z7k3pT8u9gFmS5SJMLGPRR8vUWZeF"),
+        // mpl-core collection
+        seed_account("4GkzAdHxkE5txX8rLBKJebKzswcyM6LKGMi5J1joqdmg"),
         // mint_v2 to collection
         seed_txn("3Dyx2b37moZUuzUeT6ieoWKgUdZ88MeeXyB21VzijUQhaCtMz9akUxVmKQyjgsEWB3iCrvPvK9LNH6aTHsnQqqCz"),
         // freeze_v2
@@ -274,10 +274,10 @@ async fn test_mint_v2_to_collection_only() {
     let asset_id = "HGu4vJMLCboGNNVnH6UXrQZKVVXBX4xMZFxfmFgQD9pG";
 
     let seeds: Vec<SeedEvent> = vec![
-        // mpl-core collection
-        seed_account("7KdCe4Wbjdt6HLAW8LtgHg4c1pTHkmw4R48JW3EBRPLz"),
         // create_tree_v2
         seed_txn("5cLbxjgHkfqqnoSnceS1hMVHqX5h2yB7kTWEtYr4WWX8oLdmLSB4gceAqZaeXZxUW4avC9yVGqX48gTMqDeDdZ5b"),
+        // mpl-core collection
+        seed_account("7KdCe4Wbjdt6HLAW8LtgHg4c1pTHkmw4R48JW3EBRPLz"),
         // mint_v2 to collection
         seed_txn("2mxbw9TdN7TszyPSmEWPEJPx3eGRJoURabwPvAPyrvYxwoq8Z9zfEYHdFc8YkkHb2jzk5SCfq8WJ4Vv64KgLFye4"),
     ];
@@ -301,10 +301,10 @@ async fn remove_from_collection_using_set_collection_v2() {
     let asset_id = "HN6V2risGpYADNKyRoceBwgrUJDnSm6h21uSTLbLVaPY";
 
     let seeds: Vec<SeedEvent> = vec![
-        // mpl-core collection
-        seed_account("3qVHqRQLt2QRRLiorv4YtJDdeJxLv8kf5ZxPWnVatUES"),
         // create_tree_v2
         seed_txn("2yd7zctRbpevqdCsKWwUX1W8CeXngQ9cphk9nMTpQK4ifLXoEjbkiD8eQWWhZn28rGHHjzZ6N2tEgEWQThodeN2Q"),
+        // mpl-core collection
+        seed_account("3qVHqRQLt2QRRLiorv4YtJDdeJxLv8kf5ZxPWnVatUES"),
         // mint_v2 to collection
         seed_txn("5uAg2XeFEhTD5VV73VVMRX4QHbdonmH5aB1YkQ5kbHoENkmqrb2CJaRMeWb2xE76zMi95Hv9HxS9Ea2xyTanfSfE"),
         // set_collection_v2
@@ -477,7 +477,7 @@ async fn test_unverify_creator_v2() {
         "2K29ACNcYbHqxDghb9saQrhfENZvCJ5rN4XNecw86a4fmBCBJWpadvRjJwieDE4kaE7B9noTXet3xD6oTsANDWg",
         // mint_v2
         "3fVNQkyjggPrP186PHhhLLAZ4vsVXTwaGUoiKfYwQAt2kVrgHR99Eb37vTE4eqbuL3nj62Mdn41QWtiFJWEzrqmx",
-        // Two verifyCreatorV2
+        // Two verify_creator_v2
         "5GiuAsrrPVz9fdE6rDpgCKDQiRbDPmcBeX66zdVj2mHeYL2nfFmc3Yti7s7xvRh7MkXSAy1PbWVr6yzpMY3REjtJ",
         // unverify_creator_v2
         "5RsMkokDuu1E8PjPTjdi9MVkcr57P4rmvBd9s2DDMn4ZVczGcJdgN9Sp5wMR9r9iYtGxjya8NQ1qQFxqSZmT7HdQ",
