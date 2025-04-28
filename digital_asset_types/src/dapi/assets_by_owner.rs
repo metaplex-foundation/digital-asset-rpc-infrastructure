@@ -27,6 +27,7 @@ pub async fn get_assets_by_owner(
         options,
     )
     .await?;
+    println!("assets: {:?}", assets);
     Ok(build_asset_response(
         assets,
         page_options.limit,

@@ -165,14 +165,37 @@ pub async fn get_assets_by_owner(
     limit: u64,
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let cond = Condition::all()
-        .add(asset::Column::Owner.eq(owner.clone()))
-        .add(asset::Column::Supply.gt(0));
+    let mut joins = Vec::new();
+
+    if options.show_fungible {
+        let rel = extensions::token_accounts::Relation::Asset
+            .def()
+            .rev()
+            .on_condition(move |left, right| {
+                Condition::all().add(
+                    Expr::tbl(right, token_accounts::Column::Mint)
+                        .eq(Expr::tbl(left, asset::Column::Id)),
+                )
+            });
+        joins.push(rel);
+    }
+
+    let cond = if options.show_fungible {
+        Condition::all().add(asset::Column::Supply.gt(0)).add(
+            Condition::any()
+                .add(asset::Column::Owner.eq(owner.clone()))
+                .add(token_accounts::Column::Owner.eq(owner.clone())),
+        )
+    } else {
+        Condition::all()
+            .add(asset::Column::Supply.gt(0))
+            .add(asset::Column::Owner.eq(owner.clone()))
+    };
 
     get_assets_by_condition(
         conn,
         cond,
-        vec![],
+        joins,
         sort_by,
         sort_direction,
         pagination,
@@ -276,6 +299,7 @@ pub async fn get_related_for_assets(
         .filter(asset_data::Column::Id.is_in(asset_ids.clone()))
         .all(conn)
         .await?;
+    println!("asset_data: {:?}", asset_data);
     let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
         acc.insert(ad.id.clone(), ad);
         acc
@@ -302,6 +326,7 @@ pub async fn get_related_for_assets(
         };
         acc
     });
+    println!("assets_map: {:?}", assets_map);
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
 
     // Get all creators for all assets in `assets_map``.
@@ -431,6 +456,8 @@ pub async fn get_assets_by_condition(
     let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
         .all(conn)
         .await?;
+
+    println!("assets: {:?}", assets);
     let full_assets = get_related_for_assets(conn, assets, options, None).await?;
     Ok(full_assets)
 }

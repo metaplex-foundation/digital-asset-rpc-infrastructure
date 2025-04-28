@@ -263,6 +263,7 @@ impl ApiContract for DasApi {
         let options = options.unwrap_or_default();
         let page_options =
             self.validate_pagination(limit, page, &before, &after, &cursor, Some(sort_by))?;
+        println!("get assets by owner");
         get_assets_by_owner(
             &self.db_connection,
             owner_address_bytes,
