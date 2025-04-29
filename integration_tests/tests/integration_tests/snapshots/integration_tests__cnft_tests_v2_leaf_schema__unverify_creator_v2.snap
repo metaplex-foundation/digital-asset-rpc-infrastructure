@@ -5,7 +5,7 @@ expression: response
 ---
 {
   "interface": "V1_NFT",
-  "id": "AmV5tqeSncCzdMVQPFVBz9q1Jh6VgCv6WDBAMwKGgBsh",
+  "id": "Eoz1EtUHHpNPXU8UHM5dP93npGWzLx6uh19ExexhMwBm",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/my-nft.json",
@@ -19,7 +19,7 @@ expression: response
   },
   "authorities": [
     {
-      "address": "8sAdBwLXtD8ntDyDzdSVCYJZty9bAjiRqUQnLVp7T1i",
+      "address": "AawsU5gH85Fn5tEkFFbGCC9XzB2y6akc1kRjipwi9M82",
       "scopes": [
         "full"
       ]
@@ -28,13 +28,13 @@ expression: response
   "compression": {
     "eligible": false,
     "compressed": true,
-    "data_hash": "Fu6ncxkXpYTtQgiaWiMKaENgwuP6mbyct8jvsL2Ak9Hp",
-    "creator_hash": "EmhFhrqtw5zjdAD6VingqJeMVixBrJRmAwYZDC2Z3F9C",
+    "data_hash": "6WtqR4xycmSozRgvbb3fc5h7CstSxCtae4yXs7NN4MSn",
+    "creator_hash": "4hrnN1hhb3yXckFCAuQ3YrDd2fyjHvWsif5fgyKNr683",
     "collection_hash": "3mG2ogUZaUxX7TKRbDNDUPnesYghsd87YFAduqs4TETk",
     "asset_data_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
     "flags": 0,
-    "asset_hash": "CCaDNgWNaWb6urifEBpvyeZHdAGXjM6THS2Lddp4WTqz",
-    "tree": "13RQ9biQKF12DUF7QcSb58eT8ca3E1VdVtpg4VEi5gk",
+    "asset_hash": "ArZbgUEkPcuCQejNeWNucx3Q9D3pUkzn3pwQ1CVVVf2a",
+    "tree": "2fvrFLKAuB5c2xpC4UzKkWqGEPc2iZ72SzDVVQ2cDwc1",
     "seq": 4,
     "leaf_id": 0
   },
@@ -49,12 +49,12 @@ expression: response
   },
   "creators": [
     {
-      "address": "D6zeeLdhW5ddzvh82G8gsAsJPSJUc9DjVukMqrst12WM",
+      "address": "6v1P2cXLhnXFbf4PV3tZETojQ4aFm1J4goT1QQrFMSXv",
       "share": 60,
       "verified": false
     },
     {
-      "address": "DxaxaKe6Hsf9CbKGn54Cp4cLDR7wrpmcnvdWBY1cMBS6",
+      "address": "CGdMpPQUr6PdXKJmV4oFR7JoLgLBRXN3qGDwafAbFA8K",
       "share": 40,
       "verified": true
     }
@@ -65,7 +65,7 @@ expression: response
     "delegated": false,
     "delegate": null,
     "ownership_model": "single",
-    "owner": "9UsGCCSnrnAK2CUGy5aU6zBge5m8PMzVxyXoWSfDwn8U"
+    "owner": "3vDxzCgwwP5fGe4RjkTG5N2WFnEVbgciELoR5PCFi4nS"
   },
   "supply": {
     "print_max_supply": 0,

@@ -5,7 +5,7 @@ expression: response
 ---
 {
   "interface": "V1_NFT",
-  "id": "D3DM89kvKqYhnnjqF8G5PYoEvtFZd2QP1ShCsNjuYhDY",
+  "id": "HGu4vJMLCboGNNVnH6UXrQZKVVXBX4xMZFxfmFgQD9pG",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://example.com/my-nft.json",
@@ -19,7 +19,7 @@ expression: response
   },
   "authorities": [
     {
-      "address": "FNZj4FQ7bmx7aQaJ1723yRZy85BWaJgXPd2QcEKvUhQ2",
+      "address": "AmLARpsGgzBjLBHWec6pdrCMdUcvYD2sk8rqAPY6YugT",
       "scopes": [
         "full"
       ]
@@ -28,20 +28,20 @@ expression: response
   "compression": {
     "eligible": false,
     "compressed": true,
-    "data_hash": "Aab93m4C4uoHYJLd6obtLqrbKuuy8u8HSer9tNhcFXZy",
+    "data_hash": "EujDnKsdu6xLGhMfANRf6tnCW6FFWXesGcerKVT8gCRV",
     "creator_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
-    "collection_hash": "AnRr17BFVoa1rovJbsmidLnvmSwtkZCAK9gL6v4zCfxb",
+    "collection_hash": "FVuxWRAhfhdUKCKkpSqtUD9Di7kqPeLSTNtQxBDCnBAe",
     "asset_data_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
     "flags": 0,
-    "asset_hash": "H9eF3K83U3bYxVnzn3qKEZekeC4QV4C3VkPXstuvuJQC",
-    "tree": "Pf5WWyTTD7ByUVEKRujq4qWo4FLRMAU4T5MVmvZ7CVm",
+    "asset_hash": "EFsPZmzJGtd1Qf811F8QhBFaMDtZKfH1VNqXnLdySNT3",
+    "tree": "AhJzCEHPAi4wfJdRfYmN2dMEafmQQXYSFfjhF6CxQpYA",
     "seq": 1,
     "leaf_id": 0
   },
   "grouping": [
     {
       "group_key": "collection",
-      "group_value": "843a72ky3UtfQkkGfUm2khSRLHia7GsM52RQ1CWGRJxb"
+      "group_value": "7KdCe4Wbjdt6HLAW8LtgHg4c1pTHkmw4R48JW3EBRPLz"
     }
   ],
   "royalty": {
@@ -59,7 +59,7 @@ expression: response
     "delegated": false,
     "delegate": null,
     "ownership_model": "single",
-    "owner": "64SX2SeTgVubJzHrTq3a6TrbHy3Y1DBr3FKfKAu2K7PU"
+    "owner": "2jHESr9XCxaUtAqUCq3GR5WxeVYkWafoakt2aXojhCQ8"
   },
   "supply": {
     "print_max_supply": 0,

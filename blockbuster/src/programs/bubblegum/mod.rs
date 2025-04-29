@@ -9,11 +9,11 @@ use log::warn;
 use mpl_bubblegum::{
     get_instruction_type,
     instructions::{
-        UnverifyCreatorInstructionArgs, UnverifyCreatorV2InstructionArgs,
+        MintV2InstructionArgs, UnverifyCreatorInstructionArgs, UnverifyCreatorV2InstructionArgs,
         UpdateMetadataInstructionArgs, UpdateMetadataV2InstructionArgs,
         VerifyCreatorInstructionArgs, VerifyCreatorV2InstructionArgs,
     },
-    types::{BubblegumEventType, MetadataArgs, MetadataArgsV2, UpdateArgs},
+    types::{BubblegumEventType, MetadataArgs, UpdateArgs},
 };
 pub use mpl_bubblegum::{
     types::{LeafSchema, UseMethod},
@@ -369,7 +369,7 @@ fn build_update_metadata_payload(
 // See Bubblegum for offsets and positions:
 // https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md
 fn build_mint_v2_payload(keys: &[Pubkey], ix_data: &[u8]) -> Result<Payload, BlockbusterError> {
-    let args: MetadataArgsV2 = MetadataArgsV2::try_from_slice(ix_data)?;
+    let args: MintV2InstructionArgs = MintV2InstructionArgs::try_from_slice(ix_data)?;
 
     let authority = *keys
         .first()
@@ -380,7 +380,7 @@ fn build_mint_v2_payload(keys: &[Pubkey], ix_data: &[u8]) -> Result<Payload, Blo
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
     Ok(Payload::Mint {
-        args: args.into(),
+        args: args.metadata.into(),
         authority,
         tree_id,
     })
@@ -420,7 +420,7 @@ fn build_creator_verification_v2_payload(
         .get(2)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
-    // Creator is optional in V2, None being signfied by the program ID.
+    // Creator is optional in V2, None being signified by the program ID.
     // Creator defaults to the payer.
     let creator = if creator == mpl_bubblegum::ID {
         payer
@@ -444,7 +444,7 @@ fn build_update_metadata_v2_payload(
     let args = UpdateMetadataV2InstructionArgs::try_from_slice(ix_data)?;
 
     let tree_id = *keys
-        .get(8)
+        .get(5)
         .ok_or(BlockbusterError::InstructionParsingError)?;
 
     Ok(Payload::UpdateMetadata {
