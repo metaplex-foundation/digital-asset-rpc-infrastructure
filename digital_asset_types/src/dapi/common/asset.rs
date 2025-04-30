@@ -340,6 +340,10 @@ pub fn to_grouping(
                         meta.set_item("external_url", external_url.clone());
                     }
 
+                    if let Some(desc) = safe_select(metadata_selector, "$.description") {
+                        meta.set_item("description", desc.clone());
+                    }
+
                     meta
                 });
 

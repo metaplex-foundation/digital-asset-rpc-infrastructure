@@ -6,12 +6,12 @@ use das_api::api::DasApi;
 
 use das_api::config::Config;
 
+use digital_asset_types::dao::asset_data;
 use migration::sea_orm::{
     ConnectionTrait, DatabaseConnection, ExecResult, SqlxPostgresConnector, Statement,
 };
 use migration::{Migrator, MigratorTrait};
 use mpl_token_metadata::accounts::Metadata;
-
 use nft_ingester::{
     config,
     plerkle::{PlerkleAccountInfo, PlerkleTransactionInfo},
@@ -24,7 +24,10 @@ use plerkle_serialization::{
 };
 use program_transformers::ProgramTransformer;
 
+use sea_orm::{entity::*, ActiveValue};
+use serde_json::Value;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::bs58;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
@@ -613,4 +616,25 @@ pub async fn index_nft_accounts(setup: &TestSetup, nft_accounts: NftAccounts) {
 
 pub fn trim_test_name(name: &str) -> String {
     name.replace("test_", "")
+}
+
+pub async fn index_metadata_jsons(
+    db_conn: &DatabaseConnection,
+    asset_id: &[&str],
+    json_data: Value,
+) {
+    for asset_id in asset_id {
+        let asset_id_vec = bs58::decode(asset_id).into_vec().unwrap();
+
+        let asset_data = asset_data::ActiveModel {
+            id: ActiveValue::Set(asset_id_vec),
+            metadata: ActiveValue::Set(json_data.clone()),
+            ..Default::default()
+        };
+
+        asset_data
+            .update(db_conn)
+            .await
+            .expect("Failed to update asset data");
+    }
 }

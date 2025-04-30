@@ -36,7 +36,7 @@ use {
 use digital_asset_types::rpc::RpcTokenAccountBalance;
 
 pub struct DasApi {
-    db_connection: DatabaseConnection,
+    pub db_connection: DatabaseConnection,
 }
 
 impl DasApi {

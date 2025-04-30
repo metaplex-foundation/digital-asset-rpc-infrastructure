@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/show_collection_metadata_option_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",
@@ -9,13 +8,23 @@ snapshot_kind: text
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/1983.json",
-    "files": [],
+    "files": [
+      {
+        "uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+        "mime": "image/png"
+      }
+    ],
     "metadata": {
+      "attributes": [],
+      "description": "Fock it.",
       "name": "Mad Lads #1983",
       "symbol": "MAD",
       "token_standard": "ProgrammableNonFungible"
     },
-    "links": {}
+    "links": {
+      "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+      "external_url": "https://madlads.com"
+    }
   },
   "authorities": [
     {
@@ -39,7 +48,13 @@ snapshot_kind: text
     {
       "group_key": "collection",
       "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
-      "collection_metadata": {}
+      "collection_metadata": {
+        "description": "Fock it.",
+        "external_url": "https://madlads.com",
+        "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+        "name": "Mad Lads",
+        "symbol": "MAD"
+      }
     }
   ],
   "royalty": {

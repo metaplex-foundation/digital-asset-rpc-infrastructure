@@ -24,7 +24,7 @@ use sea_orm::{
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
-use std::{collections::HashMap, ops::Div, vec};
+use std::{collections::HashMap, hash::RandomState, ops::Div};
 
 pub fn paginate<T, C>(
     pagination: &Pagination,
@@ -409,12 +409,41 @@ pub async fn get_related_for_assets(
     }
 
     if options.show_collection_metadata {
-        let combined_group_query = grouping_base_query
-            .find_also_related(asset_data::Entity)
+        let groups = grouping_base_query.all(conn).await?;
+
+        let group_values = groups
+            .iter()
+            .filter_map(|group| {
+                group
+                    .group_value
+                    .as_ref()
+                    .and_then(|g| bs58::decode(g).into_vec().ok())
+            })
+            .collect::<Vec<_>>();
+
+        let asset_data = asset_data::Entity::find()
+            .filter(asset_data::Column::Id.is_in(group_values))
+            .order_by_asc(asset_data::Column::Id)
             .all(conn)
             .await?;
-        for (g, a) in combined_group_query.into_iter() {
+
+        let asset_data_map: HashMap<_, _, RandomState> = HashMap::from_iter(
+            asset_data
+                .into_iter()
+                .map(|ad| (ad.id.clone(), ad))
+                .collect::<Vec<_>>(),
+        );
+
+        for g in groups.into_iter() {
             if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+                let a = g.group_value.as_ref().and_then(|g| {
+                    bs58::decode(g)
+                        .into_vec()
+                        .ok()
+                        .and_then(|v| asset_data_map.get(&v))
+                        .cloned()
+                });
+
                 asset.groups.push((g, a));
             }
         }
@@ -498,6 +527,7 @@ pub async fn get_by_id(
         .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
+
     let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
         .order_by_asc(asset_creators::Column::Position)
@@ -519,10 +549,45 @@ pub async fn get_by_id(
         .order_by_asc(asset_grouping::Column::AssetId);
 
     let groups = if options.show_collection_metadata {
-        grouping_query
-            .find_also_related(asset_data::Entity)
+        let groups = grouping_query.all(conn).await?;
+
+        let group_values = groups
+            .iter()
+            .filter_map(|group| {
+                group
+                    .group_value
+                    .as_ref()
+                    .and_then(|g| bs58::decode(g).into_vec().ok())
+            })
+            .collect::<Vec<_>>();
+
+        let asset_data = asset_data::Entity::find()
+            .filter(asset_data::Column::Id.is_in(group_values))
+            .order_by_asc(asset_data::Column::Id)
             .all(conn)
-            .await?
+            .await?;
+
+        let asset_data_map: HashMap<_, _, RandomState> = HashMap::from_iter(
+            asset_data
+                .into_iter()
+                .map(|ad| (ad.id.clone(), ad))
+                .collect::<Vec<_>>(),
+        );
+
+        let mut groups_tup = Vec::new();
+        for g in groups.into_iter() {
+            let a = g.group_value.as_ref().and_then(|g| {
+                bs58::decode(g)
+                    .into_vec()
+                    .ok()
+                    .and_then(|v| asset_data_map.get(&v))
+                    .cloned()
+            });
+
+            groups_tup.push((g, a));
+        }
+
+        groups_tup
     } else {
         grouping_query
             .all(conn)
