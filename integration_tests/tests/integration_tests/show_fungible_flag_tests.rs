@@ -170,6 +170,9 @@ async fn test_get_asset_by_owner_with_show_fungible() {
         "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
         "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
         "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
+        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        "4Av8W98PVbeYcdaw6T3L6STDdL5p3MWrqU7RkB8os4i7",
+        "8c3zk1t1qt3RU43ckuvPkCS7HLbjJqq3J3Me8ov4aHrp",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
