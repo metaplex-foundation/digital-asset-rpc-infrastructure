@@ -83,7 +83,7 @@ lru = "0.12.3"
 metrics = "0.20.1"
 migration = { path = "migration" }
 mime_guess = "2.0.4"
-mpl-bubblegum = "2.0.0-beta.6"
+mpl-bubblegum = "2.0.0-beta.7"
 mpl-account-compression = "0.4.2"
 mpl-core = { version = "0.10.0-alpha.1", features = ["serde"] }
 mpl-noop = "0.2.1"

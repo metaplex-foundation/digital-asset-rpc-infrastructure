@@ -23,7 +23,7 @@ use {
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect},
         sea_query::{query::OnConflict, Alias, Expr},
-        Condition, ConnectionTrait, CursorTrait, Statement, TransactionTrait,
+        Condition, ConnectionTrait, CursorTrait, FromQueryResult, Statement, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -971,6 +971,12 @@ fn convert_keys_to_snake_case(plugins_json: &mut Value) {
     }
 }
 
+/// Struct used when querying only for asset IDs.
+#[derive(Debug, FromQueryResult, Clone)]
+struct Id {
+    id: Vec<u8>,
+}
+
 /// Updates the `asset_authority` for all assets that are part of a collection in a batch,
 /// but only for assets where `compressed = false`.
 async fn update_group_asset_authorities<T: ConnectionTrait + TransactionTrait>(
@@ -1013,6 +1019,7 @@ async fn update_group_asset_authorities<T: ConnectionTrait + TransactionTrait>(
             .column(asset::Column::Id)
             .filter(asset::Column::Id.is_in(asset_ids))
             .filter(asset::Column::Compressed.eq(false))
+            .into_model::<Id>()
             .all(conn)
             .await?;
 
