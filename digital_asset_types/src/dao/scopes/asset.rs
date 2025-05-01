@@ -331,8 +331,6 @@ pub async fn get_related_for_assets(
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.is_in(ids))
-        .order_by_asc(asset_creators::Column::AssetId)
-        .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
 
@@ -359,7 +357,6 @@ pub async fn get_related_for_assets(
     let ids = assets_map.keys().cloned().collect::<Vec<_>>();
     let authorities = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
         .all(conn)
         .await?;
     for a in authorities.into_iter() {
@@ -392,8 +389,7 @@ pub async fn get_related_for_assets(
     let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
         .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(cond)
-        .order_by_asc(asset_grouping::Column::AssetId);
+        .filter(cond);
 
     if options.show_inscription {
         let attachments = asset_v1_account_attachments::Entity::find()
@@ -423,7 +419,6 @@ pub async fn get_related_for_assets(
 
         let asset_data = asset_data::Entity::find()
             .filter(asset_data::Column::Id.is_in(group_values))
-            .order_by_asc(asset_data::Column::Id)
             .all(conn)
             .await?;
 
