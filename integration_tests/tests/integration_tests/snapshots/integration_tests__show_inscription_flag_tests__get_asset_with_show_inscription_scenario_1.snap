@@ -74,5 +74,12 @@ snapshot_kind: text
     "order": 1733,
     "size": 202,
     "validation_hash": "7fa0041483b92f5a0448067ecef9beca2192b13bfe86fbd53a0024e84fcea652"
+  },
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "DjotVJWywieVJcFrr1ndy8FFqmFm4exEjvJSVyX2G4AV",
+    "freeze_authority": "DjotVJWywieVJcFrr1ndy8FFqmFm4exEjvJSVyX2G4AV"
   }
 }

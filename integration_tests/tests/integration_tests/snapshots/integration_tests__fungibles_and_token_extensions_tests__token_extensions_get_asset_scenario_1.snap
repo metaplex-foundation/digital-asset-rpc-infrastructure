@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "V1_NFT",
@@ -62,5 +63,11 @@ expression: response
     "metadata_pointer": {
       "metadata_address": "BPU5vrAHafRuVeK33CgfdwTKSsmC4p6t3aqyav3cFF7Y"
     }
+  },
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "mint_authority": "Em34oqDQYQZ9b6ycPHD28K47mttrRsdNu1S1pgK6NtPL"
   }
 }

@@ -410,6 +410,10 @@ pub struct TokenInfo {
     pub mint_authority: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub freeze_authority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub balance: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub associated_token_address: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]

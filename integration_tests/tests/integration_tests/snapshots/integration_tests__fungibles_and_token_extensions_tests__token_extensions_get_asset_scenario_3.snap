@@ -94,5 +94,12 @@ snapshot_kind: text
       "harvest_to_mint_enabled": true,
       "withdraw_withheld_authority_elgamal_pubkey": "2u9rVXG8n3sN1ChKwrkQZaWoPapzC49iBXd2Y9Kpg5cJ"
     }
+  },
+  "token_info": {
+    "supply": 159217790162300,
+    "decimals": 6,
+    "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "mint_authority": "22mKJkKjGEQ3rampp5YKaSsaYZ52BUkcnUN6evXGsXzz",
+    "freeze_authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
   }
 }

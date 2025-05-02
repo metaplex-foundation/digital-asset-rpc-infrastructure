@@ -57,5 +57,12 @@ snapshot_kind: text
     "edition_nonce": 252
   },
   "mutable": true,
-  "burnt": false
+  "burnt": false,
+  "token_info": {
+    "supply": 3687910976470928,
+    "decimals": 6,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+    "freeze_authority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar"
+  }
 }

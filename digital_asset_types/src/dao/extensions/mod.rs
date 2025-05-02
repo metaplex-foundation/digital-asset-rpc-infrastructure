@@ -6,3 +6,4 @@ pub mod asset_grouping;
 pub mod asset_v1_account_attachment;
 pub mod instruction;
 pub mod token_accounts;
+pub mod tokens;

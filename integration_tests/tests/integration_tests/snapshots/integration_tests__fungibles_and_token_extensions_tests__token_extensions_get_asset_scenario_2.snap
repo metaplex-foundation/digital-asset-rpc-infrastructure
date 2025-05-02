@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "FungibleToken",
@@ -72,5 +73,12 @@ expression: response
       "auditor_elgamal_pubkey": null,
       "auto_approve_new_accounts": false
     }
+  },
+  "token_info": {
+    "supply": 358951887732,
+    "decimals": 6,
+    "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "mint_authority": "5gUuDFHswKi2QMA1qJHf6FEVhNCrHnyAdfWniMaUUPE4",
+    "freeze_authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
   }
 }

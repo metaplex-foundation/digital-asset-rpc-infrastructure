@@ -56,14 +56,14 @@ snapshot_kind: text
       },
       "creators": [
         {
-          "address": "HV4Nvm9zHfNA43JYYkjZu8vwqiuE8bfEhwcKFfyQ65o5",
-          "share": 0,
-          "verified": true
-        },
-        {
           "address": "smbBn7Votkw2upiVZtX9WgkmC7fNW2QabfVFuPLhu3C",
           "share": 0,
           "verified": false
+        },
+        {
+          "address": "HV4Nvm9zHfNA43JYYkjZu8vwqiuE8bfEhwcKFfyQ65o5",
+          "share": 0,
+          "verified": true
         },
         {
           "address": "HqqiyJcm3yWPyzwisRKAQa2bJAj14V837yJRGaxwRFaG",
@@ -84,7 +84,16 @@ snapshot_kind: text
         "edition_nonce": 254
       },
       "mutable": true,
-      "burnt": false
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "8cYUXv8x9ekF2JUQiiheaf6v9NfNt1ZMWmwHG5gTXkgp",
+        "freeze_authority": "8cYUXv8x9ekF2JUQiiheaf6v9NfNt1ZMWmwHG5gTXkgp",
+        "balance": 1,
+        "associated_token_address": "Eft9Evw7Jqd5ZeDhpTXHbpv5ZrZ3tvc1paSXAqHd51cy"
+      }
     }
   ]
 }

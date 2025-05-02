@@ -379,7 +379,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         creators,
         groups,
         inscription,
-        token_info,
+        mint_with_ta,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -440,21 +440,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
-    let token_info = if options.show_fungible {
-        token_info.map(|token_info| TokenInfo {
-            supply: token_info.supply.try_into().unwrap_or(0),
-            decimals: token_info.decimals as u8,
-            mint_authority: token_info
-                .mint_authority
-                .map(|s| bs58::encode(s).into_string()),
-            freeze_authority: token_info
-                .freeze_authority
-                .map(|s| bs58::encode(s).into_string()),
-            token_program: bs58::encode(token_info.token_program).into_string(),
-        })
-    } else {
-        None
-    };
+    let token_info = mint_with_ta.map(|(m, ta)| TokenInfo {
+        supply: m.supply.try_into().unwrap_or(0),
+        decimals: m.decimals as u8,
+        mint_authority: m.mint_authority.map(|s| bs58::encode(s).into_string()),
+        freeze_authority: m.freeze_authority.map(|s| bs58::encode(s).into_string()),
+        token_program: bs58::encode(m.token_program).into_string(),
+        balance: ta.as_ref().map(|t| t.amount as u64),
+        associated_token_address: ta.as_ref().map(|t| bs58::encode(&t.pubkey).into_string()),
+    });
 
     Ok(RpcAsset {
         interface: interface.clone(),

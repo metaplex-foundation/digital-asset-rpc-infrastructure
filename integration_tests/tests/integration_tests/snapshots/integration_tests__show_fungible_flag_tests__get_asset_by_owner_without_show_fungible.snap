@@ -1,21 +1,22 @@
 ---
 source: integration_tests/tests/integration_tests/show_fungible_flag_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "total": 1,
   "limit": 1000,
-  "cursor": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+  "cursor": "Ff3Ci7EnM6KUdNDtzZvCjC5APgz1ajYW2Pt2BfT6Wftq",
   "items": [
     {
       "interface": "ProgrammableNFT",
-      "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+      "id": "Ff3Ci7EnM6KUdNDtzZvCjC5APgz1ajYW2Pt2BfT6Wftq",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/1983.json",
+        "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/5081.json",
         "files": [],
         "metadata": {
-          "name": "Mad Lads #1983",
+          "name": "Mad Lads #5081",
           "symbol": "MAD",
           "token_standard": "ProgrammableNonFungible"
         },
@@ -55,20 +56,20 @@ expression: response
       },
       "creators": [
         {
-          "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
-          "share": 0,
+          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+          "share": 100,
           "verified": true
         },
         {
-          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-          "share": 100,
+          "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+          "share": 0,
           "verified": true
         }
       ],
       "ownership": {
         "frozen": true,
         "delegated": true,
-        "delegate": "BPB5idZgbA1DG4XEmnKs62AADRZFf3jY7Kr9mpMGyKPi",
+        "delegate": "ww1ohRPftPHwjXAfwH65csJNY5WWKdoKbAic3Hc9UzK",
         "ownership_model": "single",
         "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
@@ -83,8 +84,10 @@ expression: response
         "supply": 1,
         "decimals": 0,
         "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
-        "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip"
+        "mint_authority": "E5MbS9TUY3P7nmQ1JLuR7bLPBfEW7m36cKJ9kRWZSbuk",
+        "freeze_authority": "E5MbS9TUY3P7nmQ1JLuR7bLPBfEW7m36cKJ9kRWZSbuk",
+        "balance": 1,
+        "associated_token_address": "FQ3ePUyLt2UvuQCw2nBKG8LGLvXHAZPzpdD6QQAAv9pW"
       }
     }
   ]

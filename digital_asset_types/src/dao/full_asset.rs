@@ -1,5 +1,7 @@
 use super::{asset_v1_account_attachments, tokens};
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::{
+    asset, asset_authority, asset_creators, asset_data, asset_grouping, token_accounts,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FullAssetGroup {
@@ -17,7 +19,7 @@ pub struct FullAssetGroup {
 pub struct FullAsset {
     pub asset: asset::Model,
     pub data: asset_data::Model,
-    pub token_info: Option<tokens::Model>,
+    pub mint_with_ta: Option<(tokens::Model, Option<token_accounts::Model>)>,
     pub authorities: Vec<asset_authority::Model>,
     pub creators: Vec<asset_creators::Model>,
     pub inscription: Option<asset_v1_account_attachments::Model>,

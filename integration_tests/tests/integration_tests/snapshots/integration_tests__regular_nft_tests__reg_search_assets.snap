@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "total": 1,
@@ -55,14 +56,14 @@ expression: response
       },
       "creators": [
         {
-          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
-          "share": 0,
-          "verified": true
-        },
-        {
           "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
           "share": 100,
           "verified": false
+        },
+        {
+          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
+          "share": 0,
+          "verified": true
         }
       ],
       "ownership": {
@@ -78,7 +79,16 @@ expression: response
         "edition_nonce": 255
       },
       "mutable": true,
-      "burnt": false
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
+        "freeze_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
+        "balance": 1,
+        "associated_token_address": "7DS81LourvNXo5PiWZp6G3vaSHZhY1rxT9VpG8YuFBiq"
+      }
     }
   ]
 }

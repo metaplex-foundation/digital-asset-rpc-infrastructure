@@ -11,151 +11,6 @@ use super::common::*;
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_get_asset_with_show_fungible_scenario_1() {
-    let name = trim_test_name(function_name!());
-    let setup = TestSetup::new_with_options(
-        name.clone(),
-        TestSetupOptions {
-            network: Some(Network::Mainnet),
-        },
-    )
-    .await;
-
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "Ca84nWhQu41DMRnjdhRrLZty1i9txepMhAhz5qLLGcBw",
-        "7z6b5TE4WX4mgcQjuNBTDxK4SE75sbgEg5WWJwoUeie8",
-        "8myaCN6KcKVkMqroXuLJq6QsqRcPbvme4wV5Ubfr5mDC",
-    ]);
-
-    apply_migrations_and_delete_data(setup.db.clone()).await;
-    index_seed_events(&setup, seeds.iter().collect_vec()).await;
-
-    let request = r#"        
-    {
-        "id": "Ca84nWhQu41DMRnjdhRrLZty1i9txepMhAhz5qLLGcBw",
-        "displayOptions": {
-            "showFungible": true
-        }
-
-    }
-    "#;
-
-    let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await.unwrap();
-
-    insta::assert_json_snapshot!(name, response);
-}
-
-#[tokio::test]
-#[serial]
-#[named]
-async fn test_get_asset_with_show_fungible_scenario_2() {
-    let name = trim_test_name(function_name!());
-    let setup = TestSetup::new_with_options(
-        name.clone(),
-        TestSetupOptions {
-            network: Some(Network::Mainnet),
-        },
-    )
-    .await;
-
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
-        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
-    ]);
-
-    apply_migrations_and_delete_data(setup.db.clone()).await;
-    index_seed_events(&setup, seeds.iter().collect_vec()).await;
-
-    let request = r#"        
-    {
-        "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "displayOptions": {
-            "showFungible": true
-        }
-    }
-    "#;
-
-    let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await.unwrap();
-
-    insta::assert_json_snapshot!(name, response);
-}
-
-#[tokio::test]
-#[serial]
-#[named]
-async fn test_get_asset_with_show_fungible_scenario_3() {
-    let name = trim_test_name(function_name!());
-    let setup = TestSetup::new_with_options(
-        name.clone(),
-        TestSetupOptions {
-            network: Some(Network::Mainnet),
-        },
-    )
-    .await;
-
-    let seeds: Vec<SeedEvent> = seed_accounts(["2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"]);
-
-    apply_migrations_and_delete_data(setup.db.clone()).await;
-    index_seed_events(&setup, seeds.iter().collect_vec()).await;
-
-    let request = r#"        
-    {
-        "id": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
-        "displayOptions": {
-            "showFungible": true
-        }
-
-    }
-    "#;
-
-    let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await.unwrap();
-
-    insta::assert_json_snapshot!(name, response);
-}
-
-#[tokio::test]
-#[serial]
-#[named]
-async fn test_get_asset_with_show_fungible_scenario_4() {
-    let name = trim_test_name(function_name!());
-    let setup = TestSetup::new_with_options(
-        name.clone(),
-        TestSetupOptions {
-            network: Some(Network::Mainnet),
-        },
-    )
-    .await;
-
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
-        "8yn5oqFMwYA8SgGqWwKq1Hia8aM5gh1DWmHEL34hMqBX",
-    ]);
-
-    apply_migrations_and_delete_data(setup.db.clone()).await;
-    index_seed_events(&setup, seeds.iter().collect_vec()).await;
-
-    let request = r#"        
-    {
-        "id": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
-        "displayOptions": {
-            "showFungible": true
-        }
-    }
-    "#;
-
-    let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await.unwrap();
-
-    insta::assert_json_snapshot!(name, response);
-}
-
-#[tokio::test]
-#[serial]
-#[named]
 async fn test_get_asset_by_owner_with_show_fungible() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
@@ -167,12 +22,21 @@ async fn test_get_asset_by_owner_with_show_fungible() {
     .await;
 
     let seeds: Vec<SeedEvent> = seed_accounts([
-        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
-        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
+        "Ff3Ci7EnM6KUdNDtzZvCjC5APgz1ajYW2Pt2BfT6Wftq",
+        "7mX5Gzny3r8WBRnnyQt6vVEkQ1AcN9twhPG1b5j5UhoC",
+        "FQ3ePUyLt2UvuQCw2nBKG8LGLvXHAZPzpdD6QQAAv9pW",
         "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
         "4Av8W98PVbeYcdaw6T3L6STDdL5p3MWrqU7RkB8os4i7",
         "8c3zk1t1qt3RU43ckuvPkCS7HLbjJqq3J3Me8ov4aHrp",
+        "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+        "8yn5oqFMwYA8SgGqWwKq1Hia8aM5gh1DWmHEL34hMqBX",
+        "4gbnMK8Yv5ySJ4aFFTR9EFf3nY2GKbDwd9U1zh41inX9",
+        "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+        "Ah32VqAKNiE68qP35aPwxUbS15AuMo6d37ppyexR1CVe",
+        "8LfiSAHzkKFsPCkwqYu11YtyhdN5dHTyDZc5trujPubg",
+        "FoRGERiW7odcCBGU1bztZi16osPBHjxharvDathL5eds",
+        "FahUFnmJDwVEcsRkrEmN2sZyEyjijQAwRfm7A4RCRou7",
+        "5CUdD64Zktf2KJyHpaEKMzAVrNwG2saYX4FSsCheuLdA",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -196,7 +60,7 @@ async fn test_get_asset_by_owner_with_show_fungible() {
 #[tokio::test]
 #[serial]
 #[named]
-async fn test_get_asset_by_authority_with_show_fungible() {
+async fn test_get_asset_by_owner_without_show_fungible() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new_with_options(
         name.clone(),
@@ -207,9 +71,18 @@ async fn test_get_asset_by_authority_with_show_fungible() {
     .await;
 
     let seeds: Vec<SeedEvent> = seed_accounts([
-        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
-        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
+        "Ff3Ci7EnM6KUdNDtzZvCjC5APgz1ajYW2Pt2BfT6Wftq",
+        "7mX5Gzny3r8WBRnnyQt6vVEkQ1AcN9twhPG1b5j5UhoC",
+        "FQ3ePUyLt2UvuQCw2nBKG8LGLvXHAZPzpdD6QQAAv9pW",
+        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+        "4Av8W98PVbeYcdaw6T3L6STDdL5p3MWrqU7RkB8os4i7",
+        "8c3zk1t1qt3RU43ckuvPkCS7HLbjJqq3J3Me8ov4aHrp",
+        "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+        "8yn5oqFMwYA8SgGqWwKq1Hia8aM5gh1DWmHEL34hMqBX",
+        "4gbnMK8Yv5ySJ4aFFTR9EFf3nY2GKbDwd9U1zh41inX9",
+        "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+        "Ah32VqAKNiE68qP35aPwxUbS15AuMo6d37ppyexR1CVe",
+        "8LfiSAHzkKFsPCkwqYu11YtyhdN5dHTyDZc5trujPubg",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
@@ -217,56 +90,12 @@ async fn test_get_asset_by_authority_with_show_fungible() {
 
     let request = r#"        
     {
-        "authorityAddress": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-        "displayOptions": {
-            "showFungible": true
-        }
+        "ownerAddress": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
     }
     "#;
 
-    let request: api::GetAssetsByAuthority = serde_json::from_str(request).unwrap();
-    let response = setup
-        .das_api
-        .get_assets_by_authority(request)
-        .await
-        .unwrap();
-
-    insta::assert_json_snapshot!(name, response);
-}
-
-#[tokio::test]
-#[serial]
-#[named]
-async fn test_get_asset_by_creator_with_show_fungible() {
-    let name = trim_test_name(function_name!());
-    let setup = TestSetup::new_with_options(
-        name.clone(),
-        TestSetupOptions {
-            network: Some(Network::Mainnet),
-        },
-    )
-    .await;
-
-    let seeds: Vec<SeedEvent> = seed_accounts([
-        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
-        "8Xv3SpX94HHf32Apg4TeSeS3i2p6wuXeE8FBZr168Hti",
-    ]);
-
-    apply_migrations_and_delete_data(setup.db.clone()).await;
-    index_seed_events(&setup, seeds.iter().collect_vec()).await;
-
-    let request = r#"        
-    {
-        "creatorAddress": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
-        "displayOptions": {
-            "showFungible": true
-        }
-    }
-    "#;
-
-    let request: api::GetAssetsByCreator = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_assets_by_creator(request).await.unwrap();
+    let request: api::GetAssetsByOwner = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_assets_by_owner(request).await.unwrap();
 
     insta::assert_json_snapshot!(name, response);
 }

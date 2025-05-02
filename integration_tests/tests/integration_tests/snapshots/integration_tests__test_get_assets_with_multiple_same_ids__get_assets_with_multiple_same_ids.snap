@@ -75,7 +75,14 @@ snapshot_kind: text
       "edition_nonce": 254
     },
     "mutable": true,
-    "burnt": false
+    "burnt": false,
+    "token_info": {
+      "supply": 1,
+      "decimals": 0,
+      "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "mint_authority": "TdMA45ZnakQCBt5XUvm7ib2htKuTWdcgGKu1eUGrDyJ",
+      "freeze_authority": "TdMA45ZnakQCBt5XUvm7ib2htKuTWdcgGKu1eUGrDyJ"
+    }
   },
   {
     "interface": "V1_NFT",
@@ -138,6 +145,13 @@ snapshot_kind: text
       "edition_nonce": 253
     },
     "mutable": false,
-    "burnt": false
+    "burnt": false,
+    "token_info": {
+      "supply": 1,
+      "decimals": 0,
+      "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "mint_authority": "FWPk3ooJdPND2E7PGyiDieAJzSimaFfRM4nxP1tpr9TN",
+      "freeze_authority": "FWPk3ooJdPND2E7PGyiDieAJzSimaFfRM4nxP1tpr9TN"
+    }
   }
 ]

@@ -79,7 +79,16 @@ snapshot_kind: text
         "edition_nonce": 255
       },
       "mutable": true,
-      "burnt": false
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "EaFuF8KsiimmNVbMhAepSxiifKSBTM9dkjLzN2249Nd6",
+        "freeze_authority": "EaFuF8KsiimmNVbMhAepSxiifKSBTM9dkjLzN2249Nd6",
+        "balance": 1,
+        "associated_token_address": "7oSzJpyztTuK124EyPAw2nbF4Vaj2P9MU9vww1QN1k8p"
+      }
     },
     {
       "interface": "ProgrammableNFT",
@@ -152,7 +161,16 @@ snapshot_kind: text
         "edition_nonce": 255
       },
       "mutable": true,
-      "burnt": false
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "5tuhRYWBVE6iXwUe2GAiDj7PupNpjGTXq1H28vtsLrik",
+        "freeze_authority": "5tuhRYWBVE6iXwUe2GAiDj7PupNpjGTXq1H28vtsLrik",
+        "balance": 1,
+        "associated_token_address": "iRjBSW4tnw42qxf3tycTYKki1d4bcETt9AfjEwoHYgy"
+      }
     }
   ]
 }

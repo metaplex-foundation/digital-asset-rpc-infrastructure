@@ -58,7 +58,14 @@ snapshot_kind: text
         "owner": ""
       },
       "mutable": true,
-      "burnt": false
+      "burnt": false,
+      "token_info": {
+        "supply": 999913158412306321,
+        "decimals": 9,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "balance": 95000000000,
+        "associated_token_address": "6BRNfDfdq1nKyU1TQiCEQLWyPtD8EwUH9Kt2ahsbidUx"
+      }
     }
   ]
 }

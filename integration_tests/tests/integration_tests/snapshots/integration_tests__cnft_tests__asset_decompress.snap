@@ -1,6 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/cnft_tests.rs
 expression: response
+snapshot_kind: text
 ---
 {
   "interface": "V1_NFT",
@@ -78,5 +79,14 @@ expression: response
     "edition_nonce": 253
   },
   "mutable": true,
-  "burnt": false
+  "burnt": false,
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "Efi1oabSQtJ2uNC83d6yjKW4Z94FuxoX9nYmadJFSRSe",
+    "freeze_authority": "Efi1oabSQtJ2uNC83d6yjKW4Z94FuxoX9nYmadJFSRSe",
+    "balance": 1,
+    "associated_token_address": "B5PfwkTK4WQtm5wqmb8ViTXiw9bvQgaJwVSbtssbmRvJ"
+  }
 }
