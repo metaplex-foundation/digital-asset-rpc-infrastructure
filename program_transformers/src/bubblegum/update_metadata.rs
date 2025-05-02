@@ -23,7 +23,7 @@ use {
         },
         json::ChainDataV1,
     },
-    sea_orm::{query::*, ConnectionTrait, JsonValue},
+    sea_orm::{query::*, ConnectionTrait},
     tracing::warn,
 };
 
@@ -121,9 +121,7 @@ where
             chain_data_json,
             uri.clone(),
             Mutability::Mutable,
-            JsonValue::String("processing".to_string()),
             slot_i,
-            Some(true),
             name.into_bytes().to_vec(),
             symbol.into_bytes().to_vec(),
             seq as i64,

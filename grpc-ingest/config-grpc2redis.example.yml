@@ -1,0 +1,71 @@
+# This file is used to configure the grpc2redis service.
+
+# prometheus metrics are pushed to this endpoint
+prometheus: 0.0.0.0:8873
+
+# gRPC server configuration (change x_token and endpoint to the correct ones)
+geyser:
+  # endpoint of the dragonmouth stream
+  endpoint: http://127.0.0.1:10000
+  # x-token of the dragonmouth stream
+  x_token: null
+  # transaction commitment level: finalized, confirmed, processed
+  commitment: finalized
+  # connection timeout in seconds
+  connection_timeout: 10
+  # request timeout in seconds
+  timeout: 10
+
+# gRPC subscription configuration (each representing a separate stream processed concurrently)
+# check account and transaction filters here (https://github.com/rpcpool/yellowstone-grpc/blob/master/README.md)
+subscriptions:
+  metadata:
+    stream:
+      # stream name
+      name: ACCOUNTS
+      # maximum length of the stream.
+      max_len: 100_000_000
+      # maximum concurrency for processing the stream.
+      max_concurrency: 2
+      # maximum idle time (in milliseconds) before the redis pipeline is flushed
+      pipeline_max_idle_ms: 150
+      # number of pipelines that can be processed concurrently
+      pipeline_count: 1
+    # filter accounts by owner
+    filter:
+      accounts:
+        owner:
+          - metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s
+  token:
+    stream:
+      name: ACCOUNTS
+      max_len: 100_000_000
+      max_concurrency: 5
+    filter:
+      accounts:
+        owner:
+          - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+  core:
+    stream:
+      name: ACCOUNTS
+      max_len: 100_000_000
+      max_concurrency: 2
+    filter:
+      accounts:
+        owner:
+          - CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d
+  bubblegum:
+    stream:
+      name: TRANSACTIONS
+      max_len: 100_000_000
+      max_concurrency: 2
+    # filter transactions by accounts_included
+    filter:
+      transactions:
+        account_include:
+          - BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY
+
+# Redis configuration
+redis:
+  # redis connection url
+  url: redis://localhost:6379

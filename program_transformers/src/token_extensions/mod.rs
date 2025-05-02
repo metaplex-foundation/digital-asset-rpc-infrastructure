@@ -273,10 +273,10 @@ async fn upsert_asset_data(
         return Ok(None);
     }
 
-    Ok(Some(DownloadMetadataInfo {
-        uri: metadata.uri.clone(),
-        asset_data_id: key_bytes,
-    }))
+    Ok(Some(DownloadMetadataInfo::new(
+        key_bytes,
+        metadata.uri.clone(),
+    )))
 }
 
 struct AssetMetadataAccountCols {

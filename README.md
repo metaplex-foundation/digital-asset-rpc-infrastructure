@@ -15,6 +15,10 @@ super-fast querying and searching, as well as serves the merkle proofs needed to
 The API specification is located here https://github.com/metaplex-foundation/api-specifications
 This spec is what providers of this api must implement against.
 
+#### GRPC-INGEST [/grpc-ingest/README.md](/grpc-ingest/README.md)
+
+The grpc ingester allows the DAS index stack to receive solana change events from a Yellowstone GRPC endpoint. All the largest RPC providers offer this API so you are able to use a shared event stream instead of running a dedicated validator like you have to with the plerkle geyser plugin.
+
 ### Infrastructure and Deployment Examples
 
 Along with the above rust binaries, this repo also maintains examples and best practice settings for running the entire infrastructure.

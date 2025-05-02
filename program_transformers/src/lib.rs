@@ -20,8 +20,8 @@ use {
             ProgramParseResult,
         },
     },
+    das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::{asset, token_accounts, tokens},
-    futures::future::BoxFuture,
     sea_orm::{
         entity::{EntityTrait, *},
         query::Select,
@@ -29,6 +29,7 @@ use {
         ConnectionTrait, DatabaseConnection, DbErr, QueryFilter, SqlxPostgresConnector,
         TransactionTrait,
     },
+    serde::Deserialize,
     serde_json::{Map, Value},
     solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::InnerInstructions,
@@ -48,7 +49,7 @@ mod token_extensions;
 mod token_inscription;
 mod token_metadata;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct AccountInfo {
     pub slot: u64,
     pub pubkey: Pubkey,
@@ -56,7 +57,7 @@ pub struct AccountInfo {
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TransactionInfo {
     pub slot: u64,
     pub signature: Signature,
@@ -64,33 +65,6 @@ pub struct TransactionInfo {
     pub message_instructions: Vec<CompiledInstruction>,
     pub meta_inner_instructions: Vec<InnerInstructions>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DownloadMetadataInfo {
-    asset_data_id: Vec<u8>,
-    uri: String,
-}
-
-impl DownloadMetadataInfo {
-    pub fn new(asset_data_id: Vec<u8>, uri: String) -> Self {
-        Self {
-            asset_data_id,
-            uri: uri.trim().replace('\0', ""),
-        }
-    }
-
-    pub fn into_inner(self) -> (Vec<u8>, String) {
-        (self.asset_data_id, self.uri)
-    }
-}
-
-pub type DownloadMetadataNotifier = Box<
-    dyn Fn(
-            DownloadMetadataInfo,
-        ) -> BoxFuture<'static, Result<(), Box<dyn std::error::Error + Send + Sync>>>
-        + Sync
-        + Send,
->;
 
 pub struct ProgramTransformer {
     storage: DatabaseConnection,

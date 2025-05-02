@@ -7,6 +7,7 @@ COPY ./Cargo.lock /rust
 COPY ./core /rust/core
 COPY ./das_api /rust/das_api
 COPY ./digital_asset_types /rust/digital_asset_types
+COPY ./grpc-ingest /rust/grpc-ingest
 COPY ./integration_tests /rust/integration_tests
 COPY ./metaplex-rpc-proxy /rust/metaplex-rpc-proxy
 COPY ./migration /rust/migration
