@@ -331,6 +331,8 @@ pub async fn get_related_for_assets(
     // Get all creators for all assets in `assets_map``.
     let creators = asset_creators::Entity::find()
         .filter(asset_creators::Column::AssetId.is_in(ids))
+        .order_by_asc(asset_creators::Column::AssetId)
+        .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
 
