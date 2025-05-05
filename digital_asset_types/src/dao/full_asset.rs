@@ -15,11 +15,12 @@ pub struct FullAssetGroup {
     pub group_info_seq: Option<i64>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct FullAsset {
     pub asset: asset::Model,
     pub data: asset_data::Model,
-    pub mint_with_ta: Option<(tokens::Model, Option<token_accounts::Model>)>,
+    pub mint: Option<tokens::Model>,
+    pub token_account: Option<token_accounts::Model>,
     pub authorities: Vec<asset_authority::Model>,
     pub creators: Vec<asset_creators::Model>,
     pub inscription: Option<asset_v1_account_attachments::Model>,

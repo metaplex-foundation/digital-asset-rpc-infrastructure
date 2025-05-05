@@ -15,11 +15,9 @@ async fn test_get_assets_with_multiple_same_ids() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new(name.clone()).await;
 
-    let seeds: Vec<SeedEvent> = seed_accounts([
+    let seeds: Vec<SeedEvent> = seed_nfts([
         "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
-        "DZAZ3mGuq7nCYGzUyw4MiA74ysr15EfqLpzCzX2cRVng",
         "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X",
-        "2ecGsTKbj7FecLwxTHaodZRFwza7m7LamqDG4YjczZMj",
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;

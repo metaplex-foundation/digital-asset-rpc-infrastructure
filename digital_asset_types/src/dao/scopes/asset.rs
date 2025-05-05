@@ -91,6 +91,7 @@ pub async fn get_by_creator(
         conn,
         condition,
         extensions::asset::Relation::AssetCreators,
+        None,
         sort_by,
         sort_direction,
         pagination,
@@ -157,6 +158,7 @@ pub async fn get_by_grouping(
             .add(condition)
             .add(asset::Column::Supply.gt(0)),
         extensions::asset::Relation::AssetGrouping,
+        None,
         sort_by,
         sort_direction,
         pagination,
@@ -192,7 +194,8 @@ pub async fn get_assets_by_owner(
                 .add(
                     Condition::any()
                         .add(asset::Column::Owner.eq(owner.clone()))
-                        .add(token_accounts::Column::Owner.eq(owner.clone())),
+                        .add(token_accounts::Column::Owner.eq(owner.clone()))
+                        .add(token_accounts::Column::Amount.gt(0)),
                 )
                 .add(asset::Column::Supply.gt(0)),
         )
@@ -211,6 +214,7 @@ pub async fn get_assets_by_owner(
         conn,
         condition,
         joins,
+        Some(owner),
         sort_by,
         sort_direction,
         pagination,
@@ -235,7 +239,7 @@ pub async fn get_assets(
         conn,
         cond,
         vec![],
-        // Default values provided. The args below are not used for batch requests
+        None,
         None,
         Order::Asc,
         pagination,
@@ -266,6 +270,7 @@ pub async fn get_by_authority(
         conn,
         cond,
         extensions::asset::Relation::AssetAuthority,
+        None,
         sort_by,
         sort_direction,
         pagination,
@@ -281,6 +286,7 @@ async fn get_by_related_condition<E>(
     conn: &impl ConnectionTrait,
     condition: Condition,
     relation: E,
+    owner: Option<Vec<u8>>,
     sort_by: Option<asset::Column>,
     sort_direction: Order,
     pagination: &Pagination,
@@ -305,12 +311,13 @@ where
         .all(conn)
         .await?;
 
-    get_related_for_assets(conn, assets, options, required_creator).await
+    get_related_for_assets(conn, assets, owner, options, required_creator).await
 }
 
 pub async fn get_related_for_assets(
     conn: &impl ConnectionTrait,
     assets: Vec<asset::Model>,
+    owner: Option<Vec<u8>>,
     options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr> {
@@ -336,11 +343,7 @@ pub async fn get_related_for_assets(
             let fa = FullAsset {
                 asset,
                 data: ad.clone(),
-                authorities: vec![],
-                creators: vec![],
-                groups: vec![],
-                inscription: None,
-                mint_with_ta: None,
+                ..Default::default()
             };
             acc.insert(id, fa);
         };
@@ -388,14 +391,40 @@ pub async fn get_related_for_assets(
         }
     }
 
-    find_mint_with_ta(conn, ids.clone())
-        .await?
-        .into_iter()
-        .for_each(|t| {
-            if let Some(asset) = assets_map.get_mut(&t.0.mint) {
-                asset.mint_with_ta = Some(t);
+    let mut token_account_condition = Condition::all();
+
+    let mut asset_owners: Vec<Vec<u8>> = Vec::new();
+
+    for id in asset_ids.iter() {
+        if let Some(asset) = assets_map.get(id) {
+            if let Some(owner) = asset.asset.owner.clone() {
+                asset_owners.push(owner);
             }
-        });
+        }
+    }
+
+    if let Some(query_owner) = owner {
+        token_account_condition =
+            token_account_condition.add(token_accounts::Column::Owner.eq(query_owner));
+    } else {
+        token_account_condition =
+            token_account_condition.add(token_accounts::Column::Owner.is_in(asset_owners));
+    };
+
+    let token_accounts = tokens::Entity::find()
+        .find_also_related(token_accounts::Entity)
+        .filter(tokens::Column::Mint.is_in(asset_ids.clone()))
+        .filter(token_account_condition)
+        .filter(token_accounts::Column::Amount.gt(0))
+        .all(conn)
+        .await?;
+
+    for (t, ta) in token_accounts.into_iter() {
+        if let Some(asset) = assets_map.get_mut(&t.mint) {
+            asset.token_account = ta.clone();
+            asset.mint = Some(t.clone());
+        }
+    }
 
     let cond = if options.show_unverified_collections {
         Condition::all()
@@ -480,6 +509,7 @@ pub async fn get_assets_by_condition(
     conn: &impl ConnectionTrait,
     condition: Condition,
     joins: Vec<RelationDef>,
+    owner: Option<Vec<u8>>,
     sort_by: Option<asset::Column>,
     sort_direction: Order,
     pagination: &Pagination,
@@ -501,7 +531,7 @@ pub async fn get_assets_by_condition(
         .all(conn)
         .await?;
 
-    let full_assets = get_related_for_assets(conn, assets, options, None).await?;
+    let full_assets = get_related_for_assets(conn, assets, owner, options, None).await?;
     Ok(full_assets)
 }
 
@@ -519,10 +549,11 @@ pub async fn get_by_id(
         None
     };
 
-    let mint_with_ta = find_mint_with_ta(conn, vec![asset_id.clone()])
-        .await?
-        .into_iter()
-        .next();
+    let mint = tokens::Entity::find()
+        .filter(tokens::Column::Mint.eq(asset_id.clone()))
+        .filter(tokens::Column::Supply.gt(0))
+        .one(conn)
+        .await?;
 
     let (asset, data): (asset::Model, asset_data::Model) =
         asset_data.one(conn).await.and_then(|o| match o {
@@ -616,7 +647,8 @@ pub async fn get_by_id(
         creators,
         inscription,
         groups,
-        mint_with_ta,
+        mint,
+        ..Default::default()
     })
 }
 
@@ -774,9 +806,10 @@ pub async fn get_token_accounts(
         pagination,
         limit,
         token_accounts::Entity::find().filter(condition),
-        Order::Asc,
-        token_accounts::Column::Pubkey,
+        Order::Desc,
+        token_accounts::Column::Amount,
     )
+    .order_by(token_accounts::Column::Pubkey, Order::Asc)
     .all(conn)
     .await?;
 
@@ -976,15 +1009,4 @@ async fn get_inscription_by_mint(
             Some(t) => Ok(t),
             _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
         })
-}
-
-async fn find_mint_with_ta(
-    conn: &impl ConnectionTrait,
-    ids: Vec<Vec<u8>>,
-) -> Result<Vec<(tokens::Model, Option<token_accounts::Model>)>, DbErr> {
-    tokens::Entity::find()
-        .filter(tokens::Column::Mint.is_in(ids))
-        .find_also_related(token_accounts::Entity)
-        .all(conn)
-        .await
 }

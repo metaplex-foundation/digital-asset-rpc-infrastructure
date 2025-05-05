@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 1,
@@ -56,14 +55,14 @@ snapshot_kind: text
       },
       "creators": [
         {
-          "address": "smbBn7Votkw2upiVZtX9WgkmC7fNW2QabfVFuPLhu3C",
-          "share": 0,
-          "verified": false
-        },
-        {
           "address": "HV4Nvm9zHfNA43JYYkjZu8vwqiuE8bfEhwcKFfyQ65o5",
           "share": 0,
           "verified": true
+        },
+        {
+          "address": "smbBn7Votkw2upiVZtX9WgkmC7fNW2QabfVFuPLhu3C",
+          "share": 0,
+          "verified": false
         },
         {
           "address": "HqqiyJcm3yWPyzwisRKAQa2bJAj14V837yJRGaxwRFaG",

@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/test_get_assets_with_multiple_same_ids.rs
 expression: response
-snapshot_kind: text
 ---
 [
   {
@@ -63,11 +62,11 @@ snapshot_kind: text
       }
     ],
     "ownership": {
-      "frozen": false,
+      "frozen": true,
       "delegated": false,
       "delegate": null,
       "ownership_model": "single",
-      "owner": ""
+      "owner": "4zdNGgAtFsW1cQgHqkiWyRsxaAgxrSRRynnuunxzjxue"
     },
     "supply": {
       "print_max_supply": 0,
@@ -81,7 +80,9 @@ snapshot_kind: text
       "decimals": 0,
       "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "mint_authority": "TdMA45ZnakQCBt5XUvm7ib2htKuTWdcgGKu1eUGrDyJ",
-      "freeze_authority": "TdMA45ZnakQCBt5XUvm7ib2htKuTWdcgGKu1eUGrDyJ"
+      "freeze_authority": "TdMA45ZnakQCBt5XUvm7ib2htKuTWdcgGKu1eUGrDyJ",
+      "balance": 1,
+      "associated_token_address": "6vED2BfbqyAGvrXH2psdDvmgZQxhSLRyhotShBPrHqBr"
     }
   },
   {
@@ -137,7 +138,7 @@ snapshot_kind: text
       "delegated": false,
       "delegate": null,
       "ownership_model": "single",
-      "owner": ""
+      "owner": "4zdNGgAtFsW1cQgHqkiWyRsxaAgxrSRRynnuunxzjxue"
     },
     "supply": {
       "print_max_supply": 0,
@@ -151,7 +152,9 @@ snapshot_kind: text
       "decimals": 0,
       "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "mint_authority": "FWPk3ooJdPND2E7PGyiDieAJzSimaFfRM4nxP1tpr9TN",
-      "freeze_authority": "FWPk3ooJdPND2E7PGyiDieAJzSimaFfRM4nxP1tpr9TN"
+      "freeze_authority": "FWPk3ooJdPND2E7PGyiDieAJzSimaFfRM4nxP1tpr9TN",
+      "balance": 1,
+      "associated_token_address": "GCp9i8hnPMyiVEdsA7mgGz4ngaDh6PHQ2utPrvbm13Nu"
     }
   }
 ]
