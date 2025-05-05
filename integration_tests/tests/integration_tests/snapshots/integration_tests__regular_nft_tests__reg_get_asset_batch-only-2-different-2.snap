@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
-snapshot_kind: text
 ---
 [
   {

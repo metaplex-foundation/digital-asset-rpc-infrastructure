@@ -19,6 +19,7 @@ pub async fn search_assets(
         db,
         condition,
         joins,
+        search_assets_query.owner_address,
         sort_column,
         sort_direction,
         &pagination,

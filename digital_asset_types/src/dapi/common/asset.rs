@@ -19,6 +19,7 @@ use blockbuster::programs::token_inscriptions::InscriptionData;
 use jsonpath_lib::JsonPathError;
 use log::warn;
 use mime_guess::Mime;
+use num_traits::ToPrimitive;
 
 use sea_orm::DbErr;
 use serde_json::Value;
@@ -379,7 +380,8 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         creators,
         groups,
         inscription,
-        mint_with_ta,
+        mint,
+        token_account,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -440,14 +442,16 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
-    let token_info = mint_with_ta.map(|(m, ta)| TokenInfo {
-        supply: m.supply.try_into().unwrap_or(0),
-        decimals: m.decimals as u8,
+    let token_info = mint.map(|m| TokenInfo {
+        supply: m.supply.to_u64(),
+        decimals: Some(m.decimals as u8),
         mint_authority: m.mint_authority.map(|s| bs58::encode(s).into_string()),
         freeze_authority: m.freeze_authority.map(|s| bs58::encode(s).into_string()),
-        token_program: bs58::encode(m.token_program).into_string(),
-        balance: ta.as_ref().map(|t| t.amount as u64),
-        associated_token_address: ta.as_ref().map(|t| bs58::encode(&t.pubkey).into_string()),
+        token_program: Some(bs58::encode(m.token_program).into_string()),
+        balance: token_account.as_ref().map(|t| t.amount as u64),
+        associated_token_address: token_account
+            .as_ref()
+            .map(|t| bs58::encode(&t.pubkey).into_string()),
     });
 
     Ok(RpcAsset {

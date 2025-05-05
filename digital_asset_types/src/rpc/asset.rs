@@ -403,9 +403,12 @@ pub struct TokenInscriptionInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenInfo {
-    pub supply: u64,
-    pub decimals: u8,
-    pub token_program: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supply: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_program: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mint_authority: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
