@@ -421,7 +421,10 @@ pub async fn get_related_for_assets(
 
     for (t, ta) in token_accounts.into_iter() {
         if let Some(asset) = assets_map.get_mut(&t.mint) {
-            asset.token_account = ta.clone();
+            if let Some(ta) = ta {
+                asset.asset.owner = Some(ta.owner.clone());
+                asset.token_account = Some(ta);
+            }
             asset.mint = Some(t.clone());
         }
     }
