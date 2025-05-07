@@ -190,6 +190,7 @@ impl ConfigStream {
 pub struct ConfigGrpcRequestFilter {
     pub accounts: Option<ConfigGrpcRequestAccounts>,
     pub transactions: Option<ConfigGrpcRequestTransactions>,
+    pub slot: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -230,6 +231,7 @@ pub struct ConfigIngester {
     pub snapshots: ConfigIngestStream,
     pub accounts: ConfigIngestStream,
     pub transactions: ConfigIngestStream,
+    pub slot: ConfigIngestStream,
     #[serde(default = "ConfigIngester::default_download_metadata_publish")]
     pub download_metadata_publish: ConfigDownloadMetadataPublish,
 }
@@ -296,6 +298,7 @@ pub enum ConfigIngesterRedisStreamType {
     Transaction,
     MetadataJson,
     Snapshot,
+    Slot,
 }
 
 #[derive(Debug, Clone, Deserialize)]

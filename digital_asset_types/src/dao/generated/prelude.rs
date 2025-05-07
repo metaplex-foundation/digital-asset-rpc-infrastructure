@@ -12,6 +12,7 @@ pub use super::backfill_items::Entity as BackfillItems;
 pub use super::cl_audits_v2::Entity as ClAuditsV2;
 pub use super::cl_items::Entity as ClItems;
 pub use super::raw_txn::Entity as RawTxn;
+pub use super::slot_metas::Entity as SlotMetas;
 pub use super::tasks::Entity as Tasks;
 pub use super::token_accounts::Entity as TokenAccounts;
 pub use super::tokens::Entity as Tokens;

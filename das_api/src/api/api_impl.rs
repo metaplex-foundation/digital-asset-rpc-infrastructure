@@ -1,9 +1,11 @@
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
-use digital_asset_types::dao::scopes::asset::get_token_supply;
 use digital_asset_types::{
     dao::{
-        scopes::asset::{get_grouping, get_nft_editions, get_token_largest_accounts},
+        scopes::{
+            asset::{get_grouping, get_nft_editions},
+            token::{get_token_largest_accounts, get_token_supply},
+        },
         sea_orm_active_enums::{
             OwnerType, RoyaltyTargetType, SpecificationAssetClass, SpecificationVersions,
         },

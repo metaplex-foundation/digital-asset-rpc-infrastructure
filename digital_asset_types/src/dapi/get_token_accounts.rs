@@ -16,7 +16,7 @@ pub async fn get_token_accounts(
 ) -> Result<TokenAccountList, DbErr> {
     let pagination = create_pagination(page_options)?;
 
-    let token_accounts = crate::dao::scopes::asset::get_token_accounts(
+    let token_accounts = crate::dao::scopes::token::get_token_accounts(
         db,
         owner_address,
         mint_address,

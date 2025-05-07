@@ -181,3 +181,11 @@ pub enum ClAuditsV2 {
     Tx,
     Instruction,
 }
+
+#[derive(Copy, Clone, Iden)]
+#[allow(clippy::enum_variant_names)]
+pub enum SlotMeta {
+    #[iden = "slot_metas"]
+    Table,
+    Slot,
+}

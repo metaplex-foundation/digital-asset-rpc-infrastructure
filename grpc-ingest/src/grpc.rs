@@ -20,7 +20,10 @@ use {
     tracing::{debug, warn},
     yellowstone_grpc_client::GeyserGrpcClient,
     yellowstone_grpc_proto::{
-        geyser::{SubscribeRequest, SubscribeRequestPing, SubscribeUpdate},
+        geyser::{
+            SubscribeRequest, SubscribeRequestFilterBlocksMeta, SubscribeRequestPing,
+            SubscribeUpdate,
+        },
         prelude::subscribe_update::UpdateOneof,
         prost::Message,
     },
@@ -141,10 +144,12 @@ impl SubscriptionTask {
         let stream_config = Arc::new(stream.clone());
         let mut req_accounts = HashMap::with_capacity(1);
         let mut req_transactions = HashMap::with_capacity(1);
+        let mut req_slot = HashMap::with_capacity(1);
 
         let ConfigGrpcRequestFilter {
             accounts,
             transactions,
+            slot,
         } = filter;
 
         if let Some(accounts) = accounts {
@@ -155,10 +160,15 @@ impl SubscriptionTask {
             req_transactions.insert(label.clone(), transactions.to_proto());
         }
 
+        if let Some(true) = slot {
+            req_slot.insert(label.clone(), SubscribeRequestFilterBlocksMeta {});
+        }
+
         let request = SubscribeRequest {
             accounts: req_accounts,
             transactions: req_transactions,
             commitment: Some(config.geyser.commitment.to_proto().into()),
+            blocks_meta: req_slot,
             ..Default::default()
         };
 
@@ -235,7 +245,7 @@ impl SubscriptionTask {
                             match event {
                                 Some(Ok(msg)) => {
                                     match msg.update_oneof {
-                                        Some(UpdateOneof::Account(_)) | Some(UpdateOneof::Transaction(_)) => {
+                                        Some(UpdateOneof::Account(_)) | Some(UpdateOneof::Transaction(_)) | Some(UpdateOneof::BlockMeta(_)) => {
                                             if tasks.len() >= stream_config.max_concurrency {
                                                 tasks.next().await;
                                             }
@@ -285,6 +295,14 @@ impl SubscriptionTask {
                                                                     StreamMaxlen::Approx(stream_maxlen),
                                                                     "*",
                                                                     transaction.encode_to_vec(),
+                                                                );
+                                                            }
+                                                            UpdateOneof::BlockMeta(block_meta) => {
+                                                                pipe.xadd_maxlen(
+                                                                    &stream.to_string(),
+                                                                    StreamMaxlen::Approx(stream_maxlen),
+                                                                    "*",
+                                                                    block_meta.encode_to_vec(),
                                                                 );
                                                             }
                                                             _ => {

@@ -6,7 +6,7 @@ use das_api::api::DasApi;
 
 use das_api::config::Config;
 
-use digital_asset_types::dao::asset_data;
+use digital_asset_types::dao::{asset_data, slot_metas};
 use migration::sea_orm::{
     ConnectionTrait, DatabaseConnection, ExecResult, SqlxPostgresConnector, Statement,
 };
@@ -464,6 +464,7 @@ pub enum SeedEvent {
     Nft(Pubkey),
     TokenMint(Pubkey),
     Signature(Signature),
+    Slot(i64),
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -494,8 +495,15 @@ pub async fn index_seed_events(setup: &TestSetup, events: Vec<&SeedEvent>) {
             SeedEvent::TokenMint(mint) => {
                 index_token_mint(setup, *mint).await;
             }
+            SeedEvent::Slot(slot) => {
+                index_slot_meta(setup, slot).await;
+            }
         }
     }
+}
+#[allow(unused)]
+pub fn seed_slot(slot: &i64) -> SeedEvent {
+    SeedEvent::Slot(*slot)
 }
 
 #[allow(unused)]
@@ -524,6 +532,13 @@ where
     strs.into_iter().map(|s| seed_txn(s.as_ref())).collect()
 }
 
+pub fn seed_slots<I>(slots: I) -> Vec<SeedEvent>
+where
+    I: IntoIterator<Item = i64>,
+{
+    slots.into_iter().map(SeedEvent::Slot).collect()
+}
+
 #[allow(unused)]
 pub fn seed_accounts<I>(strs: I) -> Vec<SeedEvent>
 where
@@ -550,6 +565,15 @@ where
     strs.into_iter()
         .map(|s| seed_token_mint(s.as_ref()))
         .collect()
+}
+
+pub async fn index_slot_meta(setup: &TestSetup, slot: &i64) {
+    slot_metas::Entity::insert(slot_metas::ActiveModel {
+        slot: ActiveValue::Set(*slot),
+    })
+    .exec(&setup.das_api.db_connection)
+    .await
+    .expect("Failed to insert slot meta");
 }
 
 pub async fn index_account(setup: &TestSetup, account: Pubkey) {
@@ -618,11 +642,7 @@ pub fn trim_test_name(name: &str) -> String {
     name.replace("test_", "")
 }
 
-pub async fn index_metadata_jsons(
-    db_conn: &DatabaseConnection,
-    asset_id: &[&str],
-    json_data: Value,
-) {
+pub async fn index_metadata_jsons(setup: &TestSetup, asset_id: &[&str], json_data: Value) {
     for asset_id in asset_id {
         let asset_id_vec = bs58::decode(asset_id).into_vec().unwrap();
 
@@ -633,7 +653,7 @@ pub async fn index_metadata_jsons(
         };
 
         asset_data
-            .update(db_conn)
+            .update(&setup.das_api.db_connection)
             .await
             .expect("Failed to update asset data");
     }

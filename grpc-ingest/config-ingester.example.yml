@@ -47,6 +47,9 @@ accounts:
 transactions:
   name: TRANSACTIONS
 
+slot:
+  name: SLOT
+
 # download metadata configuration for the ingester
 download_metadata:
   # maximum number of attempts for downloading metadata JSON.
@@ -71,4 +74,3 @@ download_metadata_publish:
   pipeline_count: 10
   # pipeline max idle time in milliseconds
   pipeline_max_idle_ms: 150
-

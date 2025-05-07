@@ -22,10 +22,10 @@ use {
         },
     },
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
-    digital_asset_types::dao::{asset, token_accounts, tokens},
+    digital_asset_types::dao::{asset, slot_metas, token_accounts, tokens},
     sea_orm::{
         entity::EntityTrait, query::Select, sea_query::Expr, ColumnTrait, ConnectionTrait,
-        DatabaseConnection, DbErr, QueryFilter, SqlxPostgresConnector, TransactionTrait,
+        DatabaseConnection, DbErr, QueryFilter, Set, SqlxPostgresConnector, TransactionTrait,
     },
     serde::Deserialize,
     serde_json::{Map, Value},
@@ -64,6 +64,10 @@ pub struct TransactionInfo {
     pub account_keys: Vec<Pubkey>,
     pub message_instructions: Vec<CompiledInstruction>,
     pub meta_inner_instructions: Vec<InnerInstructions>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SlotInfo {
+    pub slot: i64,
 }
 
 pub struct ProgramTransformer {
@@ -257,6 +261,20 @@ impl ProgramTransformer {
                 _ => Err(ProgramTransformerError::NotImplemented),
             }?;
         }
+        Ok(())
+    }
+
+    pub async fn handle_slot_update(&self, slot: i64) -> ProgramTransformerResult<()> {
+        let db = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
+
+        let model = slot_metas::ActiveModel { slot: Set(slot) };
+        slot_metas::Entity::insert(model).exec(&db).await?;
+
+        slot_metas::Entity::delete_many()
+            .filter(slot_metas::Column::Slot.lt(slot))
+            .exec(&db)
+            .await?;
+
         Ok(())
     }
 }

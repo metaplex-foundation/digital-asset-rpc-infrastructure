@@ -102,7 +102,11 @@ async fn test_get_token_largest_accounts() {
     ]);
 
     apply_migrations_and_delete_data(setup.db.clone()).await;
+
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let slots: Vec<SeedEvent> = seed_slots([100, 99, 98]);
+    index_seed_events(&setup, slots.iter().collect_vec()).await;
 
     let request = r#"
     [

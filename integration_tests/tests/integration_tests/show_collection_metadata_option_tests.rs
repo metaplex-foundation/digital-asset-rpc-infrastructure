@@ -59,7 +59,7 @@ async fn test_get_asset_with_show_collection_metadata_option() {
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     index_metadata_jsons(
-        &setup.das_api.db_connection,
+        &setup,
         &[
             "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
             "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
@@ -111,7 +111,7 @@ async fn test_get_asset_by_group_with_show_collection_metadata_option() {
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     index_metadata_jsons(
-        &setup.das_api.db_connection,
+        &setup,
         &[
             "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
             "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",

@@ -107,6 +107,12 @@ lazy_static::lazy_static! {
         HistogramOpts::new("download_metadata_publish_time", "Time taken for publish download notification to redis"),
         &[]
     ).unwrap();
+
+    static ref CURRENT_INGESTER_SLOT: IntGaugeVec = IntGaugeVec::new(
+        Opts::new("current_ingester_slot", "Current slot processed by the ingester"),
+        &[]
+    ).unwrap();
+
 }
 
 pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
@@ -138,6 +144,7 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(BUBBLEGUM_TREE_CORRECT_PROOFS);
         register!(BUBBLEGUM_TREE_CORRUPT_PROOFS);
         register!(DOWNLOAD_METADATA_PUBLISH_TIME);
+        register!(CURRENT_INGESTER_SLOT);
 
         VERSION_INFO_METRIC
             .with_label_values(&[
@@ -413,4 +420,8 @@ pub fn update_tree_proof_report(report: &ProofReport) {
     BUBBLEGUM_TREE_CORRUPT_PROOFS
         .with_label_values(&[&report.tree_pubkey.to_string()])
         .set(report.corrupt_proofs as i64);
+}
+
+pub fn current_ingester_slot_set(slot: i64) {
+    CURRENT_INGESTER_SLOT.with_label_values(&[]).set(slot);
 }

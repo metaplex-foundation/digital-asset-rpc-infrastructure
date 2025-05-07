@@ -34,6 +34,7 @@ impl Default for Mutability {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for asset_data::Model {
     fn default() -> Self {
         Self {

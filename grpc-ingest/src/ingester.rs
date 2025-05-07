@@ -4,7 +4,7 @@ use {
         postgres::{create_pool as pg_create_pool, report_pgpool},
         prom::{download_metadata_publish_time, redis_xadd_status_inc},
         redis::{
-            AccountHandle, DownloadMetadataJsonHandle, IngestStream, TrackedPipeline,
+            AccountHandle, DownloadMetadataJsonHandle, IngestStream, SlotHandle, TrackedPipeline,
             TransactionHandle,
         },
         util::create_shutdown,
@@ -236,7 +236,14 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     let snapshots = IngestStream::build()
         .config(config.snapshots)
         .connection(connection.clone())
-        .handler(AccountHandle::new(program_transformer))
+        .handler(AccountHandle::new(Arc::clone(&program_transformer)))
+        .start()
+        .await?;
+
+    let slot = IngestStream::build()
+        .config(config.slot)
+        .connection(connection.clone())
+        .handler(SlotHandle::new(program_transformer))
         .start()
         .await?;
 
@@ -264,6 +271,7 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         accounts.stop(),
         transactions.stop(),
         snapshots.stop(),
+        slot.stop(),
         download_metadatas.stop(),
     ])
     .await

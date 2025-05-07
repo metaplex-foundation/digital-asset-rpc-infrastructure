@@ -73,6 +73,13 @@ subscriptions:
       accounts:
         owner:
           - 11111111111111111111111111111111
+  slot:
+    stream:
+      name: SLOT
+      max_len: 100_000_000
+      max_concurrency: 2
+    filter:
+      slot: true
 
 # Redis configuration
 redis:
