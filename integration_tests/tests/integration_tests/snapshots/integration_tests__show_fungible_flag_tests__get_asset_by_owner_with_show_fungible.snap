@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/show_fungible_flag_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 5,
@@ -55,7 +54,7 @@ snapshot_kind: text
         "delegated": false,
         "delegate": null,
         "ownership_model": "token",
-        "owner": ""
+        "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
       "mutable": true,
       "burnt": false,
@@ -115,7 +114,7 @@ snapshot_kind: text
         "delegated": false,
         "delegate": null,
         "ownership_model": "token",
-        "owner": ""
+        "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
       "mutable": true,
       "burnt": false,
@@ -174,7 +173,7 @@ snapshot_kind: text
         "delegated": false,
         "delegate": null,
         "ownership_model": "token",
-        "owner": ""
+        "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
       "mutable": true,
       "burnt": false,
@@ -315,7 +314,7 @@ snapshot_kind: text
         "delegated": false,
         "delegate": null,
         "ownership_model": "token",
-        "owner": ""
+        "owner": "GqPnSDXwp4JFtKS7YZ2HERgBbYLKpKVYy9TpVunzLRa9"
       },
       "supply": {
         "print_max_supply": 0,

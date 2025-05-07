@@ -191,8 +191,11 @@ pub async fn get_assets_by_owner(
                 .add(
                     Condition::any()
                         .add(asset::Column::Owner.eq(owner.clone()))
-                        .add(token_accounts::Column::Owner.eq(owner.clone()))
-                        .add(token_accounts::Column::Amount.gt(0)),
+                        .add(
+                            token_accounts::Column::Owner
+                                .eq(owner.clone())
+                                .and(token_accounts::Column::Amount.gt(0)),
+                        ),
                 )
                 .add(asset::Column::Supply.gt(0)),
         )
