@@ -1,10 +1,10 @@
 use crate::{
     dao::{
-        asset::{self},
-        asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
-        cl_audits_v2,
+        asset, asset_authority, asset_creators, asset_data, asset_grouping,
+        asset_v1_account_attachments, cl_audits_v2,
         extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::{Instruction, OwnerType, V1AccountAttachments},
+        generated::sea_orm_active_enums::OwnerType,
+        sea_orm_active_enums::{Instruction, V1AccountAttachments},
         token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
     },
     rpc::{
@@ -16,10 +16,12 @@ use crate::{
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
 use sea_orm::{
-    entity::*, prelude::Decimal, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order,
+    prelude::Decimal,
+    sea_query::{Alias, Condition, Expr, PostgresQueryBuilder, Query, UnionType},
+    ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationDef, RelationTrait, Statement,
 };
 use serde::de::DeserializeOwned;
-use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, hash::RandomState};
 
@@ -175,53 +177,183 @@ pub async fn get_assets_by_owner(
     limit: u64,
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let (join, condition) = if options.show_fungible {
-        let rel = extensions::token_accounts::Relation::Asset
-            .def()
-            .rev()
-            .on_condition(move |left, right| {
-                Condition::all().add(
-                    Expr::tbl(right, token_accounts::Column::Mint)
-                        .eq(Expr::tbl(left, asset::Column::Id)),
-                )
-            });
-        (
-            Some(rel),
-            Condition::all()
-                .add(
-                    Condition::any()
-                        .add(asset::Column::Owner.eq(owner.clone()))
-                        .add(
-                            token_accounts::Column::Owner
-                                .eq(owner.clone())
-                                .and(token_accounts::Column::Amount.gt(0)),
-                        ),
-                )
-                .add(asset::Column::Supply.gt(0)),
+    let token_owner_query = Query::select()
+        .column((asset::Entity, asset::Column::Id))
+        .column((asset::Entity, asset::Column::AltId))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
+                .as_enum(Alias::new("TEXT")),
         )
-    } else {
-        (
-            None,
-            Condition::all()
-                .add(asset::Column::Owner.eq(owner.clone()))
-                .add(asset::Column::OwnerType.eq(OwnerType::Single))
-                .add(asset::Column::Supply.gt(0)),
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
+                .as_enum(Alias::new("TEXT")),
         )
-    };
+        .column((token_accounts::Entity, token_accounts::Column::Owner))
+        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
+        .column((token_accounts::Entity, token_accounts::Column::Delegate))
+        .column((token_accounts::Entity, token_accounts::Column::Frozen))
+        .column((asset::Entity, asset::Column::Supply))
+        .column((asset::Entity, asset::Column::SupplyMint))
+        .column((asset::Entity, asset::Column::Compressed))
+        .column((asset::Entity, asset::Column::Compressible))
+        .column((asset::Entity, asset::Column::Seq))
+        .column((asset::Entity, asset::Column::TreeId))
+        .column((asset::Entity, asset::Column::Leaf))
+        .column((asset::Entity, asset::Column::Nonce))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column((asset::Entity, asset::Column::RoyaltyTarget))
+        .column((asset::Entity, asset::Column::RoyaltyAmount))
+        .column((asset::Entity, asset::Column::AssetData))
+        .column((asset::Entity, asset::Column::CreatedAt))
+        .column((asset::Entity, asset::Column::Burnt))
+        .column((asset::Entity, asset::Column::SlotUpdated))
+        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
+        .column((asset::Entity, asset::Column::DataHash))
+        .column((asset::Entity, asset::Column::CreatorHash))
+        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
+        .column((asset::Entity, asset::Column::LeafSeq))
+        .column((asset::Entity, asset::Column::BaseInfoSeq))
+        .column((asset::Entity, asset::Column::MintExtensions))
+        .column((asset::Entity, asset::Column::MplCorePlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
+        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
+        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
+        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
+        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
+        .column((asset::Entity, asset::Column::CollectionHash))
+        .column((asset::Entity, asset::Column::AssetDataHash))
+        .column((asset::Entity, asset::Column::BubblegumFlags))
+        .column((asset::Entity, asset::Column::NonTransferable))
+        .from(asset::Entity)
+        .join(
+            JoinType::LeftJoin,
+            token_accounts::Entity,
+            Expr::tbl(asset::Entity, asset::Column::Id)
+                .equals(token_accounts::Entity, token_accounts::Column::Mint),
+        )
+        .and_where(token_accounts::Column::Owner.eq(owner.to_vec()))
+        .and_where(token_accounts::Column::Amount.gt(0))
+        .cond_where(
+            Condition::any()
+                .add(asset::Column::Owner.ne(owner.to_vec()))
+                .add(asset::Column::Owner.is_null()),
+        )
+        .to_owned();
 
-    let joins = join.map(|j| vec![j]).unwrap_or_default();
-    get_assets_by_condition(
-        conn,
-        condition,
-        joins,
-        Some(owner),
-        sort_by,
-        sort_direction,
-        pagination,
-        limit,
-        options,
-    )
-    .await
+    let mut stmt = Query::select()
+        .column((asset::Entity, asset::Column::Id))
+        .column((asset::Entity, asset::Column::AltId))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column((asset::Entity, asset::Column::Owner))
+        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
+        .column((asset::Entity, asset::Column::Delegate))
+        .column((asset::Entity, asset::Column::Frozen))
+        .column((asset::Entity, asset::Column::Supply))
+        .column((asset::Entity, asset::Column::SupplyMint))
+        .column((asset::Entity, asset::Column::Compressed))
+        .column((asset::Entity, asset::Column::Compressible))
+        .column((asset::Entity, asset::Column::Seq))
+        .column((asset::Entity, asset::Column::TreeId))
+        .column((asset::Entity, asset::Column::Leaf))
+        .column((asset::Entity, asset::Column::Nonce))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column((asset::Entity, asset::Column::RoyaltyTarget))
+        .column((asset::Entity, asset::Column::RoyaltyAmount))
+        .column((asset::Entity, asset::Column::AssetData))
+        .column((asset::Entity, asset::Column::CreatedAt))
+        .column((asset::Entity, asset::Column::Burnt))
+        .column((asset::Entity, asset::Column::SlotUpdated))
+        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
+        .column((asset::Entity, asset::Column::DataHash))
+        .column((asset::Entity, asset::Column::CreatorHash))
+        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
+        .column((asset::Entity, asset::Column::LeafSeq))
+        .column((asset::Entity, asset::Column::BaseInfoSeq))
+        .column((asset::Entity, asset::Column::MintExtensions))
+        .column((asset::Entity, asset::Column::MplCorePlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
+        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
+        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
+        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
+        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
+        .column((asset::Entity, asset::Column::CollectionHash))
+        .column((asset::Entity, asset::Column::AssetDataHash))
+        .column((asset::Entity, asset::Column::BubblegumFlags))
+        .column((asset::Entity, asset::Column::NonTransferable))
+        .from(asset::Entity)
+        .and_where(asset::Column::Owner.eq(owner.to_vec()))
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
+
+    if options.show_fungible {
+        stmt = stmt.union(UnionType::All, token_owner_query).to_owned()
+    }
+
+    if let Some(col) = sort_by {
+        stmt = stmt
+            .order_by(col, sort_direction.clone())
+            .order_by(asset::Column::Id, sort_direction.clone())
+            .to_owned();
+    }
+
+    match pagination {
+        Pagination::Keyset { before, after } => {
+            if let Some(b) = before {
+                stmt = stmt.and_where(asset::Column::Id.lt(b.clone())).to_owned();
+            }
+            if let Some(a) = after {
+                stmt = stmt.and_where(asset::Column::Id.gt(a.clone())).to_owned();
+            }
+        }
+        Pagination::Page { page } => {
+            if *page > 0 {
+                stmt = stmt.offset((page - 1) * limit).to_owned();
+            }
+        }
+        Pagination::Cursor(cursor) => {
+            if *cursor != Cursor::default() {
+                if sort_direction == sea_orm::Order::Asc {
+                    stmt = stmt
+                        .and_where(asset::Column::Id.gt(cursor.id.clone()))
+                        .to_owned();
+                } else {
+                    stmt = stmt
+                        .and_where(asset::Column::Id.lt(cursor.id.clone()))
+                        .to_owned();
+                }
+            }
+        }
+    }
+    stmt = stmt.limit(limit).to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = asset::Model::find_by_statement(statment).all(conn).await?;
+
+    get_related_for_assets(conn, assets, Some(owner), options, None).await
 }
 
 pub async fn get_assets(
@@ -258,27 +390,121 @@ pub async fn get_by_authority(
     limit: u64,
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
-    let mut cond = Condition::all()
-        .add(asset_authority::Column::Authority.eq(authority))
-        .add(asset::Column::Supply.gt(0));
+    let mut stmt = Query::select()
+        .column((asset::Entity, asset::Column::Id))
+        .column((asset::Entity, asset::Column::AltId))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .expr(
+            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column((asset::Entity, asset::Column::Owner))
+        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
+        .column((asset::Entity, asset::Column::Delegate))
+        .column((asset::Entity, asset::Column::Frozen))
+        .column((asset::Entity, asset::Column::Supply))
+        .column((asset::Entity, asset::Column::SupplyMint))
+        .column((asset::Entity, asset::Column::Compressed))
+        .column((asset::Entity, asset::Column::Compressible))
+        .column((asset::Entity, asset::Column::Seq))
+        .column((asset::Entity, asset::Column::TreeId))
+        .column((asset::Entity, asset::Column::Leaf))
+        .column((asset::Entity, asset::Column::Nonce))
+        .expr(
+            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column((asset::Entity, asset::Column::RoyaltyTarget))
+        .column((asset::Entity, asset::Column::RoyaltyAmount))
+        .column((asset::Entity, asset::Column::AssetData))
+        .column((asset::Entity, asset::Column::CreatedAt))
+        .column((asset::Entity, asset::Column::Burnt))
+        .column((asset::Entity, asset::Column::SlotUpdated))
+        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
+        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
+        .column((asset::Entity, asset::Column::DataHash))
+        .column((asset::Entity, asset::Column::CreatorHash))
+        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
+        .column((asset::Entity, asset::Column::LeafSeq))
+        .column((asset::Entity, asset::Column::BaseInfoSeq))
+        .column((asset::Entity, asset::Column::MintExtensions))
+        .column((asset::Entity, asset::Column::MplCorePlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
+        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
+        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
+        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
+        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
+        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
+        .column((asset::Entity, asset::Column::CollectionHash))
+        .column((asset::Entity, asset::Column::AssetDataHash))
+        .column((asset::Entity, asset::Column::BubblegumFlags))
+        .column((asset::Entity, asset::Column::NonTransferable))
+        .from(asset::Entity)
+        .join(
+            JoinType::LeftJoin,
+            asset_authority::Entity,
+            Expr::tbl(asset::Entity, asset::Column::Id)
+                .equals(asset_authority::Entity, asset_authority::Column::AssetId),
+        )
+        .and_where(asset_authority::Column::Authority.eq(authority))
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
 
     if !options.show_fungible {
-        cond = cond.add(asset::Column::OwnerType.eq(OwnerType::Single));
+        stmt = stmt
+            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .to_owned();
     }
 
-    get_by_related_condition(
-        conn,
-        cond,
-        extensions::asset::Relation::AssetAuthority,
-        None,
-        sort_by,
-        sort_direction,
-        pagination,
-        limit,
-        options,
-        None,
-    )
-    .await
+    if let Some(col) = sort_by {
+        stmt = stmt
+            .order_by(col, sort_direction.clone())
+            .order_by(asset::Column::Id, sort_direction.clone())
+            .to_owned();
+    }
+
+    match pagination {
+        Pagination::Keyset { before, after } => {
+            if let Some(b) = before {
+                stmt = stmt.and_where(asset::Column::Id.lt(b.clone())).to_owned();
+            }
+            if let Some(a) = after {
+                stmt = stmt.and_where(asset::Column::Id.gt(a.clone())).to_owned();
+            }
+        }
+        Pagination::Page { page } => {
+            if *page > 0 {
+                stmt = stmt.offset((page - 1) * limit).to_owned();
+            }
+        }
+        Pagination::Cursor(cursor) => {
+            if *cursor != Cursor::default() {
+                if sort_direction == sea_orm::Order::Asc {
+                    stmt = stmt
+                        .and_where(asset::Column::Id.gt(cursor.id.clone()))
+                        .to_owned();
+                } else {
+                    stmt = stmt
+                        .and_where(asset::Column::Id.lt(cursor.id.clone()))
+                        .to_owned();
+                }
+            }
+        }
+    }
+    stmt = stmt.limit(limit).to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = asset::Model::find_by_statement(statment).all(conn).await?;
+
+    get_related_for_assets(conn, assets, None, options, None).await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -609,7 +835,6 @@ pub async fn get_by_id(
 
         let asset_data = asset_data::Entity::find()
             .filter(asset_data::Column::Id.is_in(group_values))
-            .order_by_asc(asset_data::Column::Id)
             .all(conn)
             .await?;
 
@@ -776,7 +1001,7 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-fn get_edition_data_from_json<T: DeserializeOwned>(data: Value) -> Result<T, DbErr> {
+fn get_edition_data_from_json<T: DeserializeOwned>(data: serde_json::Value) -> Result<T, DbErr> {
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
 }
 
