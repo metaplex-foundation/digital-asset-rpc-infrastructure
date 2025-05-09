@@ -15,9 +15,7 @@ use crate::{
 };
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
-use sea_orm::{
-    entity::*, prelude::Decimal, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order,
-};
+use sea_orm::{entity::*, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
@@ -435,10 +433,14 @@ pub async fn get_assets_by_condition(
 pub async fn get_by_id(
     conn: &impl ConnectionTrait,
     asset_id: Vec<u8>,
+    include_no_supply: bool,
     options: &Options,
 ) -> Result<FullAsset, DbErr> {
-    let asset_data =
+    let mut asset_data =
         asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
+    if !include_no_supply {
+        asset_data = asset_data.filter(Condition::all().add(asset::Column::Supply.gt(0)));
+    }
 
     let inscription = if options.show_inscription {
         get_inscription_by_mint(conn, asset_id.clone()).await.ok()
@@ -460,10 +462,6 @@ pub async fn get_by_id(
             Some((a, Some(d))) => Ok((a, d)),
             _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
         })?;
-
-    if asset.supply == Decimal::from(0) {
-        return Err(DbErr::Custom("Asset has no supply".to_string()));
-    }
 
     let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
         .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
