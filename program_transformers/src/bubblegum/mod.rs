@@ -59,6 +59,7 @@ where
         InstructionName::SetDecompressibleState => "SetDecompressibleState",
         InstructionName::UpdateMetadata => "UpdateMetadata",
         InstructionName::BurnV2 => "BurnV2",
+        InstructionName::CollectV2 => "CollectV2",
         InstructionName::CreateTreeV2 => "CreateTreeV2",
         InstructionName::DelegateAndFreezeV2 => "DelegateAndFreezeV2",
         InstructionName::DelegateV2 => "DelegateV2",
