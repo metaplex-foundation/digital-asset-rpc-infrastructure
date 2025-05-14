@@ -3,7 +3,8 @@ use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use digital_asset_types::{
     dao::{
         scopes::{
-            asset::{get_grouping, get_nft_editions},
+            grouping::get_grouping,
+            nft_edition::get_nft_editions,
             token::{get_token_largest_accounts, get_token_supply},
         },
         sea_orm_active_enums::{

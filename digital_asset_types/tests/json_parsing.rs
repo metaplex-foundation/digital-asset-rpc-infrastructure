@@ -1,6 +1,6 @@
 #[cfg(test)]
 use blockbuster::token_metadata::types::TokenStandard as TSBlockbuster;
-use digital_asset_types::dao::asset_data;
+use digital_asset_types::dao::extensions::asset;
 use digital_asset_types::dao::sea_orm_active_enums::{ChainMutability, Mutability};
 use digital_asset_types::dapi::common::v1_content_from_json;
 use digital_asset_types::json::ChainDataV1;
@@ -17,26 +17,27 @@ pub async fn load_test_json(file_name: &str) -> serde_json::Value {
 }
 
 pub async fn parse_onchain_json(json: serde_json::Value) -> Content {
-    let asset_data = asset_data::Model {
+    let asset_data = asset::Row {
         id: Keypair::new().pubkey().to_bytes().to_vec(),
-        chain_data_mutability: ChainMutability::Mutable,
-        chain_data: serde_json::to_value(ChainDataV1 {
-            name: String::from("Handalf"),
-            symbol: String::from(""),
-            edition_nonce: None,
-            primary_sale_happened: true,
-            token_standard: Some(TSBlockbuster::NonFungible),
-            uses: None,
-        })
-        .unwrap(),
-        metadata_url: String::from("some url"),
-        metadata_mutability: Mutability::Mutable,
-        metadata: json,
-        slot_updated: 0,
-        reindex: None,
+        chain_data_mutability: Some(ChainMutability::Mutable),
+        chain_data: Some(
+            serde_json::to_value(ChainDataV1 {
+                name: String::from("Handalf"),
+                symbol: String::from(""),
+                edition_nonce: None,
+                primary_sale_happened: true,
+                token_standard: Some(TSBlockbuster::NonFungible),
+                uses: None,
+            })
+            .unwrap(),
+        ),
+        metadata_url: Some(String::from("some url")),
+        metadata_mutability: Some(Mutability::Mutable),
+        metadata: Some(json),
+        slot_updated: Some(0),
         raw_name: Some(String::from("Handalf").into_bytes().to_vec()),
         raw_symbol: Some(String::from("").into_bytes().to_vec()),
-        base_info_seq: Some(0),
+        ..Default::default()
     };
 
     v1_content_from_json(&asset_data).unwrap()

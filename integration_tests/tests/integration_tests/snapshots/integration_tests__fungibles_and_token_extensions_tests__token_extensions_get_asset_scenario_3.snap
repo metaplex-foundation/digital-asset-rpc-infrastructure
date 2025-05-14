@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "FungibleToken",
@@ -41,8 +40,7 @@ snapshot_kind: text
     "frozen": false,
     "delegated": false,
     "delegate": null,
-    "ownership_model": "token",
-    "owner": ""
+    "ownership_model": "token"
   },
   "mutable": true,
   "burnt": false,

@@ -17,7 +17,7 @@ pub async fn get_asset_signatures(
     sort_direction: Option<AssetSortDirection>,
 ) -> Result<TransactionSignatureList, DbErr> {
     let pagination = create_pagination(&page_options)?;
-    let transactions = scopes::asset::get_asset_signatures(
+    let transactions = scopes::signature::get_asset_signatures(
         db,
         asset_id,
         tree,

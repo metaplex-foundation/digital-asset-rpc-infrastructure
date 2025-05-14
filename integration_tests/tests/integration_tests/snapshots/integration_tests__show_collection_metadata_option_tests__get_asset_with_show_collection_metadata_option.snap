@@ -22,8 +22,8 @@ expression: response
       "token_standard": "ProgrammableNonFungible"
     },
     "links": {
-      "external_url": "https://madlads.com",
-      "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png"
+      "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+      "external_url": "https://madlads.com"
     }
   },
   "authorities": [
@@ -67,13 +67,13 @@ expression: response
   },
   "creators": [
     {
-      "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
-      "share": 0,
+      "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+      "share": 100,
       "verified": true
     },
     {
-      "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-      "share": 100,
+      "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+      "share": 0,
       "verified": true
     }
   ],
@@ -96,6 +96,8 @@ expression: response
     "decimals": 0,
     "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "mint_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
-    "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip"
+    "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
+    "balance": 1,
+    "associated_token_address": "3crBqZZsHhoLphM55MG4KRW6SbNzFEBFnehw7PW7ZRKt"
   }
 }

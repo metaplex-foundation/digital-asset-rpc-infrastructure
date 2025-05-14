@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/cnft_tests_v2_leaf_schema.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "V1_NFT",
@@ -49,14 +48,14 @@ snapshot_kind: text
   },
   "creators": [
     {
-      "address": "H3yvcTxKeWEnFq1QEWFNeruUjfVHyz3PthhuG7jDuWfR",
-      "share": 60,
-      "verified": true
-    },
-    {
       "address": "9jYboy8ANZxBczeA3fungWHwTEgStU8EgExxDuAjrH6U",
       "share": 40,
       "verified": false
+    },
+    {
+      "address": "H3yvcTxKeWEnFq1QEWFNeruUjfVHyz3PthhuG7jDuWfR",
+      "share": 60,
+      "verified": true
     }
   ],
   "ownership": {

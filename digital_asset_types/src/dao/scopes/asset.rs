@@ -1,28 +1,21 @@
 use crate::{
     dao::{
         asset, asset_authority, asset_creators, asset_data, asset_grouping,
-        asset_v1_account_attachments, cl_audits_v2,
-        extensions::{self, instruction::PascalCase},
+        asset_v1_account_attachments, extensions,
+        extensions::asset::AssetSelectStatementExt,
         generated::sea_orm_active_enums::OwnerType,
-        sea_orm_active_enums::{Instruction, V1AccountAttachments},
-        token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
+        sea_orm_active_enums::{SpecificationAssetClass, V1AccountAttachments},
+        token_accounts, Cursor, FullAsset, Pagination, SearchAssetsQuery,
     },
-    rpc::{
-        filter::AssetSortDirection,
-        options::Options,
-        response::{NftEdition, NftEditions},
-    },
+    rpc::{filter::TokenTypeClass, options::Options},
 };
-use indexmap::IndexMap;
-use mpl_token_metadata::accounts::{Edition, MasterEdition};
 use sea_orm::{
-    prelude::Decimal,
-    sea_query::{Alias, Condition, Expr, PostgresQueryBuilder, Query, UnionType},
-    ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationDef, RelationTrait, Statement,
+    sea_query::{
+        Alias, Condition, ConditionType, Expr, PostgresQueryBuilder, SimpleExpr, UnionType, Value,
+    },
+    ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, ModelTrait, Order,
+    QueryFilter, QuerySelect, Statement,
 };
-use serde::de::DeserializeOwned;
-use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, hash::RandomState};
 
 pub fn paginate<T, C>(
@@ -65,8 +58,8 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn get_by_creator(
-    conn: &impl ConnectionTrait,
+pub async fn get_by_creator<D>(
+    conn: &D,
     creator: Vec<u8>,
     only_verified: bool,
     sort_by: Option<asset::Column>,
@@ -74,57 +67,101 @@ pub async fn get_by_creator(
     pagination: &Pagination,
     limit: u64,
     options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let mut condition = Condition::all()
-        .add(asset_creators::Column::Creator.eq(creator.clone()))
-        .add(asset::Column::Supply.gt(0));
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
+        .join(
+            JoinType::LeftJoin,
+            token_accounts::Entity,
+            Condition::all()
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Id)
+                        .equals(token_accounts::Entity, token_accounts::Column::Mint),
+                )
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                        .equals(token_accounts::Entity, token_accounts::Column::Owner),
+                ),
+        )
+        .join(
+            JoinType::LeftJoin,
+            asset_creators::Entity,
+            Expr::tbl(asset::Entity, asset::Column::Id)
+                .equals(asset_creators::Entity, asset_creators::Column::AssetId),
+        )
+        .and_where(asset_creators::Column::Creator.eq(creator.clone()))
+        .and_where(asset_creators::Column::Verified.eq(true))
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
+
     if only_verified {
-        condition = condition.add(asset_creators::Column::Verified.eq(true));
+        stmt = stmt
+            .and_where(asset_creators::Column::Verified.eq(true))
+            .to_owned();
     }
 
     if !options.show_fungible {
-        condition = condition.add(asset::Column::OwnerType.eq(OwnerType::Single));
+        stmt = stmt
+            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .to_owned();
     }
 
-    get_by_related_condition(
-        conn,
-        condition,
-        extensions::asset::Relation::AssetCreators,
-        None,
-        sort_by,
-        sort_direction,
-        pagination,
-        limit,
-        options,
-        Some(creator),
-    )
-    .await
-}
+    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
 
-pub async fn get_grouping(
-    conn: &impl ConnectionTrait,
-    group_key: String,
-    group_value: String,
-) -> Result<GroupingSize, DbErr> {
-    let size = asset_grouping::Entity::find()
-        .filter(
-            Condition::all()
-                .add(asset_grouping::Column::GroupKey.eq(group_key))
-                .add(asset_grouping::Column::GroupValue.eq(group_value))
-                .add(
-                    Condition::any()
-                        .add(asset_grouping::Column::Verified.eq(true))
-                        .add(asset_grouping::Column::Verified.is_null()),
-                ),
-        )
-        .count(conn)
+    stmt = stmt
+        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
         .await?;
-    Ok(GroupingSize { size })
+
+    get_related_for_assets(conn, assets, options, Some(creator)).await
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn get_by_grouping(
-    conn: &impl ConnectionTrait,
+pub async fn get_by_grouping<D>(
+    conn: &D,
     group_key: String,
     group_value: String,
     sort_by: Option<asset::Column>,
@@ -132,326 +169,585 @@ pub async fn get_by_grouping(
     pagination: &Pagination,
     limit: u64,
     options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let mut condition = Condition::all().add(
-        asset_grouping::Column::GroupKey
-            .eq(group_key)
-            .and(asset_grouping::Column::GroupValue.eq(group_value)),
-    );
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
+        .join(
+            JoinType::LeftJoin,
+            token_accounts::Entity,
+            Condition::all()
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Id)
+                        .equals(token_accounts::Entity, token_accounts::Column::Mint),
+                )
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                        .equals(token_accounts::Entity, token_accounts::Column::Owner),
+                ),
+        )
+        .join(
+            JoinType::LeftJoin,
+            asset_grouping::Entity,
+            Expr::tbl(asset::Entity, asset::Column::Id)
+                .equals(asset_grouping::Entity, asset_grouping::Column::AssetId),
+        )
+        .and_where(
+            asset_grouping::Column::GroupKey
+                .eq(group_key)
+                .and(asset_grouping::Column::GroupValue.eq(group_value)),
+        )
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
 
     if !options.show_unverified_collections {
-        condition = condition.add(
-            asset_grouping::Column::Verified
-                .eq(true)
-                .or(asset_grouping::Column::Verified.is_null()),
-        );
+        stmt = stmt
+            .and_where(
+                asset_grouping::Column::Verified
+                    .eq(true)
+                    .or(asset_grouping::Column::Verified.is_null()),
+            )
+            .to_owned();
     }
 
     if !options.show_fungible {
-        condition = condition.add(asset::Column::OwnerType.eq(OwnerType::Single));
+        stmt = stmt
+            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .to_owned();
     }
 
-    get_by_related_condition(
-        conn,
-        Condition::all()
-            .add(condition)
-            .add(asset::Column::Supply.gt(0)),
-        extensions::asset::Relation::AssetGrouping,
-        None,
-        sort_by,
-        sort_direction,
-        pagination,
-        limit,
-        options,
-        None,
-    )
-    .await
+    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
+
+    stmt = stmt
+        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
+        .await?;
+
+    get_related_for_assets(conn, assets, options, None).await
 }
 
-pub async fn get_assets_by_owner(
-    conn: &impl ConnectionTrait,
+pub async fn get_assets_by_owner<D>(
+    conn: &D,
     owner: Vec<u8>,
     sort_by: Option<asset::Column>,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
     options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let token_owner_query = Query::select()
-        .column((asset::Entity, asset::Column::Id))
-        .column((asset::Entity, asset::Column::AltId))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
-                .as_enum(Alias::new("TEXT")),
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut token_stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
         )
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
-                .as_enum(Alias::new("TEXT")),
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
         )
-        .column((token_accounts::Entity, token_accounts::Column::Owner))
-        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
-        .column((token_accounts::Entity, token_accounts::Column::Delegate))
-        .column((token_accounts::Entity, token_accounts::Column::Frozen))
-        .column((asset::Entity, asset::Column::Supply))
-        .column((asset::Entity, asset::Column::SupplyMint))
-        .column((asset::Entity, asset::Column::Compressed))
-        .column((asset::Entity, asset::Column::Compressible))
-        .column((asset::Entity, asset::Column::Seq))
-        .column((asset::Entity, asset::Column::TreeId))
-        .column((asset::Entity, asset::Column::Leaf))
-        .column((asset::Entity, asset::Column::Nonce))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
-                .as_enum(Alias::new("TEXT")),
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
         )
-        .column((asset::Entity, asset::Column::RoyaltyTarget))
-        .column((asset::Entity, asset::Column::RoyaltyAmount))
-        .column((asset::Entity, asset::Column::AssetData))
-        .column((asset::Entity, asset::Column::CreatedAt))
-        .column((asset::Entity, asset::Column::Burnt))
-        .column((asset::Entity, asset::Column::SlotUpdated))
-        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
-        .column((asset::Entity, asset::Column::DataHash))
-        .column((asset::Entity, asset::Column::CreatorHash))
-        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
-        .column((asset::Entity, asset::Column::LeafSeq))
-        .column((asset::Entity, asset::Column::BaseInfoSeq))
-        .column((asset::Entity, asset::Column::MintExtensions))
-        .column((asset::Entity, asset::Column::MplCorePlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
-        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
-        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
-        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
-        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
-        .column((asset::Entity, asset::Column::CollectionHash))
-        .column((asset::Entity, asset::Column::AssetDataHash))
-        .column((asset::Entity, asset::Column::BubblegumFlags))
-        .column((asset::Entity, asset::Column::NonTransferable))
-        .from(asset::Entity)
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
         .join(
-            JoinType::LeftJoin,
+            JoinType::InnerJoin,
             token_accounts::Entity,
             Expr::tbl(asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint),
         )
         .and_where(token_accounts::Column::Owner.eq(owner.to_vec()))
         .and_where(token_accounts::Column::Amount.gt(0))
-        .cond_where(
-            Condition::any()
-                .add(asset::Column::Owner.ne(owner.to_vec()))
-                .add(asset::Column::Owner.is_null()),
-        )
         .to_owned();
 
-    let mut stmt = Query::select()
-        .column((asset::Entity, asset::Column::Id))
-        .column((asset::Entity, asset::Column::AltId))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
-                .as_enum(Alias::new("TEXT")),
+    if !options.show_fungible {
+        token_stmt = token_stmt
+            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .to_owned();
+    }
+
+    let mut stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::val::<Option<Vec<u8>>>(None),
+            Alias::new("token_account_pubkey"),
         )
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
-                .as_enum(Alias::new("TEXT")),
+        .expr_as(
+            Expr::val::<Option<Vec<u8>>>(None),
+            Alias::new("token_owner"),
         )
-        .column((asset::Entity, asset::Column::Owner))
-        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
-        .column((asset::Entity, asset::Column::Delegate))
-        .column((asset::Entity, asset::Column::Frozen))
-        .column((asset::Entity, asset::Column::Supply))
-        .column((asset::Entity, asset::Column::SupplyMint))
-        .column((asset::Entity, asset::Column::Compressed))
-        .column((asset::Entity, asset::Column::Compressible))
-        .column((asset::Entity, asset::Column::Seq))
-        .column((asset::Entity, asset::Column::TreeId))
-        .column((asset::Entity, asset::Column::Leaf))
-        .column((asset::Entity, asset::Column::Nonce))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
-                .as_enum(Alias::new("TEXT")),
+        .expr_as(
+            Expr::val::<Option<Vec<u8>>>(None),
+            Alias::new("token_account_delegate"),
         )
-        .column((asset::Entity, asset::Column::RoyaltyTarget))
-        .column((asset::Entity, asset::Column::RoyaltyAmount))
-        .column((asset::Entity, asset::Column::AssetData))
-        .column((asset::Entity, asset::Column::CreatedAt))
-        .column((asset::Entity, asset::Column::Burnt))
-        .column((asset::Entity, asset::Column::SlotUpdated))
-        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
-        .column((asset::Entity, asset::Column::DataHash))
-        .column((asset::Entity, asset::Column::CreatorHash))
-        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
-        .column((asset::Entity, asset::Column::LeafSeq))
-        .column((asset::Entity, asset::Column::BaseInfoSeq))
-        .column((asset::Entity, asset::Column::MintExtensions))
-        .column((asset::Entity, asset::Column::MplCorePlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
-        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
-        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
-        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
-        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
-        .column((asset::Entity, asset::Column::CollectionHash))
-        .column((asset::Entity, asset::Column::AssetDataHash))
-        .column((asset::Entity, asset::Column::BubblegumFlags))
-        .column((asset::Entity, asset::Column::NonTransferable))
-        .from(asset::Entity)
+        .expr_as(
+            Expr::val::<Option<i64>>(None),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::val::<Option<bool>>(None),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::val::<Option<Vec<u8>>>(None),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::val::<Option<i64>>(None),
+            Alias::new("token_account_delegated_amount"),
+        )
+        .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
         .and_where(asset::Column::Owner.eq(owner.to_vec()))
         .and_where(asset::Column::Supply.gt(0))
         .to_owned();
 
-    if options.show_fungible {
-        stmt = stmt.union(UnionType::All, token_owner_query).to_owned()
-    }
+    stmt = stmt.union(UnionType::All, token_stmt).to_owned();
 
-    if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone())
-            .to_owned();
-    }
+    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
 
-    match pagination {
-        Pagination::Keyset { before, after } => {
-            if let Some(b) = before {
-                stmt = stmt.and_where(asset::Column::Id.lt(b.clone())).to_owned();
-            }
-            if let Some(a) = after {
-                stmt = stmt.and_where(asset::Column::Id.gt(a.clone())).to_owned();
-            }
-        }
-        Pagination::Page { page } => {
-            if *page > 0 {
-                stmt = stmt.offset((page - 1) * limit).to_owned();
-            }
-        }
-        Pagination::Cursor(cursor) => {
-            if *cursor != Cursor::default() {
-                if sort_direction == sea_orm::Order::Asc {
-                    stmt = stmt
-                        .and_where(asset::Column::Id.gt(cursor.id.clone()))
-                        .to_owned();
-                } else {
-                    stmt = stmt
-                        .and_where(asset::Column::Id.lt(cursor.id.clone()))
-                        .to_owned();
-                }
-            }
-        }
-    }
-    stmt = stmt.limit(limit).to_owned();
+    stmt = stmt
+        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
 
     let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
 
-    let assets = asset::Model::find_by_statement(statment).all(conn).await?;
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
+        .await?;
 
-    get_related_for_assets(conn, assets, Some(owner), options, None).await
+    get_related_for_assets(conn, assets, options, None).await
 }
 
-pub async fn get_assets(
-    conn: &impl ConnectionTrait,
-    asset_ids: Vec<Vec<u8>>,
-    pagination: &Pagination,
-    limit: u64,
-    options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let cond = Condition::all()
-        .add(asset::Column::Id.is_in(asset_ids))
-        .add(asset::Column::Supply.gt(0));
-
-    get_assets_by_condition(
-        conn,
-        cond,
-        vec![],
-        None,
-        None,
-        Order::Asc,
-        pagination,
-        limit,
-        options,
-    )
-    .await
-}
-
-pub async fn get_by_authority(
-    conn: &impl ConnectionTrait,
-    authority: Vec<u8>,
+pub async fn search_assets<D>(
+    conn: &D,
+    query: &SearchAssetsQuery,
     sort_by: Option<asset::Column>,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
     options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let mut stmt = Query::select()
-        .column((asset::Entity, asset::Column::Id))
-        .column((asset::Entity, asset::Column::AltId))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationVersion))
-                .as_enum(Alias::new("TEXT")),
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut stmt = extensions::asset::Row::select().to_owned();
+
+    if let Some(owner) = &query.owner_address {
+        stmt = stmt
+            .expr_as(
+                Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+                Alias::new("token_account_pubkey"),
+            )
+            .expr_as(
+                Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+                Alias::new("token_owner"),
+            )
+            .expr_as(
+                Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+                Alias::new("token_account_delegate"),
+            )
+            .expr_as(
+                Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+                Alias::new("token_account_amount"),
+            )
+            .expr_as(
+                Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+                Alias::new("token_account_frozen"),
+            )
+            .expr_as(
+                Expr::col((
+                    token_accounts::Entity,
+                    token_accounts::Column::CloseAuthority,
+                )),
+                Alias::new("token_account_close_authority"),
+            )
+            .expr_as(
+                Expr::col((
+                    token_accounts::Entity,
+                    token_accounts::Column::DelegatedAmount,
+                )),
+                Alias::new("token_account_delegated_amount"),
+            )
+            .join(
+                JoinType::LeftJoin,
+                token_accounts::Entity,
+                Expr::tbl(asset::Entity, asset::Column::Id)
+                    .equals(token_accounts::Entity, token_accounts::Column::Mint),
+            )
+            .cond_where(
+                Condition::any()
+                    .add(
+                        Condition::all()
+                            .add(asset::Column::Owner.eq(owner.to_vec()))
+                            .add(asset::Column::Supply.gt(0)),
+                    )
+                    .add(
+                        Condition::all()
+                            .add(token_accounts::Column::Owner.eq(owner.to_vec()))
+                            .add(token_accounts::Column::Amount.gt(0)),
+                    ),
+            )
+            .to_owned();
+    } else {
+        stmt = stmt
+            .expr_as(
+                Expr::val::<Option<Vec<u8>>>(None),
+                Alias::new("token_account_pubkey"),
+            )
+            .expr_as(
+                Expr::val::<Option<Vec<u8>>>(None),
+                Alias::new("token_owner"),
+            )
+            .expr_as(
+                Expr::val::<Option<Vec<u8>>>(None),
+                Alias::new("token_account_delegate"),
+            )
+            .expr_as(
+                Expr::val::<Option<i64>>(None),
+                Alias::new("token_account_amount"),
+            )
+            .expr_as(
+                Expr::val::<Option<bool>>(None),
+                Alias::new("token_account_frozen"),
+            )
+            .expr_as(
+                Expr::val::<Option<Vec<u8>>>(None),
+                Alias::new("token_account_close_authority"),
+            )
+            .expr_as(
+                Expr::val::<Option<i64>>(None),
+                Alias::new("token_account_delegated_amount"),
+            )
+            .and_where(asset::Column::Supply.gt(0))
+            .to_owned();
+    }
+
+    let mut conditions = match &query.condition_type {
+        None | Some(ConditionType::All) => Condition::all(),
+        Some(ConditionType::Any) => Condition::any(),
+    };
+
+    conditions = conditions
+        .add_option(
+            query
+                .specification_version
+                .as_ref()
+                .map(|x| asset::Column::SpecificationVersion.eq(x.to_owned())),
         )
-        .expr(
-            Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
-                .as_enum(Alias::new("TEXT")),
+        .add_option(query.token_type.as_ref().map(|x| {
+            match x {
+                TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                TokenTypeClass::Nft | TokenTypeClass::NonFungible => {
+                    asset::Column::TreeId.is_null().and(
+                        asset::Column::SpecificationAssetClass
+                            .eq(SpecificationAssetClass::Nft)
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::MplCoreAsset))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::ProgrammableNft))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::MplCoreCollection))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::NonTransferableNft))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::IdentityNft))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::Print))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::PrintableNft))
+                            .or(asset::Column::SpecificationAssetClass
+                                .eq(SpecificationAssetClass::TransferRestrictedNft)),
+                    )
+                }
+                TokenTypeClass::Fungible => asset::Column::SpecificationAssetClass
+                    .eq(SpecificationAssetClass::FungibleAsset)
+                    .or(asset::Column::SpecificationAssetClass
+                        .eq(SpecificationAssetClass::FungibleToken)),
+                TokenTypeClass::All => asset::Column::SpecificationAssetClass.is_not_null(),
+            }
+        }))
+        .add_option(
+            query
+                .specification_asset_class
+                .as_ref()
+                .map(|x| asset::Column::SpecificationAssetClass.eq(x.to_owned())),
         )
-        .column((asset::Entity, asset::Column::Owner))
-        .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
-        .column((asset::Entity, asset::Column::Delegate))
-        .column((asset::Entity, asset::Column::Frozen))
-        .column((asset::Entity, asset::Column::Supply))
-        .column((asset::Entity, asset::Column::SupplyMint))
-        .column((asset::Entity, asset::Column::Compressed))
-        .column((asset::Entity, asset::Column::Compressible))
-        .column((asset::Entity, asset::Column::Seq))
-        .column((asset::Entity, asset::Column::TreeId))
-        .column((asset::Entity, asset::Column::Leaf))
-        .column((asset::Entity, asset::Column::Nonce))
-        .expr(
-            Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
-                .as_enum(Alias::new("TEXT")),
+        .add_option(
+            query
+                .token_type
+                .as_ref()
+                .map(|token_type| match token_type {
+                    TokenTypeClass::Fungible => asset::Column::OwnerType.eq(OwnerType::Token),
+                    TokenTypeClass::NonFungible | TokenTypeClass::Nft => {
+                        asset::Column::OwnerType.eq(OwnerType::Single)
+                    }
+                    TokenTypeClass::Compressed => asset::Column::TreeId.is_not_null(),
+                    TokenTypeClass::All => asset::Column::OwnerType.is_not_null(),
+                }),
         )
-        .column((asset::Entity, asset::Column::RoyaltyTarget))
-        .column((asset::Entity, asset::Column::RoyaltyAmount))
-        .column((asset::Entity, asset::Column::AssetData))
-        .column((asset::Entity, asset::Column::CreatedAt))
-        .column((asset::Entity, asset::Column::Burnt))
-        .column((asset::Entity, asset::Column::SlotUpdated))
-        .column((asset::Entity, asset::Column::SlotUpdatedMetadataAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedMintAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedTokenAccount))
-        .column((asset::Entity, asset::Column::SlotUpdatedCnftTransaction))
-        .column((asset::Entity, asset::Column::DataHash))
-        .column((asset::Entity, asset::Column::CreatorHash))
-        .column((asset::Entity, asset::Column::OwnerDelegateSeq))
-        .column((asset::Entity, asset::Column::LeafSeq))
-        .column((asset::Entity, asset::Column::BaseInfoSeq))
-        .column((asset::Entity, asset::Column::MintExtensions))
-        .column((asset::Entity, asset::Column::MplCorePlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
-        .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
-        .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
-        .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
-        .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
-        .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
-        .column((asset::Entity, asset::Column::CollectionHash))
-        .column((asset::Entity, asset::Column::AssetDataHash))
-        .column((asset::Entity, asset::Column::BubblegumFlags))
-        .column((asset::Entity, asset::Column::NonTransferable))
-        .from(asset::Entity)
+        .add_option(
+            query
+                .delegate
+                .to_owned()
+                .map(|x| asset::Column::Delegate.eq(x)),
+        )
+        .add_option(query.frozen.map(|x| asset::Column::Frozen.eq(x)))
+        .add_option(
+            query
+                .supply_mint
+                .to_owned()
+                .map(|x| asset::Column::SupplyMint.eq(x)),
+        )
+        .add_option(query.compressed.map(|x| asset::Column::Compressed.eq(x)))
+        .add_option(
+            query
+                .compressible
+                .map(|x| asset::Column::Compressible.eq(x)),
+        )
+        .add_option(
+            query
+                .royalty_target_type
+                .to_owned()
+                .map(|x| asset::Column::RoyaltyTargetType.eq(x)),
+        )
+        .add_option(
+            query
+                .royalty_target
+                .to_owned()
+                .map(|x| asset::Column::RoyaltyTarget.eq(x)),
+        )
+        .add_option(
+            query
+                .royalty_amount
+                .map(|x| asset::Column::RoyaltyAmount.eq(x)),
+        )
+        .add_option(query.burnt.map(|x| asset::Column::Burnt.eq(x)));
+
+    if let Some(s) = query.supply {
+        conditions = conditions.add(asset::Column::Supply.eq(s));
+    } else {
+        conditions = conditions.add(
+            asset::Column::Supply
+                .ne(0)
+                .or(asset::Column::Burnt.eq(true)),
+        )
+    };
+
+    if let Some(o) = &query.owner_type {
+        conditions = conditions.add(asset::Column::OwnerType.eq(o.to_owned()));
+    }
+
+    if query.creator_address.is_some() || query.creator_verified.is_some() {
+        stmt = stmt
+            .join(
+                JoinType::InnerJoin,
+                asset_creators::Entity,
+                Expr::tbl(asset::Entity, asset::Column::Id)
+                    .equals(asset_creators::Entity, asset_creators::Column::AssetId),
+            )
+            .to_owned();
+    }
+
+    if let Some(c) = &query.creator_address {
+        conditions = conditions.add(asset_creators::Column::Creator.eq(c.to_owned()));
+    }
+
+    if let Some(cv) = query.creator_verified {
+        conditions = conditions.add(asset_creators::Column::Verified.eq(cv));
+    }
+
+    if let Some(a) = query.authority_address.as_ref() {
+        stmt = stmt
+            .join(
+                JoinType::InnerJoin,
+                asset_authority::Entity,
+                Expr::tbl(asset::Entity, asset::Column::Id)
+                    .equals(asset_authority::Entity, asset_authority::Column::AssetId),
+            )
+            .to_owned();
+
+        conditions = conditions.add(asset_authority::Column::Authority.eq(a.to_owned()));
+    }
+
+    if let Some((group_key, group_value)) = &query.grouping {
+        stmt = stmt
+            .join(
+                JoinType::InnerJoin,
+                asset_grouping::Entity,
+                Expr::tbl(asset::Entity, asset::Column::Id)
+                    .equals(asset_grouping::Entity, asset_grouping::Column::AssetId),
+            )
+            .to_owned();
+
+        let cond = Condition::all()
+            .add(asset_grouping::Column::GroupKey.eq(group_key.to_owned()))
+            .add(asset_grouping::Column::GroupValue.eq(group_value.to_owned()));
+
+        conditions = conditions.add(cond);
+    }
+
+    if let Some(ju) = query.json_uri.as_ref() {
+        let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju.to_owned()));
+        conditions = conditions.add(cond);
+    }
+
+    if let Some(n) = query.name.as_ref() {
+        let name_as_str = std::str::from_utf8(&n).map_err(|_| {
+            DbErr::Custom("Could not convert raw name bytes into string for comparison".to_owned())
+        })?;
+
+        let name_expr = SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
+
+        conditions = conditions.add(name_expr);
+    }
+
+    stmt = match query.negate {
+        None | Some(false) => stmt.cond_where(conditions).to_owned(),
+        Some(true) => stmt.cond_where(conditions.not()).to_owned(),
+    };
+
+    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
+
+    stmt = stmt
+        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
+        .await?;
+
+    get_related_for_assets(conn, assets, options, None).await
+}
+
+pub async fn get_assets<D>(
+    conn: &D,
+    asset_ids: Vec<Vec<u8>>,
+    pagination: &Pagination,
+    limit: u64,
+    options: &Options,
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
         .join(
             JoinType::LeftJoin,
-            asset_authority::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
-                .equals(asset_authority::Entity, asset_authority::Column::AssetId),
+            token_accounts::Entity,
+            Condition::all()
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Id)
+                        .equals(token_accounts::Entity, token_accounts::Column::Mint),
+                )
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                        .equals(token_accounts::Entity, token_accounts::Column::Owner),
+                ),
         )
-        .and_where(asset_authority::Column::Authority.eq(authority))
+        .and_where(asset::Column::Id.is_in(asset_ids))
         .and_where(asset::Column::Supply.gt(0))
         .to_owned();
 
@@ -461,140 +757,155 @@ pub async fn get_by_authority(
             .to_owned();
     }
 
-    if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone())
-            .to_owned();
-    }
+    stmt = stmt.order_by(asset::Column::Id, Order::Desc).to_owned();
 
-    match pagination {
-        Pagination::Keyset { before, after } => {
-            if let Some(b) = before {
-                stmt = stmt.and_where(asset::Column::Id.lt(b.clone())).to_owned();
-            }
-            if let Some(a) = after {
-                stmt = stmt.and_where(asset::Column::Id.gt(a.clone())).to_owned();
-            }
-        }
-        Pagination::Page { page } => {
-            if *page > 0 {
-                stmt = stmt.offset((page - 1) * limit).to_owned();
-            }
-        }
-        Pagination::Cursor(cursor) => {
-            if *cursor != Cursor::default() {
-                if sort_direction == sea_orm::Order::Asc {
-                    stmt = stmt
-                        .and_where(asset::Column::Id.gt(cursor.id.clone()))
-                        .to_owned();
-                } else {
-                    stmt = stmt
-                        .and_where(asset::Column::Id.lt(cursor.id.clone()))
-                        .to_owned();
-                }
-            }
-        }
-    }
-    stmt = stmt.limit(limit).to_owned();
+    stmt = stmt
+        .page_by(pagination, limit, &Order::Desc, asset::Column::Id)
+        .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
 
     let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
 
-    let assets = asset::Model::find_by_statement(statment).all(conn).await?;
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
+        .await?;
 
-    get_related_for_assets(conn, assets, None, options, None).await
+    get_related_for_assets(conn, assets, options, None).await
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn get_by_related_condition<E>(
-    conn: &impl ConnectionTrait,
-    condition: Condition,
-    relation: E,
-    owner: Option<Vec<u8>>,
+pub async fn get_by_authority<D>(
+    conn: &D,
+    authority: Vec<u8>,
     sort_by: Option<asset::Column>,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
     options: &Options,
+) -> Result<Vec<FullAsset>, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let mut stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
+        .join(
+            JoinType::LeftJoin,
+            token_accounts::Entity,
+            Condition::all()
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Id)
+                        .equals(token_accounts::Entity, token_accounts::Column::Mint),
+                )
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                        .equals(token_accounts::Entity, token_accounts::Column::Owner),
+                ),
+        )
+        .join(
+            JoinType::LeftJoin,
+            asset_authority::Entity,
+            Expr::tbl(asset::Entity, asset::Column::Id)
+                .equals(asset_authority::Entity, asset_authority::Column::AssetId),
+        )
+        .and_where(asset_authority::Column::Authority.eq(authority.clone()))
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
+
+    if !options.show_fungible {
+        stmt = stmt
+            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .to_owned();
+    }
+
+    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
+
+    stmt = stmt
+        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .to_owned();
+
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
+
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
+
+    let assets = extensions::asset::Row::find_by_statement(statment)
+        .all(conn)
+        .await?;
+
+    get_related_for_assets(conn, assets, options, None).await
+}
+
+pub async fn get_related_for_assets<D>(
+    conn: &D,
+    assets: Vec<extensions::asset::Row>,
+    options: &Options,
     required_creator: Option<Vec<u8>>,
 ) -> Result<Vec<FullAsset>, DbErr>
 where
-    E: RelationTrait,
+    D: ConnectionTrait + Send + Sync,
 {
-    let mut stmt = asset::Entity::find()
-        .filter(condition)
-        .join(JoinType::LeftJoin, relation.def());
-
-    if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone());
+    let mut full_assets = HashMap::new();
+    for asset in assets {
+        full_assets.insert(
+            asset.id.clone(),
+            FullAsset {
+                asset,
+                ..Default::default()
+            },
+        );
     }
 
-    let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
-        .all(conn)
-        .await?;
+    let ids = full_assets.keys().cloned().collect::<Vec<_>>();
 
-    get_related_for_assets(conn, assets, owner, options, required_creator).await
-}
-
-pub async fn get_related_for_assets(
-    conn: &impl ConnectionTrait,
-    assets: Vec<asset::Model>,
-    owner: Option<Vec<u8>>,
-    options: &Options,
-    required_creator: Option<Vec<u8>>,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let asset_ids = assets.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
-    let asset_data: Vec<asset_data::Model> = asset_data::Entity::find()
-        .filter(asset_data::Column::Id.is_in(asset_ids.clone()))
-        .all(conn)
-        .await?;
-
-    let asset_data_map = asset_data.into_iter().fold(HashMap::new(), |mut acc, ad| {
-        acc.insert(ad.id.clone(), ad);
-        acc
-    });
-
-    // Using IndexMap to preserve order.
-    let mut assets_map = assets.into_iter().fold(IndexMap::new(), |mut acc, asset| {
-        if let Some(ad) = asset
-            .asset_data
-            .clone()
-            .and_then(|ad_id| asset_data_map.get(&ad_id))
-        {
-            let id = asset.id.clone();
-            let fa = FullAsset {
-                asset,
-                data: ad.clone(),
-                ..Default::default()
-            };
-            acc.insert(id, fa);
-        };
-        acc
-    });
-
-    let ids = assets_map.keys().cloned().collect::<Vec<_>>();
-
-    // Get all creators for all assets in `assets_map``.
-    let creators = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.is_in(ids))
+    // Get all creators for all assets in `assets_map` using batch processing
+    let creators = asset_creators::Entity::find_batch()
+        .batch_in(asset_creators::Column::AssetId, ids)
         .order_by_asc(asset_creators::Column::AssetId)
         .order_by_asc(asset_creators::Column::Position)
         .all(conn)
         .await?;
 
-    // Add the creators to the assets in `asset_map``.
+    // Add the creators to the assets in `asset_map`.
     for c in creators.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&c.asset_id) {
+        if let Some(asset) = full_assets.get_mut(&c.asset_id) {
             asset.creators.push(c);
         }
     }
 
     // Filter out stale creators from each asset.
-    for (_id, asset) in assets_map.iter_mut() {
+    for (_id, asset) in full_assets.iter_mut() {
         filter_out_stale_creators(&mut asset.creators);
     }
 
@@ -603,85 +914,59 @@ pub async fn get_related_for_assets(
     // have the required creator.  This corrects `getAssetByCreators` from returning assets for
     // which the required creator is no longer in the creator array.
     if let Some(required) = required_creator {
-        assets_map.retain(|_id, asset| asset.creators.iter().any(|c| c.creator == required));
+        full_assets.retain(|_id, asset| asset.creators.iter().any(|c| c.creator == required));
     }
 
-    let ids = assets_map.keys().cloned().collect::<Vec<_>>();
-    let authorities = asset_authority::Entity::find()
-        .filter(asset_authority::Column::AssetId.is_in(ids.clone()))
+    let ids = full_assets.keys().cloned().collect::<Vec<_>>();
+
+    let authorities = asset_authority::Entity::find_batch()
+        .batch_in(asset_authority::Column::AssetId, ids.clone())
         .all(conn)
         .await?;
     for a in authorities.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&a.asset_id) {
+        if let Some(asset) = full_assets.get_mut(&a.asset_id) {
             asset.authorities.push(a);
         }
     }
 
-    let mut token_account_condition = Condition::all();
-
-    let mut asset_owners: Vec<Vec<u8>> = Vec::new();
-
-    for id in asset_ids.iter() {
-        if let Some(asset) = assets_map.get(id) {
-            if let Some(owner) = asset.asset.owner.clone() {
-                asset_owners.push(owner);
-            }
-        }
-    }
-
-    if let Some(query_owner) = owner {
-        token_account_condition =
-            token_account_condition.add(token_accounts::Column::Owner.eq(query_owner));
-    } else {
-        token_account_condition =
-            token_account_condition.add(token_accounts::Column::Owner.is_in(asset_owners));
-    };
-
-    let token_accounts = tokens::Entity::find()
-        .find_also_related(token_accounts::Entity)
-        .filter(tokens::Column::Mint.is_in(asset_ids.clone()))
-        .filter(token_account_condition)
-        .filter(token_accounts::Column::Amount.gt(0))
-        .all(conn)
-        .await?;
-
-    for (t, ta) in token_accounts.into_iter() {
-        if let Some(asset) = assets_map.get_mut(&t.mint) {
-            if let Some(ta) = ta {
-                asset.asset.owner = Some(ta.owner.clone());
-                asset.token_account = Some(ta);
-            }
-            asset.mint = Some(t.clone());
-        }
-    }
-
-    let cond = if options.show_unverified_collections {
-        Condition::all()
-    } else {
-        Condition::any()
-            .add(asset_grouping::Column::Verified.eq(true))
-            // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
-            // Therefore if verified is null, we can assume that the group is verified.
-            .add(asset_grouping::Column::Verified.is_null())
-    };
-
-    let grouping_base_query = asset_grouping::Entity::find()
-        .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(cond);
-
     if options.show_inscription {
         let attachments = asset_v1_account_attachments::Entity::find()
-            .filter(asset_v1_account_attachments::Column::AssetId.is_in(asset_ids))
+            .filter(asset_v1_account_attachments::Column::AssetId.is_in(ids.clone()))
+            .filter(
+                asset_v1_account_attachments::Column::AttachmentType
+                    .eq(V1AccountAttachments::TokenInscription),
+            )
             .all(conn)
             .await?;
 
         for a in attachments.into_iter() {
-            if let Some(asset) = assets_map.get_mut(&a.id) {
-                asset.inscription = Some(a);
+            if let Some(asset_id) = a.asset_id.as_ref() {
+                if let Some(asset) = full_assets.get_mut(asset_id) {
+                    asset.inscription = Some(a);
+                }
             }
         }
     }
+
+    let cond = if options.show_unverified_collections {
+        None
+    } else {
+        Some(
+            Condition::any()
+                .add(asset_grouping::Column::Verified.eq(true))
+                // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
+                // Therefore if verified is null, we can assume that the group is verified.
+                .add(asset_grouping::Column::Verified.is_null()),
+        )
+    };
+
+    let grouping_base_query = asset_grouping::Entity::find_batch()
+        .batch_in(asset_grouping::Column::AssetId, ids.clone())
+        .filter(
+            Condition::all()
+                .add(asset_grouping::Column::GroupValue.is_not_null())
+                .add_option(cond),
+        );
 
     if options.show_collection_metadata {
         let groups = grouping_base_query.all(conn).await?;
@@ -696,8 +981,8 @@ pub async fn get_related_for_assets(
             })
             .collect::<Vec<_>>();
 
-        let asset_data = asset_data::Entity::find()
-            .filter(asset_data::Column::Id.is_in(group_values))
+        let asset_data = asset_data::Entity::find_batch()
+            .batch_in(asset_data::Column::Id, group_values)
             .all(conn)
             .await?;
 
@@ -709,7 +994,7 @@ pub async fn get_related_for_assets(
         );
 
         for g in groups.into_iter() {
-            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+            if let Some(asset) = full_assets.get_mut(&g.asset_id) {
                 let a = g.group_value.as_ref().and_then(|g| {
                     bs58::decode(g)
                         .into_vec()
@@ -724,248 +1009,96 @@ pub async fn get_related_for_assets(
     } else {
         let single_group_query = grouping_base_query.all(conn).await?;
         for g in single_group_query.into_iter() {
-            if let Some(asset) = assets_map.get_mut(&g.asset_id) {
+            if let Some(asset) = full_assets.get_mut(&g.asset_id) {
                 asset.groups.push((g, None));
             }
         }
     };
 
-    Ok(assets_map.into_iter().map(|(_, v)| v).collect())
+    Ok(full_assets.into_iter().map(|(_, v)| v).collect())
 }
 
-#[allow(clippy::too_many_arguments)]
-pub async fn get_assets_by_condition(
-    conn: &impl ConnectionTrait,
-    condition: Condition,
-    joins: Vec<RelationDef>,
-    owner: Option<Vec<u8>>,
-    sort_by: Option<asset::Column>,
-    sort_direction: Order,
-    pagination: &Pagination,
-    limit: u64,
-    options: &Options,
-) -> Result<Vec<FullAsset>, DbErr> {
-    let mut stmt = asset::Entity::find();
-    for def in joins {
-        stmt = stmt.join(JoinType::LeftJoin, def);
-    }
-    stmt = stmt.filter(condition);
-    if let Some(col) = sort_by {
-        stmt = stmt
-            .order_by(col, sort_direction.clone())
-            .order_by(asset::Column::Id, sort_direction.clone());
-    }
-
-    let assets = paginate(pagination, limit, stmt, sort_direction, asset::Column::Id)
-        .all(conn)
-        .await?;
-
-    let full_assets = get_related_for_assets(conn, assets, owner, options, None).await?;
-    Ok(full_assets)
-}
-
-pub async fn get_by_id(
-    conn: &impl ConnectionTrait,
+pub async fn get_by_id<D>(
+    conn: &D,
     asset_id: Vec<u8>,
     options: &Options,
-) -> Result<FullAsset, DbErr> {
-    let asset_data =
-        asset::Entity::find_by_id(asset_id.clone()).find_also_related(asset_data::Entity);
-
-    let inscription = if options.show_inscription {
-        get_inscription_by_mint(conn, asset_id.clone()).await.ok()
-    } else {
-        None
-    };
-
-    let mint = tokens::Entity::find()
-        .filter(tokens::Column::Mint.eq(asset_id.clone()))
-        .filter(tokens::Column::Supply.gt(0))
-        .one(conn)
-        .await?;
-
-    let (asset, data): (asset::Model, asset_data::Model) =
-        asset_data.one(conn).await.and_then(|o| match o {
-            Some((a, Some(d))) => Ok((a, d)),
-            _ => Err(DbErr::RecordNotFound("Asset Not Found".to_string())),
-        })?;
-
-    if asset.supply == Decimal::from(0) {
-        return Err(DbErr::Custom("Asset has no supply".to_string()));
-    }
-
-    let authorities: Vec<asset_authority::Model> = asset_authority::Entity::find()
-        .filter(asset_authority::Column::AssetId.eq(asset.id.clone()))
-        .order_by_asc(asset_authority::Column::AssetId)
-        .all(conn)
-        .await?;
-
-    let mut creators: Vec<asset_creators::Model> = asset_creators::Entity::find()
-        .filter(asset_creators::Column::AssetId.eq(asset.id.clone()))
-        .order_by_asc(asset_creators::Column::Position)
-        .all(conn)
-        .await?;
-
-    filter_out_stale_creators(&mut creators);
-
-    let grouping_query = asset_grouping::Entity::find()
-        .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
-        .filter(
-            Condition::any()
-                .add(asset_grouping::Column::Verified.eq(true))
-                // Older versions of the indexer did not have the verified flag. A group would be present if and only if it was verified.
-                // Therefore if verified is null, we can assume that the group is verified.
-                .add(asset_grouping::Column::Verified.is_null()),
+) -> Result<FullAsset, DbErr>
+where
+    D: ConnectionTrait + Send + Sync,
+{
+    let stmt = extensions::asset::Row::select()
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Pubkey)),
+            Alias::new("token_account_pubkey"),
         )
-        .order_by_asc(asset_grouping::Column::AssetId);
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Owner)),
+            Alias::new("token_owner"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Delegate)),
+            Alias::new("token_account_delegate"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Amount)),
+            Alias::new("token_account_amount"),
+        )
+        .expr_as(
+            Expr::col((token_accounts::Entity, token_accounts::Column::Frozen)),
+            Alias::new("token_account_frozen"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::CloseAuthority,
+            )),
+            Alias::new("token_account_close_authority"),
+        )
+        .expr_as(
+            Expr::col((
+                token_accounts::Entity,
+                token_accounts::Column::DelegatedAmount,
+            )),
+            Alias::new("token_account_delegated_amount"),
+        )
+        .expr_as(
+            Expr::val::<Option<V1AccountAttachments>>(None),
+            Alias::new("asset_attachment_type"),
+        )
+        .expr_as(
+            Expr::val::<Option<bool>>(None),
+            Alias::new("asset_attachment_initalized"),
+        )
+        .join(
+            JoinType::LeftJoin,
+            token_accounts::Entity,
+            Condition::all()
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Id)
+                        .equals(token_accounts::Entity, token_accounts::Column::Mint),
+                )
+                .add(
+                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                        .equals(token_accounts::Entity, token_accounts::Column::Owner),
+                ),
+        )
+        .and_where(asset::Column::Id.eq(asset_id.clone()))
+        .and_where(asset::Column::Supply.gt(0))
+        .to_owned();
 
-    let groups = if options.show_collection_metadata {
-        let groups = grouping_query.all(conn).await?;
+    let (sql, values) = stmt.build(PostgresQueryBuilder);
 
-        let group_values = groups
-            .iter()
-            .filter_map(|group| {
-                group
-                    .group_value
-                    .as_ref()
-                    .and_then(|g| bs58::decode(g).into_vec().ok())
-            })
-            .collect::<Vec<_>>();
+    let statment = Statement::from_sql_and_values(sea_orm::DatabaseBackend::Postgres, &sql, values);
 
-        let asset_data = asset_data::Entity::find()
-            .filter(asset_data::Column::Id.is_in(group_values))
-            .all(conn)
-            .await?;
+    let asset = extensions::asset::Row::find_by_statement(statment)
+        .one(conn)
+        .await?
+        .ok_or(DbErr::RecordNotFound("Asset not found".to_string()))?;
 
-        let asset_data_map: HashMap<_, _, RandomState> = HashMap::from_iter(
-            asset_data
-                .into_iter()
-                .map(|ad| (ad.id.clone(), ad))
-                .collect::<Vec<_>>(),
-        );
-
-        let mut groups_tup = Vec::new();
-        for g in groups.into_iter() {
-            let a = g.group_value.as_ref().and_then(|g| {
-                bs58::decode(g)
-                    .into_vec()
-                    .ok()
-                    .and_then(|v| asset_data_map.get(&v))
-                    .cloned()
-            });
-
-            groups_tup.push((g, a));
-        }
-
-        groups_tup
-    } else {
-        grouping_query
-            .all(conn)
-            .await?
-            .into_iter()
-            .map(|g| (g, None))
-            .collect::<Vec<_>>()
-    };
-
-    Ok(FullAsset {
-        asset,
-        data,
-        authorities,
-        creators,
-        inscription,
-        groups,
-        mint,
-        ..Default::default()
-    })
-}
-
-pub async fn fetch_transactions(
-    conn: &impl ConnectionTrait,
-    tree: Vec<u8>,
-    leaf_idx: i64,
-    pagination: &Pagination,
-    limit: u64,
-    sort_direction: Option<AssetSortDirection>,
-) -> Result<Vec<(String, String)>, DbErr> {
-    // Default sort direction is Desc
-    // Similar to GetSignaturesForAddress in the Solana API
-    let sort_direction = sort_direction.unwrap_or(AssetSortDirection::Desc);
-    let sort_order = match sort_direction {
-        AssetSortDirection::Asc => sea_orm::Order::Asc,
-        AssetSortDirection::Desc => sea_orm::Order::Desc,
-    };
-
-    let mut stmt = cl_audits_v2::Entity::find().filter(cl_audits_v2::Column::Tree.eq(tree));
-    stmt = stmt.filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
-    stmt = stmt.order_by(cl_audits_v2::Column::Seq, sort_order.clone());
-
-    stmt = paginate(
-        pagination,
-        limit,
-        stmt,
-        sort_order,
-        cl_audits_v2::Column::Seq,
-    );
-    let transactions = stmt.all(conn).await?;
-    let transaction_list = transactions
-        .into_iter()
-        .map(|transaction| {
-            let tx = bs58::encode(transaction.tx).into_string();
-            let ix = Instruction::to_pascal_case(&transaction.instruction).to_string();
-            (tx, ix)
-        })
-        .collect();
-
-    Ok(transaction_list)
-}
-
-pub async fn get_asset_signatures(
-    conn: &impl ConnectionTrait,
-    asset_id: Option<Vec<u8>>,
-    tree_id: Option<Vec<u8>>,
-    leaf_idx: Option<i64>,
-    pagination: &Pagination,
-    limit: u64,
-    sort_direction: Option<AssetSortDirection>,
-) -> Result<Vec<(String, String)>, DbErr> {
-    // if tree_id and leaf_idx are provided, use them directly to fetch transactions
-    if let (Some(tree_id), Some(leaf_idx)) = (tree_id, leaf_idx) {
-        let transactions =
-            fetch_transactions(conn, tree_id, leaf_idx, pagination, limit, sort_direction).await?;
-        return Ok(transactions);
-    }
-
-    if asset_id.is_none() {
-        return Err(DbErr::Custom(
-            "Either 'id' or both 'tree' and 'leafIndex' must be provided".to_string(),
-        ));
-    }
-
-    // if only asset_id is provided, fetch the latest tree and leaf_idx (asset.nonce) for the asset
-    // and use them to fetch transactions
-    let stmt = asset::Entity::find()
-        .distinct_on([(asset::Entity, asset::Column::Id)])
-        .filter(asset::Column::Id.eq(asset_id))
-        .order_by(asset::Column::Id, Order::Desc)
-        .limit(1);
-    let asset = stmt.one(conn).await?;
-    if let Some(asset) = asset {
-        let tree = asset
-            .tree_id
-            .ok_or(DbErr::RecordNotFound("Tree not found".to_string()))?;
-        if tree.is_empty() {
-            return Err(DbErr::Custom("Empty tree for asset".to_string()));
-        }
-        let leaf_idx = asset
-            .nonce
-            .ok_or(DbErr::RecordNotFound("Leaf ID does not exist".to_string()))?;
-        let transactions =
-            fetch_transactions(conn, tree, leaf_idx, pagination, limit, sort_direction).await?;
-        Ok(transactions)
-    } else {
-        Ok(Vec::new())
-    }
+    Ok(get_related_for_assets(conn, vec![asset], options, None)
+        .await?
+        .pop()
+        .ok_or(DbErr::RecordNotFound("Asset not found".to_string()))?)
 }
 
 fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
@@ -1001,130 +1134,174 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-fn get_edition_data_from_json<T: DeserializeOwned>(data: serde_json::Value) -> Result<T, DbErr> {
-    serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
+pub struct SelectBatch<E, C>
+where
+    E: EntityTrait,
+    C: ColumnTrait + Into<E::Column>,
+{
+    column: Option<C>,
+    batch_size: usize,
+    values: Option<Vec<Value>>,
+    orderings: Vec<(E::Column, Order)>,
+    filters: Vec<Condition>,
 }
 
-fn attachment_to_nft_edition(
-    attachment: asset_v1_account_attachments::Model,
-) -> Result<NftEdition, DbErr> {
-    let data: Edition = attachment
-        .data
-        .clone()
-        .ok_or(DbErr::RecordNotFound("Edition data not found".to_string()))
-        .map(get_edition_data_from_json)??;
-
-    Ok(NftEdition {
-        mint_address: attachment
-            .asset_id
-            .clone()
-            .map(|id| bs58::encode(id).into_string())
-            .unwrap_or("".to_string()),
-        edition_number: data.edition,
-        edition_address: bs58::encode(attachment.id.clone()).into_string(),
-    })
+#[derive(Debug)]
+pub enum SelectBatchError {
+    NoValuesProvided,
+    ColumnNotSet,
+    UnsupportedColumnType(String),
+    DbError(DbErr),
 }
 
-pub async fn get_nft_editions(
-    conn: &impl ConnectionTrait,
-    mint_address: Pubkey,
-    pagination: &Pagination,
-    limit: u64,
-) -> Result<NftEditions, DbErr> {
-    let master_edition_pubkey = MasterEdition::find_pda(&mint_address).0;
+impl From<DbErr> for SelectBatchError {
+    fn from(err: DbErr) -> Self {
+        SelectBatchError::DbError(err)
+    }
+}
 
-    // to fetch nft editions associated with a mint we need to fetch the master edition first
-    let master_edition =
-        asset_v1_account_attachments::Entity::find_by_id(master_edition_pubkey.to_bytes().to_vec())
-            .one(conn)
-            .await?
-            .ok_or(DbErr::RecordNotFound(
-                "Master Edition not found".to_string(),
-            ))?;
+impl<E, C> SelectBatch<E, C>
+where
+    E: EntityTrait,
+    C: ColumnTrait + Into<E::Column>,
+{
+    const DEFAULT_BATCH_SIZE: usize = 100;
 
-    let master_edition_data: MasterEdition = master_edition
-        .data
-        .clone()
-        .ok_or(DbErr::RecordNotFound(
-            "Master Edition data not found".to_string(),
-        ))
-        .map(get_edition_data_from_json)??;
-
-    let mut stmt = asset_v1_account_attachments::Entity::find();
-
-    stmt = stmt.filter(
-        asset_v1_account_attachments::Column::AttachmentType
-            .eq(V1AccountAttachments::Edition)
-            // The data field is a JSON field that contains the edition data.
-            .and(asset_v1_account_attachments::Column::Data.is_not_null())
-            // The parent field is a string field that contains the master edition pubkey ( mapping edition to master edition )
-            .and(Expr::cust(&format!(
-                "data->>'parent' = '{}'",
-                master_edition_pubkey
-            ))),
-    );
-
-    let nft_editions = paginate(
-        pagination,
-        limit,
-        stmt,
-        Order::Asc,
-        asset_v1_account_attachments::Column::Id,
-    )
-    .all(conn)
-    .await?
-    .into_iter()
-    .map(attachment_to_nft_edition)
-    .collect::<Result<Vec<NftEdition>, _>>()?;
-
-    let (page, before, after, cursor) = match pagination {
-        Pagination::Keyset { before, after } => {
-            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
-            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
-            (None, bef, aft, None)
+    pub fn new() -> Self {
+        Self {
+            column: None,
+            batch_size: Self::DEFAULT_BATCH_SIZE,
+            values: None,
+            orderings: Vec::new(),
+            filters: Vec::new(),
         }
-        Pagination::Page { page } => (Some(*page as u32), None, None, None),
-        Pagination::Cursor(_) => {
-            if let Some(last_asset) = nft_editions.last() {
-                let cursor_str = last_asset.edition_address.clone();
-                (None, None, None, Some(cursor_str))
-            } else {
-                (None, None, None, None)
+    }
+
+    pub fn with_batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size;
+        self
+    }
+
+    pub fn batch_in<V>(mut self, column: C, values: Vec<V>) -> Self
+    where
+        V: Into<Value> + Clone,
+    {
+        let values: Vec<Value> = values.into_iter().map(|v| v.into()).collect();
+        self.values = Some(values.clone());
+        self.column = Some(column);
+        self
+    }
+
+    pub fn order_by_asc<O>(mut self, column: O) -> Self
+    where
+        O: Into<E::Column>,
+    {
+        self.orderings.push((column.into(), Order::Asc));
+        self
+    }
+
+    pub fn order_by_desc<O>(mut self, column: O) -> Self
+    where
+        O: Into<E::Column>,
+    {
+        self.orderings.push((column.into(), Order::Desc));
+        self
+    }
+
+    pub fn filter(mut self, filter: Condition) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
+    pub async fn all<'a, D>(self, db: &'a D) -> Result<Vec<E::Model>, SelectBatchError>
+    where
+        D: ConnectionTrait + Send + Sync + 'a,
+    {
+        let values = self.values.ok_or(SelectBatchError::NoValuesProvided)?;
+        let column = self.column.ok_or(SelectBatchError::ColumnNotSet)?;
+
+        let futures = values.chunks(self.batch_size).map(move |chunk| {
+            let mut query = E::find().filter(column.is_in(chunk.to_vec()));
+            for filter in &self.filters {
+                query = query.filter(filter.clone());
             }
-        }
-    };
+            async move { query.all(db).await.map_err(SelectBatchError::from) }
+        });
 
-    Ok(NftEditions {
-        total: nft_editions.len() as u32,
-        master_edition_address: master_edition_pubkey.to_string(),
-        supply: master_edition_data.supply,
-        max_supply: master_edition_data.max_supply,
-        editions: nft_editions,
-        limit: limit as u32,
-        page,
-        before,
-        after,
-        cursor,
-    })
+        let results = futures::future::join_all(futures).await;
+        let mut all_models = results
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        if !self.orderings.is_empty() {
+            let cmp = |a: &Value, b: &Value| -> Result<std::cmp::Ordering, SelectBatchError> {
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => Ok(a.cmp(b)),
+                    (Value::BigInt(a), Value::BigInt(b)) => Ok(a.cmp(b)),
+                    (Value::Double(a), Value::Double(b)) => {
+                        Ok(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    }
+                    (Value::String(a), Value::String(b)) => Ok(a.cmp(b)),
+                    (Value::Bytes(a), Value::Bytes(b)) => Ok(a.cmp(b)),
+                    (Value::Bool(a), Value::Bool(b)) => Ok(a.cmp(b)),
+                    (Value::Json(a), Value::Json(b)) => {
+                        Ok(format!("{:?}", a).cmp(&format!("{:?}", b)))
+                    }
+                    _ => Err(SelectBatchError::UnsupportedColumnType(format!(
+                        "Cannot sort by column type: {:?}",
+                        a
+                    ))),
+                }
+            };
+            all_models.sort_by(|a, b| {
+                for (col, order) in &self.orderings {
+                    let a_val = a.get(col.clone());
+                    let b_val = b.get(col.clone());
+                    let ordering = match order {
+                        Order::Asc => cmp(&a_val, &b_val).unwrap_or(std::cmp::Ordering::Equal),
+                        Order::Desc => cmp(&b_val, &a_val).unwrap_or(std::cmp::Ordering::Equal),
+                        Order::Field(_) => cmp(&a_val, &b_val).unwrap_or(std::cmp::Ordering::Equal),
+                    };
+                    if ordering != std::cmp::Ordering::Equal {
+                        return ordering;
+                    }
+                }
+                std::cmp::Ordering::Equal
+            });
+        }
+
+        Ok(all_models)
+    }
 }
 
-async fn get_inscription_by_mint(
-    conn: &impl ConnectionTrait,
-    mint: Vec<u8>,
-) -> Result<asset_v1_account_attachments::Model, DbErr> {
-    asset_v1_account_attachments::Entity::find()
-        .filter(
-            asset_v1_account_attachments::Column::Data
-                .is_not_null()
-                .and(Expr::cust(&format!(
-                    "data->>'root' = '{}'",
-                    bs58::encode(mint).into_string()
-                ))),
-        )
-        .one(conn)
-        .await
-        .and_then(|o| match o {
-            Some(t) => Ok(t),
-            _ => Err(DbErr::RecordNotFound("Inscription Not Found".to_string())),
-        })
+pub trait EntityBatchExt: EntityTrait {
+    fn find_batch<C>() -> SelectBatch<Self, C>
+    where
+        C: ColumnTrait + Into<Self::Column>;
+}
+
+impl<E> EntityBatchExt for E
+where
+    E: EntityTrait,
+{
+    fn find_batch<C>() -> SelectBatch<Self, C>
+    where
+        C: ColumnTrait + Into<Self::Column>,
+    {
+        SelectBatch::new()
+    }
+}
+
+impl From<SelectBatchError> for DbErr {
+    fn from(err: SelectBatchError) -> Self {
+        match err {
+            SelectBatchError::DbError(e) => e,
+            SelectBatchError::NoValuesProvided => DbErr::Custom("No values provided".to_string()),
+            SelectBatchError::ColumnNotSet => DbErr::Custom("Column not set".to_string()),
+            SelectBatchError::UnsupportedColumnType(msg) => DbErr::Custom(msg),
+        }
+    }
 }

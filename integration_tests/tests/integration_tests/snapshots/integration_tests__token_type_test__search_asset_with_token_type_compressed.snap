@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/token_type_test.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 1,

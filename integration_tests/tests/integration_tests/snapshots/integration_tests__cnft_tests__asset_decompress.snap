@@ -50,13 +50,13 @@ expression: response
   },
   "creators": [
     {
-      "address": "8dpwoPxMkCd9LnsDEbrRuBL5sw3mqcWLf9vPcwgpeRMS",
-      "share": 100,
+      "address": "2kKisVa2VmNk6iA2avQpZdDXtDGBWgzEE9ib7iWmKemw",
+      "share": 0,
       "verified": false
     },
     {
-      "address": "2kKisVa2VmNk6iA2avQpZdDXtDGBWgzEE9ib7iWmKemw",
-      "share": 0,
+      "address": "8dpwoPxMkCd9LnsDEbrRuBL5sw3mqcWLf9vPcwgpeRMS",
+      "share": 100,
       "verified": false
     },
     {
@@ -84,6 +84,8 @@ expression: response
     "decimals": 0,
     "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "mint_authority": "Efi1oabSQtJ2uNC83d6yjKW4Z94FuxoX9nYmadJFSRSe",
-    "freeze_authority": "Efi1oabSQtJ2uNC83d6yjKW4Z94FuxoX9nYmadJFSRSe"
+    "freeze_authority": "Efi1oabSQtJ2uNC83d6yjKW4Z94FuxoX9nYmadJFSRSe",
+    "balance": 1,
+    "associated_token_address": "B5PfwkTK4WQtm5wqmb8ViTXiw9bvQgaJwVSbtssbmRvJ"
   }
 }

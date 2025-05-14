@@ -14,12 +14,11 @@ pub async fn search_assets(
 ) -> Result<AssetList, DbErr> {
     let pagination = create_pagination(page_options)?;
     let (sort_direction, sort_column) = create_sorting(sorting);
-    let (condition, joins) = search_assets_query.conditions()?;
-    let assets = scopes::asset::get_assets_by_condition(
+    search_assets_query.validate()?;
+
+    let assets = scopes::asset::search_assets(
         db,
-        condition,
-        joins,
-        search_assets_query.owner_address,
+        &search_assets_query,
         sort_column,
         sort_direction,
         &pagination,
@@ -27,6 +26,7 @@ pub async fn search_assets(
         options,
     )
     .await?;
+
     Ok(build_asset_response(
         assets,
         page_options.limit,

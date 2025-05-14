@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/token_type_test.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 1,
@@ -55,7 +54,7 @@ snapshot_kind: text
         "delegated": false,
         "delegate": null,
         "ownership_model": "token",
-        "owner": ""
+        "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g"
       },
       "mutable": true,
       "burnt": false,

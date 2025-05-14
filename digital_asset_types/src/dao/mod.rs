@@ -78,7 +78,7 @@ pub struct SearchAssetsQuery {
 }
 
 impl SearchAssetsQuery {
-    fn validate(&self) -> Result<(), DbErr> {
+    pub fn validate(&self) -> Result<(), DbErr> {
         if self.token_type.is_some() {
             if self.owner_type.is_some() {
                 return Err(DbErr::Custom(

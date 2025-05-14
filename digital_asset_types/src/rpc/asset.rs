@@ -296,10 +296,11 @@ pub struct Creator {
     pub verified: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema, Default)]
 pub enum OwnershipModel {
     #[serde(rename = "single")]
     Single,
+    #[default]
     #[serde(rename = "token")]
     Token,
 }
@@ -325,7 +326,7 @@ impl From<OwnerType> for OwnershipModel {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Ownership {
     pub frozen: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -333,7 +334,8 @@ pub struct Ownership {
     pub delegated: bool,
     pub delegate: Option<String>,
     pub ownership_model: OwnershipModel,
-    pub owner: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -401,7 +403,7 @@ pub struct TokenInscriptionInfo {
     pub validation_hash: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct TokenInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supply: Option<u64>,
@@ -435,8 +437,7 @@ pub struct Asset {
     pub royalty: Option<Royalty>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ownership: Option<Ownership>,
+    pub ownership: Ownership,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uses: Option<Uses>,
     #[serde(skip_serializing_if = "Option::is_none")]
