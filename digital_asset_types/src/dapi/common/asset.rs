@@ -177,16 +177,22 @@ pub fn safe_select<'a>(
 }
 
 pub fn v1_content_from_json(asset_data: &extensions::asset::Row) -> Result<Content, DbErr> {
-    // todo -> move this to the bg worker for pre processing
     let json_uri = asset_data
         .metadata_url
         .as_ref()
-        .expect("Metadata url")
+        .ok_or_else(|| DbErr::Custom("Metadata URL not found".to_string()))?
         .clone();
-    let metadata = &asset_data.metadata.as_ref().expect("Metadata");
+    let metadata = asset_data
+        .metadata
+        .as_ref()
+        .ok_or_else(|| DbErr::Custom("Metadata not found".to_string()))?;
     let mut selector_fn = jsonpath_lib::selector(metadata);
-    let mut chain_data_selector_fn =
-        jsonpath_lib::selector(asset_data.chain_data.as_ref().expect("Chain data"));
+    let mut chain_data_selector_fn = jsonpath_lib::selector(
+        asset_data
+            .chain_data
+            .as_ref()
+            .ok_or_else(|| DbErr::Custom("Chain data not found".to_string()))?,
+    );
     let selector = &mut selector_fn;
     let chain_data_selector = &mut chain_data_selector_fn;
     let mut meta: MetadataMap = MetadataMap::new();
@@ -391,34 +397,36 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_groups = to_grouping(groups, options)?;
     let interface = get_interface(&asset)?;
     let content = get_content(&asset);
-    let chain_data = asset
-        .chain_data
-        .as_ref()
-        .ok_or(DbErr::Custom("Chain data not found".to_string()))?;
-    let mut chain_data_selector_fn = jsonpath_lib::selector(chain_data);
-    let chain_data_selector = &mut chain_data_selector_fn;
 
-    let edition_nonce =
-        safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
-    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let mutable = asset
-        .chain_data_mutability
-        .as_ref()
-        .ok_or(DbErr::Custom("Chain data mutability not found".to_string()))?
-        .clone()
-        .into();
-    let uses = chain_data.get("uses").map(|u| Uses {
-        use_method: u
-            .get("use_method")
-            .and_then(|s| s.as_str())
-            .unwrap_or("Single")
-            .to_string()
-            .into(),
-        total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
-        remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
-    });
+    let mut edition_nonce = None;
+    let mut basis_points = false;
+    let mut uses = None;
+    let mut mutable = false;
+
+    if let Some(chain_data) = &asset.chain_data {
+        let mut chain_data_selector_fn = jsonpath_lib::selector(chain_data);
+        let chain_data_selector = &mut chain_data_selector_fn;
+
+        edition_nonce =
+            safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
+        basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        uses = chain_data.get("uses").map(|u| Uses {
+            use_method: u
+                .get("use_method")
+                .and_then(|s| s.as_str())
+                .unwrap_or("Single")
+                .to_string()
+                .into(),
+            total: u.get("total").and_then(|t| t.as_u64()).unwrap_or(0),
+            remaining: u.get("remaining").and_then(|t| t.as_u64()).unwrap_or(0),
+        });
+    }
+
+    if let Some(mutability) = &asset.chain_data_mutability {
+        mutable = mutability.clone().into();
+    }
 
     let mpl_core_info = match interface {
         Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
