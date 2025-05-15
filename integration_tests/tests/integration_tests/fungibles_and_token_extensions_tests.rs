@@ -1,8 +1,5 @@
 use super::common::*;
-use das_api::{
-    api::{self, ApiContract},
-    error::DasApiError,
-};
+use das_api::api::{self, ApiContract};
 use function_name::named;
 use itertools::Itertools;
 use serial_test::serial;

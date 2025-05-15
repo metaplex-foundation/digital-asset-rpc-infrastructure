@@ -18,6 +18,7 @@ use sea_orm::{
     ActiveEnum, ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
     QueryFilter, QueryOrder, QuerySelect, Statement,
 };
+
 use std::{collections::HashMap, hash::RandomState};
 
 pub fn paginate<T, C>(
@@ -139,16 +140,16 @@ where
         .join(
             JoinType::LeftJoin,
             tokens::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(tokens::Entity, tokens::Column::Mint),
         )
         .join(
             JoinType::LeftJoin,
             token_accounts::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint)
                 .and(
-                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                         .equals(token_accounts::Entity, token_accounts::Column::Owner),
                 )
                 .and(token_accounts::Column::Amount.gt(0)),
@@ -156,20 +157,17 @@ where
         .join(
             JoinType::InnerJoin,
             asset_creators::Entity,
-            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
-                .equals(asset_creators::Entity, asset_creators::Column::AssetId)
-                .and(asset_creators::Column::Creator.eq(creator.clone()))
-                .and(asset_creators::Column::Verified.eq(true)),
+            Condition::all()
+                .add(
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                        .equals(asset_creators::Entity, asset_creators::Column::AssetId)
+                        .and(asset_creators::Column::Creator.eq(creator.clone())),
+                )
+                .add_option(only_verified.then(|| asset_creators::Column::Verified.eq(true))),
         )
         .from_as(asset::Entity, extensions::asset::Entity)
         .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
-
-    if only_verified {
-        stmt = stmt
-            .and_where(asset_creators::Column::Verified.eq(true))
-            .to_owned();
-    }
 
     if !options.show_fungible {
         stmt = stmt
@@ -299,24 +297,22 @@ where
         .join(
             JoinType::InnerJoin,
             asset_grouping::Entity,
-            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
-                .equals(asset_grouping::Entity, asset_grouping::Column::AssetId)
-                .and(asset_grouping::Column::GroupKey.eq(group_key))
-                .and(asset_grouping::Column::GroupValue.eq(group_value)),
+            Condition::all()
+                .add(
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                        .equals(asset_grouping::Entity, asset_grouping::Column::AssetId)
+                        .and(asset_grouping::Column::GroupKey.eq(group_key))
+                        .and(asset_grouping::Column::GroupValue.eq(group_value)),
+                )
+                .add_option((!options.show_unverified_collections).then(|| {
+                    asset_grouping::Column::Verified
+                        .eq(true)
+                        .or(asset_grouping::Column::Verified.is_null())
+                })),
         )
         .from_as(asset::Entity, extensions::asset::Entity)
         .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
-
-    if !options.show_unverified_collections {
-        stmt = stmt
-            .and_where(
-                asset_grouping::Column::Verified
-                    .eq(true)
-                    .or(asset_grouping::Column::Verified.is_null()),
-            )
-            .to_owned();
-    }
 
     if !options.show_fungible {
         stmt = stmt
@@ -349,7 +345,7 @@ where
     get_related_for_assets(conn, assets, options, None).await
 }
 
-pub async fn get_assets_by_owner<D>(
+pub async fn get_by_owner<D>(
     conn: &D,
     owner: Vec<u8>,
     sort_by: extensions::asset::Column,
@@ -1111,6 +1107,11 @@ where
         conditions = conditions
             .add(Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Supply).eq(s));
     } else {
+        // By default, we ignore malformed tokens by ignoring tokens with supply=0
+        // unless they are burnt.
+        //
+        // cNFTs keep supply=1 after they are burnt.
+        // Regular NFTs go to supply=0 after they are burnt.
         conditions = conditions.add(
             Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Supply)
                 .ne(0)
@@ -1135,25 +1136,33 @@ where
             .join(
                 JoinType::InnerJoin,
                 asset_creators::Entity,
-                Condition::all()
-                    .add(asset_creators::Column::Creator.eq(creator.to_owned()))
-                    .add(
-                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
-                            .equals(asset_creators::Entity, asset_creators::Column::AssetId),
-                    ),
+                Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
+                    .equals(asset_creators::Entity, asset_creators::Column::AssetId)
+                    .and(asset_creators::Column::Creator.eq(creator.to_owned())),
             )
             .to_owned();
-    } else if let Some(verified) = query.creator_verified {
+    }
+
+    if let Some(creator) = &query.creator_address {
         stmt = stmt
             .join(
                 JoinType::InnerJoin,
                 asset_creators::Entity,
-                Condition::all()
-                    .add(asset_creators::Column::Verified.eq(verified))
-                    .add(
-                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
-                            .equals(asset_creators::Entity, asset_creators::Column::AssetId),
-                    ),
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                    .equals(asset_creators::Entity, asset_creators::Column::AssetId)
+                    .and(asset_creators::Column::Creator.eq(creator.to_owned())),
+            )
+            .to_owned();
+    }
+
+    if let Some(verified) = query.creator_verified {
+        stmt = stmt
+            .join(
+                JoinType::InnerJoin,
+                asset_creators::Entity,
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                    .equals(asset_creators::Entity, asset_creators::Column::AssetId)
+                    .and(asset_creators::Column::Verified.eq(verified)),
             )
             .to_owned();
     }
@@ -1163,12 +1172,9 @@ where
             .join(
                 JoinType::InnerJoin,
                 asset_authority::Entity,
-                Condition::all().add(
-                    asset_authority::Column::Authority.eq(a.to_owned()).and(
-                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
-                            .equals(asset_authority::Entity, asset_authority::Column::AssetId),
-                    ),
-                ),
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                    .equals(asset_authority::Entity, asset_authority::Column::AssetId)
+                    .and(asset_authority::Column::Authority.eq(a.to_owned())),
             )
             .to_owned();
     }
@@ -1178,15 +1184,13 @@ where
             .join(
                 JoinType::InnerJoin,
                 asset_grouping::Entity,
-                Condition::all().add(
-                    asset_grouping::Column::GroupKey
-                        .eq(group_key.to_owned())
-                        .and(asset_grouping::Column::GroupValue.eq(group_value.to_owned()))
-                        .and(
-                            Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
-                                .equals(asset_grouping::Entity, asset_grouping::Column::AssetId),
-                        ),
-                ),
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
+                    .equals(asset_grouping::Entity, asset_grouping::Column::AssetId)
+                    .and(
+                        asset_grouping::Column::GroupKey
+                            .eq(group_key.to_owned())
+                            .and(asset_grouping::Column::GroupValue.eq(group_value.to_owned())),
+                    ),
             )
             .to_owned();
     }
@@ -1536,7 +1540,7 @@ where
         .all(conn)
         .await?;
 
-    // Add the creators to the assets in `asset_map`.
+    // Add the creators to the assets in `full_assets`.
     for c in creators.into_iter() {
         if let Some(asset) = full_assets.get_mut(&c.asset_id) {
             asset.creators.push(c);

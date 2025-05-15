@@ -8,29 +8,6 @@ use serial_test::serial;
 
 use super::common::*;
 
-const METADATA_JSON: &str = r#"{
-  "name": "Mad Lads",
-  "symbol": "MAD",
-  "description": "Fock it.",
-  "seller_fee_basis_points": 500,
-  "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
-  "external_url": "https://madlads.com",
-  "collection": {
-    "name": "Mad Lads",
-    "family": "MAD"
-  },
-  "attributes": [],
-  "properties": {
-    "category": "image",
-    "creators": [
-      {
-        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-        "share": 100
-      }
-    ]
-  }
-}"#;
-
 #[tokio::test]
 #[serial]
 #[named]
@@ -64,7 +41,7 @@ async fn test_get_asset_with_show_collection_metadata_option() {
             "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
             "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
         ],
-        serde_json::from_str(METADATA_JSON).unwrap(),
+        serde_json::from_str(SAMPLE_METADATA_JSON).unwrap(),
     )
     .await;
 
@@ -116,7 +93,7 @@ async fn test_get_asset_by_group_with_show_collection_metadata_option() {
             "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
             "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
         ],
-        serde_json::from_str(METADATA_JSON).unwrap(),
+        serde_json::from_str(SAMPLE_METADATA_JSON).unwrap(),
     )
     .await;
 

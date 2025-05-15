@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/test_show_zero_balance_filter.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 2,
