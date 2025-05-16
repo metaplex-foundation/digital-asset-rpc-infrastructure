@@ -344,61 +344,58 @@ impl Default for Row {
 impl Row {
     pub fn select() -> SelectStatement {
         Query::select()
-            .column((asset::Entity, asset::Column::Id))
-            .column((asset::Entity, asset::Column::AltId))
+            .column((Entity, asset::Column::Id))
+            .column((Entity, asset::Column::AltId))
             .expr(
-                Expr::col((asset::Entity, asset::Column::SpecificationVersion))
+                Expr::col((Entity, asset::Column::SpecificationVersion))
                     .as_enum(Alias::new("TEXT")),
             )
             .expr(
-                Expr::col((asset::Entity, asset::Column::SpecificationAssetClass))
+                Expr::col((Entity, asset::Column::SpecificationAssetClass))
                     .as_enum(Alias::new("TEXT")),
             )
             .expr_as(
-                Expr::col((asset::Entity, asset::Column::Owner)),
+                Expr::col((Entity, asset::Column::Owner)),
                 Column::AssetOwner,
             )
-            .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
+            .expr(Expr::col((Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
             .expr_as(
-                Expr::col((asset::Entity, asset::Column::Delegate)),
+                Expr::col((Entity, asset::Column::Delegate)),
                 Column::AssetDelegate,
             )
             .expr_as(
-                Expr::col((asset::Entity, asset::Column::Frozen)),
+                Expr::col((Entity, asset::Column::Frozen)),
                 Column::AssetFrozen,
             )
-            .column((asset::Entity, asset::Column::Supply))
-            .column((asset::Entity, asset::Column::SupplyMint))
-            .column((asset::Entity, asset::Column::Compressed))
-            .column((asset::Entity, asset::Column::Compressible))
-            .column((asset::Entity, asset::Column::Seq))
-            .column((asset::Entity, asset::Column::TreeId))
-            .column((asset::Entity, asset::Column::Leaf))
-            .column((asset::Entity, asset::Column::Nonce))
-            .expr(
-                Expr::col((asset::Entity, asset::Column::RoyaltyTargetType))
-                    .as_enum(Alias::new("TEXT")),
-            )
-            .column((asset::Entity, asset::Column::RoyaltyTarget))
-            .column((asset::Entity, asset::Column::RoyaltyAmount))
-            .column((asset::Entity, asset::Column::AssetData))
-            .column((asset::Entity, asset::Column::CreatedAt))
-            .column((asset::Entity, asset::Column::Burnt))
-            .column((asset::Entity, asset::Column::SlotUpdated))
-            .column((asset::Entity, asset::Column::DataHash))
-            .column((asset::Entity, asset::Column::CreatorHash))
-            .column((asset::Entity, asset::Column::MintExtensions))
-            .column((asset::Entity, asset::Column::MplCorePlugins))
-            .column((asset::Entity, asset::Column::MplCoreUnknownPlugins))
-            .column((asset::Entity, asset::Column::MplCoreCollectionNumMinted))
-            .column((asset::Entity, asset::Column::MplCoreCollectionCurrentSize))
-            .column((asset::Entity, asset::Column::MplCorePluginsJsonVersion))
-            .column((asset::Entity, asset::Column::MplCoreExternalPlugins))
-            .column((asset::Entity, asset::Column::MplCoreUnknownExternalPlugins))
-            .column((asset::Entity, asset::Column::CollectionHash))
-            .column((asset::Entity, asset::Column::AssetDataHash))
-            .column((asset::Entity, asset::Column::BubblegumFlags))
-            .column((asset::Entity, asset::Column::NonTransferable))
+            .column((Entity, asset::Column::Supply))
+            .column((Entity, asset::Column::SupplyMint))
+            .column((Entity, asset::Column::Compressed))
+            .column((Entity, asset::Column::Compressible))
+            .column((Entity, asset::Column::Seq))
+            .column((Entity, asset::Column::TreeId))
+            .column((Entity, asset::Column::Leaf))
+            .column((Entity, asset::Column::Nonce))
+            .expr(Expr::col((Entity, asset::Column::RoyaltyTargetType)).as_enum(Alias::new("TEXT")))
+            .column((Entity, asset::Column::RoyaltyTarget))
+            .column((Entity, asset::Column::RoyaltyAmount))
+            .column((Entity, asset::Column::AssetData))
+            .column((Entity, asset::Column::CreatedAt))
+            .column((Entity, asset::Column::Burnt))
+            .column((Entity, asset::Column::SlotUpdated))
+            .column((Entity, asset::Column::DataHash))
+            .column((Entity, asset::Column::CreatorHash))
+            .column((Entity, asset::Column::MintExtensions))
+            .column((Entity, asset::Column::MplCorePlugins))
+            .column((Entity, asset::Column::MplCoreUnknownPlugins))
+            .column((Entity, asset::Column::MplCoreCollectionNumMinted))
+            .column((Entity, asset::Column::MplCoreCollectionCurrentSize))
+            .column((Entity, asset::Column::MplCorePluginsJsonVersion))
+            .column((Entity, asset::Column::MplCoreExternalPlugins))
+            .column((Entity, asset::Column::MplCoreUnknownExternalPlugins))
+            .column((Entity, asset::Column::CollectionHash))
+            .column((Entity, asset::Column::AssetDataHash))
+            .column((Entity, asset::Column::BubblegumFlags))
+            .column((Entity, asset::Column::NonTransferable))
             .expr(
                 Expr::col((asset_data::Entity, asset_data::Column::ChainDataMutability))
                     .as_enum(Alias::new("TEXT")),
@@ -412,62 +409,73 @@ impl Row {
             .column((asset_data::Entity, asset_data::Column::Metadata))
             .column((asset_data::Entity, asset_data::Column::RawName))
             .column((asset_data::Entity, asset_data::Column::RawSymbol))
-            .from(asset::Entity)
             .join(
                 JoinType::LeftJoin,
                 asset_data::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(Entity, asset::Column::Id)
                     .equals(asset_data::Entity, asset_data::Column::Id),
             )
             .to_owned()
     }
 }
 
-pub trait AssetSelectStatementExt {
-    fn sort_by<C>(self, sort_by: Option<C>, sort_direction: &Order) -> Self
-    where
-        C: ColumnTrait;
+#[derive(Copy, Clone, Default, Debug)]
+pub struct Entity;
 
-    fn page_by<C>(
+impl Iden for Entity {
+    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
+        write!(s, "extension_assets").unwrap();
+    }
+}
+
+impl IdenStatic for Entity {
+    fn as_str(&self) -> &str {
+        "extension_assets"
+    }
+}
+
+impl EntityName for Entity {
+    fn table_name(&self) -> &str {
+        "extension_assets"
+    }
+}
+pub trait AssetSelectStatementExt {
+    fn sort_by(self, column: Column, direction: &Order) -> Self;
+
+    fn page_by(
         self,
         pagination: &Pagination,
         limit: u64,
         sort_direction: &Order,
-        column: C,
-    ) -> Self
-    where
-        C: ColumnTrait;
+        col: Column,
+    ) -> Self;
 }
 
 impl AssetSelectStatementExt for SelectStatement {
-    fn sort_by<C>(mut self, sort_by: Option<C>, sort_direction: &Order) -> Self
-    where
-        C: ColumnTrait,
-    {
-        if let Some(col) = sort_by {
-            self.order_by(col, sort_direction.clone()).to_owned()
-        } else {
-            self.order_by(asset::Column::Id, Order::Desc).to_owned()
-        }
+    fn sort_by(mut self, col: Column, direction: &Order) -> Self {
+        self.order_by_expr(Expr::tbl(Entity, col).into(), direction.clone())
+            .order_by_expr(Expr::tbl(Entity, Column::Id).into(), Order::Asc)
+            .to_owned()
     }
 
-    fn page_by<C>(
+    fn page_by(
         mut self,
         pagination: &Pagination,
         limit: u64,
-        sort_direction: &Order,
-        column: C,
-    ) -> Self
-    where
-        C: ColumnTrait,
-    {
+        order: &Order,
+        column: Column,
+    ) -> Self {
         match pagination {
             Pagination::Keyset { before, after } => {
                 if let Some(b) = before {
-                    self = self.and_where(column.lt(b.clone())).to_owned();
+                    self = self
+                        .and_where(Expr::tbl(Entity, column).lt(b.clone()))
+                        .to_owned();
                 }
                 if let Some(a) = after {
-                    self = self.and_where(column.gt(a.clone())).to_owned();
+                    self = self
+                        .and_where(Expr::tbl(Entity, column).gt(a.clone()))
+                        .to_owned();
                 }
             }
             Pagination::Page { page } => {
@@ -477,10 +485,14 @@ impl AssetSelectStatementExt for SelectStatement {
             }
             Pagination::Cursor(cursor) => {
                 if *cursor != Cursor::default() {
-                    if sort_direction == &Order::Asc {
-                        self = self.and_where(column.gt(cursor.id.clone())).to_owned();
+                    if order == &Order::Asc {
+                        self = self
+                            .and_where(Expr::tbl(Entity, column).gt(cursor.id.clone()))
+                            .to_owned();
                     } else {
-                        self = self.and_where(column.lt(cursor.id.clone())).to_owned();
+                        self = self
+                            .and_where(Expr::tbl(Entity, column).lt(cursor.id.clone()))
+                            .to_owned();
                     }
                 }
             }

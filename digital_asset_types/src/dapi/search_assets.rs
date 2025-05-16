@@ -1,4 +1,4 @@
-use super::common::{build_asset_response, create_pagination, create_sorting};
+use super::common::build_asset_response;
 use crate::{
     dao::{scopes, PageOptions, SearchAssetsQuery},
     rpc::{filter::AssetSorting, options::Options, response::AssetList},
@@ -12,15 +12,15 @@ pub async fn search_assets(
     page_options: &PageOptions,
     options: &Options,
 ) -> Result<AssetList, DbErr> {
-    let pagination = create_pagination(page_options)?;
-    let (sort_direction, sort_column) = create_sorting(sorting);
+    let pagination = page_options.try_into()?;
+    let (column, order) = sorting.into_sorting();
     search_assets_query.validate()?;
 
     let assets = scopes::asset::search_assets(
         db,
         &search_assets_query,
-        sort_column,
-        sort_direction,
+        column,
+        order,
         &pagination,
         page_options.limit,
         options,

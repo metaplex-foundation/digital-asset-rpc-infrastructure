@@ -1,12 +1,11 @@
+use super::common::build_asset_response;
+use super::common::build_transaction_signatures_response;
 use crate::dao::scopes;
 use crate::dao::PageOptions;
 use crate::rpc::filter::AssetSorting;
 use crate::rpc::response::TransactionSignatureList;
 use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
-use super::common::build_transaction_signatures_response;
-use super::common::{build_asset_response, create_pagination, create_sorting};
-
 
 pub async fn get_signatures_for_asset(
     db: &DatabaseConnection,
@@ -16,8 +15,8 @@ pub async fn get_signatures_for_asset(
     sorting: AssetSorting,
     page_options: &PageOptions,
 ) -> Result<TransactionSignatureList, DbErr> {
-    let pagination = create_pagination(&page_options)?;
-    let (sort_direction, sort_column) = create_sorting(sorting);
+    let pagination = page_options.try_into()?;
+    let (sort_direction, sort_column) = sorting.into_sorting();
     let transactions = scopes::asset::get_signatures_for_asset(
         db,
         asset_id,
@@ -25,7 +24,7 @@ pub async fn get_signatures_for_asset(
         leaf_idx,
         sort_direction,
         &pagination,
-        page_options.limit
+        page_options.limit,
     )
     .await?;
     Ok(build_transaction_signatures_response(

@@ -6,7 +6,7 @@ use crate::rpc::response::AssetList;
 use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
 
-use super::common::{build_asset_response, create_pagination, create_sorting};
+use super::common::build_asset_response;
 
 pub async fn get_assets_by_authority(
     db: &DatabaseConnection,
@@ -15,13 +15,14 @@ pub async fn get_assets_by_authority(
     page_options: &PageOptions,
     options: &Options,
 ) -> Result<AssetList, DbErr> {
-    let pagination = create_pagination(page_options)?;
-    let (sort_direction, sort_column) = create_sorting(sorting);
+    let pagination = page_options.try_into()?;
+    let (column, order) = sorting.into_sorting();
+
     let assets = scopes::asset::get_by_authority(
         db,
         authority,
-        sort_column,
-        sort_direction,
+        column,
+        order,
         &pagination,
         page_options.limit,
         options,

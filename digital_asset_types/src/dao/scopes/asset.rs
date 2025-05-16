@@ -15,7 +15,7 @@ use sea_orm::{
     sea_query::{
         Alias, Condition, ConditionType, Expr, PostgresQueryBuilder, Query, SimpleExpr, UnionType,
     },
-    ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
+    ActiveEnum, ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
     QueryFilter, QueryOrder, QuerySelect, Statement,
 };
 use std::{collections::HashMap, hash::RandomState};
@@ -64,7 +64,7 @@ pub async fn get_by_creator<D>(
     conn: &D,
     creator: Vec<u8>,
     only_verified: bool,
-    sort_by: Option<asset::Column>,
+    sort_by: extensions::asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
@@ -156,12 +156,13 @@ where
         .join(
             JoinType::InnerJoin,
             asset_creators::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(asset_creators::Entity, asset_creators::Column::AssetId)
                 .and(asset_creators::Column::Creator.eq(creator.clone()))
                 .and(asset_creators::Column::Verified.eq(true)),
         )
-        .and_where(asset::Column::Supply.gt(0))
+        .from_as(asset::Entity, extensions::asset::Entity)
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
 
     if only_verified {
@@ -172,14 +173,22 @@ where
 
     if !options.show_fungible {
         stmt = stmt
-            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::OwnerType)
+                    .eq(Expr::val(OwnerType::Single).as_enum(asset::Column::OwnerType)),
+            )
             .to_owned();
     }
 
     stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
 
     stmt = stmt
-        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &sort_direction,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -198,7 +207,7 @@ pub async fn get_by_grouping<D>(
     conn: &D,
     group_key: String,
     group_value: String,
-    sort_by: Option<asset::Column>,
+    sort_by: extensions::asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
@@ -273,16 +282,16 @@ where
         .join(
             JoinType::LeftJoin,
             tokens::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(tokens::Entity, tokens::Column::Mint),
         )
         .join(
             JoinType::LeftJoin,
             token_accounts::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint)
                 .and(
-                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                         .equals(token_accounts::Entity, token_accounts::Column::Owner),
                 )
                 .and(token_accounts::Column::Amount.gt(0)),
@@ -290,12 +299,13 @@ where
         .join(
             JoinType::InnerJoin,
             asset_grouping::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(asset_grouping::Entity, asset_grouping::Column::AssetId)
                 .and(asset_grouping::Column::GroupKey.eq(group_key))
                 .and(asset_grouping::Column::GroupValue.eq(group_value)),
         )
-        .and_where(asset::Column::Supply.gt(0))
+        .from_as(asset::Entity, extensions::asset::Entity)
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
 
     if !options.show_unverified_collections {
@@ -310,14 +320,22 @@ where
 
     if !options.show_fungible {
         stmt = stmt
-            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::OwnerType)
+                    .eq(Expr::val(OwnerType::Single).as_enum(asset::Column::OwnerType)),
+            )
             .to_owned();
     }
 
     stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
 
     stmt = stmt
-        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &sort_direction,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -334,7 +352,7 @@ where
 pub async fn get_assets_by_owner<D>(
     conn: &D,
     owner: Vec<u8>,
-    sort_by: Option<asset::Column>,
+    sort_by: extensions::asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
@@ -343,7 +361,7 @@ pub async fn get_assets_by_owner<D>(
 where
     D: ConnectionTrait + Send + Sync,
 {
-    let mut stmt = if options.show_fungible {
+    let subquery = if options.show_fungible {
         let token_asset_stmt = extensions::asset::Row::select()
             .expr_as(
                 Expr::col((tokens::Entity, tokens::Column::Supply)),
@@ -410,20 +428,21 @@ where
             .join(
                 JoinType::LeftJoin,
                 tokens::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(tokens::Entity, tokens::Column::Mint),
             )
             .join(
                 JoinType::InnerJoin,
                 token_accounts::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(token_accounts::Entity, token_accounts::Column::Mint)
                     .and(token_accounts::Column::Owner.eq(owner.to_vec()))
                     .and(token_accounts::Column::Amount.gt(0)),
             )
+            .from_as(asset::Entity, extensions::asset::Entity)
             .to_owned();
 
-        let stmt = extensions::asset::Row::select()
+        extensions::asset::Row::select()
             .expr_as(
                 Expr::val::<Option<Decimal>>(None),
                 extensions::asset::Column::MintSupply,
@@ -480,97 +499,13 @@ where
                 Expr::val::<Option<i64>>(None),
                 extensions::asset::Column::TokenAccountDelegatedAmount,
             )
-            .and_where(asset::Column::Owner.eq(owner.to_vec()))
-            .and_where(asset::Column::Supply.gt(0))
-            .and_where(asset::Column::SupplyMint.is_null())
+            .from_as(asset::Entity, extensions::asset::Entity)
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::Owner).eq(owner.to_vec()),
+            )
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::SupplyMint).is_null())
             .union(UnionType::All, token_asset_stmt)
-            .to_owned();
-
-        Query::select()
-            .expr(Expr::col(extensions::asset::Column::Id))
-            .expr(Expr::col(extensions::asset::Column::AltId))
-            .expr(
-                Expr::col(extensions::asset::Column::SpecificationVersion)
-                    .as_enum(Alias::new("TEXT")),
-            )
-            .expr(
-                Expr::col(extensions::asset::Column::SpecificationAssetClass)
-                    .as_enum(Alias::new("TEXT")),
-            )
-            .expr(Expr::col(extensions::asset::Column::AssetOwner))
-            .expr(Expr::col(extensions::asset::Column::OwnerType).as_enum(Alias::new("TEXT")))
-            .expr(Expr::col(extensions::asset::Column::AssetDelegate))
-            .expr(Expr::col(extensions::asset::Column::AssetFrozen))
-            .expr(Expr::col(extensions::asset::Column::Supply))
-            .expr(Expr::col(extensions::asset::Column::SupplyMint))
-            .expr(Expr::col(extensions::asset::Column::Compressed))
-            .expr(Expr::col(extensions::asset::Column::Compressible))
-            .expr(Expr::col(extensions::asset::Column::Seq))
-            .expr(Expr::col(extensions::asset::Column::TreeId))
-            .expr(Expr::col(extensions::asset::Column::Leaf))
-            .expr(Expr::col(extensions::asset::Column::Nonce))
-            .expr(
-                Expr::col(extensions::asset::Column::RoyaltyTargetType).as_enum(Alias::new("TEXT")),
-            )
-            .expr(Expr::col(extensions::asset::Column::RoyaltyTarget))
-            .expr(Expr::col(extensions::asset::Column::RoyaltyAmount))
-            .expr(Expr::col(extensions::asset::Column::CreatedAt))
-            .expr(Expr::col(extensions::asset::Column::Burnt))
-            .expr(Expr::col(extensions::asset::Column::SlotUpdated))
-            .expr(Expr::col(extensions::asset::Column::DataHash))
-            .expr(Expr::col(extensions::asset::Column::CreatorHash))
-            .expr(Expr::col(extensions::asset::Column::MintExtensions))
-            .expr(Expr::col(extensions::asset::Column::MplCorePlugins))
-            .expr(Expr::col(extensions::asset::Column::MplCoreUnknownPlugins))
-            .expr(Expr::col(
-                extensions::asset::Column::MplCoreCollectionNumMinted,
-            ))
-            .expr(Expr::col(
-                extensions::asset::Column::MplCoreCollectionCurrentSize,
-            ))
-            .expr(Expr::col(
-                extensions::asset::Column::MplCorePluginsJsonVersion,
-            ))
-            .expr(Expr::col(extensions::asset::Column::MplCoreExternalPlugins))
-            .expr(Expr::col(
-                extensions::asset::Column::MplCoreUnknownExternalPlugins,
-            ))
-            .expr(Expr::col(extensions::asset::Column::CollectionHash))
-            .expr(Expr::col(extensions::asset::Column::AssetDataHash))
-            .expr(Expr::col(extensions::asset::Column::BubblegumFlags))
-            .expr(Expr::col(extensions::asset::Column::NonTransferable))
-            .expr(
-                Expr::col(extensions::asset::Column::ChainDataMutability)
-                    .as_enum(Alias::new("TEXT")),
-            )
-            .expr(Expr::col(extensions::asset::Column::ChainData))
-            .expr(Expr::col(extensions::asset::Column::MetadataUrl))
-            .expr(
-                Expr::col(extensions::asset::Column::MetadataMutability)
-                    .as_enum(Alias::new("TEXT")),
-            )
-            .expr(Expr::col(extensions::asset::Column::Metadata))
-            .expr(Expr::col(extensions::asset::Column::RawName))
-            .expr(Expr::col(extensions::asset::Column::RawSymbol))
-            .expr(Expr::col(extensions::asset::Column::MintSupply))
-            .expr(Expr::col(extensions::asset::Column::MintDecimals))
-            .expr(Expr::col(extensions::asset::Column::MintTokenProgram))
-            .expr(Expr::col(extensions::asset::Column::MintAuthority))
-            .expr(Expr::col(extensions::asset::Column::MintFreezeAuthority))
-            .expr(Expr::col(extensions::asset::Column::MintCloseAuthority))
-            .expr(Expr::col(extensions::asset::Column::MintExtensionData))
-            .expr(Expr::col(extensions::asset::Column::TokenAccountPubkey))
-            .expr(Expr::col(extensions::asset::Column::TokenOwner))
-            .expr(Expr::col(extensions::asset::Column::TokenAccountDelegate))
-            .expr(Expr::col(extensions::asset::Column::TokenAccountAmount))
-            .expr(Expr::col(extensions::asset::Column::TokenAccountFrozen))
-            .expr(Expr::col(
-                extensions::asset::Column::TokenAccountCloseAuthority,
-            ))
-            .expr(Expr::col(
-                extensions::asset::Column::TokenAccountDelegatedAmount,
-            ))
-            .from_subquery(stmt, Alias::new("single_or_token_assets"))
             .to_owned()
     } else {
         extensions::asset::Row::select()
@@ -639,30 +574,114 @@ where
             .join(
                 JoinType::LeftJoin,
                 tokens::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(tokens::Entity, tokens::Column::Mint),
             )
             .join(
                 JoinType::LeftJoin,
                 token_accounts::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(token_accounts::Entity, token_accounts::Column::Mint)
                     .and(
-                        Expr::tbl(asset::Entity, asset::Column::Owner)
+                        Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                             .equals(token_accounts::Entity, token_accounts::Column::Owner),
                     )
                     .and(token_accounts::Column::Amount.gt(0)),
             )
-            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
-            .and_where(asset::Column::Owner.eq(owner.to_vec()))
-            .and_where(asset::Column::Supply.gt(0))
-            .and_where(asset::Column::Burnt.eq(false))
+            .from_as(asset::Entity, extensions::asset::Entity)
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::OwnerType)
+                    .eq(Expr::val(OwnerType::Single).as_enum(asset::Column::OwnerType)),
+            )
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
+                    .eq(Expr::val(owner.to_vec())),
+            )
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::Burnt).eq(Expr::val(false)),
+            )
             .to_owned()
     };
 
+    let mut stmt = Query::select()
+        .column(extensions::asset::Column::Id)
+        .column(extensions::asset::Column::AltId)
+        .expr(
+            Expr::col(extensions::asset::Column::SpecificationVersion).as_enum(Alias::new("TEXT")),
+        )
+        .expr(
+            Expr::col(extensions::asset::Column::SpecificationAssetClass)
+                .as_enum(Alias::new("TEXT")),
+        )
+        .column(extensions::asset::Column::AssetOwner)
+        .expr(Expr::col(extensions::asset::Column::OwnerType).as_enum(Alias::new("TEXT")))
+        .column(extensions::asset::Column::AssetDelegate)
+        .column(extensions::asset::Column::AssetFrozen)
+        .column(extensions::asset::Column::Supply)
+        .column(extensions::asset::Column::SupplyMint)
+        .column(extensions::asset::Column::Compressed)
+        .column(extensions::asset::Column::Compressible)
+        .column(extensions::asset::Column::Seq)
+        .column(extensions::asset::Column::TreeId)
+        .column(extensions::asset::Column::Leaf)
+        .column(extensions::asset::Column::Nonce)
+        .expr(Expr::col(extensions::asset::Column::RoyaltyTargetType).as_enum(Alias::new("TEXT")))
+        .column(extensions::asset::Column::RoyaltyTarget)
+        .column(extensions::asset::Column::RoyaltyAmount)
+        .column(extensions::asset::Column::CreatedAt)
+        .column(extensions::asset::Column::Burnt)
+        .column(extensions::asset::Column::SlotUpdated)
+        .column(extensions::asset::Column::DataHash)
+        .column(extensions::asset::Column::CreatorHash)
+        .column(extensions::asset::Column::MintExtensions)
+        .column(extensions::asset::Column::MplCorePlugins)
+        .column(extensions::asset::Column::MplCoreUnknownPlugins)
+        .column(extensions::asset::Column::MplCoreCollectionNumMinted)
+        .column(extensions::asset::Column::MplCoreCollectionCurrentSize)
+        .column(extensions::asset::Column::MplCorePluginsJsonVersion)
+        .column(extensions::asset::Column::MplCoreExternalPlugins)
+        .column(extensions::asset::Column::MplCoreUnknownExternalPlugins)
+        .column(extensions::asset::Column::CollectionHash)
+        .column(extensions::asset::Column::AssetDataHash)
+        .column(extensions::asset::Column::BubblegumFlags)
+        .column(extensions::asset::Column::NonTransferable)
+        .expr(Expr::col(extensions::asset::Column::ChainDataMutability).as_enum(Alias::new("TEXT")))
+        .column(extensions::asset::Column::ChainData)
+        .column(extensions::asset::Column::MetadataUrl)
+        .expr(Expr::col(extensions::asset::Column::MetadataMutability).as_enum(Alias::new("TEXT")))
+        .column(extensions::asset::Column::Metadata)
+        .column(extensions::asset::Column::RawName)
+        .column(extensions::asset::Column::RawSymbol)
+        .column(extensions::asset::Column::MintSupply)
+        .column(extensions::asset::Column::MintDecimals)
+        .column(extensions::asset::Column::MintTokenProgram)
+        .column(extensions::asset::Column::MintAuthority)
+        .column(extensions::asset::Column::MintFreezeAuthority)
+        .column(extensions::asset::Column::MintCloseAuthority)
+        .column(extensions::asset::Column::MintExtensionData)
+        .column(extensions::asset::Column::TokenAccountPubkey)
+        .column(extensions::asset::Column::TokenOwner)
+        .column(extensions::asset::Column::TokenAccountDelegate)
+        .column(extensions::asset::Column::TokenAccountAmount)
+        .column(extensions::asset::Column::TokenAccountFrozen)
+        .expr(Expr::col(
+            extensions::asset::Column::TokenAccountCloseAuthority,
+        ))
+        .expr(Expr::col(
+            extensions::asset::Column::TokenAccountDelegatedAmount,
+        ))
+        .from_subquery(subquery, extensions::asset::Entity)
+        .to_owned();
+
     stmt = stmt
         .sort_by(sort_by, &sort_direction)
-        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &sort_direction,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -679,7 +698,7 @@ where
 pub async fn search_assets<D>(
     conn: &D,
     query: &SearchAssetsQuery,
-    sort_by: Option<asset::Column>,
+    sort_by: extensions::asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
@@ -752,16 +771,17 @@ where
                 )),
                 extensions::asset::Column::TokenAccountDelegatedAmount,
             )
+            .from_as(asset::Entity, extensions::asset::Entity)
             .join(
                 JoinType::LeftJoin,
                 tokens::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(tokens::Entity, tokens::Column::Mint),
             )
             .join(
                 JoinType::InnerJoin,
                 token_accounts::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(token_accounts::Entity, token_accounts::Column::Mint)
                     .and(token_accounts::Column::Owner.eq(owner.to_vec()))
                     .and(token_accounts::Column::Amount.gt(0)),
@@ -825,9 +845,12 @@ where
                 Expr::val::<Option<i64>>(None),
                 extensions::asset::Column::TokenAccountDelegatedAmount,
             )
-            .and_where(asset::Column::Owner.eq(owner.to_vec()))
-            .and_where(asset::Column::Supply.gt(0))
-            .and_where(asset::Column::SupplyMint.is_null())
+            .from_as(asset::Entity, extensions::asset::Entity)
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::Owner).eq(owner.to_vec()),
+            )
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::SupplyMint).is_null())
             .union(UnionType::All, token_asset_stmt)
             .to_owned()
     } else {
@@ -897,22 +920,23 @@ where
             .join(
                 JoinType::LeftJoin,
                 tokens::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(tokens::Entity, tokens::Column::Mint),
             )
             .join(
                 JoinType::LeftJoin,
                 token_accounts::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
+                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(token_accounts::Entity, token_accounts::Column::Mint)
                     .and(
-                        Expr::tbl(asset::Entity, asset::Column::Owner)
+                        Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                             .equals(token_accounts::Entity, token_accounts::Column::Owner),
                     )
                     .and(token_accounts::Column::Amount.gt(0)),
             )
-            .and_where(asset::Column::Supply.gt(0))
-            .and_where(asset::Column::Burnt.eq(false))
+            .from_as(asset::Entity, extensions::asset::Entity)
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
+            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Burnt).eq(true))
             .to_owned()
     };
 
@@ -976,7 +1000,7 @@ where
             extensions::asset::Column::TokenAccountCloseAuthority,
             extensions::asset::Column::TokenAccountDelegatedAmount,
         ])
-        .from_subquery(asset_stmt, Alias::new("single_or_token_assets"))
+        .from_subquery(asset_stmt, extensions::asset::Entity)
         .to_owned();
 
     let mut conditions = match &query.condition_type {
@@ -987,93 +1011,123 @@ where
     conditions =
         conditions
             .add_option(query.specification_version.as_ref().map(|x| {
-                Expr::col(extensions::asset::Column::SpecificationVersion).eq(x.to_owned())
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::SpecificationVersion,
+                )
+                .eq(x.to_owned())
             }))
             .add_option(query.specification_asset_class.as_ref().map(|x| {
-                Expr::col(extensions::asset::Column::SpecificationAssetClass).eq(x.to_owned())
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::SpecificationAssetClass,
+                )
+                .eq(x.to_owned())
             }))
-            .add_option(
-                query
-                    .token_type
-                    .as_ref()
-                    .map(|token_type| match token_type {
-                        TokenTypeClass::Fungible => {
-                            Expr::col(extensions::asset::Column::OwnerType).eq(OwnerType::Token)
-                        }
-                        TokenTypeClass::NonFungible | TokenTypeClass::Nft => {
-                            Expr::col(extensions::asset::Column::OwnerType).eq(OwnerType::Single)
-                        }
-                        TokenTypeClass::Compressed => {
-                            Expr::col(extensions::asset::Column::TreeId).is_not_null()
-                        }
-                        TokenTypeClass::All => {
-                            Expr::col(extensions::asset::Column::OwnerType).is_not_null()
-                        }
-                    }),
-            )
-            .add_option(
-                query
-                    .delegate
-                    .to_owned()
-                    .map(|x| Expr::col(extensions::asset::Column::AssetDelegate).eq(x)),
-            )
-            .add_option(
-                query
-                    .frozen
-                    .map(|x| Expr::col(extensions::asset::Column::AssetFrozen).eq(x)),
-            )
-            .add_option(
-                query
-                    .supply_mint
-                    .to_owned()
-                    .map(|x| Expr::col(extensions::asset::Column::SupplyMint).eq(x)),
-            )
-            .add_option(
-                query
-                    .compressed
-                    .map(|x| Expr::col(extensions::asset::Column::Compressed).eq(x)),
-            )
-            .add_option(
-                query
-                    .compressible
-                    .map(|x| Expr::col(extensions::asset::Column::Compressible).eq(x)),
-            )
-            .add_option(
-                query
-                    .royalty_target_type
-                    .to_owned()
-                    .map(|x| Expr::col(extensions::asset::Column::RoyaltyTargetType).eq(x)),
-            )
-            .add_option(
-                query
-                    .royalty_target
-                    .to_owned()
-                    .map(|x| Expr::col(extensions::asset::Column::RoyaltyTarget).eq(x)),
-            )
-            .add_option(
-                query
-                    .royalty_amount
-                    .map(|x| Expr::col(extensions::asset::Column::RoyaltyAmount).eq(x)),
-            )
-            .add_option(
-                query
-                    .burnt
-                    .map(|x| Expr::col(extensions::asset::Column::Burnt).eq(x)),
-            );
+            .add_option(query.token_type.as_ref().map(|token_type| {
+                match token_type {
+                    TokenTypeClass::Fungible => Expr::tbl(
+                        extensions::asset::Entity,
+                        extensions::asset::Column::OwnerType,
+                    )
+                    .eq(OwnerType::Token),
+                    TokenTypeClass::NonFungible | TokenTypeClass::Nft => Expr::tbl(
+                        extensions::asset::Entity,
+                        extensions::asset::Column::OwnerType,
+                    )
+                    .eq(OwnerType::Single),
+                    TokenTypeClass::Compressed => {
+                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::TreeId)
+                            .is_not_null()
+                    }
+                    TokenTypeClass::All => Expr::tbl(
+                        extensions::asset::Entity,
+                        extensions::asset::Column::OwnerType,
+                    )
+                    .is_not_null(),
+                }
+            }))
+            .add_option(query.delegate.to_owned().map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::AssetDelegate,
+                )
+                .eq(x)
+            }))
+            .add_option(query.frozen.map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::AssetFrozen,
+                )
+                .eq(x)
+            }))
+            .add_option(query.supply_mint.to_owned().map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::SupplyMint,
+                )
+                .eq(x)
+            }))
+            .add_option(query.compressed.map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::Compressed,
+                )
+                .eq(x)
+            }))
+            .add_option(query.compressible.map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::Compressible,
+                )
+                .eq(x)
+            }))
+            .add_option(query.royalty_target_type.to_owned().map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::RoyaltyTargetType,
+                )
+                .eq(x)
+            }))
+            .add_option(query.royalty_target.to_owned().map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::RoyaltyTarget,
+                )
+                .eq(x)
+            }))
+            .add_option(query.royalty_amount.map(|x| {
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::RoyaltyAmount,
+                )
+                .eq(x)
+            }))
+            .add_option(query.burnt.map(|x| {
+                Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Burnt).eq(x)
+            }));
 
     if let Some(s) = query.supply {
-        conditions = conditions.add(Expr::col(extensions::asset::Column::Supply).eq(s));
+        conditions = conditions
+            .add(Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Supply).eq(s));
     } else {
         conditions = conditions.add(
-            Expr::col(extensions::asset::Column::Supply)
+            Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Supply)
                 .ne(0)
-                .or(Expr::col(extensions::asset::Column::Burnt).eq(true)),
+                .or(
+                    Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Burnt).eq(true),
+                ),
         )
     };
 
     if let Some(o) = &query.owner_type {
-        conditions =
-            conditions.add(Expr::col(extensions::asset::Column::OwnerType).eq(o.to_owned()));
+        conditions = conditions.add(
+            Expr::tbl(
+                extensions::asset::Entity,
+                extensions::asset::Column::OwnerType,
+            )
+            .eq(o.to_owned()),
+        );
     }
 
     if let Some(creator) = &query.creator_address {
@@ -1084,7 +1138,7 @@ where
                 Condition::all()
                     .add(asset_creators::Column::Creator.eq(creator.to_owned()))
                     .add(
-                        Expr::col(extensions::asset::Column::Id)
+                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
                             .equals(asset_creators::Entity, asset_creators::Column::AssetId),
                     ),
             )
@@ -1097,7 +1151,7 @@ where
                 Condition::all()
                     .add(asset_creators::Column::Verified.eq(verified))
                     .add(
-                        Expr::col(extensions::asset::Column::Id)
+                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
                             .equals(asset_creators::Entity, asset_creators::Column::AssetId),
                     ),
             )
@@ -1111,7 +1165,7 @@ where
                 asset_authority::Entity,
                 Condition::all().add(
                     asset_authority::Column::Authority.eq(a.to_owned()).and(
-                        Expr::col(extensions::asset::Column::Id)
+                        Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
                             .equals(asset_authority::Entity, asset_authority::Column::AssetId),
                     ),
                 ),
@@ -1129,7 +1183,7 @@ where
                         .eq(group_key.to_owned())
                         .and(asset_grouping::Column::GroupValue.eq(group_value.to_owned()))
                         .and(
-                            Expr::col(extensions::asset::Column::Id)
+                            Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
                                 .equals(asset_grouping::Entity, asset_grouping::Column::AssetId),
                         ),
                 ),
@@ -1138,7 +1192,13 @@ where
     }
 
     if let Some(ju) = query.json_uri.as_ref() {
-        let cond = Condition::all().add(asset_data::Column::MetadataUrl.eq(ju.to_owned()));
+        let cond = Condition::all().add(
+            Expr::tbl(
+                extensions::asset::Entity,
+                extensions::asset::Column::MetadataUrl,
+            )
+            .eq(ju.to_owned()),
+        );
         conditions = conditions.add(cond);
     }
 
@@ -1147,7 +1207,10 @@ where
             DbErr::Custom("Could not convert raw name bytes into string for comparison".to_owned())
         })?;
 
-        let name_expr = SimpleExpr::Custom(format!("chain_data->>'name' LIKE '%{}%'", name_as_str));
+        let name_expr = SimpleExpr::Custom(format!(
+            "extension_assets.chain_data->>'name' LIKE '%{}%'",
+            name_as_str
+        ));
 
         conditions = conditions.add(name_expr);
     }
@@ -1159,7 +1222,12 @@ where
 
     stmt = stmt
         .sort_by(sort_by, &sort_direction)
-        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &sort_direction,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -1249,34 +1317,48 @@ where
         .join(
             JoinType::LeftJoin,
             tokens::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(tokens::Entity, tokens::Column::Mint),
         )
         .join(
             JoinType::LeftJoin,
             token_accounts::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint)
                 .and(
-                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                         .equals(token_accounts::Entity, token_accounts::Column::Owner),
                 )
                 .and(token_accounts::Column::Amount.gt(0)),
         )
-        .and_where(asset::Column::Id.is_in(asset_ids))
-        .and_where(asset::Column::Supply.gt(0))
+        .from_as(asset::Entity, extensions::asset::Entity)
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Id).is_in(asset_ids))
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
 
     if !options.show_fungible {
         stmt = stmt
-            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .and_where(
+                Expr::tbl(
+                    extensions::asset::Entity,
+                    extensions::asset::Column::OwnerType,
+                )
+                .eq(Expr::val(OwnerType::Single).as_enum(asset::Column::OwnerType)),
+            )
             .to_owned();
     }
 
-    stmt = stmt.order_by(asset::Column::Id, Order::Desc).to_owned();
+    stmt = stmt
+        .order_by(extensions::asset::Column::Id, Order::Desc)
+        .to_owned();
 
     stmt = stmt
-        .page_by(pagination, limit, &Order::Desc, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &Order::Desc,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -1293,7 +1375,7 @@ where
 pub async fn get_by_authority<D>(
     conn: &D,
     authority: Vec<u8>,
-    sort_by: Option<asset::Column>,
+    sort_by: extensions::asset::Column,
     sort_direction: Order,
     pagination: &Pagination,
     limit: u64,
@@ -1368,16 +1450,16 @@ where
         .join(
             JoinType::LeftJoin,
             tokens::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(tokens::Entity, tokens::Column::Mint),
         )
         .join(
             JoinType::LeftJoin,
             token_accounts::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint)
                 .and(
-                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                         .equals(token_accounts::Entity, token_accounts::Column::Owner),
                 )
                 .and(token_accounts::Column::Amount.gt(0)),
@@ -1385,23 +1467,32 @@ where
         .join(
             JoinType::InnerJoin,
             asset_authority::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(asset_authority::Entity, asset_authority::Column::AssetId)
                 .and(asset_authority::Column::Authority.eq(authority.clone())),
         )
-        .and_where(asset::Column::Supply.gt(0))
+        .from_as(asset::Entity, extensions::asset::Entity)
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
 
     if !options.show_fungible {
         stmt = stmt
-            .and_where(asset::Column::OwnerType.eq(OwnerType::Single))
+            .and_where(
+                Expr::tbl(extensions::asset::Entity, asset::Column::OwnerType)
+                    .eq(OwnerType::Single.as_enum()),
+            )
             .to_owned();
     }
 
     stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
 
     stmt = stmt
-        .page_by(pagination, limit, &sort_direction, asset::Column::Id)
+        .page_by(
+            pagination,
+            limit,
+            &sort_direction,
+            extensions::asset::Column::Id,
+        )
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);
@@ -1639,22 +1730,23 @@ where
         .join(
             JoinType::LeftJoin,
             tokens::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(tokens::Entity, tokens::Column::Mint),
         )
         .join(
             JoinType::LeftJoin,
             token_accounts::Entity,
-            Expr::tbl(asset::Entity, asset::Column::Id)
+            Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                 .equals(token_accounts::Entity, token_accounts::Column::Mint)
                 .and(
-                    Expr::tbl(asset::Entity, asset::Column::Owner)
+                    Expr::tbl(extensions::asset::Entity, asset::Column::Owner)
                         .equals(token_accounts::Entity, token_accounts::Column::Owner),
                 )
                 .and(token_accounts::Column::Amount.gt(0)),
         )
-        .and_where(asset::Column::Id.eq(asset_id.clone()))
-        .and_where(asset::Column::Supply.gt(0))
+        .from_as(asset::Entity, extensions::asset::Entity)
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Id).eq(asset_id.clone()))
+        .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
         .to_owned();
 
     let (sql, values) = stmt.build(PostgresQueryBuilder);

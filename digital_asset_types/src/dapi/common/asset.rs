@@ -3,7 +3,7 @@ use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
-use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
+use crate::dao::{asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
 use crate::rpc::response::TokenAccountList;
@@ -116,36 +116,54 @@ pub fn build_transaction_signatures_response(
     }
 }
 
-pub fn create_sorting(sorting: AssetSorting) -> (sea_orm::query::Order, Option<asset::Column>) {
-    let sort_column = match sorting.sort_by {
-        AssetSortBy::Id => Some(asset::Column::Id),
-        AssetSortBy::Created => Some(asset::Column::CreatedAt),
-        AssetSortBy::Updated => Some(asset::Column::SlotUpdated),
-        AssetSortBy::RecentAction => Some(asset::Column::SlotUpdated),
-        AssetSortBy::None => None,
-    };
-    let sort_direction = match sorting.sort_direction.unwrap_or_default() {
-        AssetSortDirection::Desc => sea_orm::query::Order::Desc,
-        AssetSortDirection::Asc => sea_orm::query::Order::Asc,
-    };
-    (sort_direction, sort_column)
+impl From<AssetSortBy> for extensions::asset::Column {
+    fn from(sort_by: AssetSortBy) -> Self {
+        match sort_by {
+            AssetSortBy::None | AssetSortBy::Id => extensions::asset::Column::Id,
+            AssetSortBy::Created => extensions::asset::Column::CreatedAt,
+            AssetSortBy::Updated => extensions::asset::Column::SlotUpdated,
+            AssetSortBy::RecentAction => extensions::asset::Column::SlotUpdated,
+        }
+    }
 }
 
-pub fn create_pagination(page_options: &PageOptions) -> Result<Pagination, DbErr> {
-    if let Some(cursor) = &page_options.cursor {
-        Ok(Pagination::Cursor(cursor.clone()))
-    } else {
-        match (
-            page_options.before.as_ref(),
-            page_options.after.as_ref(),
-            page_options.page,
-        ) {
-            (_, _, None) => Ok(Pagination::Keyset {
-                before: page_options.before.clone(),
-                after: page_options.after.clone(),
-            }),
-            (None, None, Some(p)) => Ok(Pagination::Page { page: p }),
-            _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
+impl From<AssetSortDirection> for sea_orm::query::Order {
+    fn from(sort_direction: AssetSortDirection) -> Self {
+        match sort_direction {
+            AssetSortDirection::Desc => sea_orm::query::Order::Desc,
+            AssetSortDirection::Asc => sea_orm::query::Order::Asc,
+        }
+    }
+}
+
+impl AssetSorting {
+    pub fn into_sorting(&self) -> (extensions::asset::Column, sea_orm::query::Order) {
+        (
+            self.sort_by.into(),
+            self.sort_direction.unwrap_or_default().into(),
+        )
+    }
+}
+
+impl TryFrom<&PageOptions> for Pagination {
+    type Error = DbErr;
+
+    fn try_from(page_options: &PageOptions) -> Result<Self, Self::Error> {
+        if let Some(cursor) = &page_options.cursor {
+            Ok(Pagination::Cursor(cursor.clone()))
+        } else {
+            match (
+                page_options.before.as_ref(),
+                page_options.after.as_ref(),
+                page_options.page,
+            ) {
+                (_, _, None) => Ok(Pagination::Keyset {
+                    before: page_options.before.clone(),
+                    after: page_options.after.clone(),
+                }),
+                (None, None, Some(p)) => Ok(Pagination::Page { page: p }),
+                _ => Err(DbErr::Custom("Invalid Pagination".to_string())),
+            }
         }
     }
 }

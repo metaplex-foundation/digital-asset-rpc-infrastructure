@@ -155,7 +155,7 @@ async fn test_token_keg_fungible_with_no_metadata() {
     "#;
 
     let request: api::GetAsset = serde_json::from_str(request).unwrap();
-    let response = setup.das_api.get_asset(request).await;
+    let response = setup.das_api.get_asset(request).await.unwrap();
 
-    assert!(matches!(response, Err(DasApiError::DatabaseError(_))));
+    insta::assert_json_snapshot!(name, response);
 }
