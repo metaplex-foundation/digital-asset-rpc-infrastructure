@@ -55,14 +55,14 @@ expression: response
       },
       "creators": [
         {
-          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
-          "share": 100,
-          "verified": false
-        },
-        {
           "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
           "share": 0,
           "verified": true
+        },
+        {
+          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
+          "share": 100,
+          "verified": false
         }
       ],
       "ownership": {

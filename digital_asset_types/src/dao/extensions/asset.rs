@@ -11,7 +11,7 @@ use crate::dao::{
         ChainMutability, Mutability, OwnerType, RoyaltyTargetType, SpecificationAssetClass,
         SpecificationVersions,
     },
-    token_accounts, tokens,
+    token_accounts,
 };
 use crate::dao::{Cursor, Pagination};
 use sea_orm::entity::prelude::*;
@@ -356,16 +356,16 @@ impl Row {
             )
             .expr_as(
                 Expr::col((asset::Entity, asset::Column::Owner)),
-                Alias::new("asset_owner"),
+                Column::AssetOwner,
             )
             .expr(Expr::col((asset::Entity, asset::Column::OwnerType)).as_enum(Alias::new("TEXT")))
             .expr_as(
                 Expr::col((asset::Entity, asset::Column::Delegate)),
-                Alias::new("asset_delegate"),
+                Column::AssetDelegate,
             )
             .expr_as(
                 Expr::col((asset::Entity, asset::Column::Frozen)),
-                Alias::new("asset_frozen"),
+                Column::AssetFrozen,
             )
             .column((asset::Entity, asset::Column::Supply))
             .column((asset::Entity, asset::Column::SupplyMint))
@@ -412,46 +412,12 @@ impl Row {
             .column((asset_data::Entity, asset_data::Column::Metadata))
             .column((asset_data::Entity, asset_data::Column::RawName))
             .column((asset_data::Entity, asset_data::Column::RawSymbol))
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::Supply)),
-                Alias::new("mint_supply"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::Decimals)),
-                Alias::new("mint_decimals"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::TokenProgram)),
-                Alias::new("mint_token_program"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::MintAuthority)),
-                Alias::new("mint_authority"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::FreezeAuthority)),
-                Alias::new("mint_freeze_authority"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::CloseAuthority)),
-                Alias::new("mint_close_authority"),
-            )
-            .expr_as(
-                Expr::col((tokens::Entity, tokens::Column::ExtensionData)),
-                Alias::new("mint_extension_data"),
-            )
             .from(asset::Entity)
             .join(
                 JoinType::LeftJoin,
                 asset_data::Entity,
                 Expr::tbl(asset::Entity, asset::Column::Id)
                     .equals(asset_data::Entity, asset_data::Column::Id),
-            )
-            .join(
-                JoinType::LeftJoin,
-                tokens::Entity,
-                Expr::tbl(asset::Entity, asset::Column::Id)
-                    .equals(tokens::Entity, tokens::Column::Mint),
             )
             .to_owned()
     }
@@ -479,9 +445,7 @@ impl AssetSelectStatementExt for SelectStatement {
         C: ColumnTrait,
     {
         if let Some(col) = sort_by {
-            self.order_by(col, sort_direction.clone())
-                .order_by(asset::Column::Id, Order::Desc)
-                .to_owned()
+            self.order_by(col, sort_direction.clone()).to_owned()
         } else {
             self.order_by(asset::Column::Id, Order::Desc).to_owned()
         }

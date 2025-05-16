@@ -70,7 +70,7 @@ expression: response
     },
     {
       "interface": "MplCoreAsset",
-      "id": "J2kazVRuZ33Po4PVyZGxiDYUMQ1eZiT5Xa13usRYo264",
+      "id": "EgzsppfYJmUet4ve8MnuHMyvSnj6R7LRmwsGEH5TuGhB",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
         "json_uri": "https://example.com/asset",
@@ -131,7 +131,7 @@ expression: response
     },
     {
       "interface": "MplCoreAsset",
-      "id": "EgzsppfYJmUet4ve8MnuHMyvSnj6R7LRmwsGEH5TuGhB",
+      "id": "J2kazVRuZ33Po4PVyZGxiDYUMQ1eZiT5Xa13usRYo264",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
         "json_uri": "https://example.com/asset",

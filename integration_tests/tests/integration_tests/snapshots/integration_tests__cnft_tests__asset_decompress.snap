@@ -50,13 +50,13 @@ expression: response
   },
   "creators": [
     {
-      "address": "2kKisVa2VmNk6iA2avQpZdDXtDGBWgzEE9ib7iWmKemw",
-      "share": 0,
+      "address": "8dpwoPxMkCd9LnsDEbrRuBL5sw3mqcWLf9vPcwgpeRMS",
+      "share": 100,
       "verified": false
     },
     {
-      "address": "8dpwoPxMkCd9LnsDEbrRuBL5sw3mqcWLf9vPcwgpeRMS",
-      "share": 100,
+      "address": "2kKisVa2VmNk6iA2avQpZdDXtDGBWgzEE9ib7iWmKemw",
+      "share": 0,
       "verified": false
     },
     {
