@@ -86,6 +86,37 @@ async fn test_reg_get_asset_batch() {
 #[tokio::test]
 #[serial]
 #[named]
+async fn test_get_assets_with_multiple_same_ids() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    let seeds: Vec<SeedEvent> = seed_nfts([
+        "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+        "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"        
+    {
+        "ids": [
+          "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+          "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+          "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X",
+          "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X"
+        ]
+    }
+    "#;
+
+    let request: api::GetAssets = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_assets(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
 async fn test_reg_get_asset_by_group() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new(name.clone()).await;

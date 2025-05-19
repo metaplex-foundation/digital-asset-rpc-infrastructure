@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/show_collection_metadata_option_tests.rs
+source: integration_tests/tests/integration_tests/das_options_tests.rs
 expression: response
 ---
 {
