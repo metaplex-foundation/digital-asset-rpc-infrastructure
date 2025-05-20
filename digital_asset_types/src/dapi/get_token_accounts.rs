@@ -5,7 +5,7 @@ use crate::{
     rpc::{options::Options, response::TokenAccountList},
 };
 
-use super::common::{build_token_list_response, create_pagination};
+use super::common::build_token_list_response;
 
 pub async fn get_token_accounts(
     db: &DatabaseConnection,
@@ -14,7 +14,7 @@ pub async fn get_token_accounts(
     page_options: &PageOptions,
     options: &Options,
 ) -> Result<TokenAccountList, DbErr> {
-    let pagination = create_pagination(page_options)?;
+    let pagination = page_options.try_into()?;
 
     let token_accounts = crate::dao::scopes::token::get_token_accounts(
         db,

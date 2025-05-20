@@ -1,0 +1,83 @@
+---
+source: integration_tests/tests/integration_tests/das_options_tests.rs
+expression: response
+---
+{
+  "interface": "V1_NFT",
+  "id": "9FkS3kZV4MoGps14tUSp7iVnizGbxcK4bDEhSoF5oYAZ",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://arweave.net/qJdjeP8XFfYIG6z5pJ-3RsZR2EcbgILX_ot-b2fEC0g",
+    "files": [],
+    "metadata": {
+      "name": "punk2491",
+      "symbol": "Symbol",
+      "token_standard": "NonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "BVk6Bvxa9v6Y32o7KGPhYV4CU9pmG2K7nAYc7mDejsGM",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.08,
+    "basis_points": 800,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "BVk6Bvxa9v6Y32o7KGPhYV4CU9pmG2K7nAYc7mDejsGM",
+      "share": 100,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single"
+  },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 252
+  },
+  "mutable": true,
+  "burnt": false,
+  "inscription": {
+    "authority": "11111111111111111111111111111111",
+    "root": "9FkS3kZV4MoGps14tUSp7iVnizGbxcK4bDEhSoF5oYAZ",
+    "inscription_data": "4Q18N6XrfJHgDbRTaHJR328jN9dixCLQAQhDsTsRzg3v",
+    "content": "image/net/riupjyro3lsvkb_listajh0jdsrsjmnyhusxvznycqw",
+    "encoding": "base64",
+    "order": 1733,
+    "size": 202,
+    "validation_hash": "7fa0041483b92f5a0448067ecef9beca2192b13bfe86fbd53a0024e84fcea652"
+  },
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "DjotVJWywieVJcFrr1ndy8FFqmFm4exEjvJSVyX2G4AV",
+    "freeze_authority": "DjotVJWywieVJcFrr1ndy8FFqmFm4exEjvJSVyX2G4AV"
+  }
+}

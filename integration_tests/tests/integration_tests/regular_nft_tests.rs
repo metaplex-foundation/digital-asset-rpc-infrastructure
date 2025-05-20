@@ -86,6 +86,37 @@ async fn test_reg_get_asset_batch() {
 #[tokio::test]
 #[serial]
 #[named]
+async fn test_get_assets_with_multiple_same_ids() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    let seeds: Vec<SeedEvent> = seed_nfts([
+        "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+        "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"        
+    {
+        "ids": [
+          "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+          "F9Lw3ki3hJ7PF9HQXsBzoY8GyE6sPoEZZdXJBsTTD2rk",
+          "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X",
+          "JEKKtnGvjiZ8GtATnMVgadHU41AuTbFkMW8oD2tdyV9X"
+        ]
+    }
+    "#;
+
+    let request: api::GetAssets = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_assets(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
 async fn test_reg_get_asset_by_group() {
     let name = trim_test_name(function_name!());
     let setup = TestSetup::new(name.clone()).await;
@@ -142,5 +173,88 @@ async fn test_reg_search_assets() {
 
     let request: api::SearchAssets = serde_json::from_str(request).unwrap();
     let response = setup.das_api.search_assets(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_reg_get_assets_by_creator() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+        "3crBqZZsHhoLphM55MG4KRW6SbNzFEBFnehw7PW7ZRKt",
+        "7fXKY9tPpvYsdbSNyesUqo27WYC6ZsBEULdtngGHqLCK",
+        "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
+        "8KyuwGzav7jTW9YaBGj2Qtp2q24zPUR3rD5caojXaby4",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    index_metadata_jsons(
+        &setup,
+        &[
+            "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
+            "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
+        ],
+        serde_json::from_str(SAMPLE_METADATA_JSON).unwrap(),
+    )
+    .await;
+
+    let request = r#"        
+    {
+        "creatorAddress": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "page": 1,
+        "limit": 2
+    }
+    "#;
+
+    let request: api::GetAssetsByCreator = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_assets_by_creator(request).await.unwrap();
+    insta::assert_json_snapshot!(name, response);
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_nft_editions() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Mainnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "Ey2Qb8kLctbchQsMnhZs5DjY32To2QtPuXNwWvk4NosL",
+        "9ZmY7qCaq7WbrR7RZdHWCNS9FrFRPwRqU84wzWfmqLDz",
+        "8SHfqzJYABeGfiG1apwiEYt6TvfGQiL1pdwEjvTKsyiZ",
+        "GJvFDcBWf6aDncd1TBzx2ou1rgLFYaMBdbYLBa9oTAEw",
+        "9ZmY7qCaq7WbrR7RZdHWCNS9FrFRPwRqU84wzWfmqLDz",
+        "AoxgzXKEsJmUyF5pBb3djn9cJFA26zh2SQHvd9EYijZV",
+        "9yQecKKYSHxez7fFjJkUvkz42TLmkoXzhyZxEf2pw8pz",
+        "4V9QuYLpiMu4ZQmhdEHmgATdgiHkDeJfvZi84BfkYcez",
+        "giWoA4jqHFkodPJgtbRYRcYtiXbsVytnxnEao3QT2gg",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"        
+    {
+        "mintAddress": "Ey2Qb8kLctbchQsMnhZs5DjY32To2QtPuXNwWvk4NosL",
+        "limit":10
+    }
+    "#;
+
+    let request: api::GetNftEditions = serde_json::from_str(request).unwrap();
+    let response = setup.das_api.get_nft_editions(request).await.unwrap();
+
     insta::assert_json_snapshot!(name, response);
 }

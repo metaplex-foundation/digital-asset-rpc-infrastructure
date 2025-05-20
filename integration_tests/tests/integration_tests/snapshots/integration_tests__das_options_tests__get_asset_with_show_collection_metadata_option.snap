@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/show_collection_metadata_option_tests.rs
+source: integration_tests/tests/integration_tests/das_options_tests.rs
 expression: response
 ---
 {
@@ -96,6 +96,8 @@ expression: response
     "decimals": 0,
     "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "mint_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
-    "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip"
+    "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
+    "balance": 1,
+    "associated_token_address": "3crBqZZsHhoLphM55MG4KRW6SbNzFEBFnehw7PW7ZRKt"
   }
 }

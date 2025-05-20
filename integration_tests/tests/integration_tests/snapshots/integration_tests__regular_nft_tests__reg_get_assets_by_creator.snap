@@ -1,12 +1,91 @@
 ---
-source: integration_tests/tests/integration_tests/show_collection_metadata_option_tests.rs
+source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
 ---
 {
-  "total": 1,
-  "limit": 50,
+  "total": 2,
+  "limit": 2,
   "page": 1,
   "items": [
+    {
+      "interface": "ProgrammableNFT",
+      "id": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.json",
+        "files": [
+          {
+            "uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+            "mime": "image/png"
+          }
+        ],
+        "metadata": {
+          "attributes": [],
+          "description": "Fock it.",
+          "name": "Mad Lads",
+          "symbol": "MAD",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {
+          "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+          "external_url": "https://madlads.com"
+        }
+      },
+      "authorities": [
+        {
+          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+          "share": 100,
+          "verified": true
+        }
+      ],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single"
+      },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": 253
+      },
+      "mutable": true,
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "2G5CotQ6Q87yhZxKUWkwLY6Foi12Q3VFQ6KN4nTLbPSz",
+        "freeze_authority": "2G5CotQ6Q87yhZxKUWkwLY6Foi12Q3VFQ6KN4nTLbPSz"
+      }
+    },
     {
       "interface": "ProgrammableNFT",
       "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
@@ -52,14 +131,7 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
-          "collection_metadata": {
-            "description": "Fock it.",
-            "external_url": "https://madlads.com",
-            "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
-            "name": "Mad Lads",
-            "symbol": "MAD"
-          }
+          "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w"
         }
       ],
       "royalty": {

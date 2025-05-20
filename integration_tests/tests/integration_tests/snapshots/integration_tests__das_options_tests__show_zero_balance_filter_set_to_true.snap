@@ -1,0 +1,23 @@
+---
+source: integration_tests/tests/integration_tests/das_options_tests.rs
+expression: response
+---
+{
+  "total": 1,
+  "limit": 1000,
+  "token_accounts": [
+    {
+      "address": "BE1CkzRjLTXAWcSVCaqzycwXsZ18Yuk3jMDMnPUoHjjS",
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "amount": 0,
+      "owner": "2oerfxddTpK5hWAmCMYB6fr9WvNrjEH54CHCWK8sAq7g",
+      "frozen": false,
+      "delegate": null,
+      "delegated_amount": 0,
+      "close_authority": null,
+      "extensions": null
+    }
+  ],
+  "cursor": null,
+  "errors": []
+}

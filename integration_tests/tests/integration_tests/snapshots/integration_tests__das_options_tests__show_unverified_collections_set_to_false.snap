@@ -1,0 +1,73 @@
+---
+source: integration_tests/tests/integration_tests/das_options_tests.rs
+expression: response
+---
+{
+  "interface": "V1_NFT",
+  "id": "GAinsU7ajZa3m8M25rVT1hMgRWSh7NMSjUYGNC7UVRWU",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://graphigo.prd.galaxy.eco/metadata/GZ9dKMp357jjMohEXrMcd2RJH9fGYq3boeJ2wttpQMuk/1965.json",
+    "files": [],
+    "metadata": {
+      "name": "Olympian",
+      "symbol": "olympian",
+      "token_standard": "NonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "GZ9dKMp357jjMohEXrMcd2RJH9fGYq3boeJ2wttpQMuk",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "GZ9dKMp357jjMohEXrMcd2RJH9fGYq3boeJ2wttpQMuk",
+      "share": 100,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single"
+  },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": 254
+  },
+  "mutable": true,
+  "burnt": false,
+  "token_info": {
+    "supply": 1,
+    "decimals": 0,
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "mint_authority": "GoEELrzpDpGYbqsbtUP2daadk8BSUhiPf3nzGaJFZHbR",
+    "freeze_authority": "GoEELrzpDpGYbqsbtUP2daadk8BSUhiPf3nzGaJFZHbR"
+  }
+}

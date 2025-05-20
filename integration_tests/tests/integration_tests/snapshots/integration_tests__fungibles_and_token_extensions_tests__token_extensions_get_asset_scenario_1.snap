@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/fungibles_and_token_extensions_tests.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "V1_NFT",
@@ -41,8 +40,7 @@ snapshot_kind: text
     "frozen": false,
     "delegated": false,
     "delegate": null,
-    "ownership_model": "single",
-    "owner": ""
+    "ownership_model": "single"
   },
   "supply": {
     "print_max_supply": 0,

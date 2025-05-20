@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/test_get_assets_with_multiple_same_ids.rs
+source: integration_tests/tests/integration_tests/regular_nft_tests.rs
 expression: response
 ---
 [

@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/account_update_tests.rs
 expression: response_new_slot
-snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",

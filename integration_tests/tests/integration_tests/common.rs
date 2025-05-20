@@ -343,7 +343,6 @@ pub async fn get_token_largest_account(client: &RpcClient, mint: Pubkey) -> anyh
         mint,
     )
     .await?;
-
     match response.value.first() {
         Some(account) => {
             let pubkey = Pubkey::from_str(&account.address);
@@ -658,3 +657,26 @@ pub async fn index_metadata_jsons(setup: &TestSetup, asset_id: &[&str], json_dat
             .expect("Failed to update asset data");
     }
 }
+
+pub const SAMPLE_METADATA_JSON: &str = r#"{
+  "name": "Mad Lads",
+  "symbol": "MAD",
+  "description": "Fock it.",
+  "seller_fee_basis_points": 500,
+  "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+  "external_url": "https://madlads.com",
+  "collection": {
+    "name": "Mad Lads",
+    "family": "MAD"
+  },
+  "attributes": [],
+  "properties": {
+    "category": "image",
+    "creators": [
+      {
+        "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+        "share": 100
+      }
+    ]
+  }
+}"#;

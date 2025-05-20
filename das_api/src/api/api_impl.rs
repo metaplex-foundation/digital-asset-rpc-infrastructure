@@ -3,7 +3,8 @@ use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use digital_asset_types::{
     dao::{
         scopes::{
-            asset::{get_grouping, get_nft_editions},
+            grouping::get_grouping,
+            nft_edition::get_nft_editions,
             token::{get_token_largest_accounts, get_token_supply},
         },
         sea_orm_active_enums::{
@@ -12,9 +13,9 @@ use digital_asset_types::{
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        common::create_pagination, get_asset, get_asset_proofs, get_asset_signatures, get_assets,
-        get_assets_by_authority, get_assets_by_creator, get_assets_by_group, get_assets_by_owner,
-        get_proof_for_asset, get_token_accounts, search_assets,
+        get_asset, get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
+        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
+        get_token_accounts, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
@@ -506,7 +507,7 @@ impl ApiContract for DasApi {
             id,
             tree,
             leaf_index,
-            page_options,
+            &page_options,
             sort_direction,
         )
         .await
@@ -571,9 +572,11 @@ impl ApiContract for DasApi {
             cursor,
         } = payload;
 
-        let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
+        let page_options =
+            &self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
         let mint_address = validate_pubkey(mint_address.clone())?;
-        let pagination = create_pagination(&page_options)?;
+        let pagination = page_options.try_into()?;
+
         get_nft_editions(
             &self.db_connection,
             mint_address,

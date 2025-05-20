@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/cnft_tests_v2_leaf_schema.rs
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "V1_NFT",

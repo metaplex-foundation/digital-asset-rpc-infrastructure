@@ -89,6 +89,8 @@ expression: response
     "decimals": 0,
     "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "mint_authority": "9M1Xp6TSRe5tRvsQ7W6fRyqVzptfbQZQmYeSPyL5JuzY",
-    "freeze_authority": "9M1Xp6TSRe5tRvsQ7W6fRyqVzptfbQZQmYeSPyL5JuzY"
+    "freeze_authority": "9M1Xp6TSRe5tRvsQ7W6fRyqVzptfbQZQmYeSPyL5JuzY",
+    "balance": 1,
+    "associated_token_address": "3mM2EwVk23dZ1SfNQBvhLJhAwuMAJcm5XFg9f8wpHYTP"
   }
 }

@@ -1,7 +1,6 @@
 ---
 source: integration_tests/tests/integration_tests/account_update_tests.rs
 expression: setup.das_api.get_asset(request.clone()).await.unwrap()
-snapshot_kind: text
 ---
 {
   "interface": "ProgrammableNFT",

@@ -1,0 +1,11 @@
+---
+source: integration_tests/tests/integration_tests/das_options_tests.rs
+expression: response
+---
+{
+  "total": 0,
+  "limit": 1000,
+  "token_accounts": [],
+  "cursor": null,
+  "errors": []
+}
