@@ -570,7 +570,7 @@ pub async fn index_slot_meta(setup: &TestSetup, slot: &i64) {
     slot_metas::Entity::insert(slot_metas::ActiveModel {
         slot: ActiveValue::Set(*slot),
     })
-    .exec(&setup.das_api.db_connection)
+    .exec(&setup.das_api.get_connection())
     .await
     .expect("Failed to insert slot meta");
 }
@@ -652,7 +652,7 @@ pub async fn index_metadata_jsons(setup: &TestSetup, asset_id: &[&str], json_dat
         };
 
         asset_data
-            .update(&setup.das_api.db_connection)
+            .update(&setup.das_api.get_connection())
             .await
             .expect("Failed to update asset data");
     }

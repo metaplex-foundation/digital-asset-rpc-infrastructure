@@ -31,6 +31,8 @@ pub enum DasApiError {
     CursorValidationError(String),
     #[error("Pagination Sorting Error. Only sorting based on id is supported for this pagination option.")]
     PaginationSortingValidationError,
+    #[error("Invalid Program Id: {0}")]
+    InvalidProgramId(String),
 }
 
 impl From<DasApiError> for RpcError {

@@ -160,6 +160,19 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getTokenSupply", "get_token_supply")?;
 
+        module.register_async_method(
+            "get_token_accounts_by_owner",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetTokenAccountsByOwner>()?;
+                rpc_context
+                    .get_token_accounts_by_owner(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+
+        module.register_alias("getTokenAccountsByOwner", "get_token_accounts_by_owner")?;
+
         Ok(module)
     }
 }

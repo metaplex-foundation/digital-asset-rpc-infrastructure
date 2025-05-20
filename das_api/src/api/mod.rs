@@ -1,4 +1,5 @@
 use crate::error::DasApiError;
+use crate::validation::{validate_opt_pubkey, validate_opt_token_program};
 use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{
     AssetSortDirection, CommitmentConfig, SearchConditionType, TokenTypeClass,
@@ -9,13 +10,15 @@ use digital_asset_types::rpc::response::{
 };
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{
-    Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel, SolanaRpcResponseAndContext,
+    Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel, RpcData, RpcTokenInfo,
+    SolanaRpcResponse,
 };
-use digital_asset_types::rpc::{RpcTokenAccountBalance, RpcTokenSupply};
+use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenSupply};
 use open_rpc_derive::{document_rpc, rpc};
 use open_rpc_schema::schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 mod api_impl;
 pub use api_impl::*;
@@ -205,6 +208,73 @@ pub struct GetTokenLargestAccounts(pub String, #[serde(default)] pub Option<Comm
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct GetTokenSupply(pub String, #[serde(default)] pub Option<CommitmentConfig>);
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, JsonSchema)]
+pub struct GetTokenAccountOptionalParams {
+    #[serde(default)]
+    pub mint: Option<String>,
+    #[serde(default)]
+    pub program_id: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ValidatedTokenAccountParams {
+    pub mint: Option<Vec<u8>>,
+    pub program_id: Option<Vec<u8>>,
+}
+
+impl TryFrom<&Option<GetTokenAccountOptionalParams>> for ValidatedTokenAccountParams {
+    type Error = DasApiError;
+
+    fn try_from(params: &Option<GetTokenAccountOptionalParams>) -> Result<Self, Self::Error> {
+        let params = match params {
+            Some(params) => params,
+            None => {
+                return Ok(Self {
+                    mint: None,
+                    program_id: None,
+                })
+            }
+        };
+
+        Ok(Self {
+            mint: validate_opt_pubkey(&params.mint)?,
+            program_id: validate_opt_token_program(&params.program_id)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub enum RpcConfigEncoding {
+    JsonParsed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct RpcConfigDataSlice {
+    pub length: usize,
+    pub offset: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct RpcConfiguration {
+    #[serde(default, flatten)]
+    pub commitment: Option<CommitmentConfig>,
+    #[serde(default)]
+    pub encoding: Option<RpcConfigEncoding>,
+    #[serde(default)]
+    pub min_context_slot: Option<u64>,
+    #[serde(default)]
+    pub data_slice: Option<RpcConfigDataSlice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetTokenAccountsByOwner(
+    pub String,
+    #[serde(default)] pub Option<GetTokenAccountOptionalParams>,
+    #[serde(default)] pub Option<RpcConfiguration>,
+);
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -317,10 +387,15 @@ pub trait ApiContract: Send + Sync + 'static {
     async fn get_token_largest_accounts(
         &self,
         payload: GetTokenLargestAccounts,
-    ) -> Result<SolanaRpcResponseAndContext<Vec<RpcTokenAccountBalance>>, DasApiError>;
+    ) -> Result<SolanaRpcResponse<Vec<RpcTokenAccountBalanceWithAddress>>, DasApiError>;
 
     async fn get_token_supply(
         &self,
         payload: GetTokenSupply,
-    ) -> Result<SolanaRpcResponseAndContext<RpcTokenSupply>, DasApiError>;
+    ) -> Result<SolanaRpcResponse<RpcTokenSupply>, DasApiError>;
+
+    async fn get_token_accounts_by_owner(
+        &self,
+        payload: GetTokenAccountsByOwner,
+    ) -> Result<SolanaRpcResponse<Vec<RpcData<RpcTokenInfo>>>, DasApiError>;
 }

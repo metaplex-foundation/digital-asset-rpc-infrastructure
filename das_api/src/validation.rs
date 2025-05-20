@@ -1,4 +1,5 @@
 use crate::error::DasApiError;
+use digital_asset_types::dao::scopes::token::{SPL_TOKEN, SPL_TOKEN_2022};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
@@ -31,5 +32,24 @@ pub fn validate_opt_pubkey(pubkey: &Option<String>) -> Result<Option<Vec<u8>>, D
     } else {
         None
     };
+    Ok(opt_bytes)
+}
+
+pub fn validate_opt_token_program(
+    token_program: &Option<String>,
+) -> Result<Option<Vec<u8>>, DasApiError> {
+    let validated_pubkey = validate_opt_pubkey(token_program)?;
+
+    let opt_bytes = if let Some(token_program) = validated_pubkey {
+        let token_program_pubkey = bs58::encode(token_program.clone()).into_string();
+        if token_program_pubkey.eq(SPL_TOKEN) || token_program_pubkey.eq(SPL_TOKEN_2022) {
+            Some(token_program)
+        } else {
+            return Err(DasApiError::InvalidProgramId(token_program_pubkey));
+        }
+    } else {
+        None
+    };
+
     Ok(opt_bytes)
 }

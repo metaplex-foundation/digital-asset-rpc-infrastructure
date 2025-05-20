@@ -489,8 +489,15 @@ pub struct UiTokenAmount {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 #[serde(default)]
-pub struct RpcTokenAccountBalance {
+pub struct RpcTokenAccountBalanceWithAddress {
     pub address: String,
+    #[serde(flatten)]
+    pub amount: UiTokenAmount,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcTokenAccountBalance {
     #[serde(flatten)]
     pub amount: UiTokenAmount,
 }
@@ -506,6 +513,52 @@ pub struct RpcTokenSupply {
     pub ui_amount_string: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcAccountData<T: JsonSchema + Default> {
+    pub data: T,
+    pub executable: bool,
+    pub lamports: u64,
+    pub owner: String,
+    #[serde(rename = "rentEpoch")]
+    pub rent_epoch: u64,
+    pub space: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcParsedAccount<T: JsonSchema + Default> {
+    pub info: T,
+    #[serde(rename = "type")]
+    pub account_type: String,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcTokenInfo {
+    #[serde(rename = "isNative")]
+    pub is_native: bool,
+    pub mint: String,
+    pub owner: String,
+    pub state: String,
+    #[serde(rename = "tokenAmount")]
+    pub token_amount: RpcTokenAccountBalance,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcAccountDataInner<T: JsonSchema + Default> {
+    pub program: String,
+    pub parsed: RpcParsedAccount<T>,
+    pub space: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
+pub struct RpcData<T: JsonSchema + Default> {
+    pub pubkey: String,
+    pub account: RpcAccountData<RpcAccountDataInner<T>>,
+}
+
 #[derive(Serialize, Default, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(default)]
 pub struct SolanaRpcContext {
@@ -514,7 +567,16 @@ pub struct SolanaRpcContext {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 #[serde(default)]
-pub struct SolanaRpcResponseAndContext<T: Default> {
+pub struct SolanaRpcResponse<T: Default> {
     pub context: SolanaRpcContext,
     pub value: T,
+}
+
+impl<T: Default> SolanaRpcResponse<T> {
+    pub const fn new(value: T, slot: u64) -> Self {
+        Self {
+            value,
+            context: SolanaRpcContext { slot },
+        }
+    }
 }
