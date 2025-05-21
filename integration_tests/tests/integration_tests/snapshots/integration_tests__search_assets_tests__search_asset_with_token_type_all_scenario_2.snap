@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/token_type_test.rs
+source: integration_tests/tests/integration_tests/search_assets_tests.rs
 expression: response
 ---
 {

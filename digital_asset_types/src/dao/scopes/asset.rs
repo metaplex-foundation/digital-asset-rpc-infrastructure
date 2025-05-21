@@ -1071,8 +1071,6 @@ where
                     .and(token_accounts::Column::Amount.gt(0)),
             )
             .from_as(asset::Entity, extensions::asset::Entity)
-            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Supply).gt(0))
-            .and_where(Expr::tbl(extensions::asset::Entity, asset::Column::Burnt).eq(true))
             .to_owned()
     };
 
@@ -1424,18 +1422,6 @@ where
                 JoinType::InnerJoin,
                 asset_creators::Entity,
                 Expr::tbl(extensions::asset::Entity, extensions::asset::Column::Id)
-                    .equals(asset_creators::Entity, asset_creators::Column::AssetId)
-                    .and(asset_creators::Column::Creator.eq(creator.to_owned())),
-            )
-            .to_owned();
-    }
-
-    if let Some(creator) = &query.creator_address {
-        stmt = stmt
-            .join(
-                JoinType::InnerJoin,
-                asset_creators::Entity,
-                Expr::tbl(extensions::asset::Entity, asset::Column::Id)
                     .equals(asset_creators::Entity, asset_creators::Column::AssetId)
                     .and(asset_creators::Column::Creator.eq(creator.to_owned())),
             )

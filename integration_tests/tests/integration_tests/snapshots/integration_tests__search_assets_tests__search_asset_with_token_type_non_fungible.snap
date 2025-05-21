@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/token_type_test.rs
+source: integration_tests/tests/integration_tests/search_assets_tests.rs
 expression: response
 ---
 {
@@ -9,13 +9,13 @@ expression: response
   "items": [
     {
       "interface": "ProgrammableNFT",
-      "id": "42AYryUGNmJMe9ycBXZekkYvdTehgbtECHs7SLu5JJTB",
+      "id": "AH6VcoSbCGGv8BHeN7K766VUWMcdFRTaXpLvGTLSdAmk",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/2835.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/4515.json",
         "files": [],
         "metadata": {
-          "name": "SILICON #2835",
+          "name": "SILICON #4515",
           "symbol": "SILI",
           "token_standard": "ProgrammableNonFungible"
         },
@@ -83,21 +83,21 @@ expression: response
         "supply": 1,
         "decimals": 0,
         "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "EaFuF8KsiimmNVbMhAepSxiifKSBTM9dkjLzN2249Nd6",
-        "freeze_authority": "EaFuF8KsiimmNVbMhAepSxiifKSBTM9dkjLzN2249Nd6",
+        "mint_authority": "HmSYh3H4PyFwQrVt8NxEtt5Pb1UruwUmcXhxU8RTBuxt",
+        "freeze_authority": "HmSYh3H4PyFwQrVt8NxEtt5Pb1UruwUmcXhxU8RTBuxt",
         "balance": 1,
-        "associated_token_address": "7oSzJpyztTuK124EyPAw2nbF4Vaj2P9MU9vww1QN1k8p"
+        "associated_token_address": "47ackukZJRBkQSufwFnhTkmTzB11Ww8375EDXTwY75wk"
       }
     },
     {
       "interface": "ProgrammableNFT",
-      "id": "2w81QrLYTwSDkNwXgCqKAwrC1Tu6R9mh9BHcxys2Bup2",
+      "id": "8t77ShMViat27Sjphvi1FVPaGrhFcttPAkEnLCFp49Bo",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/4685.json",
+        "json_uri": "https://cdn.hellomoon.io/public/silicons/metadata/1466.json",
         "files": [],
         "metadata": {
-          "name": "SILICON #4685",
+          "name": "SILICON #1466",
           "symbol": "SILI",
           "token_standard": "ProgrammableNonFungible"
         },
@@ -157,7 +157,7 @@ expression: response
       "supply": {
         "print_max_supply": 0,
         "print_current_supply": 0,
-        "edition_nonce": 255
+        "edition_nonce": 252
       },
       "mutable": true,
       "burnt": false,
@@ -165,10 +165,10 @@ expression: response
         "supply": 1,
         "decimals": 0,
         "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "5tuhRYWBVE6iXwUe2GAiDj7PupNpjGTXq1H28vtsLrik",
-        "freeze_authority": "5tuhRYWBVE6iXwUe2GAiDj7PupNpjGTXq1H28vtsLrik",
+        "mint_authority": "9id1ZxjMiKEAzaEEwwPsjYQ9UinEbyr2UXDv5BfFxcKW",
+        "freeze_authority": "9id1ZxjMiKEAzaEEwwPsjYQ9UinEbyr2UXDv5BfFxcKW",
         "balance": 1,
-        "associated_token_address": "iRjBSW4tnw42qxf3tycTYKki1d4bcETt9AfjEwoHYgy"
+        "associated_token_address": "HboN9TsoMSKJAp388G752pSUscb8iZwgdH459KSJxbZT"
       }
     }
   ]

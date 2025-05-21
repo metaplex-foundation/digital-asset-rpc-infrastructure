@@ -1,5 +1,5 @@
 ---
-source: integration_tests/tests/integration_tests/regular_nft_tests.rs
+source: integration_tests/tests/integration_tests/search_assets_tests.rs
 expression: response
 ---
 {
@@ -9,110 +9,21 @@ expression: response
   "items": [
     {
       "interface": "ProgrammableNFT",
-      "id": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w",
+      "id": "Dt3XDSAdXAJbHqvuycgCTHykKCC7tntMFGMmSvfBbpTL",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.json",
-        "files": [
-          {
-            "uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
-            "mime": "image/png"
-          }
-        ],
+        "json_uri": "https://arweave.net/6i48UvK_962HDlje4D1H73jiszwNvO9GgcDb00-SiRI/1887.json",
+        "files": [],
         "metadata": {
-          "attributes": [],
-          "description": "Fock it.",
-          "name": "Mad Lads",
-          "symbol": "MAD",
+          "name": "Claynosaurz: Call of Saga #1887",
+          "symbol": "DINO",
           "token_standard": "ProgrammableNonFungible"
         },
-        "links": {
-          "external_url": "https://madlads.com",
-          "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png"
-        }
+        "links": {}
       },
       "authorities": [
         {
-          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-          "scopes": [
-            "full"
-          ]
-        }
-      ],
-      "compression": {
-        "eligible": false,
-        "compressed": false,
-        "data_hash": "",
-        "creator_hash": "",
-        "asset_hash": "",
-        "tree": "",
-        "seq": 0,
-        "leaf_id": 0
-      },
-      "grouping": [],
-      "royalty": {
-        "royalty_model": "creators",
-        "target": null,
-        "percent": 0.05,
-        "basis_points": 500,
-        "primary_sale_happened": false,
-        "locked": false
-      },
-      "creators": [
-        {
-          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
-          "share": 100,
-          "verified": true
-        }
-      ],
-      "ownership": {
-        "frozen": false,
-        "delegated": false,
-        "delegate": null,
-        "ownership_model": "single"
-      },
-      "supply": {
-        "print_max_supply": 0,
-        "print_current_supply": 0,
-        "edition_nonce": 253
-      },
-      "mutable": true,
-      "burnt": false,
-      "token_info": {
-        "supply": 1,
-        "decimals": 0,
-        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "2G5CotQ6Q87yhZxKUWkwLY6Foi12Q3VFQ6KN4nTLbPSz",
-        "freeze_authority": "2G5CotQ6Q87yhZxKUWkwLY6Foi12Q3VFQ6KN4nTLbPSz"
-      }
-    },
-    {
-      "interface": "ProgrammableNFT",
-      "id": "AH6wj7T8Ke5nbukjtcobjjs1CDWUcQxndtnLkKAdrSrM",
-      "content": {
-        "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://madlads.s3.us-west-2.amazonaws.com/json/1983.json",
-        "files": [
-          {
-            "uri": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
-            "mime": "image/png"
-          }
-        ],
-        "metadata": {
-          "attributes": [],
-          "description": "Fock it.",
-          "name": "Mad Lads #1983",
-          "symbol": "MAD",
-          "token_standard": "ProgrammableNonFungible"
-        },
-        "links": {
-          "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
-          "external_url": "https://madlads.com"
-        }
-      },
-      "authorities": [
-        {
-          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+          "address": "G2R7KKR9aycrMDzR2EK2Cs69f2NNBRK8AZUuaohQBg2r",
           "scopes": [
             "full"
           ]
@@ -131,35 +42,35 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w"
+          "group_value": "1yPMtWU5aqcF72RdyRD5yipmcMRC8NGNK59NvYubLkZ"
         }
       ],
       "royalty": {
         "royalty_model": "creators",
         "target": null,
-        "percent": 0.042,
-        "basis_points": 420,
+        "percent": 0.05,
+        "basis_points": 500,
         "primary_sale_happened": true,
         "locked": false
       },
       "creators": [
         {
-          "address": "5XvhfmRjwXkGp3jHGmaKpqeerNYjkuZZBYLVQYdeVcRv",
+          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
           "share": 0,
           "verified": true
         },
         {
-          "address": "2RtGg6fsFiiF1EQzHqbd66AhW7R5bWeQGpTbv2UMkCdW",
+          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
           "share": 100,
-          "verified": true
+          "verified": false
         }
       ],
       "ownership": {
         "frozen": true,
-        "delegated": true,
-        "delegate": "BPB5idZgbA1DG4XEmnKs62AADRZFf3jY7Kr9mpMGyKPi",
+        "delegated": false,
+        "delegate": null,
         "ownership_model": "single",
-        "owner": "FzVHkut1XLbGz5W56mUJoRwDkRFmyjTB6HCyatEDhDXL"
+        "owner": "6Cr66AabRYymhZgYQSfTCo6FVpH18wXrMZswAbcErpyX"
       },
       "supply": {
         "print_max_supply": 0,
@@ -172,10 +83,92 @@ expression: response
         "supply": 1,
         "decimals": 0,
         "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
-        "freeze_authority": "FAzbjKo66M3tKhkKqegmWFaYr93FB74B1ChEBdFyKcip",
+        "mint_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
+        "freeze_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
         "balance": 1,
-        "associated_token_address": "3crBqZZsHhoLphM55MG4KRW6SbNzFEBFnehw7PW7ZRKt"
+        "associated_token_address": "7DS81LourvNXo5PiWZp6G3vaSHZhY1rxT9VpG8YuFBiq"
+      }
+    },
+    {
+      "interface": "ProgrammableNFT",
+      "id": "2PfAwPb2hdgsf7xCKyU2kAWUGKnkxYZLfg5SMf4YP1h2",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://arweave.net/6i48UvK_962HDlje4D1H73jiszwNvO9GgcDb00-SiRI/1121.json",
+        "files": [],
+        "metadata": {
+          "name": "Claynosaurz: Call of Saga #1121",
+          "symbol": "DINO",
+          "token_standard": "ProgrammableNonFungible"
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "G2R7KKR9aycrMDzR2EK2Cs69f2NNBRK8AZUuaohQBg2r",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "collection",
+          "group_value": "1yPMtWU5aqcF72RdyRD5yipmcMRC8NGNK59NvYubLkZ"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.05,
+        "basis_points": 500,
+        "primary_sale_happened": true,
+        "locked": false
+      },
+      "creators": [
+        {
+          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
+          "share": 0,
+          "verified": true
+        },
+        {
+          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
+          "share": 100,
+          "verified": false
+        }
+      ],
+      "ownership": {
+        "frozen": true,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "C2ch7QUCrYZRkhVVzTXojkdjhdJhaY77i4VQdoPS64HX"
+      },
+      "supply": {
+        "print_max_supply": 0,
+        "print_current_supply": 0,
+        "edition_nonce": 254
+      },
+      "mutable": true,
+      "burnt": false,
+      "token_info": {
+        "supply": 1,
+        "decimals": 0,
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "mint_authority": "9AL5bVSYu6xZjFcWuqY2Dvv9DTrVRxhz63xQFm7sjpD",
+        "freeze_authority": "9AL5bVSYu6xZjFcWuqY2Dvv9DTrVRxhz63xQFm7sjpD",
+        "balance": 1,
+        "associated_token_address": "3XePvcrVVbGNKNuK7jrtAfeK8KUjCpXebL95RqGceYP8"
       }
     }
   ]

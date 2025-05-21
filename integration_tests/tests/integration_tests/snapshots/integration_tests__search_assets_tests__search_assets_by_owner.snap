@@ -1,29 +1,29 @@
 ---
-source: integration_tests/tests/integration_tests/regular_nft_tests.rs
+source: integration_tests/tests/integration_tests/search_assets_tests.rs
 expression: response
 ---
 {
   "total": 1,
-  "limit": 1,
+  "limit": 2,
   "page": 1,
   "items": [
     {
       "interface": "ProgrammableNFT",
-      "id": "Fm9S3FL23z3ii3EBBv8ozqLninLvhWDYmcHcHaZy6nie",
+      "id": "Dt3XDSAdXAJbHqvuycgCTHykKCC7tntMFGMmSvfBbpTL",
       "content": {
         "$schema": "https://schema.metaplex.com/nft1.0.json",
-        "json_uri": "https://nftstorage.link/ipfs/bafybeighkz3wshgm2a5qbhrjdwn4toudvb22fzjw6shhmzyovgpa3rwae4/13699.json",
+        "json_uri": "https://arweave.net/6i48UvK_962HDlje4D1H73jiszwNvO9GgcDb00-SiRI/1887.json",
         "files": [],
         "metadata": {
-          "name": "SMB Gen3 #13700",
-          "symbol": "",
+          "name": "Claynosaurz: Call of Saga #1887",
+          "symbol": "DINO",
           "token_standard": "ProgrammableNonFungible"
         },
         "links": {}
       },
       "authorities": [
         {
-          "address": "GfELr1GA9bLmgiMymUm7h8nDkZLG2Ls6txSsANopeVEW",
+          "address": "G2R7KKR9aycrMDzR2EK2Cs69f2NNBRK8AZUuaohQBg2r",
           "scopes": [
             "full"
           ]
@@ -42,7 +42,7 @@ expression: response
       "grouping": [
         {
           "group_key": "collection",
-          "group_value": "8Rt3Ayqth4DAiPnW9MDFi63TiQJHmohfTWLMQFHi4KZH"
+          "group_value": "1yPMtWU5aqcF72RdyRD5yipmcMRC8NGNK59NvYubLkZ"
         }
       ],
       "royalty": {
@@ -55,17 +55,12 @@ expression: response
       },
       "creators": [
         {
-          "address": "HV4Nvm9zHfNA43JYYkjZu8vwqiuE8bfEhwcKFfyQ65o5",
+          "address": "47besT5AjYkf8bdtzxt7k8rZbKr612Z3cayEx2wHCtLn",
           "share": 0,
           "verified": true
         },
         {
-          "address": "smbBn7Votkw2upiVZtX9WgkmC7fNW2QabfVFuPLhu3C",
-          "share": 0,
-          "verified": false
-        },
-        {
-          "address": "HqqiyJcm3yWPyzwisRKAQa2bJAj14V837yJRGaxwRFaG",
+          "address": "36tfiBtaDGjAMKd6smPacHQhe4MXycLL6f9ww9CD1naT",
           "share": 100,
           "verified": false
         }
@@ -75,12 +70,12 @@ expression: response
         "delegated": false,
         "delegate": null,
         "ownership_model": "single",
-        "owner": "68FURd1CADKp1nMkVeMafwyTFXSWgDzNSeDDMv3sv6QN"
+        "owner": "6Cr66AabRYymhZgYQSfTCo6FVpH18wXrMZswAbcErpyX"
       },
       "supply": {
         "print_max_supply": 0,
         "print_current_supply": 0,
-        "edition_nonce": 254
+        "edition_nonce": 255
       },
       "mutable": true,
       "burnt": false,
@@ -88,10 +83,10 @@ expression: response
         "supply": 1,
         "decimals": 0,
         "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        "mint_authority": "7Behfy2wYy4Ar7uECaXqezCxcdXf7WphfALaSb1rqzFw",
-        "freeze_authority": "7Behfy2wYy4Ar7uECaXqezCxcdXf7WphfALaSb1rqzFw",
+        "mint_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
+        "freeze_authority": "AMgreyN1PLncz1gh4RFTpAyP7gscfKKPF3swky7Kpbqo",
         "balance": 1,
-        "associated_token_address": "4uTRch4H3kVSWdrQjUe1W5jEoEAxvw9KpYDGRSWUdeW9"
+        "associated_token_address": "7DS81LourvNXo5PiWZp6G3vaSHZhY1rxT9VpG8YuFBiq"
       }
     }
   ]
