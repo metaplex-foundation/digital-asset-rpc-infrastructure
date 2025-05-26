@@ -113,10 +113,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20250313_095449_add_idx_ta_owner_amount_and_idx_ta_mint_amount::Migration),
             Box::new(m20250321_120101_add_bgum_leaf_schema_v2_items::Migration),
             Box::new(m20250327_120101_add_bubblegum_v2_ixs_to_enum::Migration),
+            Box::new(m20250422_102715_add_slot_metas_table::Migration),
             Box::new(m20250430_065207_idx_asset_grouping_verified_with_not_null_value::Migration),
             Box::new(m20250501_110559_add_indexes_to_asset_grouping::Migration),
             Box::new(m20250502_111210_add_indexes_to_token_accounts::Migration),
-            Box::new(m20250422_102715_add_slot_metas_table::Migration),
         ]
     }
 }
