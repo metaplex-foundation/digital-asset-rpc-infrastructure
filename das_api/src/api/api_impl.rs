@@ -59,10 +59,11 @@ impl DasApi {
 
     fn get_cursor(&self, cursor: &Option<String>) -> Result<Cursor, DasApiError> {
         match cursor {
-            Some(cursor_b64) => {
-                let cursor_vec = bs58::decode(cursor_b64)
+            Some(cursor_b58) => {
+                validate_pubkey(cursor_b58.clone())?;
+                let cursor_vec = bs58::decode(cursor_b58)
                     .into_vec()
-                    .map_err(|_| DasApiError::CursorValidationError(cursor_b64.clone()))?;
+                    .map_err(|_| DasApiError::CursorValidationError(cursor_b58.clone()))?;
                 let cursor_struct = Cursor {
                     id: Some(cursor_vec),
                 };
@@ -136,6 +137,8 @@ impl DasApi {
                 if sort.sort_by != AssetSortBy::Id {
                     return Err(DasApiError::PaginationSortingValidationError);
                 }
+                page_opt.cursor = Some(self.get_cursor(cursor)?);
+            } else {
                 page_opt.cursor = Some(self.get_cursor(cursor)?);
             }
         } else {
@@ -567,6 +570,7 @@ impl ApiContract for DasApi {
         let mint_address = validate_opt_pubkey(&mint_address)?;
         let options = options.unwrap_or_default();
         let page_options = self.validate_pagination(limit, page, &before, &after, &cursor, None)?;
+
         get_token_accounts(
             &self.get_connection(),
             owner_address,

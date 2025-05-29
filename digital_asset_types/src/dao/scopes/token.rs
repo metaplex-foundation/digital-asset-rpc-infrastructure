@@ -1,6 +1,6 @@
-use super::{asset::paginate, slot::get_latest_slot};
+use super::slot::get_latest_slot;
 use crate::{
-    dao::{token_accounts, tokens, Pagination},
+    dao::{extensions::token_accounts::TokenAccountSelectExt, token_accounts, tokens, Pagination},
     rpc::{
         options::Options, RpcAccountData, RpcAccountDataInner, RpcData, RpcParsedAccount,
         RpcTokenAccountBalance, RpcTokenAccountBalanceWithAddress, RpcTokenInfo, RpcTokenSupply,
@@ -44,17 +44,18 @@ pub async fn get_token_accounts(
         condition = condition.add(token_accounts::Column::Mint.eq(mint));
     }
 
-    let token_accounts = paginate(
+    let mut stmt = token_accounts::Entity::find().filter(condition);
+
+    stmt = stmt.sort_by(token_accounts::Column::Amount, &Order::Desc);
+
+    stmt = stmt.page_by(
         pagination,
         limit,
-        token_accounts::Entity::find().filter(condition),
-        Order::Desc,
-        token_accounts::Column::Amount,
-    )
-    .order_by(token_accounts::Column::Amount, Order::Desc)
-    .order_by(token_accounts::Column::Pubkey, Order::Desc)
-    .all(conn)
-    .await?;
+        &Order::Desc,
+        token_accounts::Column::Pubkey,
+    );
+
+    let token_accounts = stmt.all(conn).await?;
 
     Ok(token_accounts)
 }

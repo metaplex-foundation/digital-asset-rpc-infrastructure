@@ -1,14 +1,76 @@
-use super::asset::paginate;
 use crate::{
-    dao::{asset_v1_account_attachments, sea_orm_active_enums::V1AccountAttachments, Pagination},
+    dao::{
+        asset_v1_account_attachments::{self, Column},
+        sea_orm_active_enums::V1AccountAttachments,
+        Cursor, Pagination,
+    },
     rpc::response::{NftEdition, NftEditions},
 };
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
 use sea_orm::{
     sea_query::Expr, ColumnTrait, ConnectionTrait, DbErr, EntityTrait, Order, QueryFilter,
+    QueryOrder, QuerySelect, Select,
 };
 use serde::de::DeserializeOwned;
 use solana_sdk::pubkey::Pubkey;
+
+pub trait NftEditionSelectExt {
+    fn sort_by(self, column: Column, direction: &Order) -> Self;
+
+    fn page_by(
+        self,
+        pagination: &Pagination,
+        limit: u64,
+        sort_direction: &Order,
+        col: Column,
+    ) -> Self;
+}
+
+impl NftEditionSelectExt for Select<asset_v1_account_attachments::Entity> {
+    fn sort_by(self, col: Column, direction: &Order) -> Self {
+        match col {
+            Column::Id => self.order_by(col, direction.clone()).to_owned(),
+            _ => self
+                .order_by(col, direction.clone())
+                .order_by(Column::Id, Order::Desc)
+                .to_owned(),
+        }
+    }
+
+    fn page_by(
+        mut self,
+        pagination: &Pagination,
+        limit: u64,
+        order: &Order,
+        column: Column,
+    ) -> Self {
+        match pagination {
+            Pagination::Keyset { before, after } => {
+                if let Some(b) = before {
+                    self = self.filter(column.lt(b.clone())).to_owned();
+                }
+                if let Some(a) = after {
+                    self = self.filter(column.gt(a.clone())).to_owned();
+                }
+            }
+            Pagination::Page { page } => {
+                if *page > 0 {
+                    self = self.offset((page - 1) * limit).to_owned();
+                }
+            }
+            Pagination::Cursor(cursor) => {
+                if *cursor != Cursor::default() {
+                    if order == &Order::Asc {
+                        self = self.filter(column.gt(cursor.id.clone())).to_owned();
+                    } else {
+                        self = self.filter(column.lt(cursor.id.clone())).to_owned();
+                    }
+                }
+            }
+        }
+        self.limit(limit).to_owned()
+    }
+}
 
 fn get_edition_data_from_json<T: DeserializeOwned>(data: serde_json::Value) -> Result<T, DbErr> {
     serde_json::from_value(data).map_err(|e| DbErr::Custom(e.to_string()))
@@ -73,18 +135,15 @@ pub async fn get_nft_editions(
             ))),
     );
 
-    let nft_editions = paginate(
-        pagination,
-        limit,
-        stmt,
-        Order::Asc,
-        asset_v1_account_attachments::Column::Id,
-    )
-    .all(conn)
-    .await?
-    .into_iter()
-    .map(attachment_to_nft_edition)
-    .collect::<Result<Vec<NftEdition>, _>>()?;
+    stmt = stmt.sort_by(Column::Id, &Order::Desc);
+    stmt = stmt.page_by(pagination, limit, &Order::Desc, Column::Id);
+
+    let nft_editions = stmt
+        .all(conn)
+        .await?
+        .into_iter()
+        .map(attachment_to_nft_edition)
+        .collect::<Result<Vec<NftEdition>, _>>()?;
 
     let (page, before, after, cursor) = match pagination {
         Pagination::Keyset { before, after } => {

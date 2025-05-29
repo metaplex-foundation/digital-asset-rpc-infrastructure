@@ -5,7 +5,7 @@ use crate::{
         extensions::{self, asset::AssetSelectStatementExt},
         generated::sea_orm_active_enums::OwnerType,
         sea_orm_active_enums::V1AccountAttachments,
-        token_accounts, tokens, Cursor, FullAsset, Pagination, SearchAssetsQuery,
+        token_accounts, tokens, FullAsset, Pagination, SearchAssetsQuery,
     },
     rpc::{filter::TokenTypeClass, options::Options},
 };
@@ -16,49 +16,10 @@ use sea_orm::{
         Condition, ConditionType, Expr, PostgresQueryBuilder, Query, SimpleExpr, UnionType,
     },
     ActiveEnum, ColumnTrait, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, JoinType, Order,
-    QueryFilter, QueryOrder, QuerySelect, Statement,
+    QueryFilter, QueryOrder, Statement,
 };
 
 use std::{collections::HashMap, hash::RandomState};
-
-pub fn paginate<T, C>(
-    pagination: &Pagination,
-    limit: u64,
-    stmt: T,
-    sort_direction: Order,
-    column: C,
-) -> T
-where
-    T: QueryFilter + QuerySelect,
-    C: ColumnTrait,
-{
-    let mut stmt = stmt;
-    match pagination {
-        Pagination::Keyset { before, after } => {
-            if let Some(b) = before {
-                stmt = stmt.filter(column.lt(b.clone()));
-            }
-            if let Some(a) = after {
-                stmt = stmt.filter(column.gt(a.clone()));
-            }
-        }
-        Pagination::Page { page } => {
-            if *page > 0 {
-                stmt = stmt.offset((page - 1) * limit)
-            }
-        }
-        Pagination::Cursor(cursor) => {
-            if *cursor != Cursor::default() {
-                if sort_direction == sea_orm::Order::Asc {
-                    stmt = stmt.filter(column.gt(cursor.id.clone()));
-                } else {
-                    stmt = stmt.filter(column.lt(cursor.id.clone()));
-                }
-            }
-        }
-    }
-    stmt.limit(limit)
-}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn get_by_creator<D>(

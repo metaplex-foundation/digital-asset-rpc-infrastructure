@@ -1,14 +1,75 @@
-use super::asset::paginate;
 use crate::{
     dao::{
-        asset, cl_audits_v2, extensions::instruction::PascalCase,
-        sea_orm_active_enums::Instruction, Pagination,
+        asset,
+        cl_audits_v2::{self, Column},
+        extensions::instruction::PascalCase,
+        sea_orm_active_enums::Instruction,
+        Cursor, Pagination,
     },
     rpc::filter::AssetSortDirection,
 };
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DbErr, EntityTrait, Order, QueryFilter, QueryOrder, QuerySelect,
+    Select,
 };
+
+pub trait TransactionSelectExt {
+    fn sort_by(self, column: Column, direction: &Order) -> Self;
+
+    fn page_by(
+        self,
+        pagination: &Pagination,
+        limit: u64,
+        sort_direction: &Order,
+        col: Column,
+    ) -> Self;
+}
+
+impl TransactionSelectExt for Select<cl_audits_v2::Entity> {
+    fn sort_by(self, col: Column, direction: &Order) -> Self {
+        match col {
+            Column::Tx => self.order_by(col, direction.clone()).to_owned(),
+            _ => self
+                .order_by(col, direction.clone())
+                .order_by(Column::Tx, Order::Desc)
+                .to_owned(),
+        }
+    }
+
+    fn page_by(
+        mut self,
+        pagination: &Pagination,
+        limit: u64,
+        order: &Order,
+        column: Column,
+    ) -> Self {
+        match pagination {
+            Pagination::Keyset { before, after } => {
+                if let Some(b) = before {
+                    self = self.filter(column.lt(b.clone())).to_owned();
+                }
+                if let Some(a) = after {
+                    self = self.filter(column.gt(a.clone())).to_owned();
+                }
+            }
+            Pagination::Page { page } => {
+                if *page > 0 {
+                    self = self.offset((page - 1) * limit).to_owned();
+                }
+            }
+            Pagination::Cursor(cursor) => {
+                if *cursor != Cursor::default() {
+                    if order == &Order::Asc {
+                        self = self.filter(column.gt(cursor.id.clone())).to_owned();
+                    } else {
+                        self = self.filter(column.lt(cursor.id.clone())).to_owned();
+                    }
+                }
+            }
+        }
+        self.limit(limit).to_owned()
+    }
+}
 
 pub async fn fetch_transactions(
     conn: &impl ConnectionTrait,
@@ -26,17 +87,13 @@ pub async fn fetch_transactions(
         AssetSortDirection::Desc => sea_orm::Order::Desc,
     };
 
-    let mut stmt = cl_audits_v2::Entity::find().filter(cl_audits_v2::Column::Tree.eq(tree));
-    stmt = stmt.filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
-    stmt = stmt.order_by(cl_audits_v2::Column::Seq, sort_order.clone());
+    let mut stmt = cl_audits_v2::Entity::find()
+        .filter(cl_audits_v2::Column::Tree.eq(tree))
+        .filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
 
-    stmt = paginate(
-        pagination,
-        limit,
-        stmt,
-        sort_order,
-        cl_audits_v2::Column::Seq,
-    );
+    stmt = stmt.sort_by(cl_audits_v2::Column::Seq, &sort_order);
+
+    stmt = stmt.page_by(pagination, limit, &sort_order, cl_audits_v2::Column::Seq);
     let transactions = stmt.all(conn).await?;
     let transaction_list = transactions
         .into_iter()
@@ -77,7 +134,6 @@ pub async fn get_asset_signatures(
     let stmt = asset::Entity::find()
         .distinct_on([(asset::Entity, asset::Column::Id)])
         .filter(asset::Column::Id.eq(asset_id))
-        .order_by(asset::Column::Id, Order::Desc)
         .limit(1);
     let asset = stmt.one(conn).await?;
     if let Some(asset) = asset {

@@ -15,7 +15,6 @@ pub async fn get_token_accounts(
     options: &Options,
 ) -> Result<TokenAccountList, DbErr> {
     let pagination = page_options.try_into()?;
-
     let token_accounts = crate::dao::scopes::token::get_token_accounts(
         db,
         owner_address,
@@ -25,7 +24,6 @@ pub async fn get_token_accounts(
         options,
     )
     .await?;
-
     Ok(build_token_list_response(
         token_accounts,
         page_options.limit,

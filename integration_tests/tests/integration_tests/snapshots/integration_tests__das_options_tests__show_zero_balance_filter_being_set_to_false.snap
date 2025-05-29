@@ -5,7 +5,5 @@ expression: response
 {
   "total": 0,
   "limit": 1000,
-  "token_accounts": [],
-  "cursor": null,
-  "errors": []
+  "token_accounts": []
 }

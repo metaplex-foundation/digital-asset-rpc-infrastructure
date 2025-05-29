@@ -22,8 +22,8 @@ expression: response
       "token_standard": "ProgrammableNonFungible"
     },
     "links": {
-      "external_url": "https://madlads.com",
-      "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png"
+      "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
+      "external_url": "https://madlads.com"
     }
   },
   "authorities": [

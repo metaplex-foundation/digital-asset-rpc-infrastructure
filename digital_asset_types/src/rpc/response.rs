@@ -64,7 +64,9 @@ pub struct TokenAccountList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
     pub token_accounts: Vec<TokenAccount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<DasError>,
 }
 
