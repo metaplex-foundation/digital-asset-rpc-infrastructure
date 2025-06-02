@@ -63,9 +63,10 @@ pub fn build_asset_response(
     let total = assets.len() as u32;
     let (page, before, after, cursor) = match pagination {
         Pagination::Keyset { before, after } => {
-            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
-            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
-            (None, bef, aft, None)
+            let bef = before.as_ref().map(|x| bs58::encode(x).into_string());
+            let aft = after.as_ref().map(|x| bs58::encode(x).into_string());
+            let cursor = bef.clone().or(aft.clone());
+            (None, bef, aft, cursor)
         }
         Pagination::Page { page } => (Some(*page), None, None, None),
         Pagination::Cursor(_) => {
@@ -99,8 +100,8 @@ pub fn build_transaction_signatures_response(
     let total = items.len() as u32;
     let (page, before, after) = match pagination {
         Pagination::Keyset { before, after } => {
-            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
-            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
+            let bef = before.as_ref().map(|x| bs58::encode(x).into_string());
+            let aft = after.as_ref().map(|x| bs58::encode(x).into_string());
             (None, bef, aft)
         }
         Pagination::Page { page } => (Some(*page), None, None),
@@ -652,9 +653,10 @@ pub fn build_token_list_response(
     let total = token_accounts.len() as u32;
     let (page, before, after, cursor) = match pagination {
         Pagination::Keyset { before, after } => {
-            let bef = before.clone().and_then(|x| String::from_utf8(x).ok());
-            let aft = after.clone().and_then(|x| String::from_utf8(x).ok());
-            (None, bef, aft, None)
+            let bef = before.as_ref().map(|x| bs58::encode(x).into_string());
+            let aft = after.as_ref().map(|x| bs58::encode(x).into_string());
+            let cursor = bef.clone().or(aft.clone());
+            (None, bef, aft, cursor)
         }
         Pagination::Page { page } => (Some(*page as u32), None, None, None),
         Pagination::Cursor(_) => {
