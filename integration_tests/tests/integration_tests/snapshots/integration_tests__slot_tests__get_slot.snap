@@ -1,0 +1,5 @@
+---
+source: integration_tests/tests/integration_tests/slot_tests.rs
+expression: response
+---
+12345

@@ -10,4 +10,5 @@ mod mpl_core_tests;
 mod ops_purge_tests;
 mod regular_nft_tests;
 mod search_assets_tests;
+mod slot_tests;
 mod token_accounts_tests;

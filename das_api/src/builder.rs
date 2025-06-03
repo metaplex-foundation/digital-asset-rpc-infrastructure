@@ -14,6 +14,12 @@ impl RpcApiBuilder {
             debug!("Checking Health");
             rpc_context.check_health().await.map_err(Into::into)
         })?;
+        module.register_alias("getHealth", "healthz")?;
+        module.register_async_method("get_slot", |rpc_params, rpc_context| async move {
+            let payload = rpc_params.parse::<Option<GetSlot>>()?;
+            rpc_context.get_slot(payload).await.map_err(Into::into)
+        })?;
+        module.register_alias("getSlot", "get_slot")?;
 
         module.register_async_method("get_asset_proof", |rpc_params, rpc_context| async move {
             let payload = rpc_params.parse::<GetAssetProof>()?;

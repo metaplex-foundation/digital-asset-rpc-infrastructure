@@ -1,5 +1,6 @@
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
+use digital_asset_types::dao::scopes::slot::get_latest_slot;
 use digital_asset_types::{
     dao::{
         scopes::{
@@ -161,14 +162,20 @@ pub fn not_found(asset_id: &String) -> DbErr {
 #[document_rpc]
 #[async_trait]
 impl ApiContract for DasApi {
-    async fn check_health(self: &DasApi) -> Result<(), DasApiError> {
+    async fn check_health(self: &DasApi) -> Result<String, DasApiError> {
         self.get_connection()
             .execute(Statement::from_string(
                 DbBackend::Postgres,
                 "SELECT 1".to_string(),
             ))
             .await?;
-        Ok(())
+        Ok("ok".to_string())
+    }
+
+    async fn get_slot(self: &DasApi, _payload: Option<GetSlot>) -> Result<u64, DasApiError> {
+        let slot = get_latest_slot(&self.get_connection()).await?;
+
+        Ok(slot)
     }
 
     async fn get_asset_proof(
