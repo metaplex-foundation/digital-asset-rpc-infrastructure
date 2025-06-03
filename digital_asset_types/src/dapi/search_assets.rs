@@ -5,6 +5,7 @@ use crate::{
 };
 use sea_orm::{DatabaseConnection, DbErr};
 
+#[tracing::instrument(name = "db::searchAssets", skip_all)]
 pub async fn search_assets(
     db: &DatabaseConnection,
     search_assets_query: SearchAssetsQuery,

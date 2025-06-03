@@ -60,6 +60,7 @@ pub async fn get_token_accounts(
     Ok(token_accounts)
 }
 
+#[tracing::instrument(name = "db::getTokenLargestAccounts", skip_all, fields(mint = %bs58::encode(&mint_address).into_string()))]
 pub async fn get_token_largest_accounts(
     conn: &impl ConnectionTrait,
     mint_address: Vec<u8>,
@@ -97,6 +98,7 @@ pub async fn get_token_largest_accounts(
     Ok(SolanaRpcResponse::new(value, slot))
 }
 
+#[tracing::instrument(name = "db::getTokenSupply", skip_all, fields(mint = %bs58::encode(&mint_address).into_string()))]
 pub async fn get_token_supply(
     conn: &impl ConnectionTrait,
     mint_address: Vec<u8>,
@@ -124,6 +126,14 @@ pub async fn get_token_supply(
     Ok(SolanaRpcResponse::new(value, slot))
 }
 
+#[tracing::instrument(
+    name = "rpc::getTokenAccountsByOwner",
+    skip_all,
+    fields(
+        owner = %bs58::encode(&owner_address).into_string(),
+        mint  = ?mint.as_ref().map(|m| bs58::encode(&m).into_string())
+    )
+)]
 pub async fn get_token_accounts_by_owner(
     conn: &impl ConnectionTrait,
     owner_address: Vec<u8>,

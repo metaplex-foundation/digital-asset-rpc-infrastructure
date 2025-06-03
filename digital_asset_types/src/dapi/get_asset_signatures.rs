@@ -9,6 +9,15 @@ use sea_orm::DbErr;
 
 use super::common::build_transaction_signatures_response;
 
+#[tracing::instrument(
+    name = "db::getAssetProofs",
+    skip_all,
+    fields(
+        id   = ?asset_id.as_ref().map(|a| bs58::encode(a).into_string()),
+        leaf = ?leaf_idx,
+        tree = ?tree.as_ref().map(|t| bs58::encode(t).into_string())
+    )
+)]
 pub async fn get_asset_signatures(
     db: &DatabaseConnection,
     asset_id: Option<Vec<u8>>,

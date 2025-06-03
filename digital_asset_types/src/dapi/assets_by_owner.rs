@@ -8,6 +8,7 @@ use sea_orm::DbErr;
 
 use super::common::build_asset_response;
 
+#[tracing::instrument(name = "db::getAssetsByOwner", skip_all, fields(owner = %bs58::encode(&owner_address).into_string()))]
 pub async fn get_assets_by_owner(
     db: &DatabaseConnection,
     owner_address: Vec<u8>,

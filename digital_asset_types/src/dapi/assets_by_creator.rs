@@ -8,6 +8,7 @@ use sea_orm::DbErr;
 
 use super::common::build_asset_response;
 
+#[tracing::instrument(name = "db::getAssetsByCreator", skip_all, fields(creator = %bs58::encode(&creator).into_string()))]
 #[allow(clippy::too_many_arguments)]
 pub async fn get_assets_by_creator(
     db: &DatabaseConnection,

@@ -145,6 +145,23 @@ services:
       - "9090:9090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  tempo:
+    image: grafana/tempo:latest
+    ports:
+      - "4318:4318" # OTLP HTTP ingest
+      - "3200:3200" # Tempo query API (if needed)
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - tempo
 volumes:
   grafana_data: {}
   graphite_data: {}

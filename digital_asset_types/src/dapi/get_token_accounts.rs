@@ -7,6 +7,14 @@ use crate::{
 
 use super::common::build_token_list_response;
 
+#[tracing::instrument(
+    name = "db::getTokenAccounts",
+    skip_all,
+    fields(
+        owner = ?owner_address.as_ref().map(|o| bs58::encode(o).into_string()),
+        mint  = ?mint_address.as_ref().map(|m| bs58::encode(m).into_string())
+    )
+)]
 pub async fn get_token_accounts(
     db: &DatabaseConnection,
     owner_address: Option<Vec<u8>>,

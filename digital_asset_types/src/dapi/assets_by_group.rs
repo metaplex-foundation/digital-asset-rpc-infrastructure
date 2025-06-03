@@ -8,6 +8,7 @@ use sea_orm::DbErr;
 
 use super::common::build_asset_response;
 
+#[tracing::instrument(name = "db::getAssetsByGroup", skip_all, fields(groupValue = %group_value))]
 #[allow(clippy::too_many_arguments)]
 pub async fn get_assets_by_group(
     db: &DatabaseConnection,

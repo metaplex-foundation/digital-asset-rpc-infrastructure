@@ -6,6 +6,7 @@ use crate::{
 use sea_orm::{DatabaseConnection, DbErr};
 use std::collections::HashMap;
 
+#[tracing::instrument(name = "db::getAsset", skip_all, fields(id = %bs58::encode(&id).into_string()))]
 pub async fn get_asset(
     db: &DatabaseConnection,
     id: Vec<u8>,
@@ -15,6 +16,7 @@ pub async fn get_asset(
     asset_to_rpc(asset, options)
 }
 
+#[tracing::instrument(name = "db::getAssets", skip_all)]
 pub async fn get_assets(
     db: &DatabaseConnection,
     ids: Vec<Vec<u8>>,
