@@ -65,7 +65,12 @@ pub fn build_asset_response(
         Pagination::Keyset { before, after } => {
             let bef = before.as_ref().map(|x| bs58::encode(x).into_string());
             let aft = after.as_ref().map(|x| bs58::encode(x).into_string());
-            let cursor = bef.clone().or(aft.clone());
+            let cursor = match (&bef, &aft) {
+                (Some(_), None) => assets.first(),
+                (None, Some(_)) => assets.last(),
+                _ => None,
+            }
+            .map(|a| bs58::encode(&a.asset.id).into_string());
             (None, bef, aft, cursor)
         }
         Pagination::Page { page } => (Some(*page), None, None, None),
@@ -655,7 +660,12 @@ pub fn build_token_list_response(
         Pagination::Keyset { before, after } => {
             let bef = before.as_ref().map(|x| bs58::encode(x).into_string());
             let aft = after.as_ref().map(|x| bs58::encode(x).into_string());
-            let cursor = bef.clone().or(aft.clone());
+            let cursor = match (&bef, &aft) {
+                (Some(_), None) => token_accounts.first(),
+                (None, Some(_)) => token_accounts.last(),
+                _ => None,
+            }
+            .map(|a| bs58::encode(&a.pubkey).into_string());
             (None, bef, aft, cursor)
         }
         Pagination::Page { page } => (Some(*page as u32), None, None, None),
