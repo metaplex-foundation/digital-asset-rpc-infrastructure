@@ -46,14 +46,14 @@ pub async fn get_token_accounts(
 
     let mut stmt = token_accounts::Entity::find().filter(condition);
 
-    stmt = stmt.sort_by(token_accounts::Column::Amount, &Order::Desc);
-
-    stmt = stmt.page_by(
-        pagination,
-        limit,
-        &Order::Desc,
-        token_accounts::Column::Pubkey,
-    );
+    stmt = stmt
+        .sort_by(token_accounts::Column::Pubkey, &Order::Asc)
+        .page_by(
+            pagination,
+            limit,
+            &Order::Asc,
+            token_accounts::Column::Pubkey,
+        );
 
     let token_accounts = stmt.all(conn).await?;
 
@@ -144,8 +144,7 @@ pub async fn get_token_accounts_by_owner(
 
     let results = query
         .filter(conditions)
-        .order_by(token_accounts::Column::Amount, Order::Desc)
-        .order_by(token_accounts::Column::Pubkey, Order::Desc)
+        .order_by(token_accounts::Column::Pubkey, Order::Asc)
         .all(conn)
         .await?;
 

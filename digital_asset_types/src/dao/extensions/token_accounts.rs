@@ -59,7 +59,7 @@ impl TokenAccountSelectExt for Select<token_accounts::Entity> {
             Column::Pubkey => self.order_by(col, direction.clone()).to_owned(),
             _ => self
                 .order_by(col, direction.clone())
-                .order_by(Column::Pubkey, Order::Desc)
+                .order_by(Column::Pubkey, Order::Asc)
                 .to_owned(),
         }
     }

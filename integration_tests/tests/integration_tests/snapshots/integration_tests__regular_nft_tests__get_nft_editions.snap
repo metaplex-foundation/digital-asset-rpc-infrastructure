@@ -10,15 +10,15 @@ expression: response
   "max_supply": 69,
   "editions": [
     {
-      "mint_address": "GJvFDcBWf6aDncd1TBzx2ou1rgLFYaMBdbYLBa9oTAEw",
-      "edition_address": "AoxgzXKEsJmUyF5pBb3djn9cJFA26zh2SQHvd9EYijZV",
-      "edition_number": 1
-    },
-    {
       "mint_address": "9yQecKKYSHxez7fFjJkUvkz42TLmkoXzhyZxEf2pw8pz",
       "edition_address": "giWoA4jqHFkodPJgtbRYRcYtiXbsVytnxnEao3QT2gg",
       "edition_number": 2
+    },
+    {
+      "mint_address": "GJvFDcBWf6aDncd1TBzx2ou1rgLFYaMBdbYLBa9oTAEw",
+      "edition_address": "AoxgzXKEsJmUyF5pBb3djn9cJFA26zh2SQHvd9EYijZV",
+      "edition_number": 1
     }
   ],
-  "cursor": "giWoA4jqHFkodPJgtbRYRcYtiXbsVytnxnEao3QT2gg"
+  "cursor": "AoxgzXKEsJmUyF5pBb3djn9cJFA26zh2SQHvd9EYijZV"
 }

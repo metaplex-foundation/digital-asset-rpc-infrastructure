@@ -140,9 +140,8 @@ where
             .to_owned();
     }
 
-    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
-
     stmt = stmt
+        .sort_by(sort_by, &sort_direction)
         .page_by(
             pagination,
             limit,
@@ -287,9 +286,8 @@ where
             .to_owned();
     }
 
-    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
-
     stmt = stmt
+        .sort_by(sort_by, &sort_direction)
         .page_by(
             pagination,
             limit,
@@ -1594,14 +1592,12 @@ where
     }
 
     stmt = stmt
-        .order_by(extensions::asset::Column::Id, Order::Desc)
-        .to_owned();
-
-    stmt = stmt
+        .order_by(extensions::asset::Column::Id, Order::Asc)
+        .to_owned()
         .page_by(
             pagination,
             limit,
-            &Order::Desc,
+            &Order::Asc,
             extensions::asset::Column::Id,
         )
         .to_owned();
@@ -1732,9 +1728,8 @@ where
             .to_owned();
     }
 
-    stmt = stmt.sort_by(sort_by, &sort_direction).to_owned();
-
     stmt = stmt
+        .sort_by(sort_by, &sort_direction)
         .page_by(
             pagination,
             limit,

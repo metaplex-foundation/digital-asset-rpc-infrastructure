@@ -459,7 +459,7 @@ impl AssetSelectStatementExt for SelectStatement {
                 .to_owned(),
             _ => self
                 .order_by_expr(Expr::tbl(Entity, col).into(), direction.clone())
-                .order_by_expr(Expr::tbl(Entity, Column::Id).into(), Order::Desc)
+                .order_by_expr(Expr::tbl(Entity, Column::Id).into(), Order::Asc)
                 .to_owned(),
         }
     }

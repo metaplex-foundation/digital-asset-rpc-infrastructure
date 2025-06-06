@@ -32,7 +32,7 @@ impl NftEditionSelectExt for Select<asset_v1_account_attachments::Entity> {
             Column::Id => self.order_by(col, direction.clone()).to_owned(),
             _ => self
                 .order_by(col, direction.clone())
-                .order_by(Column::Id, Order::Desc)
+                .order_by(Column::Id, Order::Asc)
                 .to_owned(),
         }
     }
@@ -135,8 +135,9 @@ pub async fn get_nft_editions(
             ))),
     );
 
-    stmt = stmt.sort_by(Column::Id, &Order::Desc);
-    stmt = stmt.page_by(pagination, limit, &Order::Desc, Column::Id);
+    stmt =
+        stmt.sort_by(Column::Id, &Order::Asc)
+            .page_by(pagination, limit, &Order::Asc, Column::Id);
 
     let nft_editions = stmt
         .all(conn)

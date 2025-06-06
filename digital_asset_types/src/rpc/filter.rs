@@ -48,10 +48,10 @@ pub enum TokenTypeClass {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AssetSortDirection {
+    #[default]
     #[serde(rename = "asc")]
     Asc,
     #[serde(rename = "desc")]
-    #[default]
     Desc,
 }
 

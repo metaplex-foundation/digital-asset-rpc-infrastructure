@@ -31,7 +31,7 @@ impl TransactionSelectExt for Select<cl_audits_v2::Entity> {
             Column::Tx => self.order_by(col, direction.clone()).to_owned(),
             _ => self
                 .order_by(col, direction.clone())
-                .order_by(Column::Tx, Order::Desc)
+                .order_by(Column::Tx, Order::Asc)
                 .to_owned(),
         }
     }
@@ -91,9 +91,10 @@ pub async fn fetch_transactions(
         .filter(cl_audits_v2::Column::Tree.eq(tree))
         .filter(cl_audits_v2::Column::LeafIdx.eq(leaf_idx));
 
-    stmt = stmt.sort_by(cl_audits_v2::Column::Seq, &sort_order);
+    stmt = stmt
+        .sort_by(cl_audits_v2::Column::Seq, &sort_order)
+        .page_by(pagination, limit, &sort_order, cl_audits_v2::Column::Seq);
 
-    stmt = stmt.page_by(pagination, limit, &sort_order, cl_audits_v2::Column::Seq);
     let transactions = stmt.all(conn).await?;
     let transaction_list = transactions
         .into_iter()
