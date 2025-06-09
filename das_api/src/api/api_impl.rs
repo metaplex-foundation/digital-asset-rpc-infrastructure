@@ -29,6 +29,7 @@ use open_rpc_derive::document_rpc;
 use open_rpc_schema::document::OpenrpcDocument;
 use sea_orm::{sea_query::ConditionType, ConnectionTrait, DbBackend, Statement};
 use sqlx::{Pool, Postgres};
+use tracing::{info_span, Instrument};
 use {
     crate::api::*,
     crate::config::Config,
@@ -184,6 +185,7 @@ impl ApiContract for DasApi {
         Ok(slot)
     }
 
+    #[tracing::instrument(name = "getAssetProof", skip_all)]
     async fn get_asset_proof(
         self: &DasApi,
         payload: GetAssetProof,
@@ -201,6 +203,7 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssetProofs", skip_all)]
     async fn get_asset_proofs(
         self: &DasApi,
         payload: GetAssetProofs,
@@ -226,6 +229,7 @@ impl ApiContract for DasApi {
         Ok(result)
     }
 
+    #[tracing::instrument(name = "getAsset", skip_all)]
     async fn get_asset(self: &DasApi, payload: GetAsset) -> Result<Asset, DasApiError> {
         let GetAsset { id, options } = payload;
         let id_bytes = validate_pubkey(id.clone())?.to_bytes().to_vec();
@@ -235,6 +239,7 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssets", skip_all)]
     async fn get_assets(
         self: &DasApi,
         payload: GetAssets,
@@ -268,6 +273,7 @@ impl ApiContract for DasApi {
         Ok(result)
     }
 
+    #[tracing::instrument(name = "getAssetsByOwner", skip_all)]
     async fn get_assets_by_owner(
         self: &DasApi,
         payload: GetAssetsByOwner,
@@ -301,6 +307,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssetsByGroup", skip_all)]
     async fn get_assets_by_group(
         self: &DasApi,
         payload: GetAssetsByGroup,
@@ -331,10 +338,12 @@ impl ApiContract for DasApi {
             &page_options,
             &options,
         )
+        .instrument(info_span!("db::get_assets_by_group"))
         .await
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssetsByCreator", skip(self))]
     async fn get_assets_by_creator(
         self: &DasApi,
         payload: GetAssetsByCreator,
@@ -370,6 +379,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssetsByAuthority", skip_all)]
     async fn get_assets_by_authority(
         self: &DasApi,
         payload: GetAssetsByAuthority,
@@ -402,6 +412,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "searchAssets", skip_all)]
     async fn search_assets(&self, payload: SearchAssets) -> Result<AssetList, DasApiError> {
         let SearchAssets {
             negate,
@@ -504,6 +515,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getAssetSignatures", skip_all)]
     async fn get_asset_signatures(
         self: &DasApi,
         payload: GetAssetSignatures,
@@ -544,6 +556,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getGrouping", skip_all)]
     async fn get_grouping(
         self: &DasApi,
         payload: GetGrouping,
@@ -565,6 +578,7 @@ impl ApiContract for DasApi {
         })
     }
 
+    #[tracing::instrument(name = "getTokenAccounts", skip_all)]
     async fn get_token_accounts(
         self: &DasApi,
         payload: GetTokenAccounts,
@@ -595,6 +609,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getTokenAccounts", skip_all)]
     async fn get_nft_editions(
         self: &DasApi,
         payload: GetNftEditions,
@@ -623,6 +638,7 @@ impl ApiContract for DasApi {
         .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getTokenLargestAccounts", skip_all)]
     async fn get_token_largest_accounts(
         self: &DasApi,
         payload: GetTokenLargestAccounts,
@@ -635,6 +651,7 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getTokenSupply", skip_all)]
     async fn get_token_supply(
         self: &DasApi,
         payload: GetTokenSupply,
@@ -647,6 +664,7 @@ impl ApiContract for DasApi {
             .map_err(Into::into)
     }
 
+    #[tracing::instrument(name = "getTokenAccountsByOwner", skip_all)]
     async fn get_token_accounts_by_owner(
         self: &DasApi,
         payload: GetTokenAccountsByOwner,

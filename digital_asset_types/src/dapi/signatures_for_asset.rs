@@ -7,6 +7,15 @@ use crate::rpc::response::TransactionSignatureList;
 use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
 
+#[tracing::instrument(
+    name = "db::getAssetSignatures",
+    skip_all,
+    fields(
+        id   = ?asset_id.as_ref().map(|a| bs58::encode(a).into_string()),
+        leaf = ?leaf_idx,
+        tree = ?tree.as_ref().map(|t| bs58::encode(t).into_string())
+    )
+)]
 pub async fn get_signatures_for_asset(
     db: &DatabaseConnection,
     asset_id: Option<Vec<u8>>,

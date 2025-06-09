@@ -8,6 +8,7 @@ use sea_orm::DbErr;
 
 use super::common::build_asset_response;
 
+#[tracing::instrument(name = "db::getAssetsByAuthority", skip_all, fields(authority = %bs58::encode(&authority).into_string()))]
 pub async fn get_assets_by_authority(
     db: &DatabaseConnection,
     authority: Vec<u8>,

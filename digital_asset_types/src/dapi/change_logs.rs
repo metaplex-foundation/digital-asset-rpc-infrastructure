@@ -8,7 +8,6 @@ use {
     sea_orm::{entity::*, query::*, DbErr, FromQueryResult},
     spl_concurrent_merkle_tree::node::empty_node,
 };
-
 #[derive(FromQueryResult, Debug, Default, Clone, Eq, PartialEq)]
 struct SimpleChangeLog {
     hash: Vec<u8>,
@@ -33,6 +32,7 @@ struct Leaf {
     leaf_idx: i64,
 }
 
+#[tracing::instrument(name = "db::getAssetProof", skip_all, fields(id = %bs58::encode(&asset_id).into_string()))]
 pub async fn get_proof_for_asset(
     db: &DatabaseConnection,
     asset_id: Vec<u8>,
@@ -89,6 +89,7 @@ pub async fn get_proof_for_asset(
     Ok(asset_proof)
 }
 
+#[tracing::instrument(name = "db::getAssetProofs", skip_all)]
 pub async fn get_asset_proofs(
     db: &DatabaseConnection,
     asset_ids: Vec<Vec<u8>>,

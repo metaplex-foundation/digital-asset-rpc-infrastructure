@@ -96,6 +96,7 @@ fn attachment_to_nft_edition(
     })
 }
 
+#[tracing::instrument(name = "db::getNftEditions", skip_all, fields(mint = %mint_address))]
 pub async fn get_nft_editions(
     conn: &impl ConnectionTrait,
     mint_address: Pubkey,

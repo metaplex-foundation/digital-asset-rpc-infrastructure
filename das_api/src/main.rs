@@ -4,7 +4,9 @@ mod config;
 mod error;
 mod validation;
 
-use std::time::Instant;
+use crate::config::{DEFAULT_OTLP_COLLECTOR_PORT, DEFAULT_SERVER_PORT};
+use std::{sync::OnceLock, time::Instant};
+
 use {
     crate::api::DasApi,
     crate::builder::RpcApiBuilder,
@@ -13,15 +15,11 @@ use {
     crate::error::DasApiError,
     cadence::{BufferedUdpMetricSink, QueuingMetricSink, StatsdClient},
     cadence_macros::set_global_default,
-    std::env,
     std::net::SocketAddr,
     std::net::UdpSocket,
 };
 
 use hyper::Method;
-use log::{debug, warn};
-use tower_http::cors::{Any, CorsLayer};
-
 use jsonrpsee::{
     server::{
         logger::{Logger, TransportProtocol},
@@ -30,8 +28,20 @@ use jsonrpsee::{
     },
     types::ErrorResponse,
 };
+use log::{debug, warn};
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use tower_http::cors::{Any, CorsLayer};
 
 use cadence_macros::{is_global_default_set, statsd_time};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{
+    fmt::{self, format::FmtSpan},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+    EnvFilter,
+};
 
 pub fn safe_metric<F: Fn()>(f: F) {
     if is_global_default_set() {
@@ -55,6 +65,46 @@ fn setup_metrics(config: &Config) {
     }
 }
 
+fn get_resource() -> Resource {
+    static RESOURCE: OnceLock<Resource> = OnceLock::new();
+    RESOURCE
+        .get_or_init(|| Resource::builder().with_service_name("das-api").build())
+        .clone()
+}
+
+fn init_tracer_with_logger(config: &Config) {
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new("das_api=info,digital_asset_types=info,sqlx::query=warn")
+    });
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(format!(
+            "{}:{}",
+            config
+                .otlp_collector_host
+                .as_ref()
+                .map_or("http://0.0.0.0", |v| v),
+            config
+                .otlp_collector_port
+                .unwrap_or(DEFAULT_OTLP_COLLECTOR_PORT)
+        ))
+        .build()
+        .unwrap();
+
+    let provider = SdkTracerProvider::builder()
+        .with_resource(get_resource())
+        .with_batch_exporter(exporter)
+        .build();
+
+    let tracer = provider.tracer("das-api-tracer");
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(fmt::layer().with_span_events(FmtSpan::CLOSE))
+        .with(OpenTelemetryLayer::new(tracer))
+        .init();
+}
 #[derive(Clone)]
 struct MetricMiddleware;
 
@@ -128,14 +178,14 @@ impl Logger for MetricMiddleware {
 
 #[tokio::main]
 async fn main() -> Result<(), DasApiError> {
-    env::set_var(
-        env_logger::DEFAULT_FILTER_ENV,
-        env::var_os(env_logger::DEFAULT_FILTER_ENV)
-            .unwrap_or_else(|| "info,sqlx::query=warn,jsonrpsee_server::server=warn".into()),
-    );
-    env_logger::init();
     let config = load_config()?;
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.server_port));
+
+    init_tracer_with_logger(&config);
+
+    let addr = SocketAddr::from((
+        [0, 0, 0, 0],
+        config.server_port.unwrap_or(DEFAULT_SERVER_PORT),
+    ));
     let cors = CorsLayer::new()
         .allow_methods([Method::POST, Method::GET])
         .allow_origin(Any)
@@ -151,7 +201,6 @@ async fn main() -> Result<(), DasApiError> {
         .set_logger(MetricMiddleware)
         .build(addr)
         .await?;
-
     let api = DasApi::from_config(config).await?;
     let rpc = RpcApiBuilder::build(Box::new(api))?;
     println!("Server Started");

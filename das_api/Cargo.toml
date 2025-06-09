@@ -12,30 +12,49 @@ blockbuster = { workspace = true }
 bs58 = { workspace = true }
 cadence = { workspace = true }
 cadence-macros = { workspace = true }
-digital_asset_types = { workspace = true, features = ["json_types", "sql_types"] }
-env_logger  = { workspace = true }
+digital_asset_types = { workspace = true, features = [
+    "json_types",
+    "sql_types",
+] }
+env_logger = { workspace = true }
 figment = { workspace = true, features = ["env"] }
 hyper = { workspace = true }
-jsonrpsee = { workspace = true, features = ["server", "macros"]}
-jsonrpsee-core = { workspace = true, features =["server"]}
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
+jsonrpsee-core = { workspace = true, features = ["server"] }
 log = { workspace = true }
 metrics = { workspace = true }
 mpl-bubblegum = { workspace = true }
-mpl-token-metadata = { workspace = true,  features = ["serde"] }
+mpl-token-metadata = { workspace = true, features = ["serde"] }
 open-rpc-derive = { workspace = true }
 open-rpc-schema = { workspace = true }
 schemars = { workspace = true }
 schemars_derive = { workspace = true }
-sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }
+sea-orm = { workspace = true, features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 solana-sdk = { workspace = true }
-sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
+sqlx = { workspace = true, features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "postgres",
+    "uuid",
+    "offline",
+    "json",
+] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
 tower = { workspace = true }
 tower-http = { workspace = true, features = ["cors"] }
 tracing = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true, features = ["grpc-tonic"] }
+opentelemetry_sdk = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true }
 
 [lints]
 workspace = true
