@@ -546,6 +546,21 @@ pub struct RpcTokenInfo {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 #[serde(default)]
+pub struct RpcTokenInfoWithDelegate {
+    #[serde(rename = "tokenAmount")]
+    pub token_amount: RpcTokenAccountBalance,
+    pub delegate: String,
+    #[serde(rename = "delegatedAmount")]
+    pub delegated_amount: RpcTokenAccountBalance,
+    pub state: String,
+    #[serde(rename = "isNative")]
+    pub is_native: bool,
+    pub mint: String,
+    pub owner: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[serde(default)]
 pub struct RpcAccountDataInner<T: JsonSchema + Default> {
     pub program: String,
     pub parsed: RpcParsedAccount<T>,

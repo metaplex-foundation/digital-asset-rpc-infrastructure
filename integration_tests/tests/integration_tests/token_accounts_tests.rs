@@ -207,3 +207,50 @@ async fn test_get_token_accounts_by_owner_rpc() {
 
     insta::assert_json_snapshot!(name, response);
 }
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_token_accounts_by_delegate_rpc() {
+    let name = trim_test_name(function_name!());
+
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Mainnet),
+        },
+    )
+    .await;
+
+    let seeds: Vec<SeedEvent> = seed_accounts([
+        "ammoK8AkX2wnebQb35cDAZtTkvsXQbi82cGeTnUvvfK",
+        "BhNYZ7AQTsdqoWZBXEjQaZZtTX2AgPGzfdbLsYNBYUS",
+        "5qaF6MbitHGnBCcRa9ETgtaYsHKXfLd98qShKkKRBNba",
+        "AqvsDGuswTxK5eG6bv99dpuXJoLAyCzUSa9VxQQoF5PQ",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = r#"
+    [
+      "EhdwsXyEuqYdfxCaYcYMxehDt8PpcPJ3q54aeQEa9E1x",
+      {
+        "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+      },
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ]
+    "#;
+
+    let request: api::GetTokenAccountsByDelegate = serde_json::from_str(request).unwrap();
+    let response = setup
+        .das_api
+        .get_token_accounts_by_delegate(request)
+        .await
+        .unwrap();
+
+    insta::assert_json_snapshot!(name, response);
+}

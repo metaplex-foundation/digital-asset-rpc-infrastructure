@@ -11,7 +11,7 @@ use digital_asset_types::rpc::response::{
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{
     Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel, RpcData, RpcTokenInfo,
-    SolanaRpcResponse,
+    RpcTokenInfoWithDelegate, SolanaRpcResponse,
 };
 use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenSupply};
 use open_rpc_derive::{document_rpc, rpc};
@@ -278,6 +278,13 @@ pub struct GetTokenAccountsByOwner(
     #[serde(default)] pub Option<RpcConfiguration>,
 );
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct GetTokenAccountsByDelegate(
+    pub String,
+    #[serde(default)] pub Option<GetTokenAccountOptionalParams>,
+    #[serde(default)] pub Option<RpcConfiguration>,
+);
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -403,4 +410,9 @@ pub trait ApiContract: Send + Sync + 'static {
         &self,
         payload: GetTokenAccountsByOwner,
     ) -> Result<SolanaRpcResponse<Vec<RpcData<RpcTokenInfo>>>, DasApiError>;
+
+    async fn get_token_accounts_by_delegate(
+        &self,
+        payload: GetTokenAccountsByDelegate,
+    ) -> Result<SolanaRpcResponse<Vec<RpcData<RpcTokenInfoWithDelegate>>>, DasApiError>;
 }

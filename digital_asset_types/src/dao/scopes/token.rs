@@ -3,8 +3,8 @@ use crate::{
     dao::{extensions::token_accounts::TokenAccountSelectExt, token_accounts, tokens, Pagination},
     rpc::{
         options::Options, RpcAccountData, RpcAccountDataInner, RpcData, RpcParsedAccount,
-        RpcTokenAccountBalance, RpcTokenAccountBalanceWithAddress, RpcTokenInfo, RpcTokenSupply,
-        SolanaRpcResponse, UiTokenAmount,
+        RpcTokenAccountBalance, RpcTokenAccountBalanceWithAddress, RpcTokenInfo,
+        RpcTokenInfoWithDelegate, RpcTokenSupply, SolanaRpcResponse, UiTokenAmount,
     },
 };
 use num_traits::ToPrimitive;
@@ -142,52 +142,135 @@ pub async fn get_token_accounts_by_owner(
         conditions = conditions.add(token_accounts::Column::TokenProgram.eq(token_program));
     }
 
-    let results = query
+    let ta_with_mint_deimals = query
         .filter(conditions)
         .order_by(token_accounts::Column::Pubkey, Order::Asc)
         .all(conn)
-        .await?;
-
-    let value = results
+        .await?
         .into_iter()
-        .filter_map(
-            |(ta, mint): (token_accounts::Model, Option<tokens::Model>)| {
-                mint.map(|m| {
-                    let ui_amount: f64 =
-                        (ta.amount as f64).div(10u64.pow(m.decimals as u32) as f64);
+        .filter_map(|(ta, maybe_mint)| maybe_mint.map(|m| (ta, m.decimals)))
+        .collect::<Vec<_>>();
 
-                    RpcData {
-                        pubkey: bs58::encode(ta.pubkey.clone()).into_string(),
-                        account: RpcAccountData {
-                            data: RpcAccountDataInner {
-                                program: get_token_program_name(&ta.token_program),
-                                parsed: RpcParsedAccount {
-                                    info: RpcTokenInfo {
-                                        owner: bs58::encode(ta.owner).into_string(),
-                                        is_native: is_native_token(&ta.mint),
-                                        state: "initialized".to_string(),
-                                        token_amount: RpcTokenAccountBalance {
-                                            amount: UiTokenAmount {
-                                                ui_amount: Some(ui_amount),
-                                                decimals: m.decimals as u8,
-                                                amount: ta.amount.to_string(),
-                                                ui_amount_string: ui_amount.to_string(),
-                                            },
-                                        },
-                                        mint: bs58::encode(ta.mint).into_string(),
+    let value = ta_with_mint_deimals
+        .into_iter()
+        .map(|(ta, decimals)| {
+            let ui_amount: f64 = (ta.amount as f64).div(10u64.pow(decimals as u32) as f64);
+
+            RpcData {
+                pubkey: bs58::encode(ta.pubkey.clone()).into_string(),
+                account: RpcAccountData {
+                    data: RpcAccountDataInner {
+                        program: get_token_program_name(&ta.token_program),
+                        parsed: RpcParsedAccount {
+                            info: RpcTokenInfo {
+                                owner: bs58::encode(ta.owner).into_string(),
+                                is_native: is_native_token(&ta.mint),
+                                state: "initialized".to_string(),
+                                token_amount: RpcTokenAccountBalance {
+                                    amount: UiTokenAmount {
+                                        ui_amount: Some(ui_amount),
+                                        decimals: decimals as u8,
+                                        amount: ta.amount.to_string(),
+                                        ui_amount_string: ui_amount.to_string(),
                                     },
-                                    account_type: "account".to_string(),
                                 },
-                                ..Default::default()
+                                mint: bs58::encode(ta.mint).into_string(),
                             },
-                            owner: bs58::encode(ta.token_program).into_string(),
+                            account_type: "account".to_string(),
+                        },
+                        ..Default::default()
+                    },
+                    owner: bs58::encode(ta.token_program).into_string(),
+                    ..Default::default()
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let slot = get_latest_slot(conn).await?;
+
+    Ok(SolanaRpcResponse::new(value, slot))
+}
+
+pub async fn get_token_accounts_by_delegate(
+    conn: &impl ConnectionTrait,
+    delegate_address: Vec<u8>,
+    mint_address: Option<Vec<u8>>,
+    token_program: Option<Vec<u8>>,
+) -> Result<SolanaRpcResponse<Vec<RpcData<RpcTokenInfoWithDelegate>>>, DbErr> {
+    let query = token_accounts::Entity::find().find_also_related(tokens::Entity);
+
+    let mut conditions =
+        Condition::all().add(token_accounts::Column::Delegate.eq(delegate_address));
+
+    if let Some(token_program) = token_program {
+        conditions = conditions.add(token_accounts::Column::TokenProgram.eq(token_program));
+    }
+
+    if let Some(ref mint) = mint_address {
+        conditions = conditions.add(token_accounts::Column::Mint.eq(mint.clone()));
+    }
+
+    let ta_with_mint_decimals = query
+        .filter(conditions)
+        .order_by(token_accounts::Column::Amount, Order::Desc)
+        .order_by(token_accounts::Column::Pubkey, Order::Desc)
+        .all(conn)
+        .await?
+        .into_iter()
+        .filter_map(|(ta, maybe_mint)| maybe_mint.map(|mint| (ta, mint.decimals)))
+        .collect::<Vec<_>>();
+
+    let value = ta_with_mint_decimals
+        .into_iter()
+        .map(
+            |(ta, decimals)| -> Result<RpcData<RpcTokenInfoWithDelegate>, DbErr> {
+                let ui_token_amount: f64 =
+                    (ta.amount as f64).div(10u64.pow(decimals as u32) as f64);
+                let ui_delegate_amount: f64 =
+                    (ta.delegated_amount as f64).div(10u64.pow(decimals as u32) as f64);
+                Ok(RpcData {
+                    pubkey: bs58::encode(ta.pubkey.clone()).into_string(),
+                    account: RpcAccountData {
+                        data: RpcAccountDataInner {
+                            program: get_token_program_name(&ta.token_program),
+                            parsed: RpcParsedAccount {
+                                info: RpcTokenInfoWithDelegate {
+                                    delegate: bs58::encode(ta.delegate.unwrap_or_default())
+                                        .into_string(), // this will always be Some bcos we filtered above
+                                    delegated_amount: RpcTokenAccountBalance {
+                                        amount: UiTokenAmount {
+                                            ui_amount: Some(ui_delegate_amount),
+                                            decimals: decimals as u8,
+                                            amount: ta.amount.to_string(),
+                                            ui_amount_string: ui_delegate_amount.to_string(),
+                                        },
+                                    },
+                                    owner: bs58::encode(ta.owner).into_string(),
+                                    is_native: is_native_token(&ta.mint),
+                                    state: "initialized".to_string(),
+                                    token_amount: RpcTokenAccountBalance {
+                                        amount: UiTokenAmount {
+                                            ui_amount: Some(ui_token_amount),
+                                            decimals: decimals as u8,
+                                            amount: ta.amount.to_string(),
+                                            ui_amount_string: ui_token_amount.to_string(),
+                                        },
+                                    },
+                                    mint: bs58::encode(ta.mint).into_string(),
+                                },
+                                account_type: "account".to_string(),
+                            },
                             ..Default::default()
                         },
-                    }
+
+                        owner: bs58::encode(ta.token_program).into_string(),
+                        ..Default::default()
+                    },
                 })
             },
         )
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let slot = get_latest_slot(conn).await?;
 

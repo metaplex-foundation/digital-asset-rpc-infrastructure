@@ -179,6 +179,22 @@ impl RpcApiBuilder {
 
         module.register_alias("getTokenAccountsByOwner", "get_token_accounts_by_owner")?;
 
+        module.register_async_method(
+            "get_token_accounts_by_delegate",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetTokenAccountsByDelegate>()?;
+                rpc_context
+                    .get_token_accounts_by_delegate(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+
+        module.register_alias(
+            "getTokenAccountsByDelegate",
+            "get_token_accounts_by_delegate",
+        )?;
+
         Ok(module)
     }
 }

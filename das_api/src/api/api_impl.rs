@@ -1,6 +1,7 @@
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use digital_asset_types::dao::scopes::slot::get_latest_slot;
+use digital_asset_types::dao::scopes::token::get_token_accounts_by_delegate;
 use digital_asset_types::{
     dao::{
         scopes::{
@@ -38,7 +39,7 @@ use {
     sqlx::postgres::PgPoolOptions,
 };
 
-use digital_asset_types::rpc::RpcTokenAccountBalanceWithAddress;
+use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenInfoWithDelegate};
 
 pub struct DasApi {
     pool: Pool<Postgres>,
@@ -658,6 +659,25 @@ impl ApiContract for DasApi {
         get_token_accounts_by_owner(
             &self.get_connection(),
             owner_address.to_bytes().to_vec(),
+            mint,
+            program_id,
+        )
+        .await
+        .map_err(Into::into)
+    }
+
+    async fn get_token_accounts_by_delegate(
+        self: &DasApi,
+        payload: GetTokenAccountsByDelegate,
+    ) -> Result<SolanaRpcResponse<Vec<RpcData<RpcTokenInfoWithDelegate>>>, DasApiError> {
+        let GetTokenAccountsByDelegate(delegate, params, _config) = payload;
+        let delegate_address = validate_pubkey(delegate.clone())?;
+        let ValidatedTokenAccountParams { mint, program_id } =
+            ValidatedTokenAccountParams::try_from(&params)?;
+
+        get_token_accounts_by_delegate(
+            &self.get_connection(),
+            delegate_address.to_bytes().to_vec(),
             mint,
             program_id,
         )
