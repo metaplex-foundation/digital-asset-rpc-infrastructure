@@ -359,6 +359,13 @@ impl From<RedisStreamMessageError> for ProgramTransformerTaskStatusKind {
         ProgramTransformerTaskStatusKind::RedisMessageDeserializeError
     }
 }
+
+impl From<sea_orm::DbErr> for ProgramTransformerTaskStatusKind {
+    fn from(_: sea_orm::DbErr) -> Self {
+        ProgramTransformerTaskStatusKind::DatabaseError
+    }
+}
+
 impl ProgramTransformerTaskStatusKind {
     pub const fn to_str(self) -> &'static str {
         match self {

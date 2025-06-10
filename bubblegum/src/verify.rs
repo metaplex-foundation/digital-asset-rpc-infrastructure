@@ -185,7 +185,7 @@ pub async fn check(
     drop(proof_repair_worker);
 
     if let Some(metadata_json_download_worker) = metadata_json_download_worker {
-        if let Err(e) = metadata_json_download_worker.await {
+        if let Err(e) = metadata_json_download_worker.stop().await {
             tracing::error!("Failed metadata_json_download_worker: {:?}", e);
         }
     }

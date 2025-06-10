@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod account_snapshots;
 pub mod asset;
 pub mod asset_authority;
 pub mod asset_creators;

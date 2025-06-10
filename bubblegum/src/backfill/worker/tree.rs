@@ -9,8 +9,8 @@ use crate::{
 use anyhow::Result;
 use clap::Parser;
 use das_core::{
-    create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
-    MetadataJsonDownloadWorkerArgs,
+    create_download_metadata_notifier, DownloadMetadataJsonRetryConfig, MetadataJsonDownloadWorker,
+    MetadataJsonDownloadWorkerArgs, StopMetadataJsonDownloadWorker,
 };
 use digital_asset_types::{dao::cl_audits_v2, dapi::get_proof_for_asset};
 use log::error;
@@ -133,7 +133,7 @@ impl ProofRepairArgs {
         &self,
         context: BubblegumContext,
         tree: Pubkey,
-    ) -> Result<(Option<JoinHandle<()>>, ProofRepairWorker)> {
+    ) -> Result<(Option<StopMetadataJsonDownloadWorker>, ProofRepairWorker)> {
         let mut proof_repair_worker = ProofRepairWorker::new(context.clone(), tree);
 
         if !self.repair {
@@ -142,12 +142,23 @@ impl ProofRepairArgs {
 
         let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
 
-        let (metadata_json_download_worker, metadata_json_download_sender) = self
-            .metadata_json_download_worker
-            .start(context.database_pool.clone(), download_config)?;
+        let (download_metadata_worker_sender, download_metadata_worker) =
+            MetadataJsonDownloadWorker::build()
+                .pool(context.database_pool.clone())
+                .request_timeout(
+                    self.metadata_json_download_worker
+                        .metadata_json_download_worker_request_timeout,
+                )
+                .worker_count(
+                    self.metadata_json_download_worker
+                        .metadata_json_download_worker_count,
+                )
+                .retry(download_config)
+                .build()?
+                .run();
 
         let download_metadata_notifier =
-            create_download_metadata_notifier(metadata_json_download_sender).await;
+            create_download_metadata_notifier(download_metadata_worker_sender).await;
 
         let program_transformer = Arc::new(ProgramTransformer::new(
             context.database_pool.clone(),
@@ -156,7 +167,7 @@ impl ProofRepairArgs {
 
         proof_repair_worker.set_program_transformer(program_transformer);
 
-        Ok((Some(metadata_json_download_worker), proof_repair_worker))
+        Ok((Some(download_metadata_worker), proof_repair_worker))
     }
 }
 

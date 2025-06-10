@@ -1,3 +1,4 @@
-config-grpc2redis.yaml
-config-ingester.yaml
+config-grpc.yaml
+config-ingest.yaml
 config-monitor.yaml
+config-snapshot.yaml

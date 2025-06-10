@@ -189,3 +189,12 @@ pub enum SlotMeta {
     Table,
     Slot,
 }
+
+#[derive(Copy, Clone, Iden)]
+pub enum AccountSnapshot {
+    #[iden = "account_snapshots"]
+    Table,
+    Pubkey,
+    Slot,
+    Owner,
+}

@@ -22,7 +22,7 @@ use {
         },
     },
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
-    digital_asset_types::dao::{asset, slot_metas, token_accounts, tokens},
+    digital_asset_types::dao::{account_snapshots, asset, slot_metas, token_accounts, tokens},
     sea_orm::{
         entity::EntityTrait, query::Select, sea_query::Expr, ColumnTrait, ConnectionTrait,
         DatabaseConnection, DbErr, QueryFilter, Set, SqlxPostgresConnector, TransactionTrait,
@@ -274,6 +274,27 @@ impl ProgramTransformer {
             .filter(slot_metas::Column::Slot.lt(slot))
             .exec(&db)
             .await?;
+
+        Ok(())
+    }
+
+    pub async fn handle_account_snapshot_update(
+        &self,
+        account_info: &AccountInfo,
+    ) -> ProgramTransformerResult<()> {
+        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
+
+        let account_snapshot = account_snapshots::ActiveModel {
+            pubkey: sea_orm::ActiveValue::Set(account_info.pubkey.to_bytes().to_vec()),
+            slot: sea_orm::ActiveValue::Set(account_info.slot as i64),
+            owner: sea_orm::ActiveValue::Set(account_info.owner.to_bytes().to_vec()),
+        };
+
+        account_snapshots::Entity::insert(account_snapshot)
+            .exec(&conn)
+            .await?;
+
+        self.handle_account_update(account_info).await?;
 
         Ok(())
     }

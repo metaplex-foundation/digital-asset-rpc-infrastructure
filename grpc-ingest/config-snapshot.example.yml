@@ -1,0 +1,72 @@
+# This file is used to configure the ingester service.
+
+# prometheus metrics are pushed to this endpoint
+prometheus: 0.0.0.0:8878
+
+# redis connection url
+redis:
+  url: redis://localhost:6379
+
+# gRPC server configuration (change x_token and endpoint to the correct ones)
+grpc:
+  # endpoint of the dragonmouth stream
+  endpoint: http://127.0.0.1:10000
+  # x-token of the dragonmouth stream
+  x_token: null
+  # transaction commitment level: finalized, confirmed, processed
+  commitment: finalized
+  # connection timeout in seconds
+  connection_timeout: 10
+  # request timeout in seconds
+  timeout: 10
+
+# postgres configuration
+postgres:
+  # connection url
+  url: postgres://solana:solana@localhost/solana
+  # min connections
+  min_connections: 10
+  # max connections
+  max_connections: 50
+
+subscription:
+  stream:
+    name: SNAPSHOTS
+    max_len: 100_000_000
+    max_concurrency: 5
+  filter:
+    accounts:
+      owner:
+        - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+        - TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+
+download_metadata_publish:
+  # maximum number of concurrent tasks for processing.
+  max_concurrency: 10
+  # stream name
+  stream_name: METADATA_JSONS
+  # stream max length
+  stream_maxlen: 100_000_000
+  # number of pipelines that can be processed concurrently
+  pipeline_count: 10
+  # pipeline max idle time in milliseconds
+  pipeline_max_idle_ms: 150
+
+# snapshots configuration for the ingester
+snapshots:
+  # stream name
+  name: SNAPSHOTS
+  # maximum number of concurrent tasks for processing.
+  max_concurrency: 10
+  # maximum number of elements to return per redis stream
+  batch_size: 100
+  # maximum idle time (in milliseconds) before processing a batch
+  xack_batch_max_idle_ms: 1_000
+  # buffer size for redis acknowledgment messages
+  xack_buffer_size: 10_000
+  # maximum size of a batch for redis acknowledgment processing.
+  xack_batch_max_size: 500
+  # maximum number of redis messages to keep to buffer.
+  messages_buffer_size: 200
+  # redis stream consumer name must be unique per ingester process
+  consumer: snapshot-consumer

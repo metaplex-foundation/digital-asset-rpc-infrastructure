@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::{ConfigDownloadMetadataPublish, ConfigIngester},
+        config::{ConfigDownloadMetadataPublish, ConfigIngest},
         postgres::{create_pool as pg_create_pool, report_pgpool},
         prom::{download_metadata_publish_time, redis_xadd_status_inc},
         redis::{
@@ -178,7 +178,7 @@ impl DownloadMetadataPublishBuilder {
     }
 }
 
-pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
+pub async fn run(config: ConfigIngest) -> anyhow::Result<()> {
     let redis_client = redis::Client::open(config.redis)?;
     let connection = redis_client.get_multiplexed_tokio_connection().await?;
     let pool = pg_create_pool(config.postgres).await?;
@@ -233,13 +233,6 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
         .start()
         .await?;
 
-    let snapshots = IngestStream::build()
-        .config(config.snapshots)
-        .connection(connection.clone())
-        .handler(AccountHandle::new(Arc::clone(&program_transformer)))
-        .start()
-        .await?;
-
     let slot = IngestStream::build()
         .config(config.slot)
         .connection(connection.clone())
@@ -270,7 +263,6 @@ pub async fn run(config: ConfigIngester) -> anyhow::Result<()> {
     futures::future::join_all(vec![
         accounts.stop(),
         transactions.stop(),
-        snapshots.stop(),
         slot.stop(),
         download_metadatas.stop(),
     ])

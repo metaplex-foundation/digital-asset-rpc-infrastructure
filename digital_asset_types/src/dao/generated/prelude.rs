@@ -2,6 +2,7 @@
 
 #![allow(unused_imports)]
 
+pub use super::account_snapshots::Entity as AccountSnapshot;
 pub use super::asset::Entity as Asset;
 pub use super::asset_authority::Entity as AssetAuthority;
 pub use super::asset_creators::Entity as AssetCreators;

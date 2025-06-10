@@ -1,5 +1,6 @@
 use {
     anyhow::Context,
+    das_core::MetadataJsonDownloadWorkerArgs,
     serde::{de, Deserialize},
     std::{collections::HashMap, net::SocketAddr, path::Path, time::Duration},
     tokio::fs,
@@ -224,21 +225,48 @@ where
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ConfigIngester {
+pub struct ConfigIngest {
     pub redis: String,
     pub postgres: ConfigPostgres,
     pub download_metadata: ConfigIngesterDownloadMetadata,
-    pub snapshots: ConfigIngestStream,
     pub accounts: ConfigIngestStream,
     pub transactions: ConfigIngestStream,
     pub slot: ConfigIngestStream,
-    #[serde(default = "ConfigIngester::default_download_metadata_publish")]
+    #[serde(default = "ConfigIngest::default_download_metadata_publish")]
     pub download_metadata_publish: ConfigDownloadMetadataPublish,
 }
 
-impl ConfigIngester {
+impl ConfigIngest {
     pub fn default_download_metadata_publish() -> ConfigDownloadMetadataPublish {
         ConfigDownloadMetadataPublish::default()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConfigSnapshot {
+    pub redis: ConfigGrpcRedis,
+    pub postgres: ConfigPostgres,
+    pub grpc: ConfigGeyser,
+    pub subscription: ConfigSubscription,
+    pub snapshots: ConfigIngestStream,
+    pub download_metadata: MetadataJsonDownloadWorkerArgs,
+}
+
+impl From<ConfigSnapshot> for ConfigGrpc {
+    fn from(snapshot: ConfigSnapshot) -> Self {
+        let subscriptions = {
+            let mut map = HashMap::new();
+
+            map.insert("snapshot".to_string(), snapshot.subscription);
+
+            map
+        };
+
+        ConfigGrpc {
+            geyser: snapshot.grpc,
+            subscriptions,
+            redis: snapshot.redis,
+        }
     }
 }
 
@@ -336,11 +364,11 @@ impl ConfigPostgres {
     }
 
     pub const fn default_idle_timeout() -> Duration {
-        Duration::from_millis(75)
+        Duration::from_secs(30)
     }
 
     pub const fn default_max_lifetime() -> Duration {
-        Duration::from_millis(125)
+        Duration::from_secs(300)
     }
 }
 

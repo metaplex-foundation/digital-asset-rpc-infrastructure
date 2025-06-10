@@ -3,7 +3,7 @@ use anyhow::Result;
 use clap::Parser;
 use das_core::{
     connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
-    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
+    MetadataJsonDownloadWorker, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
 };
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::error;
@@ -53,17 +53,25 @@ pub async fn run(config: Args) -> Result<()> {
     let pool = connect_db(&config.database).await?;
     let num_workers = config.account_worker_count;
 
-    let metadata_json_download_db_pool = pool.clone();
-
-    let (metadata_json_download_worker, metadata_json_download_sender) =
-        config.metadata_json_download_worker.start(
-            metadata_json_download_db_pool,
-            Arc::new(DownloadMetadataJsonRetryConfig::default()),
-        )?;
+    let (download_metadata_sender, download_metadata_worker) = MetadataJsonDownloadWorker::build()
+        .pool(pool.clone())
+        .request_timeout(
+            config
+                .metadata_json_download_worker
+                .metadata_json_download_worker_request_timeout,
+        )
+        .worker_count(
+            config
+                .metadata_json_download_worker
+                .metadata_json_download_worker_count,
+        )
+        .retry(Arc::new(DownloadMetadataJsonRetryConfig::default()))
+        .build()?
+        .run();
 
     let (tx, mut rx) = mpsc::channel::<Vec<AccountInfo>>(config.max_buffer_size);
     let download_metadata_notifier =
-        create_download_metadata_notifier(metadata_json_download_sender.clone()).await;
+        create_download_metadata_notifier(download_metadata_sender.clone()).await;
 
     let mut workers = FuturesUnordered::new();
     let program_transformer = Arc::new(ProgramTransformer::new(pool, download_metadata_notifier));
@@ -109,10 +117,7 @@ pub async fn run(config: Args) -> Result<()> {
     }
 
     account_info_worker_manager.await?;
-
-    drop(metadata_json_download_sender);
-
-    metadata_json_download_worker.await?;
+    download_metadata_worker.stop().await?;
 
     Ok(())
 }

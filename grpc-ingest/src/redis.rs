@@ -282,6 +282,37 @@ impl Clone for AccountHandle {
         Self(Arc::clone(&self.0))
     }
 }
+pub struct SnapshotHandle(Arc<ProgramTransformer>);
+
+impl SnapshotHandle {
+    pub const fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
+        Self(program_transformer)
+    }
+}
+
+impl MessageHandler for SnapshotHandle {
+    fn handle(
+        &self,
+        input: HashMap<String, RedisValue>,
+    ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
+        let program_transformer = Arc::clone(&self.0);
+
+        Box::pin(async move {
+            let account = AccountInfo::try_parse_msg(input)?;
+
+            program_transformer
+                .handle_account_snapshot_update(&account)
+                .await
+                .map_err(IngestMessageError::ProgramTransformer)
+        })
+    }
+}
+
+impl Clone for SnapshotHandle {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
 
 pub struct TransactionHandle(Arc<ProgramTransformer>);
 
@@ -374,7 +405,6 @@ impl Acknowledge {
         {
             Ok(response) => {
                 debug!(
-                    target: "acknowledge_handler",
                     "action=acknowledge_and_delete stream={} response={:?} expected={:?}",
                     config.name, response, count
                 );
@@ -383,7 +413,6 @@ impl Acknowledge {
             }
             Err(e) => {
                 error!(
-                    target: "acknowledge_handler",
                     "action=acknowledge_and_delete_failed stream={} error={:?}",
                     config.name, e
                 );
@@ -441,12 +470,27 @@ impl<H: MessageHandler> IngestStream<H> {
 
     pub async fn start(mut self) -> anyhow::Result<IngestStreamStop> {
         let config = Arc::clone(&self.config);
-        let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
+        let (internal_shutdown_tx, mut internal_shutdown_rx) = tokio::sync::oneshot::channel();
 
         let mut connection = self.connection.take().expect("Connection is required");
         let handler = self.handler.take().expect("Handler is required");
 
+        debug!(
+            "action=setup_consumer_group stream={} group={} consumer={}",
+            config.name, config.group, config.consumer
+        );
+
         xgroup_create(&mut connection, &config.name, &config.group).await?;
+
+        let group_info: redis::RedisResult<Vec<redis::Value>> = redis::cmd("XINFO")
+            .arg("GROUPS")
+            .arg(&config.name)
+            .query_async(&mut connection)
+            .await;
+        debug!(
+            "action=consumer_group_info stream={} info={:?}",
+            config.name, group_info
+        );
 
         xgroup_delete_consumer(
             &mut connection,
@@ -463,6 +507,17 @@ impl<H: MessageHandler> IngestStream<H> {
             &config.consumer,
         )
         .await?;
+
+        let consumer_info: redis::RedisResult<Vec<redis::Value>> = redis::cmd("XINFO")
+            .arg("CONSUMERS")
+            .arg(&config.name)
+            .arg(&config.group)
+            .query_async(&mut connection)
+            .await;
+        debug!(
+            "action=consumer_info stream={} group={} info={:?}",
+            config.name, config.group, consumer_info
+        );
 
         let (ack_tx, mut ack_rx) = tokio::sync::mpsc::channel::<String>(config.xack_buffer_size);
         let (ack_shutdown_tx, mut ack_shutdown_rx) = tokio::sync::oneshot::channel::<()>();
@@ -609,7 +664,7 @@ impl<H: MessageHandler> IngestStream<H> {
                     let labels = labels.clone();
 
                     if let Err(e) = report_xlen(connection, labels).await {
-                        error!(target: "ingest_stream", "action=report_xlen stream={} error={:?}", &config.name, e);
+                        error!("action=report_xlen stream={} error={:?}", &config.name, e);
                     }
 
                     sleep(Duration::from_millis(100)).await;
@@ -623,27 +678,28 @@ impl<H: MessageHandler> IngestStream<H> {
             async move {
                 let config = Arc::clone(&config);
 
-                debug!(target: "ingest_stream", "action=read_stream_start stream={}", config.name);
+                debug!("action=read_stream_start stream={}", config.name);
 
                 loop {
                     let config = Arc::clone(&config);
 
                     tokio::select! {
-                        _ = &mut shutdown_rx => {
+                        biased;
+                        _ = &mut internal_shutdown_rx => {
                             if let Err(e) = msg_shutdown_tx.send(()) {
-                                error!(target: "ingest_stream", "action=msg_shutdown stream={} error={:?}", &config.name, e);
+                                error!("action=msg_shutdown stream={} error={:?}", &config.name, e);
                             }
 
                             if let Err(e) = messages.await {
-                                error!(target: "ingest_stream", "action=await_messages stream={} error={:?}", &config.name, e);
+                                error!("action=await_messages stream={} error={:?}", &config.name, e);
                             }
 
                             if let Err(e) = ack_shutdown_tx.send(()) {
-                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", &config.name, e);
+                                error!("action=ack_shutdown stream={} error={:?}", &config.name, e);
                             }
 
                             if let Err(e) = ack.await {
-                                error!(target: "ingest_stream", "action=ack_shutdown stream={} error={:?}", &config.name, e);
+                                error!("action=ack_shutdown stream={} error={:?}", &config.name, e);
                             }
 
                             break;
@@ -651,10 +707,23 @@ impl<H: MessageHandler> IngestStream<H> {
                         result = self.read(&mut connection) => {
                             match result {
                                 Ok(reply) => {
+                                    debug!(
+                                        "action=xread_response stream={} keys_len={} reply={:?}",
+                                        config.name,
+                                        reply.keys.len(),
+                                        reply
+                                    );
+
                                     for StreamKey { key: _, ids } in reply.keys {
                                         let config = Arc::clone(&config);
                                         let count = ids.len();
-                                        debug!(target: "ingest_stream", "action=xread stream={} count={:?}", &config.name, count);
+                                        debug!(
+                                            "action=xread_messages stream={} count={:?} first_id={:?} last_id={:?}",
+                                            &config.name,
+                                            count,
+                                            ids.first().map(|id| &id.id),
+                                            ids.last().map(|id| &id.id)
+                                        );
 
                                         redis_xread_inc(&config.name, &config.consumer, count);
 
@@ -664,20 +733,27 @@ impl<H: MessageHandler> IngestStream<H> {
                                     }
                                 }
                                 Err(err) => {
-                                    error!(target: "ingest_stream", "action=xread stream={} error={:?}", &config.name, err);
+                                    error!(
+                                        "action=xread_error stream={} error={:?}",
+                                        &config.name,
+                                        err
+                                    );
                                 }
                             }
                         }
                     }
                 }
 
-                warn!(target: "ingest_stream", "action=stream_shutdown stream={} stream shutdown", config.name);
+                warn!(
+                    "action=stream_shutdown stream={} stream shutdown",
+                    config.name
+                );
             }
         });
 
         Ok(IngestStreamStop {
             control,
-            shutdown_tx,
+            shutdown_tx: internal_shutdown_tx,
         })
     }
 }

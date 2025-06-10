@@ -2,7 +2,7 @@ mod backfill;
 mod error;
 mod tree;
 
-use das_core::DownloadMetadataJsonRetryConfig;
+use das_core::{DownloadMetadataJsonRetryConfig, MetadataJsonDownloadWorker};
 use das_core::{MetadataJsonDownloadWorkerArgs, Rpc};
 pub use error::ErrorKind;
 mod verify;
@@ -66,15 +66,27 @@ pub async fn start_backfill(context: BubblegumContext, args: BackfillArgs) -> Re
 
     let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
 
-    let (metadata_json_download_worker, metadata_json_download_sender) = args
-        .tree_worker
-        .metadata_json_download_worker
-        .start(context.database_pool.clone(), download_config)?;
+    let (download_metadata_worker_sender, download_metadata_worker) =
+        MetadataJsonDownloadWorker::build()
+            .pool(context.database_pool.clone())
+            .request_timeout(
+                args.tree_worker
+                    .metadata_json_download_worker
+                    .metadata_json_download_worker_request_timeout,
+            )
+            .worker_count(
+                args.tree_worker
+                    .metadata_json_download_worker
+                    .metadata_json_download_worker_count,
+            )
+            .retry(download_config)
+            .build()?
+            .run();
 
     let (program_transformer_worker, transaction_info_sender) = args
         .tree_worker
         .program_transformer_worker
-        .start(context.clone(), metadata_json_download_sender)?;
+        .start(context.clone(), download_metadata_worker_sender)?;
 
     let (signature_worker, signature_sender) = args
         .tree_worker
@@ -100,7 +112,7 @@ pub async fn start_backfill(context: BubblegumContext, args: BackfillArgs) -> Re
     futures::future::try_join3(
         signature_worker,
         program_transformer_worker,
-        metadata_json_download_worker,
+        download_metadata_worker.stop(),
     )
     .await?;
 
@@ -152,16 +164,23 @@ pub async fn start_bubblegum_replay(
     let program_transformer_worker_args = args.program_transformer_worker.clone();
     let signature_worker_args = args.signature_worker.clone();
 
-    let metadata_json_download_db_pool = context.database_pool.clone();
     let program_transformer_context = context.clone();
     let signature_context = context.clone();
     let download_config = Arc::new(DownloadMetadataJsonRetryConfig::default());
-    let (metadata_json_download_worker, metadata_json_download_sender) =
-        metadata_json_download_worker_args
-            .start(metadata_json_download_db_pool, download_config)?;
+
+    let (download_metadata_worker_sender, download_metadata_worker) =
+        MetadataJsonDownloadWorker::build()
+            .pool(context.database_pool.clone())
+            .request_timeout(
+                metadata_json_download_worker_args.metadata_json_download_worker_request_timeout,
+            )
+            .worker_count(metadata_json_download_worker_args.metadata_json_download_worker_count)
+            .retry(download_config)
+            .build()?
+            .run();
 
     let (program_transformer_worker, transaction_info_sender) = program_transformer_worker_args
-        .start(program_transformer_context, metadata_json_download_sender)?;
+        .start(program_transformer_context, download_metadata_worker_sender)?;
 
     let (signature_worker, signature_sender) =
         signature_worker_args.start(signature_context, transaction_info_sender)?;
@@ -178,7 +197,7 @@ pub async fn start_bubblegum_replay(
     futures::future::try_join3(
         signature_worker,
         program_transformer_worker,
-        metadata_json_download_worker,
+        download_metadata_worker.stop(),
     )
     .await?;
 

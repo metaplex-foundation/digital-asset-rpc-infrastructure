@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::{load as config_load, ConfigGrpc, ConfigIngester, ConfigPrometheus},
+        config::{load as config_load, ConfigGrpc, ConfigIngest, ConfigPrometheus, ConfigSnapshot},
         prom::run_server as prometheus_run_server,
     },
     anyhow::Context,
@@ -11,11 +11,12 @@ use {
 
 mod config;
 mod grpc;
-mod ingester;
+mod ingest;
 mod monitor;
 mod postgres;
 mod prom;
 mod redis;
+mod snapshot;
 mod util;
 mod version;
 
@@ -37,17 +38,24 @@ struct Args {
 #[derive(Debug, Clone, Subcommand)]
 enum ArgsAction {
     /// Subscribe on Geyser events using gRPC and send them to Redis
-    #[command(name = "grpc2redis")]
+    #[command(name = "grpc")]
     Grpc,
     /// Run ingester process (process events from Redis)
-    #[command(name = "ingester")]
-    Ingester,
+    #[command(name = "ingest")]
+    /// Ingest live updates from Redis
+    Ingest,
     #[command(name = "monitor")]
+    /// Monitor correctness of Bubblegum proofs
     Monitor,
+    /// Continual snapshot repair
+    #[command(name = "snapshot")]
+    Snapshot,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    env_logger::init();
+
     let args = Args::parse();
 
     // Run prometheus server
@@ -58,7 +66,6 @@ async fn main() -> anyhow::Result<()> {
         prometheus_run_server(address)?;
     }
 
-    // Run grpc / ingester / download-metadata
     match args.action {
         ArgsAction::Grpc => {
             let config = config_load::<ConfigGrpc>(&args.config)
@@ -66,11 +73,11 @@ async fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
             grpc::run(config).await
         }
-        ArgsAction::Ingester => {
-            let config = config_load::<ConfigIngester>(&args.config)
+        ArgsAction::Ingest => {
+            let config = config_load::<ConfigIngest>(&args.config)
                 .await
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
-            ingester::run(config).await
+            ingest::run(config).await
         }
         ArgsAction::Monitor => {
             let config = config_load::<ConfigMonitor>(&args.config)
@@ -78,6 +85,13 @@ async fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("failed to parse config from: {}", args.config))?;
 
             monitor::run(config).await
+        }
+        ArgsAction::Snapshot => {
+            let config = config_load::<ConfigSnapshot>(&args.config)
+                .await
+                .with_context(|| format!("failed to parse config from: {}", args.config))?;
+
+            snapshot::run(config).await
         }
     }
 }

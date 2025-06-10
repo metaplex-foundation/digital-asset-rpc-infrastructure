@@ -15,25 +15,6 @@ postgres:
   # max connections
   max_connections: 50
 
-# snapshots configuration for the ingester
-snapshots:
-  # stream name
-  name: SNAPSHOTS
-  # maximum number of concurrent tasks for processing.
-  max_concurrency: 10
-  # maximum number of elements to return per redis stream
-  batch_size: 100
-  # maximum idle time (in milliseconds) before processing a batch
-  xack_batch_max_idle_ms: 1_000
-  # buffer size for redis acknowledgment messages
-  xack_buffer_size: 10_000
-  # maximum size of a batch for redis acknowledgment processing.
-  xack_batch_max_size: 500
-  # maximum number of redis messages to keep to buffer.
-  messages_buffer_size: 200
-  # redis stream consumer name must be unique per ingester process
-  consumer: consumer
-
 # accounts configuration for the ingester
 accounts:
   name: ACCOUNTS

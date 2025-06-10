@@ -1879,6 +1879,7 @@ dependencies = [
  "das-bubblegum",
  "das-core",
  "digital_asset_types",
+ "env_logger 0.10.2",
  "futures",
  "git-version",
  "hex",

@@ -11,7 +11,7 @@ use {
     std::{sync::Arc, time::Duration},
     tokio::{
         sync::mpsc::{unbounded_channel, UnboundedSender},
-        task::JoinHandle,
+        task::{JoinError, JoinHandle},
         time::Instant,
     },
 };
@@ -81,7 +81,7 @@ pub async fn create_download_metadata_notifier(
     })
 }
 
-#[derive(Parser, Clone, Debug, PartialEq, Eq)]
+#[derive(Parser, Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct MetadataJsonDownloadWorkerArgs {
     /// The number of worker threads
     #[arg(long, env, default_value = "25")]
@@ -91,51 +91,132 @@ pub struct MetadataJsonDownloadWorkerArgs {
     pub metadata_json_download_worker_request_timeout: u64,
 }
 
-impl MetadataJsonDownloadWorkerArgs {
-    pub fn start(
-        &self,
-        pool: sqlx::PgPool,
-        config: Arc<DownloadMetadataJsonRetryConfig>,
-    ) -> Result<
-        (JoinHandle<()>, UnboundedSender<DownloadMetadataInfo>),
-        MetadataJsonDownloadWorkerError,
-    > {
+pub struct StopMetadataJsonDownloadWorker {
+    pub exit_tx: tokio::sync::oneshot::Sender<()>,
+    pub handle: JoinHandle<()>,
+}
+
+impl StopMetadataJsonDownloadWorker {
+    pub async fn stop(self) -> Result<(), JoinError> {
+        self.exit_tx.send(()).expect("stop signal");
+
+        self.handle.await
+    }
+}
+
+pub struct MetadataJsonDownloadWorker {
+    worker_count: usize,
+    pool: sqlx::PgPool,
+    retry: Arc<DownloadMetadataJsonRetryConfig>,
+    client: reqwest::Client,
+}
+
+pub type RunningMetadataJsonDownloadWorker = (
+    UnboundedSender<DownloadMetadataInfo>,
+    StopMetadataJsonDownloadWorker,
+);
+
+impl MetadataJsonDownloadWorker {
+    pub fn build() -> MetadataJsonDownloadWorkerBuilder {
+        MetadataJsonDownloadWorkerBuilder::default()
+    }
+
+    pub fn run(self) -> RunningMetadataJsonDownloadWorker {
+        let pool = self.pool;
+        let config = self.retry;
+        let worker_count = self.worker_count;
+        let client = self.client;
+
         let (sender, mut rx) = unbounded_channel::<DownloadMetadataInfo>();
-        let worker_count = self.metadata_json_download_worker_count;
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(
-                self.metadata_json_download_worker_request_timeout,
-            ))
-            .build()?;
+        let (exit_tx, mut exit_rx) = tokio::sync::oneshot::channel::<()>();
+
         let handle = tokio::spawn(async move {
             let mut handlers = FuturesUnordered::new();
             let download_config = Arc::clone(&config);
 
-            while let Some(download_metadata_info) = rx.recv().await {
-                if handlers.len() >= worker_count {
-                    handlers.next().await;
+            tokio::select! {
+                _ = async {
+                    while let Some(download_metadata_info) = rx.recv().await {
+                        if handlers.len() >= worker_count {
+                            handlers.next().await;
+                        }
+
+                        let pool = pool.clone();
+                        let client = client.clone();
+
+                        handlers.push(spawn_task(
+                            client,
+                            pool,
+                            download_metadata_info,
+                            Arc::clone(&download_config),
+                        ));
+                    }
+                } => {},
+
+                _ = &mut exit_rx => {
                 }
-
-                let pool = pool.clone();
-                let client = client.clone();
-
-                handlers.push(spawn_task(
-                    client,
-                    pool,
-                    download_metadata_info,
-                    Arc::clone(&download_config),
-                ));
             }
 
             while handlers.next().await.is_some() {}
         });
 
-        Ok((handle, sender))
+        (sender, StopMetadataJsonDownloadWorker { handle, exit_tx })
+    }
+}
+
+#[derive(Default)]
+pub struct MetadataJsonDownloadWorkerBuilder {
+    worker_count: Option<usize>,
+    request_timeout: Option<u64>,
+    pool: Option<sqlx::PgPool>,
+    retry: Option<Arc<DownloadMetadataJsonRetryConfig>>,
+}
+
+impl MetadataJsonDownloadWorkerBuilder {
+    pub const fn worker_count(mut self, count: usize) -> Self {
+        self.worker_count = Some(count);
+        self
+    }
+
+    pub const fn request_timeout(mut self, timeout: u64) -> Self {
+        self.request_timeout = Some(timeout);
+        self
+    }
+
+    pub fn pool(mut self, pool: sqlx::PgPool) -> Self {
+        self.pool = Some(pool);
+        self
+    }
+
+    pub fn retry(mut self, retry: Arc<DownloadMetadataJsonRetryConfig>) -> Self {
+        self.retry = Some(retry);
+        self
+    }
+
+    pub fn build(self) -> Result<MetadataJsonDownloadWorker, MetadataJsonDownloadWorkerError> {
+        let request_timeout = self
+            .request_timeout
+            .ok_or(MetadataJsonDownloadWorkerError::Option)?;
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(request_timeout))
+            .build()?;
+
+        Ok(MetadataJsonDownloadWorker {
+            worker_count: self
+                .worker_count
+                .ok_or(MetadataJsonDownloadWorkerError::Option)?,
+            pool: self.pool.ok_or(MetadataJsonDownloadWorkerError::Option)?,
+            retry: self.retry.ok_or(MetadataJsonDownloadWorkerError::Option)?,
+            client,
+        })
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum MetadataJsonDownloadWorkerError {
+    #[error("option error")]
+    Option,
     #[error("send error")]
     Send,
     #[error("join error: {0}")]

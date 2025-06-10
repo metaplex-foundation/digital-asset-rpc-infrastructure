@@ -9,7 +9,7 @@ use log::error;
 use clap::Parser;
 use das_core::{
     connect_db, create_download_metadata_notifier, DownloadMetadataJsonRetryConfig,
-    MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
+    MetadataJsonDownloadWorker, MetadataJsonDownloadWorkerArgs, PoolArgs, Rpc, SolanaRpcArgs,
 };
 use mpl_token_metadata::accounts::Metadata;
 use program_transformers::ProgramTransformer;
@@ -40,16 +40,25 @@ fn parse_pubkey(s: &str) -> Result<Pubkey, &'static str> {
 pub async fn run(config: Args) -> Result<()> {
     let rpc = Rpc::from_config(&config.solana);
     let pool = connect_db(&config.database).await?;
-    let metadata_json_download_db_pool = pool.clone();
 
-    let (metadata_json_download_worker, metadata_json_download_sender) =
-        config.metadata_json_download_worker.start(
-            metadata_json_download_db_pool,
-            Arc::new(DownloadMetadataJsonRetryConfig::default()),
-        )?;
+    let (download_metadata_sender, download_metadata_worker) = MetadataJsonDownloadWorker::build()
+        .pool(pool.clone())
+        .request_timeout(
+            config
+                .metadata_json_download_worker
+                .metadata_json_download_worker_request_timeout,
+        )
+        .worker_count(
+            config
+                .metadata_json_download_worker
+                .metadata_json_download_worker_count,
+        )
+        .retry(Arc::new(DownloadMetadataJsonRetryConfig::default()))
+        .build()?
+        .run();
 
     let download_metadata_notifier =
-        create_download_metadata_notifier(metadata_json_download_sender.clone()).await;
+        create_download_metadata_notifier(download_metadata_sender).await;
 
     let mint = config.mint;
 
@@ -87,11 +96,9 @@ pub async fn run(config: Args) -> Result<()> {
 
     futures::future::try_join_all(tasks).await?;
 
-    drop(metadata_json_download_sender);
-
     drop(program_transformer);
 
-    metadata_json_download_worker.await?;
+    download_metadata_worker.stop().await?;
 
     Ok(())
 }
