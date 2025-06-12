@@ -203,7 +203,7 @@ pub struct GetTokenAccounts {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct GetSlot(#[serde(default)] pub Option<CommitmentConfig>);
+pub struct GetSlot(#[serde(default)] pub Option<Vec<Option<CommitmentConfig>>>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct GetTokenLargestAccounts(pub String, #[serde(default)] pub Option<CommitmentConfig>);
