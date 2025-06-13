@@ -7,11 +7,12 @@ use {
         service::{make_service_fn, service_fn},
         Body, Request, Response, Server, StatusCode,
     },
-    program_transformers::error::ProgramTransformerError,
+    program_transformers::{error::ProgramTransformerError, AccountInfo},
     prometheus::{
         HistogramOpts, HistogramVec, IntCounterVec, IntGaugeVec, Opts, Registry, TextEncoder,
     },
     std::{net::SocketAddr, sync::Once},
+    tokio::sync::mpsc::error::SendError,
     tracing::{error, info},
 };
 
@@ -302,6 +303,7 @@ pub enum ProgramTransformerTaskStatusKind {
     DownloadMetadataFetchError,
     DownloadMetadataAssetNotFound,
     RedisMessageDeserializeError,
+    SnapshotSendError,
 }
 
 impl From<ProgramTransformerError> for ProgramTransformerTaskStatusKind {
@@ -366,6 +368,12 @@ impl From<sea_orm::DbErr> for ProgramTransformerTaskStatusKind {
     }
 }
 
+impl From<SendError<AccountInfo>> for ProgramTransformerTaskStatusKind {
+    fn from(_: SendError<AccountInfo>) -> Self {
+        ProgramTransformerTaskStatusKind::SnapshotSendError
+    }
+}
+
 impl ProgramTransformerTaskStatusKind {
     pub const fn to_str(self) -> &'static str {
         match self {
@@ -393,6 +401,7 @@ impl ProgramTransformerTaskStatusKind {
             ProgramTransformerTaskStatusKind::RedisMessageDeserializeError => {
                 "redis_message_deserialize_error"
             }
+            ProgramTransformerTaskStatusKind::SnapshotSendError => "snapshot_send_error",
         }
     }
 }

@@ -22,6 +22,7 @@ use {
     solana_sdk::{pubkey::Pubkey, signature::Signature},
     std::{collections::HashMap, marker::PhantomData, sync::Arc},
     tokio::{
+        sync::mpsc::{error::SendError, Sender},
         task::JoinSet,
         time::{sleep, Duration},
     },
@@ -179,6 +180,8 @@ pub enum IngestMessageError {
     ProgramTransformer(#[from] program_transformers::error::ProgramTransformerError),
     #[error("Download metadata JSON task error: {0}")]
     DownloadMetadataJson(#[from] das_core::MetadataJsonTaskError),
+    #[error("Snapshot send error: {0}")]
+    SnapshotSend(#[from] SendError<AccountInfo>),
 }
 
 pub struct IngestStreamStop {
@@ -282,11 +285,11 @@ impl Clone for AccountHandle {
         Self(Arc::clone(&self.0))
     }
 }
-pub struct SnapshotHandle(Arc<ProgramTransformer>);
+pub struct SnapshotHandle(Sender<AccountInfo>);
 
 impl SnapshotHandle {
-    pub const fn new(program_transformer: Arc<ProgramTransformer>) -> Self {
-        Self(program_transformer)
+    pub const fn new(sender: Sender<AccountInfo>) -> Self {
+        Self(sender)
     }
 }
 
@@ -295,22 +298,21 @@ impl MessageHandler for SnapshotHandle {
         &self,
         input: HashMap<String, RedisValue>,
     ) -> BoxFuture<'static, Result<(), IngestMessageError>> {
-        let program_transformer = Arc::clone(&self.0);
+        let sender = self.0.clone();
 
         Box::pin(async move {
-            let account = AccountInfo::try_parse_msg(input)?;
+            let account_info = AccountInfo::try_parse_msg(input)?;
 
-            program_transformer
-                .handle_account_snapshot_update(&account)
-                .await
-                .map_err(IngestMessageError::ProgramTransformer)
+            sender.send(account_info).await?;
+
+            Ok(())
         })
     }
 }
 
 impl Clone for SnapshotHandle {
     fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
+        Self(self.0.clone())
     }
 }
 
@@ -558,8 +560,10 @@ impl<H: MessageHandler> IngestStream<H> {
                                     Ok(()) => {
                                         program_transformer_task_status_inc(&config.name, &config.consumer, ProgramTransformerTaskStatusKind::Success);
                                     }
+                                    Err(IngestMessageError::SnapshotSend(e)) => {
+                                        program_transformer_task_status_inc(&config.name, &config.consumer, e.into());
+                                    }
                                     Err(IngestMessageError::RedisStreamMessage(e)) => {
-                                        error!("Failed to process message: {:?}", e);
                                         program_transformer_task_status_inc(&config.name, &config.consumer, e.into());
                                     }
                                     Err(IngestMessageError::DownloadMetadataJson(e)) => {

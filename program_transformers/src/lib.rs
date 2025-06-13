@@ -24,8 +24,9 @@ use {
     das_core::{DownloadMetadataInfo, DownloadMetadataNotifier},
     digital_asset_types::dao::{account_snapshots, asset, slot_metas, token_accounts, tokens},
     sea_orm::{
-        entity::EntityTrait, query::Select, sea_query::Expr, ColumnTrait, ConnectionTrait,
-        DatabaseConnection, DbErr, QueryFilter, Set, SqlxPostgresConnector, TransactionTrait,
+        entity::EntityTrait, query::Select, sea_query::Expr, ActiveValue, ColumnTrait,
+        ConnectionTrait, DatabaseConnection, DbErr, QueryFilter, Set, SqlxPostgresConnector,
+        TransactionTrait,
     },
     serde::Deserialize,
     serde_json::{Map, Value},
@@ -55,6 +56,16 @@ pub struct AccountInfo {
     pub pubkey: Pubkey,
     pub owner: Pubkey,
     pub data: Vec<u8>,
+}
+
+impl AccountInfo {
+    pub fn into_account_snapshot(&self) -> account_snapshots::ActiveModel {
+        account_snapshots::ActiveModel {
+            pubkey: ActiveValue::Set(self.pubkey.to_bytes().to_vec()),
+            slot: ActiveValue::Set(self.slot as i64),
+            owner: ActiveValue::Set(self.owner.to_bytes().to_vec()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -274,27 +285,6 @@ impl ProgramTransformer {
             .filter(slot_metas::Column::Slot.lt(slot))
             .exec(&db)
             .await?;
-
-        Ok(())
-    }
-
-    pub async fn handle_account_snapshot_update(
-        &self,
-        account_info: &AccountInfo,
-    ) -> ProgramTransformerResult<()> {
-        let conn = SqlxPostgresConnector::from_sqlx_postgres_pool(self.storage.clone());
-
-        let account_snapshot = account_snapshots::ActiveModel {
-            pubkey: sea_orm::ActiveValue::Set(account_info.pubkey.to_bytes().to_vec()),
-            slot: sea_orm::ActiveValue::Set(account_info.slot as i64),
-            owner: sea_orm::ActiveValue::Set(account_info.owner.to_bytes().to_vec()),
-        };
-
-        account_snapshots::Entity::insert(account_snapshot)
-            .exec(&conn)
-            .await?;
-
-        self.handle_account_update(account_info).await?;
 
         Ok(())
     }

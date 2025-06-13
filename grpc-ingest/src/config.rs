@@ -243,12 +243,71 @@ impl ConfigIngest {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ConfigAccountSnapshotWriter {
+    #[serde(
+        default = "ConfigAccountSnapshotWriter::default_batch_size",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub batch_size: usize,
+    #[serde(
+        default = "ConfigAccountSnapshotWriter::default_channel_capacity",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub channel_capacity: usize,
+    #[serde(
+        default = "ConfigAccountSnapshotWriter::default_max_workers",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_workers: usize,
+}
+
+impl ConfigAccountSnapshotWriter {
+    pub const fn default_batch_size() -> usize {
+        1_000
+    }
+
+    pub const fn default_channel_capacity() -> usize {
+        100_000
+    }
+
+    pub const fn default_max_workers() -> usize {
+        20
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfigProgramTransformerRunner {
+    #[serde(
+        default = "ConfigProgramTransformerRunner::default_max_workers",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub max_workers: usize,
+    #[serde(
+        default = "ConfigProgramTransformerRunner::default_buffer_capacity",
+        deserialize_with = "deserialize_usize_str"
+    )]
+    pub buffer_capacity: usize,
+}
+
+impl ConfigProgramTransformerRunner {
+    pub const fn default_max_workers() -> usize {
+        20
+    }
+
+    pub const fn default_buffer_capacity() -> usize {
+        1_000
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct ConfigSnapshot {
     pub redis: ConfigGrpcRedis,
     pub postgres: ConfigPostgres,
     pub grpc: ConfigGeyser,
-    pub subscription: ConfigSubscription,
-    pub snapshots: ConfigIngestStream,
+    pub program_transform: ConfigProgramTransformerRunner,
+    pub snapshot_write: ConfigAccountSnapshotWriter,
+    pub snapshot_process: ConfigIngestStream,
+    pub snapshot_read: ConfigSubscription,
     pub download_metadata: MetadataJsonDownloadWorkerArgs,
 }
 
@@ -256,12 +315,9 @@ impl From<ConfigSnapshot> for ConfigGrpc {
     fn from(snapshot: ConfigSnapshot) -> Self {
         let subscriptions = {
             let mut map = HashMap::new();
-
-            map.insert("snapshot".to_string(), snapshot.subscription);
-
+            map.insert("snapshot".to_string(), snapshot.snapshot_read);
             map
         };
-
         ConfigGrpc {
             geyser: snapshot.grpc,
             subscriptions,

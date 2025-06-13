@@ -29,7 +29,16 @@ postgres:
   # max connections
   max_connections: 50
 
-subscription:
+program_transform:
+  max_workers: 20
+  buffer_capacity: 1_000
+
+snapshot_write:
+  max_workers: 20
+  buffer_capacity: 1_000
+  batch_size: 1_000
+
+snapshot_read:
   stream:
     name: SNAPSHOTS
     max_len: 100_000_000
@@ -40,20 +49,13 @@ subscription:
         - TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
         - TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
 
-download_metadata_publish:
-  # maximum number of concurrent tasks for processing.
-  max_concurrency: 10
-  # stream name
-  stream_name: METADATA_JSONS
-  # stream max length
-  stream_maxlen: 100_000_000
-  # number of pipelines that can be processed concurrently
-  pipeline_count: 10
-  # pipeline max idle time in milliseconds
-  pipeline_max_idle_ms: 150
+# download metadata configuration for the ingester
+download_metadata:
+  metadata_json_download_worker_count: 3
+  metadata_json_download_worker_request_timeout: 150
 
 # snapshots configuration for the ingester
-snapshots:
+snapshot_process:
   # stream name
   name: SNAPSHOTS
   # maximum number of concurrent tasks for processing.
