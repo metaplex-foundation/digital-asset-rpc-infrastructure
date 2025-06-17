@@ -2,6 +2,7 @@ use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
 use digital_asset_types::dao::scopes::slot::get_latest_slot;
 use digital_asset_types::dao::scopes::token::get_token_accounts_by_delegate;
+use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenInfoWithDelegate};
 use digital_asset_types::{
     dao::{
         scopes::{
@@ -39,8 +40,6 @@ use {
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
-
-use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenInfoWithDelegate};
 
 pub struct DasApi {
     pool: Pool<Postgres>,

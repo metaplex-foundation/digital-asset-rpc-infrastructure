@@ -283,7 +283,7 @@ pub fn download_metadata_json_task_status_count_inc(status: u16) {
 
 pub fn download_metadata_publish_time(value: f64) {
     DOWNLOAD_METADATA_PUBLISH_TIME
-        .with_label_values(&[])
+        .with_label_values::<&str>(&[])
         .observe(value);
 }
 
@@ -439,5 +439,7 @@ pub fn update_tree_proof_report(report: &ProofReport) {
 }
 
 pub fn current_ingester_slot_set(slot: i64) {
-    CURRENT_INGESTER_SLOT.with_label_values(&[]).set(slot);
+    CURRENT_INGESTER_SLOT
+        .with_label_values::<&str>(&[])
+        .set(slot);
 }

@@ -375,7 +375,6 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get a list of assets grouped by a specific authority"
     )]
     async fn get_grouping(&self, payload: GetGrouping) -> Result<GetGroupingResponse, DasApiError>;
-
     #[rpc(
         name = "getTokenAccounts",
         params = "named",

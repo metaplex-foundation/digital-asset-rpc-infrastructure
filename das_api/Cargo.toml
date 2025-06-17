@@ -55,6 +55,10 @@ opentelemetry-otlp = { workspace = true, features = ["grpc-tonic"] }
 opentelemetry_sdk = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true }
+prometheus = { workspace = true, features = ["push"] }
+lazy_static = { workspace = true }
+anyhow = { workspace = true }
+pin-project = { workspace = true }
 
 [lints]
 workspace = true

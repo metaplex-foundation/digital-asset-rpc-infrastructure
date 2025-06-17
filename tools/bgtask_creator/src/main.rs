@@ -274,16 +274,16 @@ WHERE
 
             let tp = &asset_data_finished.1;
             BGTASK_SHOW
-                .with_label_values(&[tp, "reindexing"])
+                .with_label_values(&[tp.as_str(), "reindexing"])
                 .set(asset_reindex_count.map(|v| v as i64).unwrap_or(-1));
             BGTASK_SHOW
-                .with_label_values(&[tp, "finished"])
+                .with_label_values(&[tp.as_str(), "finished"])
                 .set(total_finished as i64);
             BGTASK_SHOW
-                .with_label_values(&[tp, "missing"])
+                .with_label_values(&[tp.as_str(), "missing"])
                 .set(i as i64);
             BGTASK_SHOW
-                .with_label_values(&[tp, "total"])
+                .with_label_values(&[tp.as_str(), "total"])
                 .set(total_assets as i64);
         }
         Some("delete") => {

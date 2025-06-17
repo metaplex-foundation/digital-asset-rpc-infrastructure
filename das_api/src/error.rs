@@ -35,6 +35,27 @@ pub enum DasApiError {
     InvalidProgramId(String),
 }
 
+impl DasApiError {
+    pub const fn to_error_code(&self) -> &'static str {
+        match self {
+            DasApiError::ConfigurationError(_) => "CONFIGURATION_ERROR",
+            DasApiError::ServerStartError(_) => "SERVER_START_ERROR",
+            DasApiError::DatabaseConnectionError(_) => "DB_CONNECTION_ERROR",
+            DasApiError::PubkeyValidationError(_) => "PUBKEY_VALIDATION_ERROR",
+            DasApiError::ValidationError(_) => "VALIDATION_ERROR",
+            DasApiError::DatabaseError(_) => "DATABASE_ERROR",
+            DasApiError::PaginationError => "PAGINATION_ERROR",
+            DasApiError::PaginationEmptyError => "PAGINATION_EMPTY_ERROR",
+            DasApiError::DeserializationError(_) => "DESERIALIZATION_ERROR",
+            DasApiError::BatchSizeExceededError => "BATCH_SIZE_EXCEEDED_ERROR",
+            DasApiError::PaginationExceededError => "PAGINATION_EXCEEDED_ERROR",
+            DasApiError::CursorValidationError(_) => "CURSOR_VALIDATION_ERROR",
+            DasApiError::PaginationSortingValidationError => "PAGINATION_SORTING_VALIDATION_ERROR",
+            DasApiError::InvalidProgramId(_) => "INVALID_PROGRAM_ID",
+        }
+    }
+}
+
 impl From<DasApiError> for RpcError {
     fn from(error: DasApiError) -> RpcError {
         match error {
