@@ -26,7 +26,7 @@ sea-orm = { workspace = true, features = [
   "with-chrono",
   "runtime-tokio-rustls",
 ] }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 spl-account-compression = { workspace = true }
 solana-account-decoder = { workspace = true }

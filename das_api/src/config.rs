@@ -1,5 +1,7 @@
 use std::{net::SocketAddr, str::FromStr};
 
+use das_core::PoolArgs;
+
 use crate::error::DasApiError;
 use {
     figment::{providers::Env, Figment},
@@ -9,7 +11,11 @@ use {
 #[derive(Deserialize, Default)]
 pub struct Config {
     pub database_url: String,
-    pub max_database_connections: Option<u32>,
+    pub database_max_connections: Option<u32>,
+    pub database_min_connections: Option<u32>,
+    pub database_max_lifetime: Option<u64>,
+    pub database_acquire_timeout: Option<u64>,
+    pub database_idle_timeout: Option<u64>,
     pub max_request_connections: Option<u32>,
     pub otlp_collector_host: Option<String>,
     pub otlp_collector_port: Option<u16>,
@@ -17,6 +23,29 @@ pub struct Config {
     pub metrics_port: Option<u16>,
     pub server_port: Option<u16>,
     pub env: Option<String>,
+}
+
+impl From<Config> for PoolArgs {
+    fn from(value: Config) -> Self {
+        Self {
+            database_acquire_timeout: value
+                .database_acquire_timeout
+                .unwrap_or_else(PoolArgs::default_database_acquire_timeout),
+            database_url: value.database_url,
+            database_max_connections: value
+                .database_max_connections
+                .unwrap_or_else(PoolArgs::default_database_max_connections),
+            database_min_connections: value
+                .database_min_connections
+                .unwrap_or_else(PoolArgs::default_database_min_connections),
+            database_idle_timeout: value
+                .database_idle_timeout
+                .unwrap_or_else(PoolArgs::default_database_idle_timeout),
+            database_max_lifetime: value
+                .database_max_lifetime
+                .unwrap_or_else(PoolArgs::default_database_max_lifetime),
+        }
+    }
 }
 
 impl Config {

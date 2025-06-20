@@ -1995,6 +1995,7 @@ dependencies = [
  "bs58 0.4.0",
  "cadence",
  "cadence-macros",
+ "das-core",
  "digital_asset_types",
  "env_logger 0.10.2",
  "figment",

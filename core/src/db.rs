@@ -3,22 +3,59 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use sea_orm::{DatabaseConnection, MockDatabase, MockDatabaseConnection, SqlxPostgresConnector};
+use serde::Deserialize;
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     PgPool,
 };
 
-#[derive(Debug, Parser, Clone)]
+#[derive(Debug, Parser, Clone, Deserialize)]
 pub struct PoolArgs {
     /// The database URL.
     #[arg(long, env)]
     pub database_url: String,
     /// The maximum number of connections to the database.
     #[arg(long, env, default_value = "125")]
+    #[serde(default = "PoolArgs::default_database_max_connections")]
     pub database_max_connections: u32,
     /// The minimum number of connections to the database.
     #[arg(long, env, default_value = "5")]
+    #[serde(default = "PoolArgs::default_database_min_connections")]
     pub database_min_connections: u32,
+    /// The maximum lifetime of a connection in seconds.
+    #[arg(long, env, default_value = "1800")]
+    #[serde(default = "PoolArgs::default_database_max_lifetime")]
+    pub database_max_lifetime: u64,
+    /// The acquire timeout for a connection in seconds.
+    #[arg(long, env, default_value = "30")]
+    #[serde(default = "PoolArgs::default_database_acquire_timeout")]
+    pub database_acquire_timeout: u64,
+    /// The idle timeout for a connection in seconds.
+    #[arg(long, env, default_value = "600")]
+    #[serde(default = "PoolArgs::default_database_idle_timeout")]
+    pub database_idle_timeout: u64,
+}
+
+impl PoolArgs {
+    pub const fn default_database_max_connections() -> u32 {
+        125
+    }
+
+    pub const fn default_database_min_connections() -> u32 {
+        5
+    }
+
+    pub const fn default_database_max_lifetime() -> u64 {
+        1800
+    }
+
+    pub const fn default_database_acquire_timeout() -> u64 {
+        30
+    }
+
+    pub const fn default_database_idle_timeout() -> u64 {
+        600
+    }
 }
 
 ///// Establishes a connection to the database using the provided configuration.
@@ -36,6 +73,11 @@ pub async fn connect_db(config: &PoolArgs) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
         .min_connections(config.database_min_connections)
         .max_connections(config.database_max_connections)
+        .max_lifetime(std::time::Duration::from_secs(config.database_max_lifetime))
+        .acquire_timeout(std::time::Duration::from_secs(
+            config.database_acquire_timeout,
+        ))
+        .idle_timeout(std::time::Duration::from_secs(config.database_idle_timeout))
         .connect_with(options)
         .await
 }

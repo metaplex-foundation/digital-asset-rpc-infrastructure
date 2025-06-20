@@ -1,5 +1,6 @@
 use crate::error::DasApiError;
 use crate::validation::{validate_opt_pubkey, validate_search_with_name};
+use das_core::connect_db;
 use digital_asset_types::dao::scopes::slot::get_latest_slot;
 use digital_asset_types::dao::scopes::token::get_token_accounts_by_delegate;
 use digital_asset_types::rpc::{RpcTokenAccountBalanceWithAddress, RpcTokenInfoWithDelegate};
@@ -38,7 +39,6 @@ use {
     async_trait::async_trait,
     digital_asset_types::rpc::{response::AssetList, Asset, AssetProof},
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
-    sqlx::postgres::PgPoolOptions,
 };
 
 pub struct DasApi {
@@ -47,10 +47,7 @@ pub struct DasApi {
 
 impl DasApi {
     pub async fn from_config(config: Config) -> Result<Self, DasApiError> {
-        let pool = PgPoolOptions::new()
-            .max_connections(config.max_database_connections.unwrap_or(250))
-            .connect(&config.database_url)
-            .await?;
+        let pool = connect_db(&config.into()).await?;
 
         Ok(DasApi { pool })
     }
