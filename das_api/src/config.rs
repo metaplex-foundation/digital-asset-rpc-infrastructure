@@ -3,7 +3,6 @@ use std::{net::SocketAddr, str::FromStr};
 use das_core::PoolArgs;
 
 use crate::error::DasApiError;
-use das_core::PoolArgs;
 use {
     figment::{providers::Env, Figment},
     serde::Deserialize,
