@@ -34,6 +34,9 @@ pub struct PoolArgs {
     #[arg(long, env, default_value = "600")]
     #[serde(default = "PoolArgs::default_database_idle_timeout")]
     pub database_idle_timeout: u64,
+    #[arg(long, env, default_value = "true")]
+    #[serde(default = "PoolArgs::default_database_test_before_acquire")]
+    pub database_test_before_acquire: bool,
 }
 
 impl PoolArgs {
@@ -56,6 +59,10 @@ impl PoolArgs {
     pub const fn default_database_idle_timeout() -> u64 {
         600
     }
+
+    pub const fn default_database_test_before_acquire() -> bool {
+        true
+    }
 }
 
 ///// Establishes a connection to the database using the provided configuration.
@@ -66,7 +73,7 @@ impl PoolArgs {
 /////
 ///// # Returns
 /////
-///// * `Result<DatabaseConnection, DbErr>` - On success, returns a `DatabaseConnection`. On failure, returns a `DbErr`.
+///// * `Result<PgPool, sqlx::Error>` - On success, returns a `PgPool`. On failure, returns a `sqlx::Error`.
 pub async fn connect_db(config: &PoolArgs) -> Result<PgPool, sqlx::Error> {
     let options: PgConnectOptions = config.database_url.parse()?;
 
@@ -78,6 +85,7 @@ pub async fn connect_db(config: &PoolArgs) -> Result<PgPool, sqlx::Error> {
             config.database_acquire_timeout,
         ))
         .idle_timeout(std::time::Duration::from_secs(config.database_idle_timeout))
+        .test_before_acquire(config.database_test_before_acquire)
         .connect_with(options)
         .await
 }
