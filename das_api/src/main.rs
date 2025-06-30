@@ -88,6 +88,7 @@ async fn main() -> anyhow::Result<()> {
     let server = ServerBuilder::default()
         .set_middleware(middleware)
         .max_connections(config.max_request_connections.unwrap_or(100))
+        .max_response_body_size(u32::MAX)
         .build(addr)
         .await?;
     let api = DasApi::from_config(config).await?;
