@@ -5,6 +5,10 @@ use proxy_wasm::types::*;
 use regex::{Regex, RegexBuilder};
 use std::time::Duration;
 
+// Workaround: forces wasm-bindgen to include required intrinsics for proxy-wasm build.
+#[allow(unused_imports)]
+use wasm_bindgen::JsValue;
+
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(Root) });
