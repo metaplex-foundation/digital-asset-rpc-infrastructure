@@ -104,6 +104,23 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         UpdateAuthority::None => Pubkey::default().to_bytes().to_vec(),
     };
 
+    // If we are looking at a collection, see if there's an existing record and if so check
+    // if the authority changed.
+    let collection_authority_changed = match account_data {
+        MplCoreAccountData::Collection(_) => {
+            let existing_record = asset_authority::Entity::find()
+                .filter(asset_authority::Column::AssetId.eq(id_vec.clone()))
+                .one(conn)
+                .await
+                .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+            existing_record
+                .map(|record| record.authority != update_authority)
+                .unwrap_or(false)
+        }
+        _ => false,
+    };
+
     let slot_i = slot as i64;
 
     let txn = conn.begin().await?;
@@ -135,7 +152,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
-    if matches!(account_data, MplCoreAccountData::Collection(_)) {
+    // Only update assets in a collection if the collection authority changed.
+    if collection_authority_changed {
         update_group_asset_authorities(conn, id_vec.clone(), update_authority.clone(), slot_i)
             .await?;
     }
