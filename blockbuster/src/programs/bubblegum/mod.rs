@@ -16,7 +16,7 @@ use mpl_bubblegum::{
     types::{BubblegumEventType, MetadataArgs, UpdateArgs},
 };
 pub use mpl_bubblegum::{
-    types::{LeafSchema, UseMethod},
+    types::{LeafSchema, UseMethod, Version},
     InstructionName, LeafSchemaEvent, ID,
 };
 use solana_sdk::pubkey::Pubkey;

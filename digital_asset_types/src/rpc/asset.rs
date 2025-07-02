@@ -47,6 +47,8 @@ pub enum Interface {
     MplCoreAsset,
     #[serde(rename = "MplCoreCollection")]
     MplCoreCollection,
+    #[serde(rename = "MplBubblegumV2")]
+    MplBubblegumV2,
     #[default]
     #[serde(rename = "Custom")]
     Custom,
@@ -55,20 +57,21 @@ pub enum Interface {
 impl From<(Option<&SpecificationVersions>, &SpecificationAssetClass)> for Interface {
     fn from(i: (Option<&SpecificationVersions>, &SpecificationAssetClass)) -> Self {
         match i {
+            (_, SpecificationAssetClass::FungibleAsset) => Interface::FungibleAsset,
+            (_, SpecificationAssetClass::FungibleToken) => Interface::FungibleToken,
+            (_, SpecificationAssetClass::MplBubblegumV2) => Interface::MplBubblegumV2,
+            (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
+            (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
+            (Some(SpecificationVersions::V0), SpecificationAssetClass::Nft) => {
+                Interface::LEGACY_NFT
+            }
             (Some(SpecificationVersions::V1), SpecificationAssetClass::Nft) => Interface::V1NFT,
             (Some(SpecificationVersions::V1), SpecificationAssetClass::PrintableNft) => {
                 Interface::V1NFT
             }
-            (Some(SpecificationVersions::V0), SpecificationAssetClass::Nft) => {
-                Interface::LEGACY_NFT
-            }
             (Some(SpecificationVersions::V1), SpecificationAssetClass::ProgrammableNft) => {
                 Interface::ProgrammableNFT
             }
-            (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
-            (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
-            (_, SpecificationAssetClass::FungibleAsset) => Interface::FungibleAsset,
-            (_, SpecificationAssetClass::FungibleToken) => Interface::FungibleToken,
             _ => Interface::Custom,
         }
     }
@@ -78,15 +81,19 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
     fn from(interface: Interface) -> (SpecificationVersions, SpecificationAssetClass) {
         match interface {
             Interface::V1NFT => (SpecificationVersions::V1, SpecificationAssetClass::Nft),
-            Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
-            Interface::ProgrammableNFT => (
-                SpecificationVersions::V1,
-                SpecificationAssetClass::ProgrammableNft,
-            ),
             Interface::V1PRINT => (SpecificationVersions::V1, SpecificationAssetClass::Print),
+            Interface::LEGACY_NFT => (SpecificationVersions::V0, SpecificationAssetClass::Nft),
             Interface::FungibleAsset => (
                 SpecificationVersions::V1,
                 SpecificationAssetClass::FungibleAsset,
+            ),
+            Interface::FungibleToken => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::FungibleToken,
+            ),
+            Interface::ProgrammableNFT => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::ProgrammableNft,
             ),
             Interface::MplCoreAsset => (
                 SpecificationVersions::V1,
@@ -96,9 +103,9 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
                 SpecificationVersions::V1,
                 SpecificationAssetClass::MplCoreCollection,
             ),
-            Interface::FungibleToken => (
+            Interface::MplBubblegumV2 => (
                 SpecificationVersions::V1,
-                SpecificationAssetClass::FungibleToken,
+                SpecificationAssetClass::MplBubblegumV2,
             ),
             _ => (SpecificationVersions::V1, SpecificationAssetClass::Unknown),
         }

@@ -382,7 +382,16 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
-    let interface = get_interface(&asset)?;
+
+    // Hardcode interface if it's a BubblegumV2 asset that was indexed before the specific
+    // interface was created.  We infer this by checking if the asset is compressed and has
+    // a saved collection hash.
+    let interface = if asset.compressed && asset.collection_hash.is_some() {
+        Interface::MplBubblegumV2
+    } else {
+        get_interface(&asset)?
+    };
+
     let content = get_content(&data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
@@ -510,11 +519,13 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
                 .map(|o| bs58::encode(o).into_string())
                 .unwrap_or("".to_string()),
         }),
+
         supply: match interface {
             Interface::V1NFT
             | Interface::LEGACY_NFT
             | Interface::Nft
             | Interface::ProgrammableNFT
+            | Interface::MplBubblegumV2
             | Interface::Custom => Some(Supply {
                 edition_nonce,
                 print_current_supply: 0,
