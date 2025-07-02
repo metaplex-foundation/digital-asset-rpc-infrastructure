@@ -50,6 +50,7 @@ mod m20250313_105132_drop_idx_token_accounts_owner_and_idx_ta_mint;
 mod m20250313_105206_add_idx_ta_owner_amount_and_idx_ta_mint_amount;
 mod m20250321_120101_add_bgum_leaf_schema_v2_items;
 mod m20250327_120101_add_bubblegum_v2_ixs_to_enum;
+mod m20250702_120101_add_bubblegum_v2_enum_vals;
 
 pub mod model;
 
@@ -109,6 +110,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250313_105206_add_idx_ta_owner_amount_and_idx_ta_mint_amount::Migration),
             Box::new(m20250321_120101_add_bgum_leaf_schema_v2_items::Migration),
             Box::new(m20250327_120101_add_bubblegum_v2_ixs_to_enum::Migration),
+            Box::new(m20250702_120101_add_bubblegum_v2_enum_vals::Migration),
         ]
     }
 }
