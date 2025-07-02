@@ -4,7 +4,7 @@ assertion_line: 33
 expression: response
 ---
 {
-  "interface": "V1_NFT",
+  "interface": "MplBubblegumV2",
   "id": "9j8QfKwJvzjiHwcRyi1TCK7sZgm8iEBpGn8sRyGF5Wy8",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
