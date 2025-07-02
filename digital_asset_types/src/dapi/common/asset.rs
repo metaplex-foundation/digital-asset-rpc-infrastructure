@@ -211,7 +211,8 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
             links.insert(f.to_string(), l.to_owned());
         }
     }
-    let _metadata = safe_select(selector, "description");
+    let category = safe_select(selector, "$.properties.category").cloned();
+
     let mut actual_files: HashMap<String, File> = HashMap::new();
     if let Some(files) = selector("$.properties.files[*]")
         .ok()
@@ -280,6 +281,7 @@ pub fn v1_content_from_json(asset_data: &asset_data::Model) -> Result<Content, D
         files: Some(files),
         metadata: meta,
         links: Some(links),
+        category,
     })
 }
 

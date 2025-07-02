@@ -180,6 +180,8 @@ pub struct Content {
     pub metadata: MetadataMap,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Links>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
