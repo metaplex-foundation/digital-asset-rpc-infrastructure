@@ -104,6 +104,29 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         UpdateAuthority::None => Pubkey::default().to_bytes().to_vec(),
     };
 
+    // If this is a collection, check if there's an existing authority record.
+    // If found, determine whether the authority has changed.
+    let collection_authority_changed = match account_data {
+        MplCoreAccountData::Collection(_) => {
+            let existing_record = asset_authority::Entity::find()
+                .filter(asset_authority::Column::AssetId.eq(id_vec.clone()))
+                .one(conn)
+                .await
+                .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+            // We need to update all assets in the collection if:
+            // 1. The collection is found and its authority has changed.
+            // 2. The collection is not found.
+            //
+            // Case 2 requires us to attempt to update all assets in a collection because assets
+            // can be indexed before the collection itself.
+            existing_record
+                .map(|record| record.authority != update_authority)
+                .unwrap_or(true)
+        }
+        _ => false,
+    };
+
     let slot_i = slot as i64;
 
     let txn = conn.begin().await?;
@@ -135,7 +158,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
-    if matches!(account_data, MplCoreAccountData::Collection(_)) {
+    // Only update assets in a collection if the collection authority changed.
+    if collection_authority_changed {
         update_group_asset_authorities(conn, id_vec.clone(), update_authority.clone(), slot_i)
             .await?;
     }

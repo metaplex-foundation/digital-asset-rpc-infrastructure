@@ -9,18 +9,20 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 # go to parent folder
 cd $(dirname $(dirname $SCRIPT_DIR))
 
-EXTERNAL_ID_MAINNET=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
-"cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK" \
-"noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV" \
+EXTERNAL_ID_MAINNET=( \
 "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" \
+"BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
+"cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK" \
+"CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d" \
+"mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
+"metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
+"mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3" \
+"noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV" \
 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" \
 "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" \
 )
 
-EXTERNAL_ID_DEVNET=("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
-"mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
-"mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3" \
-)
+EXTERNAL_ID_DEVNET=()
 
 RPC_MAINNET="https://api.mainnet-beta.solana.com"
 RPC_DEVNET="https://api.devnet.solana.com"
