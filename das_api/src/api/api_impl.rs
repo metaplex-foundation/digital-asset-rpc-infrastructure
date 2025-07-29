@@ -81,13 +81,10 @@ impl DasApi {
         cursor: &Option<String>,
         sorting: Option<AssetSorting>,
     ) -> Result<PageOptions, DasApiError> {
-        // return pagination error if both after and before are used
-        if before.is_some() && after.is_some() {
-            return Err(DasApiError::PaginationError);
-        }
-
         let mut is_cursor_enabled = true;
         let mut page_opt = PageOptions::default();
+
+        // NOTE: 'after' and 'before' cursors now accepted together
 
         if let Some(limit) = limit {
             // make config item
