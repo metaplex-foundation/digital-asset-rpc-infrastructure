@@ -3,7 +3,7 @@ source: integration_tests/tests/integration_tests/cnft_tests_v2_leaf_schema.rs
 expression: response
 ---
 {
-  "interface": "V1_NFT",
+  "interface": "MplBubblegumV2",
   "id": "Eoz1EtUHHpNPXU8UHM5dP93npGWzLx6uh19ExexhMwBm",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",

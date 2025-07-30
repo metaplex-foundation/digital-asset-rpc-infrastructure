@@ -248,7 +248,8 @@ pub fn v1_content_from_json(asset_data: &extensions::asset::Row) -> Result<Conte
             links.insert(f.to_string(), l.to_owned());
         }
     }
-    let _metadata = safe_select(selector, "description");
+    let category = safe_select(selector, "$.properties.category").cloned();
+
     let mut actual_files: HashMap<String, File> = HashMap::new();
     if let Some(files) = selector("$.properties.files[*]")
         .ok()
@@ -317,6 +318,7 @@ pub fn v1_content_from_json(asset_data: &extensions::asset::Row) -> Result<Conte
         files: Some(files),
         metadata: meta,
         links: Some(links),
+        category,
     })
 }
 
@@ -419,7 +421,13 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
-    let interface = get_interface(&asset)?;
+
+    let interface = if asset.compressed && asset.collection_hash.is_some() {
+        Interface::MplBubblegumV2
+    } else {
+        get_interface(&asset)?
+    };
+
     let content = get_content(&asset);
 
     let mut edition_nonce = None;
@@ -566,6 +574,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             | Interface::LEGACY_NFT
             | Interface::Nft
             | Interface::ProgrammableNFT
+            | Interface::MplBubblegumV2
             | Interface::Custom => Some(Supply {
                 edition_nonce,
                 print_current_supply: 0,

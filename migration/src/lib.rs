@@ -56,6 +56,7 @@ mod m20250501_110559_add_indexes_to_asset_grouping;
 mod m20250502_111210_add_indexes_to_token_accounts;
 mod m20250527_070428_idx_ta_delegate;
 mod m20250605_114653_create_account_snapshots_table;
+mod m20250702_120101_add_bubblegum_v2_enum_vals;
 
 pub mod model;
 
@@ -121,6 +122,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250502_111210_add_indexes_to_token_accounts::Migration),
             Box::new(m20250527_070428_idx_ta_delegate::Migration),
             Box::new(m20250605_114653_create_account_snapshots_table::Migration),
+            Box::new(m20250702_120101_add_bubblegum_v2_enum_vals::Migration),
         ]
     }
 }

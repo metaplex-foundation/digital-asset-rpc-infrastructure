@@ -24,7 +24,8 @@ expression: response
     "links": {
       "image": "https://madlads-collection.s3.us-west-2.amazonaws.com/_collection.png",
       "external_url": "https://madlads.com"
-    }
+    },
+    "category": "image"
   },
   "authorities": [
     {

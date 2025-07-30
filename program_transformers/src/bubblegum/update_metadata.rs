@@ -13,7 +13,7 @@ use {
     },
     blockbuster::{
         instruction::InstructionBundle,
-        programs::bubblegum::{BubblegumInstruction, Payload},
+        programs::bubblegum::{BubblegumInstruction, Payload, Version},
         token_metadata::types::{TokenStandard, Uses},
     },
     digital_asset_types::{
@@ -144,12 +144,19 @@ where
             &current_metadata.creators
         };
 
+        // BubblegumV2 now gets its own `SpecificationAssetClass` and `Interface`.
+        let specification_asset_class = if matches!(le.version, Version::V2) {
+            SpecificationAssetClass::MplBubblegumV2
+        } else {
+            SpecificationAssetClass::Nft
+        };
+
         upsert_asset_base_info(
             &multi_txn,
             id_bytes.to_vec(),
             OwnerType::Single,
             SpecificationVersions::V1,
-            SpecificationAssetClass::Nft,
+            specification_asset_class,
             RoyaltyTargetType::Creators,
             None,
             seller_fee_basis_points as i32,
