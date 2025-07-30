@@ -1,7 +1,7 @@
 use {
     crate::{
         config::{load as config_load, ConfigGrpc, ConfigIngest, ConfigPrometheus, ConfigSnapshot},
-        prom::run_server as prometheus_run_server,
+        prom::run_metrics_server,
     },
     anyhow::Context,
     clap::{Parser, Subcommand},
@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .with_context(|| format!("failed to parse prometheus config from: {}", args.config))?;
     if let Some(address) = args.prometheus.or(config.prometheus) {
-        prometheus_run_server(address)?;
+        run_metrics_server(address)?;
     }
 
     match args.action {

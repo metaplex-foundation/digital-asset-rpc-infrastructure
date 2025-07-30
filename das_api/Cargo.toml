@@ -20,6 +20,10 @@ digital_asset_types = { workspace = true, features = [
 env_logger = { workspace = true }
 figment = { workspace = true, features = ["env"] }
 hyper = { workspace = true }
+hyper-util = { workspace = true }
+lazy_static = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
 jsonrpsee-core = { workspace = true, features = ["server"] }
 log = { workspace = true }
@@ -57,7 +61,6 @@ opentelemetry_sdk = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true }
 prometheus = { workspace = true, features = ["push"] }
-lazy_static = { workspace = true }
 anyhow = { workspace = true }
 pin-project = { workspace = true }
 

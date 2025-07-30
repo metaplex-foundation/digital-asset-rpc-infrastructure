@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -5,11 +6,15 @@ use std::time::Instant;
 use std::{net::SocketAddr, sync::Once};
 
 use crate::error::DasApiError;
-use hyper::{
-    server::conn::AddrStream,
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server, StatusCode,
-};
+use http_body_util::Full;
+use hyper::body::{Bytes, Incoming};
+use hyper::service::service_fn;
+use hyper::{Request, Response};
+use hyper_util::rt::TokioIo;
+use hyper_util::server::conn::auto;
+
+use tokio::net::TcpListener;
+
 use pin_project::pin_project;
 use prometheus::{HistogramOpts, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder};
 use tracing::{error, info};
@@ -36,9 +41,39 @@ lazy_static::lazy_static! {
     .unwrap();
 }
 
-pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
-    static REGISTER: Once = Once::new();
+fn metrics_handler() -> Result<Response<Full<Bytes>>, Infallible> {
+    let metrics = TextEncoder::new()
+        .encode_to_string(&REGISTRY.gather())
+        .unwrap_or_else(|error| {
+            error!("could not encode custom metrics: {error}");
+            String::new()
+        });
 
+    Ok(Response::builder()
+        .header("content-type", "text/plain")
+        .body(Full::new(Bytes::from(metrics)))
+        .unwrap())
+}
+
+async fn handle_metrics_request(
+    req: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, Infallible> {
+    match req.uri().path() {
+        "/metrics" => metrics_handler(),
+        _ => Ok(not_found_handler()),
+    }
+}
+
+fn not_found_handler() -> Response<Full<Bytes>> {
+    Response::builder()
+        .status(404)
+        .body(Full::new(Bytes::from("Not Found")))
+        .unwrap()
+}
+
+pub fn run_metrics_server(address: SocketAddr) -> anyhow::Result<()> {
+    // Register once
+    static REGISTER: Once = Once::new();
     REGISTER.call_once(|| {
         macro_rules! register {
             ($collector:ident) => {
@@ -51,46 +86,41 @@ pub fn run_server(address: SocketAddr) -> anyhow::Result<()> {
         register!(DAS_API_REQUEST_DURATION_SECONDS);
     });
 
-    let make_service = make_service_fn(move |_: &AddrStream| async move {
-        Ok::<_, hyper::Error>(service_fn(move |req: Request<Body>| async move {
-            let response = match req.uri().path() {
-                "/metrics" => metrics_handler(),
-                _ => not_found_handler(),
-            };
-            Ok::<_, hyper::Error>(response)
-        }))
-    });
-
-    let server = Server::try_bind(&address)?.serve(make_service);
-    info!("prometheus server started: http://{address:?}/metrics");
-
     tokio::spawn(async move {
-        if let Err(error) = server.await {
-            error!("prometheus server failed: {error:?}");
+        let listener = match TcpListener::bind(address).await {
+            Ok(l) => {
+                info!("Prometheus server started at http://{address}/metrics");
+                l
+            }
+            Err(e) => {
+                error!("Failed to bind Prometheus server: {e:?}");
+                return;
+            }
+        };
+
+        loop {
+            let (stream, _) = match listener.accept().await {
+                Ok(pair) => pair,
+                Err(e) => {
+                    error!("Prometheus accept failed: {e:?}");
+                    continue;
+                }
+            };
+
+            let io = TokioIo::new(stream);
+            let service = service_fn(move |req: Request<Incoming>| handle_metrics_request(req));
+
+            tokio::spawn(async move {
+                let builder = auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+                let conn = builder.serve_connection(io, service);
+                if let Err(e) = conn.await {
+                    error!("Prometheus connection failed: {e:?}");
+                }
+            });
         }
     });
 
     Ok(())
-}
-
-fn metrics_handler() -> Response<Body> {
-    let metrics = TextEncoder::new()
-        .encode_to_string(&REGISTRY.gather())
-        .unwrap_or_else(|error| {
-            error!("could not encode custom metrics: {}", error);
-            String::new()
-        });
-    Response::builder()
-        .header("content-type", "text/plain")
-        .body(Body::from(metrics))
-        .unwrap()
-}
-
-fn not_found_handler() -> Response<Body> {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(Body::empty())
-        .unwrap()
 }
 
 #[derive(Debug, Clone)]

@@ -5,7 +5,7 @@ mod error;
 mod metrics;
 mod validation;
 
-use crate::{config::DEFAULT_SERVER_PORT, metrics::run_server};
+use crate::{config::DEFAULT_SERVER_PORT, metrics::run_metrics_server};
 use std::sync::OnceLock;
 
 use {
@@ -13,12 +13,15 @@ use {
     crate::config::Config, std::net::SocketAddr,
 };
 
-use hyper::Method;
-use jsonrpsee::server::{middleware::proxy_get_request::ProxyGetRequestLayer, ServerBuilder};
+use http::Method;
+use jsonrpsee::server::{
+    middleware::proxy_get_request::ProxyGetRequestLayer, Server, ServerBuilder,
+};
 
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use tower::layer::util::{Identity, Stack};
 use tower_http::cors::{Any, CorsLayer};
 
 use tracing_opentelemetry::OpenTelemetryLayer;
@@ -30,7 +33,7 @@ use tracing_subscriber::{
 };
 
 fn setup_metrics(config: &Config) -> anyhow::Result<()> {
-    run_server(config.get_prom_metrics_collector_endpoint())
+    run_metrics_server(config.get_prom_metrics_collector_endpoint())
 }
 
 fn get_resource() -> Resource {
@@ -80,17 +83,18 @@ async fn main() -> anyhow::Result<()> {
     let cors = CorsLayer::new()
         .allow_methods([Method::POST, Method::GET])
         .allow_origin(Any)
-        .allow_headers([hyper::header::CONTENT_TYPE]);
+        .allow_headers([http::header::CONTENT_TYPE]);
     let middleware = tower::ServiceBuilder::new()
         .layer(cors)
         .layer(ProxyGetRequestLayer::new("/health", "healthz")?);
 
-    let server = ServerBuilder::default()
-        .set_middleware(middleware)
-        .max_connections(config.max_request_connections.unwrap_or(100))
-        .max_response_body_size(u32::MAX)
-        .build(addr)
-        .await?;
+    let server: Server<Stack<ProxyGetRequestLayer, Stack<CorsLayer, Identity>>> =
+        ServerBuilder::default()
+            .set_middleware(middleware)
+            .max_connections(config.max_request_connections.unwrap_or(100))
+            .max_response_body_size(u32::MAX)
+            .build(addr)
+            .await?;
     let api = DasApi::from_config(config).await?;
     let rpc = RpcApiBuilder::build(Box::new(api))?;
     println!("Server Started");

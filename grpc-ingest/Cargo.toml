@@ -26,7 +26,9 @@ das-core = { workspace = true }
 digital_asset_types = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
-hyper = { workspace = true, features = ["server"] }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+http-body-util = { workspace = true }
 json5 = { workspace = true }
 lazy_static = { workspace = true }
 lru = { workspace = true }
