@@ -26,8 +26,7 @@ use {
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
-        sea_query::query::OnConflict,
-        sea_query::Expr,
+        sea_query::{query::OnConflict, Expr},
         ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, TransactionTrait,
     },
     serde_json::{value::Value, Map},
@@ -366,6 +365,62 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     //-----------------------
     // asset_grouping table
     //-----------------------
+
+    let last_group_slot_updated = asset_grouping::Entity::find()
+        .filter(
+            asset_grouping::Column::AssetId
+                .eq(id_vec.clone())
+                .and(asset_grouping::Column::GroupKey.eq("group".to_string())),
+        )
+        .one(&txn)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?
+        .map(|model| model.slot_updated.unwrap_or(0));
+
+    let last_group_slot_updated = last_group_slot_updated.unwrap_or(0);
+
+    // Only perform updates if the last asset_grouping for group plugin slot_updated is less than the current slot for the asset update.
+    if last_group_slot_updated < slot_i {
+        // Clear existing groupings for asset under the "group" key.
+        let query = asset_grouping::Entity::delete_many()
+            .filter(
+                asset_grouping::Column::AssetId
+                    .eq(id_vec.clone())
+                    .and(asset_grouping::Column::GroupKey.eq("group".to_string()))
+                    .and(asset_grouping::Column::SlotUpdated.lt(slot_i)),
+            )
+            .build(DbBackend::Postgres);
+
+        txn.execute(query)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
+        // Insert new groupings for asset under the "group" key.
+        if let Some(groups_plugin) = asset.plugins.get(&PluginType::Groups) {
+            if let Plugin::Groups(groups) = &groups_plugin.data {
+                // Skip empty groups plugin.
+                if !groups.groups.is_empty() {
+                    let query =
+                        asset_grouping::Entity::insert_many(groups.groups.iter().map(|group| {
+                            asset_grouping::ActiveModel {
+                                asset_id: ActiveValue::Set(id_vec.clone()),
+                                group_key: ActiveValue::Set("group".to_string()),
+                                group_value: ActiveValue::Set(Some(group.to_string())),
+                                verified: ActiveValue::Set(true),
+                                group_info_seq: ActiveValue::Set(Some(0)),
+                                slot_updated: ActiveValue::Set(Some(slot_i)),
+                                ..Default::default()
+                            }
+                        }))
+                        .build(DbBackend::Postgres);
+
+                    txn.execute(query).await.map_err(|db_err| {
+                        ProgramTransformerError::AssetIndexError(db_err.to_string())
+                    })?;
+                }
+            }
+        }
+    }
 
     if let UpdateAuthority::Collection(address) = asset.update_authority {
         let model = asset_grouping::ActiveModel {
