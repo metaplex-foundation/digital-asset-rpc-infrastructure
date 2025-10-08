@@ -27,7 +27,7 @@ use {
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
         sea_query::{query::OnConflict, Expr},
-        ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, TransactionTrait,
+        ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, Statement, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -366,60 +366,98 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // asset_grouping table
     //-----------------------
 
-    let last_group_slot_updated = asset_grouping::Entity::find()
-        .filter(
-            asset_grouping::Column::AssetId
-                .eq(id_vec.clone())
-                .and(asset_grouping::Column::GroupKey.eq("group".to_string())),
-        )
-        .one(&txn)
-        .await
-        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?
-        .map(|model| model.slot_updated.unwrap_or(0));
-
-    let last_group_slot_updated = last_group_slot_updated.unwrap_or(0);
-
-    // Only perform updates if the last asset_grouping for group plugin slot_updated is less than the current slot for the asset update.
-    if last_group_slot_updated < slot_i {
-        // Clear existing groupings for asset under the "group" key.
-        let query = asset_grouping::Entity::delete_many()
-            .filter(
-                asset_grouping::Column::AssetId
-                    .eq(id_vec.clone())
-                    .and(asset_grouping::Column::GroupKey.eq("group".to_string()))
-                    .and(asset_grouping::Column::SlotUpdated.lt(slot_i)),
-            )
-            .build(DbBackend::Postgres);
-
-        txn.execute(query)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-
-        // Insert new groupings for asset under the "group" key.
-        if let Some(groups_plugin) = asset.plugins.get(&PluginType::Groups) {
-            if let Plugin::Groups(groups) = &groups_plugin.data {
-                // Skip empty groups plugin.
-                if !groups.groups.is_empty() {
-                    let query =
-                        asset_grouping::Entity::insert_many(groups.groups.iter().map(|group| {
-                            asset_grouping::ActiveModel {
-                                asset_id: ActiveValue::Set(id_vec.clone()),
-                                group_key: ActiveValue::Set("group".to_string()),
-                                group_value: ActiveValue::Set(Some(group.to_string())),
-                                verified: ActiveValue::Set(true),
-                                group_info_seq: ActiveValue::Set(Some(0)),
-                                slot_updated: ActiveValue::Set(Some(slot_i)),
-                                ..Default::default()
-                            }
-                        }))
-                        .build(DbBackend::Postgres);
-
-                    txn.execute(query).await.map_err(|db_err| {
-                        ProgramTransformerError::AssetIndexError(db_err.to_string())
-                    })?;
-                }
+    // Update asset groupings using CTE with DELETE + INSERT in a single atomic query.
+    // This is safe for concurrent updates from multiple workers.
+    let groups = asset
+        .plugins
+        .get(&PluginType::Groups)
+        .and_then(|plugin| {
+            if let Plugin::Groups(g) = &plugin.data {
+                Some(&g.groups)
+            } else {
+                None
             }
+        });
+
+    let mut should_delete_old_groups = false;
+
+    if let Some(groups) = groups {
+        if !groups.is_empty() {
+            // Build VALUES clause with all groups
+            let values_clause = groups
+                .iter()
+                .enumerate()
+                .map(|(i, _)| {
+                    let base_idx = 2 + i * 3; // Start after $1 (asset_id)
+                    format!("($1, ${}, ${}, true, 0, ${})", base_idx, base_idx + 1, base_idx + 2)
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+
+            // Single atomic query: DELETE old rows, then INSERT/UPDATE new ones
+            let sql = format!(
+                "WITH deleted AS ( \
+                   DELETE FROM asset_grouping \
+                   WHERE asset_id = $1 \
+                     AND group_key = 'group' \
+                     AND slot_updated < ${} \
+                 ) \
+                 INSERT INTO asset_grouping (asset_id, group_key, group_value, verified, group_info_seq, slot_updated) \
+                 VALUES {} \
+                 ON CONFLICT (asset_id, group_key, group_value) WHERE group_key != 'collection' \
+                 DO UPDATE SET \
+                   verified = EXCLUDED.verified, \
+                   group_info_seq = EXCLUDED.group_info_seq, \
+                   slot_updated = EXCLUDED.slot_updated \
+                 WHERE EXCLUDED.slot_updated >= asset_grouping.slot_updated",
+                2 + groups.len() * 3, // Parameter for slot in DELETE clause
+                values_clause
+            );
+
+            // Build parameter values
+            let mut values: Vec<sea_orm::Value> = Vec::new();
+            values.push(sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))));
+
+            // Add parameters for each group (group_key, group_value, slot_updated)
+            for group in groups.iter() {
+                values.push(sea_orm::Value::String(Some(Box::new("group".to_string()))));
+                values.push(sea_orm::Value::String(Some(Box::new(group.to_string()))));
+                values.push(sea_orm::Value::BigInt(Some(slot_i)));
+            }
+
+            // Add slot_updated parameter for DELETE clause
+            values.push(sea_orm::Value::BigInt(Some(slot_i)));
+
+            let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &sql, values);
+
+            txn.execute(stmt).await.map_err(|db_err| {
+                ProgramTransformerError::AssetIndexError(db_err.to_string())
+            })?;
+        } else {
+            // Groups plugin exists but is empty - just delete old groupings
+            should_delete_old_groups = true;
         }
+    } else {
+        // Groups plugin doesn't exist - delete all old groupings
+        should_delete_old_groups = true;
+    }
+
+    if should_delete_old_groups {
+        let sql = "DELETE FROM asset_grouping \
+                   WHERE asset_id = $1 \
+                     AND group_key = 'group' \
+                     AND slot_updated < $2";
+
+        let values = vec![
+            sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))),
+            sea_orm::Value::BigInt(Some(slot_i)),
+        ];
+
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+
+        txn.execute(stmt).await.map_err(|db_err| {
+            ProgramTransformerError::AssetIndexError(db_err.to_string())
+        })?;
     }
 
     if let UpdateAuthority::Collection(address) = asset.update_authority {
