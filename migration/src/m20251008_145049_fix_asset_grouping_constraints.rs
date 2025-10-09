@@ -29,7 +29,8 @@ impl MigrationTrait for Migration {
                 DatabaseBackend::Postgres,
                 "CREATE UNIQUE INDEX IF NOT EXISTS asset_grouping_collection_unique \
                  ON asset_grouping (asset_id, group_key) \
-                 WHERE group_key = 'collection'".to_string(),
+                 WHERE group_key = 'collection'"
+                    .to_string(),
             ))
             .await?;
 
@@ -41,7 +42,8 @@ impl MigrationTrait for Migration {
                 DatabaseBackend::Postgres,
                 "CREATE UNIQUE INDEX IF NOT EXISTS asset_grouping_other_unique \
                  ON asset_grouping (asset_id, group_key, group_value) \
-                 WHERE group_key != 'collection'".to_string(),
+                 WHERE group_key != 'collection'"
+                    .to_string(),
             ))
             .await?;
 

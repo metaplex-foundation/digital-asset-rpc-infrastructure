@@ -368,16 +368,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     // Update asset groupings using CTE with DELETE + INSERT in a single atomic query.
     // This is safe for concurrent updates from multiple workers.
-    let groups = asset
-        .plugins
-        .get(&PluginType::Groups)
-        .and_then(|plugin| {
-            if let Plugin::Groups(g) = &plugin.data {
-                Some(&g.groups)
-            } else {
-                None
-            }
-        });
+    let groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
+        if let Plugin::Groups(g) = &plugin.data {
+            Some(&g.groups)
+        } else {
+            None
+        }
+    });
 
     let mut should_delete_old_groups = false;
 
@@ -432,9 +429,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
             let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &sql, values);
 
-            txn.execute(stmt).await.map_err(|db_err| {
-                ProgramTransformerError::AssetIndexError(db_err.to_string())
-            })?;
+            txn.execute(stmt)
+                .await
+                .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
         } else {
             // Groups plugin exists but is empty - just delete old groupings
             should_delete_old_groups = true;
@@ -457,9 +454,9 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
 
-        txn.execute(stmt).await.map_err(|db_err| {
-            ProgramTransformerError::AssetIndexError(db_err.to_string())
-        })?;
+        txn.execute(stmt)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
 
     if let UpdateAuthority::Collection(address) = asset.update_authority {
