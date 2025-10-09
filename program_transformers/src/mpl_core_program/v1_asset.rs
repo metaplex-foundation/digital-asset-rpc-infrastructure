@@ -366,6 +366,102 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // asset_grouping table
     //-----------------------
 
+    if let UpdateAuthority::Collection(address) = asset.update_authority {
+        let model = asset_grouping::ActiveModel {
+            asset_id: ActiveValue::Set(id_vec.clone()),
+            group_key: ActiveValue::Set("collection".to_string()),
+            group_value: ActiveValue::Set(Some(address.to_string())),
+            // Note all Core assets in a collection are verified.
+            verified: ActiveValue::Set(true),
+            group_info_seq: ActiveValue::Set(Some(0)),
+            slot_updated: ActiveValue::Set(Some(slot_i)),
+            ..Default::default()
+        };
+        let mut query = asset_grouping::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_grouping::Column::AssetId,
+                    asset_grouping::Column::GroupKey,
+                ])
+                .update_columns([
+                    asset_grouping::Column::GroupValue,
+                    asset_grouping::Column::Verified,
+                    asset_grouping::Column::SlotUpdated,
+                    asset_grouping::Column::GroupInfoSeq,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+            "{} WHERE excluded.slot_updated >= asset_grouping.slot_updated",
+            query.sql
+        );
+        txn.execute(query)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    }
+
+    //-----------------------
+    // creators table
+    //-----------------------
+
+    let creators = creators
+        .iter()
+        .enumerate()
+        .map(|(i, creator)| asset_creators::ActiveModel {
+            asset_id: ActiveValue::Set(id_vec.clone()),
+            position: ActiveValue::Set(i as i16),
+            creator: ActiveValue::Set(creator.address.to_bytes().to_vec()),
+            share: ActiveValue::Set(creator.percentage as i32),
+            // Note all creators are verified for Core Assets.
+            verified: ActiveValue::Set(true),
+            slot_updated: ActiveValue::Set(Some(slot_i)),
+            seq: ActiveValue::Set(Some(0)),
+            ..Default::default()
+        })
+        .collect::<Vec<_>>();
+
+    if !creators.is_empty() {
+        let mut query = asset_creators::Entity::insert_many(creators)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_creators::Column::AssetId,
+                    asset_creators::Column::Position,
+                ])
+                .update_columns([
+                    asset_creators::Column::Creator,
+                    asset_creators::Column::Share,
+                    asset_creators::Column::Verified,
+                    asset_creators::Column::Seq,
+                    asset_creators::Column::SlotUpdated,
+                ])
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+        query.sql = format!(
+                    "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
+                    query.sql
+                );
+        txn.execute(query)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    }
+
+    //-----------------------
+    // asset_grouping table - groups plugin
+    //-----------------------
+
+    // Acquire advisory lock on asset_id for grouping updates to serialize concurrent updates.
+    // This prevents race conditions where multiple workers process the same asset's groups concurrently.
+    let lock_key = i64::from_be_bytes(id_array[0..8].try_into().unwrap_or([0u8; 8]));
+    let lock_stmt = Statement::from_string(
+        DbBackend::Postgres,
+        format!("SELECT pg_advisory_xact_lock({})", lock_key),
+    );
+    txn.execute(lock_stmt)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+
     // Update asset groupings using CTE with DELETE + INSERT in a single atomic query.
     // This is safe for concurrent updates from multiple workers.
     let groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
@@ -455,87 +551,6 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
 
         txn.execute(stmt)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-    }
-
-    if let UpdateAuthority::Collection(address) = asset.update_authority {
-        let model = asset_grouping::ActiveModel {
-            asset_id: ActiveValue::Set(id_vec.clone()),
-            group_key: ActiveValue::Set("collection".to_string()),
-            group_value: ActiveValue::Set(Some(address.to_string())),
-            // Note all Core assets in a collection are verified.
-            verified: ActiveValue::Set(true),
-            group_info_seq: ActiveValue::Set(Some(0)),
-            slot_updated: ActiveValue::Set(Some(slot_i)),
-            ..Default::default()
-        };
-        let mut query = asset_grouping::Entity::insert(model)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_grouping::Column::AssetId,
-                    asset_grouping::Column::GroupKey,
-                ])
-                .update_columns([
-                    asset_grouping::Column::GroupValue,
-                    asset_grouping::Column::Verified,
-                    asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::GroupInfoSeq,
-                ])
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-            "{} WHERE excluded.slot_updated >= asset_grouping.slot_updated",
-            query.sql
-        );
-        txn.execute(query)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-    }
-
-    //-----------------------
-    // creators table
-    //-----------------------
-
-    let creators = creators
-        .iter()
-        .enumerate()
-        .map(|(i, creator)| asset_creators::ActiveModel {
-            asset_id: ActiveValue::Set(id_vec.clone()),
-            position: ActiveValue::Set(i as i16),
-            creator: ActiveValue::Set(creator.address.to_bytes().to_vec()),
-            share: ActiveValue::Set(creator.percentage as i32),
-            // Note all creators are verified for Core Assets.
-            verified: ActiveValue::Set(true),
-            slot_updated: ActiveValue::Set(Some(slot_i)),
-            seq: ActiveValue::Set(Some(0)),
-            ..Default::default()
-        })
-        .collect::<Vec<_>>();
-
-    if !creators.is_empty() {
-        let mut query = asset_creators::Entity::insert_many(creators)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_creators::Column::AssetId,
-                    asset_creators::Column::Position,
-                ])
-                .update_columns([
-                    asset_creators::Column::Creator,
-                    asset_creators::Column::Share,
-                    asset_creators::Column::Verified,
-                    asset_creators::Column::Seq,
-                    asset_creators::Column::SlotUpdated,
-                ])
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-                    "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
-                    query.sql
-                );
-        txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
