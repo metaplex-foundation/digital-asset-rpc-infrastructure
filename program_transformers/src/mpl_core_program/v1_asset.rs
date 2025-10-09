@@ -388,45 +388,47 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
-                    let base_idx = 2 + i * 3; // Start after $1 (asset_id)
-                    format!("($1, ${}, ${}, true, 0, ${})", base_idx, base_idx + 1, base_idx + 2)
+                    let group_value_idx = 3 + i; // $3, $4, $5, ... for group values
+                    format!("($1, 'group', ${}, true, 0, $2)", group_value_idx)
                 })
                 .collect::<Vec<_>>()
                 .join(",");
 
-            // Single atomic query: DELETE old rows, then INSERT/UPDATE new ones
+            // Single atomic query with max slot check to prevent partial updates
+            // This ensures we only update if ALL existing groups are older than current slot
             let sql = format!(
-                "WITH deleted AS ( \
+                "WITH max_existing_slot AS ( \
+                   SELECT COALESCE(MAX(slot_updated), -1) as max_slot \
+                   FROM asset_grouping \
+                   WHERE asset_id = $1 AND group_key = 'group' \
+                 ), \
+                 deleted AS ( \
                    DELETE FROM asset_grouping \
                    WHERE asset_id = $1 \
                      AND group_key = 'group' \
-                     AND slot_updated < ${} \
+                     AND (SELECT max_slot FROM max_existing_slot) < $2 \
                  ) \
                  INSERT INTO asset_grouping (asset_id, group_key, group_value, verified, group_info_seq, slot_updated) \
-                 VALUES {} \
+                 SELECT * FROM (VALUES {}) AS v(asset_id, group_key, group_value, verified, group_info_seq, slot_updated) \
+                 WHERE (SELECT max_slot FROM max_existing_slot) < $2 \
                  ON CONFLICT (asset_id, group_key, group_value) WHERE group_key != 'collection' \
-                 DO UPDATE SET \
-                   verified = EXCLUDED.verified, \
-                   group_info_seq = EXCLUDED.group_info_seq, \
-                   slot_updated = EXCLUDED.slot_updated \
-                 WHERE EXCLUDED.slot_updated >= asset_grouping.slot_updated",
-                2 + groups.len() * 3, // Parameter for slot in DELETE clause
+                 DO NOTHING",
                 values_clause
             );
 
             // Build parameter values
             let mut values: Vec<sea_orm::Value> = Vec::new();
+
+            // $1 = asset_id
             values.push(sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))));
 
-            // Add parameters for each group (group_key, group_value, slot_updated)
-            for group in groups.iter() {
-                values.push(sea_orm::Value::String(Some(Box::new("group".to_string()))));
-                values.push(sea_orm::Value::String(Some(Box::new(group.to_string()))));
-                values.push(sea_orm::Value::BigInt(Some(slot_i)));
-            }
-
-            // Add slot_updated parameter for DELETE clause
+            // $2 = slot_updated (used everywhere)
             values.push(sea_orm::Value::BigInt(Some(slot_i)));
+
+            // $3, $4, $5, ... = group values
+            for group in groups.iter() {
+                values.push(sea_orm::Value::String(Some(Box::new(group.to_string()))));
+            }
 
             let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &sql, values);
 
