@@ -541,7 +541,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         let sql = "DELETE FROM asset_grouping \
                    WHERE asset_id = $1 \
                      AND group_key = 'group' \
-                     AND slot_updated < $2";
+                     AND (slot_updated <= $2 OR slot_updated IS NULL)";
 
         let values = vec![
             sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))),
