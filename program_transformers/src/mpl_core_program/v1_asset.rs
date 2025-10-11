@@ -27,7 +27,7 @@ use {
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
         sea_query::{query::OnConflict, Expr},
-        ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, Statement, TransactionTrait,
+        ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, TransactionTrait,
     },
     serde_json::{value::Value, Map},
     solana_sdk::pubkey::Pubkey,
@@ -451,20 +451,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     // asset_grouping table - groups plugin
     //-----------------------
 
-    // Acquire advisory lock on asset_id for grouping updates to serialize concurrent updates.
-    // This prevents race conditions where multiple workers process the same asset's groups concurrently.
-    let lock_key = i64::from_be_bytes(id_array[0..8].try_into().unwrap_or([0u8; 8]));
-    let lock_stmt = Statement::from_string(
-        DbBackend::Postgres,
-        format!("SELECT pg_advisory_xact_lock({})", lock_key),
-    );
-    txn.execute(lock_stmt)
-        .await
-        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-
-    // Update asset groupings using CTE with DELETE + INSERT in a single atomic query.
-    // This is safe for concurrent updates from multiple workers.
-    let groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
+    let plugin_groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
         if let Plugin::Groups(g) = &plugin.data {
             Some(&g.groups)
         } else {
@@ -472,90 +459,57 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         }
     });
 
-    let mut should_delete_old_groups = false;
-
-    if let Some(groups) = groups {
-        if !groups.is_empty() {
-            // Build VALUES clause with all groups
-            let values_clause = groups
-                .iter()
-                .enumerate()
-                .map(|(i, _)| {
-                    let group_value_idx = 3 + i; // $3, $4, $5, ... for group values
-                    format!("($1, 'group', ${}, true, 0, $2)", group_value_idx)
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-
-            // Single atomic query with max slot check to prevent partial updates
-            // This ensures we only update if ALL existing groups are older than current slot
-            let sql = format!(
-                "WITH max_existing_slot AS ( \
-                   SELECT COALESCE(MAX(slot_updated), -1) as max_slot \
-                   FROM asset_grouping \
-                   WHERE asset_id = $1 AND group_key = 'group' \
-                 ), \
-                 deleted AS ( \
-                   DELETE FROM asset_grouping \
-                   WHERE asset_id = $1 \
-                     AND group_key = 'group' \
-                     AND (SELECT max_slot FROM max_existing_slot) < $2 \
-                 ) \
-                 INSERT INTO asset_grouping (asset_id, group_key, group_value, verified, group_info_seq, slot_updated) \
-                 SELECT * FROM (VALUES {}) AS v(asset_id, group_key, group_value, verified, group_info_seq, slot_updated) \
-                 WHERE (SELECT max_slot FROM max_existing_slot) < $2 \
-                 ON CONFLICT (asset_id, group_key, group_value) WHERE group_key != 'collection' \
-                 DO NOTHING",
-                values_clause
-            );
-
-            // Build parameter values
-            let mut values: Vec<sea_orm::Value> = Vec::new();
-
-            // $1 = asset_id
-            values.push(sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))));
-
-            // $2 = slot_updated (used everywhere)
-            values.push(sea_orm::Value::BigInt(Some(slot_i)));
-
-            // $3, $4, $5, ... = group values
-            for group in groups.iter() {
-                values.push(sea_orm::Value::String(Some(Box::new(group.to_string()))));
-            }
-
-            let stmt = Statement::from_sql_and_values(DbBackend::Postgres, &sql, values);
-
-            txn.execute(stmt)
-                .await
-                .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-        } else {
-            // Groups plugin exists but is empty - just delete old groupings
-            should_delete_old_groups = true;
-        }
+    let groups = if let Some(groups) = plugin_groups {
+        groups
     } else {
-        // Groups plugin doesn't exist - delete all old groupings
-        should_delete_old_groups = true;
-    }
+        &vec![]
+    };
 
-    if should_delete_old_groups {
-        let sql = "DELETE FROM asset_grouping \
-                   WHERE asset_id = $1 \
-                     AND group_key = 'group' \
-                     AND (slot_updated <= $2 OR slot_updated IS NULL)";
+    // If there are no groups or groups plugin is not present, insert a group with no value.
+    let group_entities = if groups.is_empty() {
+        vec![asset_grouping::ActiveModel {
+            asset_id: ActiveValue::Set(id_vec.clone()),
+            group_key: ActiveValue::Set("group".to_string()),
+            group_value: ActiveValue::Set(None),
+            slot_updated: ActiveValue::Set(Some(slot_i)),
+            verified: ActiveValue::Set(true),
+            group_info_seq: ActiveValue::Set(Some(0)),
+            ..Default::default()
+        }]
+    } else {
+        groups
+            .iter()
+            .map(|group| asset_grouping::ActiveModel {
+                asset_id: ActiveValue::Set(id_vec.clone()),
+                group_key: ActiveValue::Set("group".to_string()),
+                group_value: ActiveValue::Set(Some(group.to_string())),
+                slot_updated: ActiveValue::Set(Some(slot_i)),
+                verified: ActiveValue::Set(true),
+                group_info_seq: ActiveValue::Set(Some(0)),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>()
+    };
 
-        let values = vec![
-            sea_orm::Value::Bytes(Some(Box::new(id_vec.clone()))),
-            sea_orm::Value::BigInt(Some(slot_i)),
-        ];
+    let mut query = asset_grouping::Entity::
+        insert_many(group_entities)
+        .build(DbBackend::Postgres);
 
-        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+    // Use index inference for partial unique indexes
+    // For group_key = 'group', we use the partial unique index on (asset_id, group_key, group_value) WHERE group_key != 'collection'
+    query.sql = format!(
+            "{} ON CONFLICT (asset_id, group_key, group_value) WHERE (group_key != 'collection') DO UPDATE SET \
+            slot_updated = EXCLUDED.slot_updated, \
+            verified = EXCLUDED.verified, \
+            group_info_seq = EXCLUDED.group_info_seq \
+            WHERE excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
+            query.sql
+        );
 
-        txn.execute(stmt)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-    }
+    txn.execute(query)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
-    // Commit the database transaction.
     txn.commit().await?;
 
     // Return early if there is no URI.

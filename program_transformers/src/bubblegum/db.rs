@@ -408,24 +408,18 @@ where
     };
 
     let mut query = asset_grouping::Entity::insert(model)
-        .on_conflict(
-            OnConflict::columns([
-                asset_grouping::Column::AssetId,
-                asset_grouping::Column::GroupKey,
-            ])
-            .update_columns([
-                asset_grouping::Column::GroupValue,
-                asset_grouping::Column::Verified,
-                asset_grouping::Column::SlotUpdated,
-                asset_grouping::Column::GroupInfoSeq,
-            ])
-            .to_owned(),
-        )
         .build(DbBackend::Postgres);
 
+    // Use index inference for partial unique indexes
+    // For group_key = 'collection', we use the partial unique index on (asset_id, group_key) WHERE group_key = 'collection'
     // Do not overwrite changes that happened after decompression (asset_grouping.group_info_seq = 0).
     query.sql = format!(
-        "{} WHERE (asset_grouping.group_info_seq != 0 AND excluded.group_info_seq >= asset_grouping.group_info_seq) OR asset_grouping.group_info_seq IS NULL",
+        "{} ON CONFLICT (asset_id, group_key) WHERE (group_key = 'collection') DO UPDATE SET \
+        group_value = EXCLUDED.group_value, \
+        verified = EXCLUDED.verified, \
+        slot_updated = EXCLUDED.slot_updated, \
+        group_info_seq = EXCLUDED.group_info_seq \
+        WHERE (asset_grouping.group_info_seq != 0 AND excluded.group_info_seq >= asset_grouping.group_info_seq) OR asset_grouping.group_info_seq IS NULL",
         query.sql
     );
 
