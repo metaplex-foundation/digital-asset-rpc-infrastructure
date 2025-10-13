@@ -319,7 +319,6 @@ pub async fn get_related_for_assets(
     // Filter out stale creators from each asset.
     for (_id, asset) in assets_map.iter_mut() {
         filter_out_stale_creators(&mut asset.creators);
-        filter_out_stale_asset_groupings(&mut asset.groups);
     }
 
     // If we passed in a required creator, we make sure that creator is still in the creator array
@@ -400,6 +399,11 @@ pub async fn get_related_for_assets(
             }
         }
     };
+
+    // Filter out stale groupings from each asset after groups have been populated.
+    for (_id, asset) in assets_map.iter_mut() {
+        filter_out_stale_asset_groupings(&mut asset.groups);
+    }
 
     Ok(assets_map.into_iter().map(|(_, v)| v).collect())
 }
@@ -639,7 +643,9 @@ fn filter_out_stale_creators(creators: &mut Vec<asset_creators::Model>) {
     }
 }
 
-fn filter_out_stale_asset_groupings(asset_groupings_with_date: &mut Vec<(asset_grouping::Model, Option<asset_data::Model>)>) {
+fn filter_out_stale_asset_groupings(
+    asset_groupings_with_date: &mut Vec<(asset_grouping::Model, Option<asset_data::Model>)>,
+) {
     // For core assets, any asset groupings that do not have the max
     // `slot_updated` value are stale and should be removed.
     // However, only filter out groupings where group_key is "group".
@@ -650,7 +656,8 @@ fn filter_out_stale_asset_groupings(asset_groupings_with_date: &mut Vec<(asset_g
         .map(|ag| ag.0.slot_updated)
         .max();
     if let Some(max_slot_updated) = max_slot_updated {
-        asset_groupings_with_date.retain(|ag| ag.0.group_key != "group" || ag.0.slot_updated == max_slot_updated);
+        asset_groupings_with_date
+            .retain(|ag| ag.0.group_key != "group" || ag.0.slot_updated == max_slot_updated);
     }
 }
 

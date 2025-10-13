@@ -459,11 +459,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         }
     });
 
-    let groups = if let Some(groups) = plugin_groups {
-        groups
-    } else {
-        &vec![]
-    };
+    let empty_groups = Vec::new();
+    let groups = plugin_groups.unwrap_or(&empty_groups);
 
     // If there are no groups or groups plugin is not present, insert a group with no value.
     let group_entities = if groups.is_empty() {
@@ -491,9 +488,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             .collect::<Vec<_>>()
     };
 
-    let mut query = asset_grouping::Entity::
-        insert_many(group_entities)
-        .build(DbBackend::Postgres);
+    let mut query = asset_grouping::Entity::insert_many(group_entities).build(DbBackend::Postgres);
 
     // Use index inference for partial unique indexes
     // For group_key = 'group', we use the partial unique index on (asset_id, group_key, group_value) WHERE group_key != 'collection'

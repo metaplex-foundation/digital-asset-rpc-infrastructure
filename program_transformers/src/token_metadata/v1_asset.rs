@@ -342,8 +342,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             slot_updated: ActiveValue::Set(Some(slot_i)),
             ..Default::default()
         };
-        let mut query = asset_grouping::Entity::insert(model)
-            .build(DbBackend::Postgres);
+        let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
 
         // Use index inference for partial unique indexes
         // For group_key = 'collection', we use the partial unique index on (asset_id, group_key) WHERE group_key = 'collection'
