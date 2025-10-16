@@ -368,11 +368,12 @@ pub async fn get_related_for_assets(
             Condition::any()
                 // Include collection groupings only if they have a non-null value
                 .add(
-                    asset_grouping::Column::GroupKey.eq("collection")
-                        .and(asset_grouping::Column::GroupValue.is_not_null())
+                    asset_grouping::Column::GroupKey
+                        .eq("collection")
+                        .and(asset_grouping::Column::GroupValue.is_not_null()),
                 )
                 // Include all other groupings (regardless of value)
-                .add(asset_grouping::Column::GroupKey.ne("collection"))
+                .add(asset_grouping::Column::GroupKey.ne("collection")),
         )
         .filter(cond)
         .order_by_asc(asset_grouping::Column::AssetId);
@@ -498,11 +499,12 @@ pub async fn get_by_id(
             Condition::any()
                 // Include collection groupings only if they have a non-null value
                 .add(
-                    asset_grouping::Column::GroupKey.eq("collection")
-                        .and(asset_grouping::Column::GroupValue.is_not_null())
+                    asset_grouping::Column::GroupKey
+                        .eq("collection")
+                        .and(asset_grouping::Column::GroupValue.is_not_null()),
                 )
                 // Include all other groupings (regardless of value)
-                .add(asset_grouping::Column::GroupKey.ne("collection"))
+                .add(asset_grouping::Column::GroupKey.ne("collection")),
         )
         .filter(
             Condition::any()
