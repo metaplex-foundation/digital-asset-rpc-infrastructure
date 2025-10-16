@@ -364,7 +364,11 @@ pub async fn get_related_for_assets(
 
     let grouping_base_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.is_in(ids.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
+        .filter(
+            asset_grouping::Column::GroupValue
+                .is_not_null()
+                .and(asset_grouping::Column::GroupKey.eq("collection")),
+        )
         .filter(cond)
         .order_by_asc(asset_grouping::Column::AssetId);
 
@@ -485,7 +489,11 @@ pub async fn get_by_id(
 
     let grouping_query = asset_grouping::Entity::find()
         .filter(asset_grouping::Column::AssetId.eq(asset.id.clone()))
-        .filter(asset_grouping::Column::GroupValue.is_not_null())
+        .filter(
+            asset_grouping::Column::GroupValue
+                .is_not_null()
+                .and(asset_grouping::Column::GroupKey.eq("collection")),
+        )
         .filter(
             Condition::any()
                 .add(asset_grouping::Column::Verified.eq(true))
