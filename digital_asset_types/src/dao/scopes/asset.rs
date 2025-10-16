@@ -656,8 +656,10 @@ fn filter_out_stale_asset_groupings(
         .map(|ag| ag.0.slot_updated)
         .max();
     if let Some(max_slot_updated) = max_slot_updated {
-        asset_groupings_with_date
-            .retain(|ag| ag.0.group_key != "group" || ag.0.slot_updated == max_slot_updated);
+        asset_groupings_with_date.retain(|ag| {
+            ag.0.group_key != "group"
+                || (ag.0.slot_updated == max_slot_updated && ag.0.group_value.is_some())
+        });
     }
 }
 
