@@ -21,7 +21,9 @@ pub async fn handle_mpl_core_account<'a, 'b, 'c>(
             burn_v1_asset(db, account_info.pubkey, account_info.slot).await?;
             Ok(())
         }
-        MplCoreAccountData::Asset(_) | MplCoreAccountData::Collection(_) => {
+        MplCoreAccountData::Asset(_)
+        | MplCoreAccountData::Collection(_)
+        | MplCoreAccountData::Group { .. } => {
             if let Some(info) = save_v1_asset(
                 db,
                 account_info.pubkey,

@@ -6,6 +6,7 @@ mod common;
 mod fungibles_and_token_extensions_tests;
 mod general_scenario_tests;
 mod mpl_core_tests;
+mod mpl_core_group_tests;
 mod nft_editions_tests;
 mod ops_purge;
 mod regular_nft_tests;

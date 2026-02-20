@@ -414,11 +414,13 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     });
 
     let mpl_core_info = match interface {
-        Interface::MplCoreAsset | Interface::MplCoreCollection => Some(MplCoreInfo {
-            num_minted: asset.mpl_core_collection_num_minted,
-            current_size: asset.mpl_core_collection_current_size,
-            plugins_json_version: asset.mpl_core_plugins_json_version,
-        }),
+        Interface::MplCoreAsset | Interface::MplCoreCollection | Interface::MplCoreGroup => {
+            Some(MplCoreInfo {
+                num_minted: asset.mpl_core_collection_num_minted,
+                current_size: asset.mpl_core_collection_current_size,
+                plugins_json_version: asset.mpl_core_plugins_json_version,
+            })
+        }
         _ => None,
     };
 

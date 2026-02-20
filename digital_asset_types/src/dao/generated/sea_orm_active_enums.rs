@@ -96,6 +96,8 @@ pub enum SpecificationAssetClass {
     MplCoreAsset,
     #[sea_orm(string_value = "MPL_CORE_COLLECTION")]
     MplCoreCollection,
+    #[sea_orm(string_value = "MPL_CORE_GROUP")]
+    MplCoreGroup,
     #[sea_orm(string_value = "NFT")]
     Nft,
     #[sea_orm(string_value = "NON_TRANSFERABLE_NFT")]

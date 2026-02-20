@@ -9,7 +9,10 @@ use {
         find_model_with_retry, DownloadMetadataInfo,
     },
     blockbuster::{
-        mpl_core::types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
+        mpl_core::{
+            types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
+            IndexableAsset,
+        },
         programs::mpl_core_program::MplCoreAccountData,
     },
     digital_asset_types::{
@@ -26,7 +29,7 @@ use {
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
-        sea_query::{query::OnConflict, Expr},
+        sea_query::{query::OnConflict, Alias, Expr},
         ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, TransactionTrait,
     },
     serde_json::{value::Value, Map},
@@ -46,17 +49,14 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
         burnt: ActiveValue::Set(true),
         ..Default::default()
     };
-    let mut query = asset::Entity::insert(model)
+    let query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([asset::Column::SlotUpdated, asset::Column::Burnt])
+                .action_and_where(Expr::cust("excluded.slot_updated > asset.slot_updated"))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset.slot_updated",
-        query.sql
-    );
     conn.execute(query).await?;
     Ok(())
 }
@@ -75,10 +75,23 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     let id_array = id.to_bytes();
     let id_vec = id_array.to_vec();
 
-    // Note: This indexes both Core Assets and Core Collections.
-    let asset = match account_data {
+    // Note: This indexes Core Assets, Collections, and Groups.
+    let (asset, group_relationships) = match account_data {
         MplCoreAccountData::Asset(indexable_asset)
-        | MplCoreAccountData::Collection(indexable_asset) => indexable_asset,
+        | MplCoreAccountData::Collection(indexable_asset) => (indexable_asset, None),
+        MplCoreAccountData::Group {
+            indexable_asset,
+            group,
+        } => (
+            indexable_asset,
+            Some(
+                group
+                    .parent_groups
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>(),
+            ),
+        ),
         _ => return Err(ProgramTransformerError::NotImplemented),
     };
 
@@ -115,7 +128,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         ..Default::default()
     };
 
-    let mut query = asset_authority::Entity::insert(model)
+    let query = asset_authority::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_authority::Column::AssetId])
                 .update_columns([
@@ -123,13 +136,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_authority::Column::Seq,
                     asset_authority::Column::SlotUpdated,
                 ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated > asset_authority.slot_updated",
+                ))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_authority.slot_updated",
-        query.sql
-    );
     txn.execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -186,7 +198,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         base_info_seq: ActiveValue::Set(Some(0)),
     };
 
-    let mut query = asset_data::Entity::insert(asset_data_model)
+    let query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -200,13 +212,12 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::RawSymbol,
                     asset_data::Column::BaseInfoSeq,
                 ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated > asset_data.slot_updated",
+                ))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
-    query.sql = format!(
-        "{} WHERE excluded.slot_updated > asset_data.slot_updated",
-        query.sql
-    );
     txn.execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -224,6 +235,10 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         MplCoreAccountData::Collection(_) => (
             Some(update_authority.clone()),
             SpecificationAssetClass::MplCoreCollection,
+        ),
+        MplCoreAccountData::Group { .. } => (
+            Some(update_authority.clone()),
+            SpecificationAssetClass::MplCoreGroup,
         ),
         _ => return Err(ProgramTransformerError::NotImplemented),
     };
@@ -377,25 +392,28 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             slot_updated: ActiveValue::Set(Some(slot_i)),
             ..Default::default()
         };
-        let mut query = asset_grouping::Entity::insert(model)
+        let query = asset_grouping::Entity::insert(model)
             .on_conflict(
                 OnConflict::columns([
                     asset_grouping::Column::AssetId,
                     asset_grouping::Column::GroupKey,
                 ])
+                .target_and_where(
+                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
+                        .eq("collection"),
+                )
                 .update_columns([
                     asset_grouping::Column::GroupValue,
                     asset_grouping::Column::Verified,
                     asset_grouping::Column::SlotUpdated,
                     asset_grouping::Column::GroupInfoSeq,
                 ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated >= asset_grouping.slot_updated",
+                ))
                 .to_owned(),
             )
             .build(DbBackend::Postgres);
-        query.sql = format!(
-            "{} WHERE excluded.slot_updated >= asset_grouping.slot_updated",
-            query.sql
-        );
         txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -422,7 +440,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .collect::<Vec<_>>();
 
     if !creators.is_empty() {
-        let mut query = asset_creators::Entity::insert_many(creators)
+        let query = asset_creators::Entity::insert_many(creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
@@ -435,71 +453,60 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_creators::Column::Seq,
                     asset_creators::Column::SlotUpdated,
                 ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
+                ))
                 .to_owned(),
             )
             .build(DbBackend::Postgres);
-        query.sql = format!(
-                    "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
-                    query.sql
-                );
         txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
     }
 
     //-----------------------
-    // asset_grouping table - groups plugin
+    // asset_grouping table - groups relationships
     //-----------------------
 
-    let plugin_groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
-        if let Plugin::Groups(g) = &plugin.data {
-            Some(&g.groups)
-        } else {
-            None
-        }
-    });
-
-    let empty_groups = Vec::new();
-    let groups = plugin_groups.unwrap_or(&empty_groups);
-
-    // If there are no groups or groups plugin is not present, insert a group with no value.
-    let group_entities = if groups.is_empty() {
-        vec![asset_grouping::ActiveModel {
+    let group_values = build_group_values(group_relationships, asset);
+    let group_entities = group_values
+        .into_iter()
+        .map(|group_value| asset_grouping::ActiveModel {
             asset_id: ActiveValue::Set(id_vec.clone()),
             group_key: ActiveValue::Set("group".to_string()),
-            group_value: ActiveValue::Set(None),
+            group_value: ActiveValue::Set(group_value),
             slot_updated: ActiveValue::Set(Some(slot_i)),
             verified: ActiveValue::Set(true),
             group_info_seq: ActiveValue::Set(Some(0)),
             ..Default::default()
-        }]
-    } else {
-        groups
-            .iter()
-            .map(|group| asset_grouping::ActiveModel {
-                asset_id: ActiveValue::Set(id_vec.clone()),
-                group_key: ActiveValue::Set("group".to_string()),
-                group_value: ActiveValue::Set(Some(group.to_string())),
-                slot_updated: ActiveValue::Set(Some(slot_i)),
-                verified: ActiveValue::Set(true),
-                group_info_seq: ActiveValue::Set(Some(0)),
-                ..Default::default()
-            })
-            .collect::<Vec<_>>()
-    };
+        })
+        .collect::<Vec<_>>();
 
-    let mut query = asset_grouping::Entity::insert_many(group_entities).build(DbBackend::Postgres);
-
-    // Use index inference for partial unique indexes
-    // For group_key = 'group', we use the partial unique index on (asset_id, group_key, group_value) WHERE group_key != 'collection'
-    query.sql = format!(
-            "{} ON CONFLICT (asset_id, group_key, group_value) WHERE (group_key != 'collection') DO UPDATE SET \
-            slot_updated = EXCLUDED.slot_updated, \
-            verified = EXCLUDED.verified, \
-            group_info_seq = EXCLUDED.group_info_seq \
-            WHERE excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
-            query.sql
-        );
+    // Use index inference for partial unique indexes.
+    // For group_key = 'group', this targets:
+    // (asset_id, group_key, group_value) WHERE group_key != 'collection'.
+    let query = asset_grouping::Entity::insert_many(group_entities)
+        .on_conflict(
+            OnConflict::columns([
+                asset_grouping::Column::AssetId,
+                asset_grouping::Column::GroupKey,
+                asset_grouping::Column::GroupValue,
+            ])
+            .target_and_where(
+                Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
+                    .ne("collection"),
+            )
+            .update_columns([
+                asset_grouping::Column::SlotUpdated,
+                asset_grouping::Column::Verified,
+                asset_grouping::Column::GroupInfoSeq,
+            ])
+            .action_and_where(Expr::cust(
+                "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
+            ))
+            .to_owned(),
+        )
+        .build(DbBackend::Postgres);
 
     txn.execute(query)
         .await
@@ -518,6 +525,35 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
 
     // Otherwise return with info for background downloading.
     Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
+}
+
+// Derive group relation values either from Group account relationships or Groups plugin data.
+fn build_group_values(
+    group_relationships: Option<Vec<String>>,
+    asset: &IndexableAsset,
+) -> Vec<Option<String>> {
+    if let Some(parent_groups) = group_relationships {
+        if parent_groups.is_empty() {
+            vec![None]
+        } else {
+            parent_groups.into_iter().map(Some).collect()
+        }
+    } else {
+        let plugin_groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
+            if let Plugin::Groups(g) = &plugin.data {
+                Some(&g.groups)
+            } else {
+                None
+            }
+        });
+        let empty_groups = Vec::new();
+        let groups = plugin_groups.unwrap_or(&empty_groups);
+        if groups.is_empty() {
+            vec![None]
+        } else {
+            groups.iter().map(|group| Some(group.to_string())).collect()
+        }
+    }
 }
 
 // Modify the JSON structure to remove the `Plugin` name and just display its data.
