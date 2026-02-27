@@ -827,6 +827,9 @@ pub struct AssetChangeRow {
     pub burnt: bool,
     pub collection: Option<String>,
     pub metadata_url: Option<String>,
+    pub creator: Option<Vec<u8>>,
+    pub specification_version: Option<String>,
+    pub specification_asset_class: Option<String>,
 }
 
 pub async fn get_asset_changes(
@@ -835,8 +838,9 @@ pub async fn get_asset_changes(
     cursor_slot: Option<i64>,
     cursor_id: Option<Vec<u8>>,
     limit: u64,
+    asset_classes: &[String],
 ) -> Result<(Vec<AssetChangeRow>, i64), DbErr> {
-    let (where_clause, values): (String, Vec<sea_orm::Value>) =
+    let (where_clause, mut values): (String, Vec<sea_orm::Value>) =
         if let (Some(slot), Some(id)) = (cursor_slot, cursor_id) {
             (
                 "AND (a.slot_updated > $1 OR (a.slot_updated = $1 AND a.id > $2))".to_string(),
@@ -848,15 +852,29 @@ pub async fn get_asset_changes(
             (String::new(), vec![])
         };
 
-    let limit_param = if values.is_empty() {
-        "$1".to_string()
-    } else {
-        format!("${}", values.len() + 1)
-    };
+    // Build asset class IN clause with parameterized placeholders
+    let class_start = values.len() + 1;
+    let class_placeholders: Vec<String> = asset_classes
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("${}", class_start + i))
+        .collect();
+    let class_in_clause = format!(
+        "AND a.specification_asset_class::text IN ({})",
+        class_placeholders.join(", ")
+    );
+    for class in asset_classes {
+        values.push(class.clone().into());
+    }
+
+    let limit_param = format!("${}", values.len() + 1);
 
     let sql = format!(
         r#"SELECT a.id, a.slot_updated, a.owner, a.delegate, a.burnt,
-                  lat.group_value AS collection, ad.metadata_url
+                  lat.group_value AS collection, ad.metadata_url,
+                  lat_cr.creator,
+                  a.specification_version::text AS specification_version,
+                  a.specification_asset_class::text AS specification_asset_class
            FROM asset a
            LEFT JOIN LATERAL (
                SELECT ag.group_value
@@ -866,17 +884,24 @@ pub async fn get_asset_changes(
                  AND (ag.verified = true OR ag.verified IS NULL)
                LIMIT 1
            ) lat ON true
+           LEFT JOIN LATERAL (
+               SELECT ac.creator
+               FROM asset_creators ac
+               WHERE ac.asset_id = a.id AND ac.verified = true
+               ORDER BY ac.seq ASC
+               LIMIT 1
+           ) lat_cr ON true
            LEFT JOIN asset_data ad ON ad.id = a.asset_data
            WHERE a.slot_updated IS NOT NULL
              {where_clause}
+             {class_in_clause}
            ORDER BY a.slot_updated ASC, a.id ASC
            LIMIT {limit_param}"#,
     );
 
-    let mut all_values = values;
-    all_values.push((limit as i64).into());
+    values.push((limit as i64).into());
 
-    let stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, all_values);
+    let stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, values);
     let rows = AssetChangeRow::find_by_statement(stmt).all(conn).await?;
 
     let current_slot_stmt = Statement::from_string(

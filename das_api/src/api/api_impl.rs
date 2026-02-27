@@ -598,10 +598,25 @@ impl ApiContract for DasApi {
         payload: GetAssetChanges,
     ) -> Result<AssetChangeList, DasApiError> {
         let GetAssetChanges {
+            asset_types,
             after_slot,
             limit,
             after,
         } = payload;
+
+        if asset_types.is_empty() {
+            return Err(DasApiError::ValidationError(
+                "assetTypes must not be empty".to_string(),
+            ));
+        }
+
+        let asset_classes: Vec<String> = asset_types
+            .iter()
+            .flat_map(|cat| cat.to_asset_classes())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .map(String::from)
+            .collect();
 
         let limit = limit.unwrap_or(1000).min(1000);
         if limit == 0 {
@@ -634,6 +649,7 @@ impl ApiContract for DasApi {
             cursor_slot,
             cursor_id,
             limit as u64,
+            &asset_classes,
         )
         .await
         .map_err(Into::into)

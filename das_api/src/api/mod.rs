@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType, TokenTypeClass};
 use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{
-    AssetChangeList, AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
+    AssetCategory, AssetChangeList, AssetList, NftEditions, TokenAccountList,
+    TransactionSignatureList,
 };
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
@@ -193,9 +194,10 @@ pub struct GetTokenAccounts {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct GetAssetChanges {
+    pub asset_types: Vec<AssetCategory>,
     pub after_slot: Option<i64>,
     pub limit: Option<u32>,
     pub after: Option<String>,

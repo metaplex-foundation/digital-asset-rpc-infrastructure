@@ -1,6 +1,7 @@
 use function_name::named;
 
 use das_api::api::{self, ApiContract};
+use digital_asset_types::rpc::response::AssetCategory;
 
 use itertools::Itertools;
 
@@ -21,8 +22,10 @@ async fn test_get_asset_changes_basic() {
     index_seed_events(&setup, seeds.iter().collect_vec()).await;
 
     let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
         limit: Some(10),
-        ..Default::default()
+        after_slot: None,
+        after: None,
     };
     let response = setup.das_api.get_asset_changes(request).await.unwrap();
 
@@ -31,6 +34,9 @@ async fn test_get_asset_changes_basic() {
     for item in &response.items {
         assert!(!item.id.is_empty());
         assert!(item.slot_updated > 0);
+        // Verify the type field is present in serialized form
+        let json = serde_json::to_value(item).unwrap();
+        assert!(json.get("type").is_some());
     }
     // With results present, after cursor should be set
     assert!(response.after.is_some());
@@ -54,8 +60,10 @@ async fn test_get_asset_changes_cursor_pagination() {
 
     // Fetch first page with limit=1
     let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
         limit: Some(1),
-        ..Default::default()
+        after_slot: None,
+        after: None,
     };
     let page1 = setup.das_api.get_asset_changes(request).await.unwrap();
     assert_eq!(page1.items.len(), 1);
@@ -63,9 +71,10 @@ async fn test_get_asset_changes_cursor_pagination() {
 
     // Fetch second page using cursor
     let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
         limit: Some(1),
         after: page1.after.clone(),
-        ..Default::default()
+        after_slot: None,
     };
     let page2 = setup.das_api.get_asset_changes(request).await.unwrap();
     assert_eq!(page2.items.len(), 1);
@@ -88,8 +97,10 @@ async fn test_get_asset_changes_empty() {
     apply_migrations_and_delete_data(setup.db.clone()).await;
 
     let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
         limit: Some(10),
-        ..Default::default()
+        after_slot: None,
+        after: None,
     };
     let response = setup.das_api.get_asset_changes(request).await.unwrap();
 

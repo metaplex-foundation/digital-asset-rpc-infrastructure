@@ -1,14 +1,46 @@
 use schemars::JsonSchema;
 
 use {
-    crate::rpc::{Asset, TokenAccount},
+    crate::rpc::{Asset, Interface, TokenAccount},
     serde::{Deserialize, Serialize},
 };
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub enum AssetCategory {
+    NFT,
+    FungibleAsset,
+    FungibleToken,
+    Custom,
+}
+
+impl AssetCategory {
+    pub fn to_asset_classes(&self) -> Vec<&'static str> {
+        match self {
+            AssetCategory::NFT => vec![
+                "NFT",
+                "PRINTABLE_NFT",
+                "PRINT",
+                "PROGRAMMABLE_NFT",
+                "NON_TRANSFERABLE_NFT",
+                "TRANSFER_RESTRICTED_NFT",
+                "IDENTITY_NFT",
+                "MPL_CORE_ASSET",
+                "MPL_CORE_COLLECTION",
+                "MPL_BUBBLEGUM_V2",
+            ],
+            AssetCategory::FungibleAsset => vec!["FUNGIBLE_ASSET"],
+            AssetCategory::FungibleToken => vec!["FUNGIBLE_TOKEN"],
+            AssetCategory::Custom => vec!["unknown"],
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AssetChangeItem {
     pub id: String,
+    #[serde(rename = "type")]
+    pub interface: Interface,
     pub slot_updated: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
@@ -19,6 +51,8 @@ pub struct AssetChangeItem {
     pub collection: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
