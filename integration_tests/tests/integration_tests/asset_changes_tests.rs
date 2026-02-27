@@ -79,11 +79,27 @@ async fn test_get_asset_changes_cursor_pagination() {
     let page2 = setup.das_api.get_asset_changes(request).await.unwrap();
     assert_eq!(page2.items.len(), 1);
 
-    // Pages should return different items
-    assert_ne!(page1.items[0].id, page2.items[0].id);
+    // Fetch third page using cursor
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(1),
+        after: page2.after.clone(),
+        after_slot: None,
+    };
+    let page3 = setup.das_api.get_asset_changes(request).await.unwrap();
+    assert_eq!(page3.items.len(), 1);
 
-    // Ordering: slot_updated should be non-decreasing across pages
-    assert!(page2.items[0].slot_updated >= page1.items[0].slot_updated);
+    // All three pages should return different items
+    assert_ne!(page1.items[0].id, page2.items[0].id);
+    assert_ne!(page2.items[0].id, page3.items[0].id);
+    assert_ne!(page1.items[0].id, page3.items[0].id);
+
+    // Ordering: (slot_updated, id) should be non-decreasing across pages
+    let key1 = (page1.items[0].slot_updated, &page1.items[0].id);
+    let key2 = (page2.items[0].slot_updated, &page2.items[0].id);
+    let key3 = (page3.items[0].slot_updated, &page3.items[0].id);
+    assert!(key1 <= key2, "page1 -> page2 ordering violated");
+    assert!(key2 <= key3, "page2 -> page3 ordering violated");
 }
 
 #[tokio::test]

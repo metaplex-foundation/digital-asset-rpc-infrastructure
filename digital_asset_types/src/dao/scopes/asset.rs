@@ -888,7 +888,7 @@ pub async fn get_asset_changes(
                SELECT ac.creator
                FROM asset_creators ac
                WHERE ac.asset_id = a.id AND ac.verified = true
-               ORDER BY ac.seq ASC
+               ORDER BY ac.position ASC
                LIMIT 1
            ) lat_cr ON true
            LEFT JOIN asset_data ad ON ad.id = a.asset_data
