@@ -139,6 +139,18 @@ impl RpcApiBuilder {
         })?;
         module.register_alias("getNftEditions", "get_nft_editions")?;
 
+        module.register_async_method(
+            "get_asset_changes",
+            |rpc_params, rpc_context| async move {
+                let payload = rpc_params.parse::<GetAssetChanges>()?;
+                rpc_context
+                    .get_asset_changes(payload)
+                    .await
+                    .map_err(Into::into)
+            },
+        )?;
+        module.register_alias("getAssetChanges", "get_asset_changes")?;
+
         Ok(module)
     }
 }

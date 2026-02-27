@@ -16,7 +16,8 @@ use crate::{
 use indexmap::IndexMap;
 use mpl_token_metadata::accounts::{Edition, MasterEdition};
 use sea_orm::{
-    entity::*, prelude::Decimal, query::*, sea_query::Expr, ConnectionTrait, DbErr, Order,
+    entity::*, prelude::Decimal, query::*, sea_query::Expr, ConnectionTrait, DatabaseBackend,
+    DbErr, FromQueryResult, Order, Statement,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -815,4 +816,109 @@ async fn find_tokens(
         .all(conn)
         .await
         .map_err(|_| DbErr::RecordNotFound("Token (s) Not Found".to_string()))
+}
+
+#[derive(Debug, Clone, FromQueryResult)]
+pub struct AssetChangeRow {
+    pub id: Vec<u8>,
+    pub slot_updated: Option<i64>,
+    pub owner: Option<Vec<u8>>,
+    pub delegate: Option<Vec<u8>>,
+    pub burnt: bool,
+    pub collection: Option<String>,
+    pub metadata_url: Option<String>,
+    pub creator: Option<Vec<u8>>,
+    pub specification_version: Option<String>,
+    pub specification_asset_class: Option<String>,
+}
+
+pub async fn get_asset_changes(
+    conn: &impl ConnectionTrait,
+    after_slot: Option<i64>,
+    cursor_slot: Option<i64>,
+    cursor_id: Option<Vec<u8>>,
+    limit: u64,
+    asset_classes: &[String],
+) -> Result<(Vec<AssetChangeRow>, i64), DbErr> {
+    let (where_clause, mut values): (String, Vec<sea_orm::Value>) =
+        if let (Some(slot), Some(id)) = (cursor_slot, cursor_id) {
+            (
+                "AND (a.slot_updated > $1 OR (a.slot_updated = $1 AND a.id > $2))".to_string(),
+                vec![slot.into(), id.into()],
+            )
+        } else if let Some(slot) = after_slot {
+            ("AND a.slot_updated > $1".to_string(), vec![slot.into()])
+        } else {
+            (String::new(), vec![])
+        };
+
+    // Build asset class IN clause with parameterized placeholders
+    let class_start = values.len() + 1;
+    let class_placeholders: Vec<String> = asset_classes
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("${}", class_start + i))
+        .collect();
+    let class_in_clause = format!(
+        "AND a.specification_asset_class::text IN ({})",
+        class_placeholders.join(", ")
+    );
+    for class in asset_classes {
+        values.push(class.clone().into());
+    }
+
+    let limit_param = format!("${}", values.len() + 1);
+
+    let sql = format!(
+        r#"SELECT a.id, a.slot_updated, a.owner, a.delegate, a.burnt,
+                  lat.group_value AS collection, ad.metadata_url,
+                  lat_cr.creator,
+                  a.specification_version::text AS specification_version,
+                  a.specification_asset_class::text AS specification_asset_class
+           FROM asset a
+           LEFT JOIN LATERAL (
+               SELECT ag.group_value
+               FROM asset_grouping ag
+               WHERE ag.asset_id = a.id
+                 AND ag.group_key = 'collection'
+                 AND (ag.verified = true OR ag.verified IS NULL)
+               LIMIT 1
+           ) lat ON true
+           LEFT JOIN LATERAL (
+               SELECT ac.creator
+               FROM asset_creators ac
+               WHERE ac.asset_id = a.id AND ac.verified = true
+               ORDER BY ac.position ASC
+               LIMIT 1
+           ) lat_cr ON true
+           LEFT JOIN asset_data ad ON ad.id = a.asset_data
+           WHERE a.slot_updated IS NOT NULL
+             {where_clause}
+             {class_in_clause}
+           ORDER BY a.slot_updated ASC, a.id ASC
+           LIMIT {limit_param}"#,
+    );
+
+    values.push((limit as i64).into());
+
+    let stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, values);
+    let rows = AssetChangeRow::find_by_statement(stmt).all(conn).await?;
+
+    let current_slot_stmt = Statement::from_string(
+        DatabaseBackend::Postgres,
+        "SELECT COALESCE(MAX(slot_updated), 0) AS slot FROM asset".to_string(),
+    );
+
+    #[derive(Debug, FromQueryResult)]
+    struct SlotRow {
+        slot: i64,
+    }
+
+    let current_slot = SlotRow::find_by_statement(current_slot_stmt)
+        .one(conn)
+        .await?
+        .map(|r| r.slot)
+        .unwrap_or(0);
+
+    Ok((rows, current_slot))
 }

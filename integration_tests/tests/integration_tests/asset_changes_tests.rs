@@ -1,0 +1,126 @@
+use function_name::named;
+
+use das_api::api::{self, ApiContract};
+use digital_asset_types::rpc::response::AssetCategory;
+
+use itertools::Itertools;
+
+use serial_test::serial;
+
+use super::common::*;
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_asset_changes_basic() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    let seeds: Vec<SeedEvent> = seed_nfts(["CMVuYDS9nTeujfTPJb8ik7CRhAqZv4DfjfdamFLkJgxE"]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(10),
+        after_slot: None,
+        after: None,
+    };
+    let response = setup.das_api.get_asset_changes(request).await.unwrap();
+
+    assert!(response.current_slot > 0);
+    assert!(!response.items.is_empty());
+    for item in &response.items {
+        assert!(!item.id.is_empty());
+        assert!(item.slot_updated > 0);
+        // Verify the type field is present in serialized form
+        let json = serde_json::to_value(item).unwrap();
+        assert!(json.get("type").is_some());
+    }
+    // With results present, after cursor should be set
+    assert!(response.after.is_some());
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_asset_changes_cursor_pagination() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    let seeds: Vec<SeedEvent> = seed_nfts([
+        "CMVuYDS9nTeujfTPJb8ik7CRhAqZv4DfjfdamFLkJgxE",
+        "HTKAVZZrDdyecCxzm3WEkCsG1GUmiqKm73PvngfuYRNK",
+        "2NqdYX6kJmMUoChnDXU2UrP9BsoPZivRw3uJG8iDhRRd",
+    ]);
+
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    // Fetch first page with limit=1
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(1),
+        after_slot: None,
+        after: None,
+    };
+    let page1 = setup.das_api.get_asset_changes(request).await.unwrap();
+    assert_eq!(page1.items.len(), 1);
+    assert!(page1.after.is_some());
+
+    // Fetch second page using cursor
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(1),
+        after: page1.after.clone(),
+        after_slot: None,
+    };
+    let page2 = setup.das_api.get_asset_changes(request).await.unwrap();
+    assert_eq!(page2.items.len(), 1);
+
+    // Fetch third page using cursor
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(1),
+        after: page2.after.clone(),
+        after_slot: None,
+    };
+    let page3 = setup.das_api.get_asset_changes(request).await.unwrap();
+    assert_eq!(page3.items.len(), 1);
+
+    // All three pages should return different items
+    assert_ne!(page1.items[0].id, page2.items[0].id);
+    assert_ne!(page2.items[0].id, page3.items[0].id);
+    assert_ne!(page1.items[0].id, page3.items[0].id);
+
+    // Ordering: (slot_updated, id) should be non-decreasing across pages
+    let key1 = (page1.items[0].slot_updated, &page1.items[0].id);
+    let key2 = (page2.items[0].slot_updated, &page2.items[0].id);
+    let key3 = (page3.items[0].slot_updated, &page3.items[0].id);
+    assert!(key1 <= key2, "page1 -> page2 ordering violated");
+    assert!(key2 <= key3, "page2 -> page3 ordering violated");
+}
+
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_get_asset_changes_empty() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new(name.clone()).await;
+
+    // Clean DB, no seeds
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+
+    let request = api::GetAssetChanges {
+        asset_types: vec![AssetCategory::NFT],
+        limit: Some(10),
+        after_slot: None,
+        after: None,
+    };
+    let response = setup.das_api.get_asset_changes(request).await.unwrap();
+
+    assert!(response.items.is_empty());
+    assert!(response.after.is_none());
+    assert_eq!(response.current_slot, 0);
+}

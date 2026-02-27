@@ -7,9 +7,10 @@ use digital_asset_types::{
         Cursor, PageOptions, SearchAssetsQuery,
     },
     dapi::{
-        common::create_pagination, get_asset, get_asset_proofs, get_asset_signatures, get_assets,
-        get_assets_by_authority, get_assets_by_creator, get_assets_by_group, get_assets_by_owner,
-        get_proof_for_asset, get_token_accounts, search_assets,
+        common::create_pagination, decode_change_cursor, get_asset, get_asset_changes,
+        get_asset_proofs, get_asset_signatures, get_assets, get_assets_by_authority,
+        get_assets_by_creator, get_assets_by_group, get_assets_by_owner, get_proof_for_asset,
+        get_token_accounts, search_assets,
     },
     rpc::{
         filter::{AssetSortBy, SearchConditionType},
@@ -28,7 +29,10 @@ use {
     crate::config::Config,
     crate::validation::validate_pubkey,
     async_trait::async_trait,
-    digital_asset_types::rpc::{response::AssetList, Asset, AssetProof},
+    digital_asset_types::rpc::{
+        response::{AssetChangeList, AssetList},
+        Asset, AssetProof,
+    },
     sea_orm::{DatabaseConnection, DbErr, SqlxPostgresConnector},
     sqlx::postgres::PgPoolOptions,
 };
@@ -63,6 +67,15 @@ impl DasApi {
             }
             None => Ok(Cursor::default()),
         }
+    }
+
+    fn parse_change_cursor(
+        &self,
+        cursor: &str,
+    ) -> Result<(Option<i64>, Option<Vec<u8>>), DasApiError> {
+        let (slot, id) = decode_change_cursor(cursor)
+            .ok_or_else(|| DasApiError::CursorValidationError(cursor.to_string()))?;
+        Ok((Some(slot), Some(id)))
     }
 
     fn validate_pagination(
@@ -575,6 +588,68 @@ impl ApiContract for DasApi {
             mint_address,
             &pagination,
             page_options.limit,
+        )
+        .await
+        .map_err(Into::into)
+    }
+
+    async fn get_asset_changes(
+        self: &DasApi,
+        payload: GetAssetChanges,
+    ) -> Result<AssetChangeList, DasApiError> {
+        let GetAssetChanges {
+            asset_types,
+            after_slot,
+            limit,
+            after,
+        } = payload;
+
+        if asset_types.is_empty() {
+            return Err(DasApiError::ValidationError(
+                "assetTypes must not be empty".to_string(),
+            ));
+        }
+
+        let asset_classes: Vec<String> = asset_types
+            .iter()
+            .flat_map(|cat| cat.to_asset_classes())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .map(String::from)
+            .collect();
+
+        let limit = limit.unwrap_or(1000).min(1000);
+        if limit == 0 {
+            return Err(DasApiError::PaginationEmptyError);
+        }
+
+        if let Some(slot) = after_slot {
+            if slot < 0 {
+                return Err(DasApiError::ValidationError(
+                    "afterSlot must be non-negative".to_string(),
+                ));
+            }
+        }
+
+        let (cursor_slot, cursor_id) = if let Some(ref cursor) = after {
+            self.parse_change_cursor(cursor)?
+        } else {
+            (None, None)
+        };
+
+        let effective_after_slot = if cursor_slot.is_some() {
+            None
+        } else {
+            after_slot
+        };
+
+        get_asset_changes(
+            &self.db_connection,
+            effective_after_slot,
+            cursor_slot,
+            cursor_id,
+            limit as u64,
+            &asset_classes,
         )
         .await
         .map_err(Into::into)
