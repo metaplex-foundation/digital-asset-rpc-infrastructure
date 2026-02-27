@@ -6,6 +6,31 @@ use {
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AssetChangeItem {
+    pub id: String,
+    pub slot_updated: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegate: Option<String>,
+    pub burnt: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AssetChangeList {
+    pub current_slot: i64,
+    pub items: Vec<AssetChangeItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]
 #[serde(default)]
 pub struct DasError {
     pub id: String,

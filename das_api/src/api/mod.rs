@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use digital_asset_types::rpc::filter::{AssetSortDirection, SearchConditionType, TokenTypeClass};
 use digital_asset_types::rpc::options::Options;
 use digital_asset_types::rpc::response::{
-    AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
+    AssetChangeList, AssetList, NftEditions, TokenAccountList, TransactionSignatureList,
 };
 use digital_asset_types::rpc::{filter::AssetSorting, response::GetGroupingResponse};
 use digital_asset_types::rpc::{Asset, AssetProof, Interface, OwnershipModel, RoyaltyModel};
@@ -193,6 +193,14 @@ pub struct GetTokenAccounts {
     pub cursor: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct GetAssetChanges {
+    pub after_slot: Option<i64>,
+    pub limit: Option<u32>,
+    pub after: Option<String>,
+}
+
 #[document_rpc]
 #[async_trait]
 pub trait ApiContract: Send + Sync + 'static {
@@ -297,4 +305,13 @@ pub trait ApiContract: Send + Sync + 'static {
         summary = "Get all printable editions for a master edition NFT mint"
     )]
     async fn get_nft_editions(&self, payload: GetNftEditions) -> Result<NftEditions, DasApiError>;
+    #[rpc(
+        name = "getAssetChanges",
+        params = "named",
+        summary = "Get a feed of asset changes ordered by slot"
+    )]
+    async fn get_asset_changes(
+        &self,
+        payload: GetAssetChanges,
+    ) -> Result<AssetChangeList, DasApiError>;
 }

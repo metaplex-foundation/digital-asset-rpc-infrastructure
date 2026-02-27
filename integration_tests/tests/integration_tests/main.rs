@@ -1,5 +1,6 @@
 mod account_close_tests;
 mod account_update_tests;
+mod asset_changes_tests;
 mod cnft_tests;
 mod cnft_tests_v2_leaf_schema;
 mod common;
