@@ -53,6 +53,7 @@ mod m20250327_120101_add_bubblegum_v2_ixs_to_enum;
 mod m20250702_120101_add_bubblegum_v2_enum_vals;
 mod m20251008_145049_fix_asset_grouping_constraints;
 mod m20260218_183000_add_mpl_core_group_enum_val;
+mod m20260416_120101_add_group_null_sentinel_index;
 
 pub mod model;
 
@@ -115,6 +116,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250702_120101_add_bubblegum_v2_enum_vals::Migration),
             Box::new(m20251008_145049_fix_asset_grouping_constraints::Migration),
             Box::new(m20260218_183000_add_mpl_core_group_enum_val::Migration),
+            Box::new(m20260416_120101_add_group_null_sentinel_index::Migration),
         ]
     }
 }

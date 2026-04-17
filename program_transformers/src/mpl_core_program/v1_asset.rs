@@ -472,48 +472,94 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     //-----------------------
 
     let group_values = build_group_values(group_relationships, asset);
-    let group_entities = group_values
-        .into_iter()
-        .map(|group_value| asset_grouping::ActiveModel {
+
+    if group_values.is_empty() {
+        // No group relationships — upsert a NULL sentinel so the read-side
+        // MAX(slot_updated) filter can discard stale group rows from earlier
+        // slots.  Targets the asset_grouping_group_null_unique partial index.
+        let model = asset_grouping::ActiveModel {
             asset_id: ActiveValue::Set(id_vec.clone()),
             group_key: ActiveValue::Set("group".to_string()),
-            group_value: ActiveValue::Set(group_value),
+            group_value: ActiveValue::Set(None),
             slot_updated: ActiveValue::Set(Some(slot_i)),
             verified: ActiveValue::Set(true),
             group_info_seq: ActiveValue::Set(Some(0)),
             ..Default::default()
-        })
-        .collect::<Vec<_>>();
-
-    // Use index inference for partial unique indexes.
-    // For group_key = 'group', this targets:
-    // (asset_id, group_key, group_value) WHERE group_key != 'collection'.
-    let query = asset_grouping::Entity::insert_many(group_entities)
-        .on_conflict(
-            OnConflict::columns([
-                asset_grouping::Column::AssetId,
-                asset_grouping::Column::GroupKey,
-                asset_grouping::Column::GroupValue,
-            ])
-            .target_and_where(
-                Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
-                    .ne("collection"),
+        };
+        let query = asset_grouping::Entity::insert(model)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_grouping::Column::AssetId,
+                    asset_grouping::Column::GroupKey,
+                ])
+                .target_and_where(
+                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
+                        .eq("group")
+                        .and(
+                            Expr::tbl(
+                                Alias::new("asset_grouping"),
+                                asset_grouping::Column::GroupValue,
+                            )
+                            .is_null(),
+                        ),
+                )
+                .update_columns([
+                    asset_grouping::Column::SlotUpdated,
+                    asset_grouping::Column::Verified,
+                    asset_grouping::Column::GroupInfoSeq,
+                ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
+                ))
+                .to_owned(),
             )
-            .update_columns([
-                asset_grouping::Column::SlotUpdated,
-                asset_grouping::Column::Verified,
-                asset_grouping::Column::GroupInfoSeq,
-            ])
-            .action_and_where(Expr::cust(
-                "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
-            ))
-            .to_owned(),
-        )
-        .build(DbBackend::Postgres);
+            .build(DbBackend::Postgres);
 
-    txn.execute(query)
-        .await
-        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+        txn.execute(query)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    } else {
+        // Upsert real group values, targeting asset_grouping_other_unique.
+        let group_entities = group_values
+            .into_iter()
+            .map(|group_value| asset_grouping::ActiveModel {
+                asset_id: ActiveValue::Set(id_vec.clone()),
+                group_key: ActiveValue::Set("group".to_string()),
+                group_value: ActiveValue::Set(Some(group_value)),
+                slot_updated: ActiveValue::Set(Some(slot_i)),
+                verified: ActiveValue::Set(true),
+                group_info_seq: ActiveValue::Set(Some(0)),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+
+        let query = asset_grouping::Entity::insert_many(group_entities)
+            .on_conflict(
+                OnConflict::columns([
+                    asset_grouping::Column::AssetId,
+                    asset_grouping::Column::GroupKey,
+                    asset_grouping::Column::GroupValue,
+                ])
+                .target_and_where(
+                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
+                        .ne("collection"),
+                )
+                .update_columns([
+                    asset_grouping::Column::SlotUpdated,
+                    asset_grouping::Column::Verified,
+                    asset_grouping::Column::GroupInfoSeq,
+                ])
+                .action_and_where(Expr::cust(
+                    "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
+                ))
+                .to_owned(),
+            )
+            .build(DbBackend::Postgres);
+
+        txn.execute(query)
+            .await
+            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
+    }
 
     txn.commit().await?;
 
@@ -530,17 +576,15 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     Ok(Some(DownloadMetadataInfo::new(id_vec.clone(), uri)))
 }
 
-// Derive group relation values either from Group account relationships or Groups plugin data.
+// Derive group relation values from Group account relationships or Groups plugin data.
+// Returns an empty vec when the asset has no group memberships; the caller
+// handles the NULL sentinel insertion separately.
 fn build_group_values(
     group_relationships: Option<Vec<String>>,
     asset: &IndexableAsset,
-) -> Vec<Option<String>> {
+) -> Vec<String> {
     if let Some(parent_groups) = group_relationships {
-        if parent_groups.is_empty() {
-            vec![None]
-        } else {
-            parent_groups.into_iter().map(Some).collect()
-        }
+        parent_groups
     } else {
         let plugin_groups = asset.plugins.get(&PluginType::Groups).and_then(|plugin| {
             if let Plugin::Groups(g) = &plugin.data {
@@ -549,13 +593,9 @@ fn build_group_values(
                 None
             }
         });
-        let empty_groups = Vec::new();
-        let groups = plugin_groups.unwrap_or(&empty_groups);
-        if groups.is_empty() {
-            vec![None]
-        } else {
-            groups.iter().map(|group| Some(group.to_string())).collect()
-        }
+        plugin_groups
+            .map(|groups| groups.iter().map(|g| g.to_string()).collect())
+            .unwrap_or_default()
     }
 }
 
