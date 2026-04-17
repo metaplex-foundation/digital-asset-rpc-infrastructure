@@ -4,11 +4,7 @@ use crate::{
     programs::ProgramParseResult,
 };
 use borsh::BorshDeserialize;
-use mpl_core::{
-    accounts::GroupV1,
-    types::Key,
-    IndexableAsset,
-};
+use mpl_core::{accounts::GroupV1, types::Key, IndexableAsset};
 use solana_sdk::{pubkey::Pubkey, pubkeys};
 
 pubkeys!(mpl_core_id, "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");

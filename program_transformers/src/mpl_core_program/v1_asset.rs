@@ -399,8 +399,11 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_grouping::Column::GroupKey,
                 ])
                 .target_and_where(
-                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
-                        .eq("collection"),
+                    Expr::tbl(
+                        Alias::new("asset_grouping"),
+                        asset_grouping::Column::GroupKey,
+                    )
+                    .eq("collection"),
                 )
                 .update_columns([
                     asset_grouping::Column::GroupValue,
