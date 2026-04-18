@@ -29,7 +29,7 @@ use {
         entity::{ActiveValue, ColumnTrait, EntityTrait},
         prelude::*,
         query::{JsonValue, QueryFilter, QuerySelect, QueryTrait},
-        sea_query::{query::OnConflict, Alias, Expr},
+        sea_query::{query::OnConflict, Expr},
         ConnectionTrait, CursorTrait, DbBackend, FromQueryResult, TransactionTrait,
     },
     serde_json::{value::Value, Map},
@@ -49,14 +49,17 @@ pub async fn burn_v1_asset<T: ConnectionTrait + TransactionTrait>(
         burnt: ActiveValue::Set(true),
         ..Default::default()
     };
-    let query = asset::Entity::insert(model)
+    let mut query = asset::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset::Column::Id])
                 .update_columns([asset::Column::SlotUpdated, asset::Column::Burnt])
-                .action_and_where(Expr::cust("excluded.slot_updated > asset.slot_updated"))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset.slot_updated",
+        query.sql
+    );
     conn.execute(query).await?;
     Ok(())
 }
@@ -128,7 +131,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         ..Default::default()
     };
 
-    let query = asset_authority::Entity::insert(model)
+    let mut query = asset_authority::Entity::insert(model)
         .on_conflict(
             OnConflict::columns([asset_authority::Column::AssetId])
                 .update_columns([
@@ -136,12 +139,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_authority::Column::Seq,
                     asset_authority::Column::SlotUpdated,
                 ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated > asset_authority.slot_updated",
-                ))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset_authority.slot_updated",
+        query.sql
+    );
     txn.execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -198,7 +202,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         base_info_seq: ActiveValue::Set(Some(0)),
     };
 
-    let query = asset_data::Entity::insert(asset_data_model)
+    let mut query = asset_data::Entity::insert(asset_data_model)
         .on_conflict(
             OnConflict::columns([asset_data::Column::Id])
                 .update_columns([
@@ -212,12 +216,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_data::Column::RawSymbol,
                     asset_data::Column::BaseInfoSeq,
                 ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated > asset_data.slot_updated",
-                ))
                 .to_owned(),
         )
         .build(DbBackend::Postgres);
+    query.sql = format!(
+        "{} WHERE excluded.slot_updated > asset_data.slot_updated",
+        query.sql
+    );
     txn.execute(query)
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -392,31 +397,20 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             slot_updated: ActiveValue::Set(Some(slot_i)),
             ..Default::default()
         };
-        let query = asset_grouping::Entity::insert(model)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_grouping::Column::AssetId,
-                    asset_grouping::Column::GroupKey,
-                ])
-                .target_and_where(
-                    Expr::tbl(
-                        Alias::new("asset_grouping"),
-                        asset_grouping::Column::GroupKey,
-                    )
-                    .eq("collection"),
-                )
-                .update_columns([
-                    asset_grouping::Column::GroupValue,
-                    asset_grouping::Column::Verified,
-                    asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::GroupInfoSeq,
-                ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated >= asset_grouping.slot_updated",
-                ))
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
+        let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
+
+        query.sql = format!(
+            "{} ON CONFLICT (asset_id, group_key) \
+            WHERE group_key = 'collection' \
+            DO UPDATE SET \
+            group_value = EXCLUDED.group_value, \
+            verified = EXCLUDED.verified, \
+            slot_updated = EXCLUDED.slot_updated, \
+            group_info_seq = EXCLUDED.group_info_seq \
+            WHERE excluded.slot_updated >= asset_grouping.slot_updated",
+            query.sql
+        );
+
         txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -443,7 +437,7 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .collect::<Vec<_>>();
 
     if !creators.is_empty() {
-        let query = asset_creators::Entity::insert_many(creators)
+        let mut query = asset_creators::Entity::insert_many(creators)
             .on_conflict(
                 OnConflict::columns([
                     asset_creators::Column::AssetId,
@@ -456,12 +450,13 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
                     asset_creators::Column::Seq,
                     asset_creators::Column::SlotUpdated,
                 ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
-                ))
                 .to_owned(),
             )
             .build(DbBackend::Postgres);
+        query.sql = format!(
+                    "{} WHERE excluded.slot_updated >= asset_creators.slot_updated OR asset_creators.slot_updated is NULL",
+                    query.sql
+                );
         txn.execute(query)
             .await
             .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
@@ -486,34 +481,19 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             group_info_seq: ActiveValue::Set(Some(0)),
             ..Default::default()
         };
-        let query = asset_grouping::Entity::insert(model)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_grouping::Column::AssetId,
-                    asset_grouping::Column::GroupKey,
-                ])
-                .target_and_where(
-                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
-                        .eq("group")
-                        .and(
-                            Expr::tbl(
-                                Alias::new("asset_grouping"),
-                                asset_grouping::Column::GroupValue,
-                            )
-                            .is_null(),
-                        ),
-                )
-                .update_columns([
-                    asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::Verified,
-                    asset_grouping::Column::GroupInfoSeq,
-                ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
-                ))
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
+        let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
+
+        query.sql = format!(
+            "{} ON CONFLICT (asset_id, group_key) \
+            WHERE group_key = 'group' AND group_value IS NULL \
+            DO UPDATE SET \
+            slot_updated = EXCLUDED.slot_updated, \
+            verified = EXCLUDED.verified, \
+            group_info_seq = EXCLUDED.group_info_seq \
+            WHERE excluded.slot_updated >= asset_grouping.slot_updated \
+            OR asset_grouping.slot_updated IS NULL",
+            query.sql
+        );
 
         txn.execute(query)
             .await
@@ -533,28 +513,20 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             })
             .collect::<Vec<_>>();
 
-        let query = asset_grouping::Entity::insert_many(group_entities)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_grouping::Column::AssetId,
-                    asset_grouping::Column::GroupKey,
-                    asset_grouping::Column::GroupValue,
-                ])
-                .target_and_where(
-                    Expr::tbl(Alias::new("asset_grouping"), asset_grouping::Column::GroupKey)
-                        .ne("collection"),
-                )
-                .update_columns([
-                    asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::Verified,
-                    asset_grouping::Column::GroupInfoSeq,
-                ])
-                .action_and_where(Expr::cust(
-                    "excluded.slot_updated >= asset_grouping.slot_updated OR asset_grouping.slot_updated IS NULL",
-                ))
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
+        let mut query =
+            asset_grouping::Entity::insert_many(group_entities).build(DbBackend::Postgres);
+
+        query.sql = format!(
+            "{} ON CONFLICT (asset_id, group_key, group_value) \
+            WHERE group_key != 'collection' \
+            DO UPDATE SET \
+            slot_updated = EXCLUDED.slot_updated, \
+            verified = EXCLUDED.verified, \
+            group_info_seq = EXCLUDED.group_info_seq \
+            WHERE excluded.slot_updated >= asset_grouping.slot_updated \
+            OR asset_grouping.slot_updated IS NULL",
+            query.sql
+        );
 
         txn.execute(query)
             .await
