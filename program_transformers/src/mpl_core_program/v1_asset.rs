@@ -407,7 +407,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             verified = EXCLUDED.verified, \
             slot_updated = EXCLUDED.slot_updated, \
             group_info_seq = EXCLUDED.group_info_seq \
-            WHERE excluded.slot_updated >= asset_grouping.slot_updated",
+            WHERE excluded.slot_updated >= asset_grouping.slot_updated \
+            OR asset_grouping.slot_updated IS NULL",
             query.sql
         );
 

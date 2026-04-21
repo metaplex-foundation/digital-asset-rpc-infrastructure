@@ -126,8 +126,8 @@ pub async fn get_by_grouping(
     options: &Options,
 ) -> Result<Vec<FullAsset>, DbErr> {
     let mut condition = asset_grouping::Column::GroupKey
-        .eq(group_key)
-        .and(asset_grouping::Column::GroupValue.eq(group_value));
+        .eq(group_key.clone())
+        .and(asset_grouping::Column::GroupValue.eq(group_value.clone()));
 
     if !options.show_unverified_collections {
         condition = condition.and(
@@ -137,7 +137,7 @@ pub async fn get_by_grouping(
         );
     }
 
-    get_by_related_condition(
+    let mut assets = get_by_related_condition(
         conn,
         Condition::all()
             .add(condition)
@@ -150,7 +150,18 @@ pub async fn get_by_grouping(
         options,
         None,
     )
-    .await
+    .await?;
+
+    // Remove assets that matched via a stale grouping row which has since been
+    // filtered out by `filter_out_stale_asset_groupings` inside
+    // `get_related_for_assets`.
+    assets.retain(|asset| {
+        asset.groups.iter().any(|(g, _)| {
+            g.group_key == group_key && g.group_value.as_deref() == Some(group_value.as_str())
+        })
+    });
+
+    Ok(assets)
 }
 
 pub async fn get_assets_by_owner(
