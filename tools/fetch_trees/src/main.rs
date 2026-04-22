@@ -1,5 +1,5 @@
 use {
-    borsh::{BorshDeserialize, BorshSerialize},
+    borsh::BorshDeserialize,
     clap::Parser,
     solana_account_decoder::UiAccountEncoding,
     solana_client::{
@@ -12,8 +12,11 @@ use {
         account::Account,
         pubkey::{Pubkey, PUBKEY_BYTES},
     },
-    spl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData},
+    mpl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData},
 };
+
+/// SPL Account Compression program ID -- `cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK`.
+const SPL_ACCOUNT_COMPRESSION_ID: Pubkey = solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -41,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
     let accounts: Vec<(Pubkey, Account)> = client
-        .get_program_accounts_with_config(&spl_account_compression::id(), config)
+        .get_program_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
         .await?;
     println!("Received {} accounts", accounts.len());
 
@@ -81,7 +84,7 @@ fn get_authority(mut data: &[u8]) -> anyhow::Result<Pubkey> {
     // additional checks
     let header = ConcurrentMerkleTreeHeader::deserialize(&mut data)?;
     let ConcurrentMerkleTreeHeaderData::V1(header) = header.header;
-    let data = header.try_to_vec()?;
+    let data = borsh::to_vec(&header)?;
 
     let offset = 4 + 4;
     Pubkey::try_from(&data[offset..offset + PUBKEY_BYTES]).map_err(Into::into)

@@ -4,7 +4,6 @@ use blockbuster::{
     error::BlockbusterError,
     instruction::{InstructionBundle, IxPair},
 };
-use borsh::ser::BorshSerialize;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use mpl_bubblegum::LeafSchemaEvent;
 use plerkle_serialization::{
@@ -14,15 +13,21 @@ use plerkle_serialization::{
     InnerInstructionsBuilder, Pubkey as FBPubkey, TransactionInfo, TransactionInfoBuilder,
 };
 use rand::Rng;
-use solana_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfo;
-use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
+use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfo;
+use solana_message::compiled_instruction::CompiledInstruction;
+use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{
     EncodedConfirmedTransactionWithStatusMeta, InnerInstruction, InnerInstructions,
 };
-use spl_account_compression::events::{
+use mpl_account_compression::events::{
     AccountCompressionEvent, ApplicationDataEvent, ApplicationDataEventV1,
 };
 use std::{fs::File, io::BufReader};
+
+/// Legacy SPL program IDs (same layout as MPL forks); inner ix tuples must match on-chain SPL txs.
+const SPL_NOOP_ID: Pubkey = solana_sdk::pubkey!("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV");
+const SPL_ACCOUNT_COMPRESSION_ID: Pubkey =
+    solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
 
 pub fn random_program() -> Pubkey {
     Pubkey::new_unique()
@@ -292,25 +297,25 @@ pub fn build_bubblegum_bundle<'a>(
     cs_event: AccountCompressionEvent,
 ) -> InstructionBundle<'a> {
     let lse_versioned = ApplicationDataEventV1 {
-        application_data: lse.try_to_vec().unwrap(),
+        application_data: borsh::to_vec(&lse).unwrap(),
     };
     let lse_event =
         AccountCompressionEvent::ApplicationData(ApplicationDataEvent::V1(lse_versioned));
     let outer_ix = build_instruction(fbb1, ix_data, account_indexes).unwrap();
 
-    let lse = lse_event.try_to_vec().unwrap();
-    let noop_bgum = spl_noop::instruction(lse).data;
+    let lse = borsh::to_vec(&lse_event).unwrap();
+    let noop_bgum = mpl_noop::instruction(lse).data;
     let ix = build_instruction(fbb2, &noop_bgum, account_indexes).unwrap();
-    let noop_bgum_ix: IxPair = (spl_noop::id(), Box::leak(Box::new(ix)));
+    let noop_bgum_ix: IxPair = (SPL_NOOP_ID, Box::leak(Box::new(ix)));
 
     // The Compression Instruction here doesnt matter only the noop but we add it here to ensure we are validating that one Account compression event is happening after Bubblegum
     let ix = build_instruction(fbb3, &[0; 0], account_indexes).unwrap();
-    let gummy_roll_ix: IxPair = (spl_account_compression::id(), Box::leak(Box::new(ix)));
+    let gummy_roll_ix: IxPair = (SPL_ACCOUNT_COMPRESSION_ID, Box::leak(Box::new(ix)));
 
-    let cs = cs_event.try_to_vec().unwrap();
-    let noop_compression = spl_noop::instruction(cs).data;
+    let cs = borsh::to_vec(&cs_event).unwrap();
+    let noop_compression = mpl_noop::instruction(cs).data;
     let ix = build_instruction(fbb4, &noop_compression, account_indexes).unwrap();
-    let noop_compression_ix: IxPair = (spl_noop::id(), Box::leak(Box::new(ix)));
+    let noop_compression_ix: IxPair = (SPL_NOOP_ID, Box::leak(Box::new(ix)));
 
     let inner_ix = vec![noop_bgum_ix, gummy_roll_ix, noop_compression_ix];
 

@@ -109,7 +109,6 @@ impl ProgramParser for MplCoreParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use borsh::BorshSerialize;
     use mpl_core::types::UpdateAuthority;
 
     #[test]
@@ -125,7 +124,7 @@ mod tests {
             parent_groups: vec![[4u8; 32].into(), [5u8; 32].into()],
             assets: vec![[6u8; 32].into()],
         };
-        let bytes = group.try_to_vec().unwrap();
+        let bytes = borsh::to_vec(&group).unwrap();
 
         let parsed = parser.handle_account(&bytes).unwrap();
         match parsed.result_type() {

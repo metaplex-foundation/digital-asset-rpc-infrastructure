@@ -20,6 +20,7 @@ prometheus = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 thiserror = { workspace = true }

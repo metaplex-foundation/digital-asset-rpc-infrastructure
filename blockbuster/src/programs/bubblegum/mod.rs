@@ -21,6 +21,8 @@ pub use mpl_bubblegum::{
 };
 use solana_sdk::pubkey::Pubkey;
 
+const SPL_NOOP_ID: Pubkey = solana_sdk::pubkey!("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV");
+
 #[derive(Eq, PartialEq)]
 pub enum Payload {
     Unknown,
@@ -53,7 +55,7 @@ pub enum Payload {
 //TODO add more of the parsing here to minimize program transformer code
 pub struct BubblegumInstruction {
     pub instruction: InstructionName,
-    pub tree_update: Option<spl_account_compression::events::ChangeLogEventV1>,
+    pub tree_update: Option<mpl_account_compression::events::ChangeLogEventV1>,
     pub leaf_update: Option<LeafSchemaEvent>,
     pub payload: Option<Payload>,
 }
@@ -124,8 +126,8 @@ impl ProgramParser for BubblegumParser {
         let mut b_inst = BubblegumInstruction::new(ix_type);
         if let Some(ixs) = inner_ix {
             for (pid, cix) in ixs.iter() {
-                if pid == &spl_noop::id() && !cix.data.is_empty() {
-                    use spl_account_compression::events::{
+                if (pid == &SPL_NOOP_ID || pid == &mpl_noop::id()) && !cix.data.is_empty() {
+                    use mpl_account_compression::events::{
                         AccountCompressionEvent::{self, ApplicationData, ChangeLog},
                         ApplicationDataEvent, ChangeLogEvent,
                     };
@@ -145,35 +147,7 @@ impl ProgramParser for BubblegumParser {
                         },
                         Err(e) => {
                             warn!(
-                                "Error while deserializing txn {:?} with spl-noop data: {:?}",
-                                txn_id, e
-                            );
-                        }
-                    }
-                } else if pid == &mpl_noop::id() && !cix.data.is_empty() {
-                    use mpl_account_compression::events::{
-                        AccountCompressionEvent::{self, ApplicationData, ChangeLog},
-                        ApplicationDataEvent, ChangeLogEvent,
-                    };
-
-                    match AccountCompressionEvent::try_from_slice(&cix.data) {
-                        Ok(result) => match result {
-                            ChangeLog(mpl_changelog_event) => {
-                                let ChangeLogEvent::V1(mpl_changelog_event) = mpl_changelog_event;
-                                let spl_change_log_event =
-                                    convert_mpl_to_spl_change_log_event(mpl_changelog_event);
-                                b_inst.tree_update = Some(spl_change_log_event);
-                            }
-                            ApplicationData(app_data) => {
-                                let ApplicationDataEvent::V1(app_data) = app_data;
-                                let app_data = app_data.application_data;
-                                b_inst.leaf_update =
-                                    Some(get_bubblegum_leaf_schema_event(app_data)?);
-                            }
-                        },
-                        Err(e) => {
-                            warn!(
-                                "Error while deserializing txn {:?} with mpl-noop data: {:?}",
+                                "Error while deserializing txn {:?} with noop data: {:?}",
                                 txn_id, e
                             );
                         }
@@ -261,25 +235,6 @@ fn get_bubblegum_leaf_schema_event(app_data: Vec<u8>) -> Result<LeafSchemaEvent,
     }
 }
 
-// Convert from mpl-account-compression `ChangeLogEventV1` to
-// spl-account-compression `ChangeLogEventV1`.
-fn convert_mpl_to_spl_change_log_event(
-    mpl_changelog_event: mpl_account_compression::events::ChangeLogEventV1,
-) -> spl_account_compression::events::ChangeLogEventV1 {
-    spl_account_compression::events::ChangeLogEventV1 {
-        id: mpl_changelog_event.id,
-        path: mpl_changelog_event
-            .path
-            .iter()
-            .map(|path_node| spl_account_compression::state::PathNode {
-                node: path_node.node,
-                index: path_node.index,
-            })
-            .collect(),
-        seq: mpl_changelog_event.seq,
-        index: mpl_changelog_event.index,
-    }
-}
 
 // See Bubblegum documentation for offsets and positions:
 // https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md#-verify_creator-and-unverify_creator

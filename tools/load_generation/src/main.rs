@@ -15,9 +15,9 @@ use {
     solana_sdk::{
         signature::{keypair_from_seed, Signer},
         signer::keypair::Keypair,
-        system_instruction,
         transaction::Transaction,
     },
+    solana_system_interface::instruction as system_instruction,
     spl_token::solana_program::program_pack::Pack,
     std::{env, sync::Arc, time::Duration},
     tokio::{sync::Semaphore, time::sleep},
@@ -35,7 +35,7 @@ async fn main() {
     let le_blockchain = Arc::new(RpcClient::new_with_timeout_and_commitment(
         le_blockchain_url,
         Duration::from_secs(45),
-        solana_sdk::commitment_config::CommitmentConfig::confirmed(),
+        solana_commitment_config::CommitmentConfig::confirmed(),
     ));
     let kp = Arc::new(
         keypair_from_seed(sow_thy_seed.as_ref())

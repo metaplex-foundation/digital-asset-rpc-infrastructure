@@ -11,9 +11,9 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcTransactionConfig},
     rpc_filter::RpcFilterType,
 };
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::{
     account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
     pubkey::Pubkey,
     signature::Signature,
 };

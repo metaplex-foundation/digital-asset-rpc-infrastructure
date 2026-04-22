@@ -36,7 +36,7 @@ solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-spl-account-compression = { workspace = true }
+mpl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 sqlx = { workspace = true }

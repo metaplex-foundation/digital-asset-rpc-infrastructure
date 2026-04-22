@@ -14,7 +14,7 @@ mpl-bubblegum = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
-spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
+mpl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 tokio = { workspace = true, features = ["tracing"] }
 
 [lints]

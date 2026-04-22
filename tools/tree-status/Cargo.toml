@@ -23,10 +23,11 @@ prometheus = { workspace = true }
 sea-orm = { workspace = true, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres", "with-chrono", "mock"] }
 serde_json = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
-spl-noop = { workspace = true, features = ["no-entrypoint"] }
+mpl-account-compression = { workspace = true, features = ["no-entrypoint"] }
+mpl-noop = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio-rustls", "postgres", "uuid", "offline", "json"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "macros", "rt-multi-thread", "sync", "time"] }

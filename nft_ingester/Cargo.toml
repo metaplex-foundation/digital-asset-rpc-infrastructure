@@ -27,7 +27,7 @@ plerkle_messenger = { workspace = true, features = ["redis"] }
 plerkle_serialization = { workspace = true }
 program_transformers = { workspace = true }
 rand = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
 rust-crypto = { workspace = true }
 sea-orm = { workspace = true, features = [
   "macros",
@@ -40,9 +40,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
-spl-account-compression = { workspace = true, features = ["no-entrypoint"] }
+mpl-account-compression = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true, features = [
   "macros",
   "runtime-tokio-rustls",

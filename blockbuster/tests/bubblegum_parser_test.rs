@@ -10,7 +10,7 @@ use mpl_bubblegum::{
     types::{BubblegumEventType, Creator, LeafSchema, MetadataArgs, TokenProgramVersion, Version},
     LeafSchemaEvent,
 };
-use spl_account_compression::{
+use mpl_account_compression::{
     events::{AccountCompressionEvent, ChangeLogEvent},
     state::PathNode,
 };

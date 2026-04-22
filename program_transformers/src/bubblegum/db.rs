@@ -19,7 +19,7 @@ use {
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
-    spl_account_compression::events::ChangeLogEventV1,
+    mpl_account_compression::events::ChangeLogEventV1,
     tracing::{debug, error, info},
 };
 

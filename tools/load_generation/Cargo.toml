@@ -10,8 +10,10 @@ fake = { workspace = true }
 mpl-token-metadata = { workspace = true }
 rand = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-program = { workspace = true }
 solana-sdk = { workspace = true }
+solana-system-interface = { workspace = true }
 spl-associated-token-account = { workspace = true, features = ["no-entrypoint"] }
 spl-token = { workspace = true, features = ["no-entrypoint"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -13,7 +13,7 @@ use flatbuffers::FlatBufferBuilder;
 use helpers::*;
 use plerkle_serialization::root_as_transaction_info;
 use rand::prelude::IteratorRandom;
-use spl_account_compression::events::{
+use mpl_account_compression::events::{
     AccountCompressionEvent::{self},
     ApplicationDataEvent, ApplicationDataEventV1, ChangeLogEvent, ChangeLogEventV1,
 };

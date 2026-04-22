@@ -14,8 +14,8 @@ use {
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
     },
+    solana_commitment_config::{CommitmentConfig, CommitmentLevel},
     solana_sdk::{
-        commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::Pubkey,
         signature::Signature,
     },

@@ -7,6 +7,7 @@ publish = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
+borsh = { workspace = true }
 bs58 = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 env_logger = { workspace = true }
@@ -23,6 +24,7 @@ reqwest = { workspace = true, features = ["json"] }
 serde_json = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-token = { workspace = true, features = ["no-entrypoint"] }

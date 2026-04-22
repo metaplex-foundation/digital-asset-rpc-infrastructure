@@ -11,8 +11,6 @@ use mpl_token_metadata::{
     },
     types::Key,
 };
-#[allow(deprecated)]
-use solana_sdk::borsh0_10::try_from_slice_unchecked;
 use solana_sdk::{pubkey::Pubkey, pubkeys};
 
 pubkeys!(
@@ -80,8 +78,7 @@ impl ProgramParser for TokenMetadataParser {
         let key = Key::try_from_slice(&account_data[0..1])?;
         let token_metadata_account_state = match key {
             Key::EditionV1 => {
-                #[allow(deprecated)]
-                let account: Edition = try_from_slice_unchecked(account_data)?;
+                let account: Edition = BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -89,8 +86,8 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::MasterEditionV1 => {
-                #[allow(deprecated)]
-                let account: DeprecatedMasterEditionV1 = try_from_slice_unchecked(account_data)?;
+                let account: DeprecatedMasterEditionV1 =
+                    BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -98,8 +95,8 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::MasterEditionV2 => {
-                #[allow(deprecated)]
-                let account: MasterEdition = try_from_slice_unchecked(account_data)?;
+                let account: MasterEdition =
+                    BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -107,8 +104,8 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::UseAuthorityRecord => {
-                #[allow(deprecated)]
-                let account: UseAuthorityRecord = try_from_slice_unchecked(account_data)?;
+                let account: UseAuthorityRecord =
+                    BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -116,8 +113,8 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::EditionMarker => {
-                #[allow(deprecated)]
-                let account: EditionMarker = try_from_slice_unchecked(account_data)?;
+                let account: EditionMarker =
+                    BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -125,8 +122,8 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::CollectionAuthorityRecord => {
-                #[allow(deprecated)]
-                let account: CollectionAuthorityRecord = try_from_slice_unchecked(account_data)?;
+                let account: CollectionAuthorityRecord =
+                    BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
