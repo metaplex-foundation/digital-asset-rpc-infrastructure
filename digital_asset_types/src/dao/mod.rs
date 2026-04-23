@@ -76,6 +76,9 @@ pub struct SearchAssetsQuery {
     pub json_uri: Option<String>,
     pub name: Option<Vec<u8>>,
     pub token_type: Option<TokenTypeClass>,
+    pub is_agent: Option<bool>,
+    pub agent_token: Option<Vec<u8>>,
+    pub asset_signer: Option<Vec<u8>>,
 }
 
 impl SearchAssetsQuery {
@@ -201,7 +204,18 @@ impl SearchAssetsQuery {
                 self.royalty_amount
                     .map(|x| asset::Column::RoyaltyAmount.eq(x)),
             )
-            .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)));
+            .add_option(self.burnt.map(|x| asset::Column::Burnt.eq(x)))
+            .add_option(self.is_agent.map(|x| asset::Column::IsAgent.eq(x)))
+            .add_option(
+                self.agent_token
+                    .to_owned()
+                    .map(|x| asset::Column::AgentToken.eq(x)),
+            )
+            .add_option(
+                self.asset_signer
+                    .to_owned()
+                    .map(|x| asset::Column::AssetSigner.eq(x)),
+            );
 
         if let Some(s) = self.supply {
             conditions = conditions.add(asset::Column::Supply.eq(s));

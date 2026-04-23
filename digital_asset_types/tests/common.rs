@@ -177,6 +177,10 @@ pub fn create_asset(
             asset_data_hash: None,
             bubblegum_flags: None,
             non_transferable: None,
+            is_agent: false,
+            agent_token: None,
+            asset_signer: None,
+            slot_updated_agent_registry: None,
         },
     )
 }

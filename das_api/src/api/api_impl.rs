@@ -404,6 +404,9 @@ impl ApiContract for DasApi {
             cursor,
             name,
             token_type,
+            is_agent,
+            agent_token,
+            asset_signer,
         } = payload;
 
         // Deserialize search assets query
@@ -423,6 +426,9 @@ impl ApiContract for DasApi {
         let authority_address = validate_opt_pubkey(&authority_address)?;
         let supply_mint = validate_opt_pubkey(&supply_mint)?;
         let royalty_target = validate_opt_pubkey(&royalty_target)?;
+
+        let agent_token = validate_opt_pubkey(&agent_token)?;
+        let asset_signer = validate_opt_pubkey(&asset_signer)?;
 
         let owner_type = owner_type.map(|x| match x {
             OwnershipModel::Single => OwnerType::Single,
@@ -458,6 +464,9 @@ impl ApiContract for DasApi {
             json_uri,
             name,
             token_type,
+            is_agent,
+            agent_token,
+            asset_signer,
         };
         let options = options.unwrap_or_default();
         let sort_by = sort_by.unwrap_or_default();

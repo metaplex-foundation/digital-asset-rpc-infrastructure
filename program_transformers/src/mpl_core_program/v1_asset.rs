@@ -10,10 +10,12 @@ use {
     },
     blockbuster::{
         mpl_core::{
-            types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
+            types::{
+                ExternalPluginAdapterType, Plugin, PluginAuthority, PluginType, UpdateAuthority,
+            },
             IndexableAsset,
         },
-        programs::mpl_core_program::MplCoreAccountData,
+        programs::mpl_core_program::{mpl_core_id, MplCoreAccountData},
     },
     digital_asset_types::{
         dao::{
@@ -96,6 +98,24 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             ),
         ),
         _ => return Err(ProgramTransformerError::NotImplemented),
+    };
+
+    let is_asset = matches!(account_data, MplCoreAccountData::Asset(_));
+
+    let is_agent = is_asset
+        && asset
+            .external_plugins
+            .iter()
+            .any(|ep| ep.r#type == ExternalPluginAdapterType::AgentIdentity);
+
+    let asset_signer_bytes = if is_asset {
+        let (pda, _) = Pubkey::find_program_address(
+            &[b"mpl-core-execute".as_ref(), id.as_ref()],
+            &mpl_core_id(),
+        );
+        Some(pda.to_bytes().to_vec())
+    } else {
+        None
     };
 
     //-----------------------
@@ -324,6 +344,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             mpl_core_plugins_json_version: Some(1),
             mpl_core_external_plugins: Some(external_plugins_json),
             mpl_core_unknown_external_plugins: unknown_external_plugins_json,
+            is_agent,
+            asset_signer: asset_signer_bytes,
         },
         &txn,
     )
@@ -383,39 +405,49 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
     .await?;
 
     //-----------------------
-    // asset_grouping table
+    // asset_grouping table — collection
+    //
+    // Always upsert a collection row, writing NULL when the asset is not in a
+    // collection.  This is necessary for out-of-order ingestion safety: a NULL
+    // row at a higher slot prevents a stale collection value from a lower slot
+    // from being accepted via the slot-gated ON CONFLICT clause.  The read
+    // side filters out NULL group_value rows for collection.
     //-----------------------
 
-    if let UpdateAuthority::Collection(address) = asset.update_authority {
-        let model = asset_grouping::ActiveModel {
-            asset_id: ActiveValue::Set(id_vec.clone()),
-            group_key: ActiveValue::Set("collection".to_string()),
-            group_value: ActiveValue::Set(Some(address.to_string())),
-            // Note all Core assets in a collection are verified.
-            verified: ActiveValue::Set(true),
-            group_info_seq: ActiveValue::Set(Some(0)),
-            slot_updated: ActiveValue::Set(Some(slot_i)),
-            ..Default::default()
+    let (collection_value, collection_verified) =
+        if let UpdateAuthority::Collection(address) = asset.update_authority {
+            (Some(address.to_string()), true)
+        } else {
+            (None, false)
         };
-        let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
 
-        query.sql = format!(
-            "{} ON CONFLICT (asset_id, group_key) \
-            WHERE group_key = 'collection' \
-            DO UPDATE SET \
-            group_value = EXCLUDED.group_value, \
-            verified = EXCLUDED.verified, \
-            slot_updated = EXCLUDED.slot_updated, \
-            group_info_seq = EXCLUDED.group_info_seq \
-            WHERE excluded.slot_updated >= asset_grouping.slot_updated \
-            OR asset_grouping.slot_updated IS NULL",
-            query.sql
-        );
+    let model = asset_grouping::ActiveModel {
+        asset_id: ActiveValue::Set(id_vec.clone()),
+        group_key: ActiveValue::Set("collection".to_string()),
+        group_value: ActiveValue::Set(collection_value),
+        verified: ActiveValue::Set(collection_verified),
+        group_info_seq: ActiveValue::Set(Some(0)),
+        slot_updated: ActiveValue::Set(Some(slot_i)),
+        ..Default::default()
+    };
+    let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
 
-        txn.execute(query)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-    }
+    query.sql = format!(
+        "{} ON CONFLICT (asset_id, group_key) \
+        WHERE group_key = 'collection' \
+        DO UPDATE SET \
+        group_value = EXCLUDED.group_value, \
+        verified = EXCLUDED.verified, \
+        slot_updated = EXCLUDED.slot_updated, \
+        group_info_seq = EXCLUDED.group_info_seq \
+        WHERE excluded.slot_updated >= asset_grouping.slot_updated \
+        OR asset_grouping.slot_updated IS NULL",
+        query.sql
+    );
+
+    txn.execute(query)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     //-----------------------
     // creators table

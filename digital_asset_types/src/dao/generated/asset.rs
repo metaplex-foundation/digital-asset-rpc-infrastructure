@@ -62,6 +62,10 @@ pub struct Model {
     pub asset_data_hash: Option<String>,
     pub bubblegum_flags: Option<i16>,
     pub non_transferable: Option<bool>,
+    pub is_agent: bool,
+    pub agent_token: Option<Vec<u8>>,
+    pub asset_signer: Option<Vec<u8>>,
+    pub slot_updated_agent_registry: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
@@ -110,6 +114,10 @@ pub enum Column {
     AssetDataHash,
     BubblegumFlags,
     NonTransferable,
+    IsAgent,
+    AgentToken,
+    AssetSigner,
+    SlotUpdatedAgentRegistry,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -175,6 +183,10 @@ impl ColumnTrait for Column {
             Self::AssetDataHash => ColumnType::Char(Some(50u32)).def().null(),
             Self::BubblegumFlags => ColumnType::SmallInteger.def().null(),
             Self::NonTransferable => ColumnType::Boolean.def().null(),
+            Self::IsAgent => ColumnType::Boolean.def(),
+            Self::AgentToken => ColumnType::Binary.def().null(),
+            Self::AssetSigner => ColumnType::Binary.def().null(),
+            Self::SlotUpdatedAgentRegistry => ColumnType::BigInteger.def().null(),
         }
     }
 }
