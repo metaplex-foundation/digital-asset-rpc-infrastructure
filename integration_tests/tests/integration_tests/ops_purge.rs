@@ -31,7 +31,7 @@ fn system_program_account() -> UiAccount {
     UiAccount {
         lamports: 0,
         data: UiAccountData::LegacyBinary("".to_string()),
-        owner: solana_sdk::system_program::id().to_string(),
+        owner: solana_system_interface::program::id().to_string(),
         executable: false,
         rent_epoch: 0,
         space: Some(0),

@@ -3304,6 +3304,7 @@ dependencies = [
  "solana-client",
  "solana-commitment-config",
  "solana-sdk",
+ "solana-system-interface 3.2.0",
  "solana-transaction-status",
  "spl-token",
  "sqlx",
