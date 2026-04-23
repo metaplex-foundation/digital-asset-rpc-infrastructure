@@ -12,11 +12,7 @@ use solana_client::{
     rpc_filter::RpcFilterType,
 };
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
-use solana_sdk::{
-    account::Account,
-    pubkey::Pubkey,
-    signature::Signature,
-};
+use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta;
 use solana_transaction_status::UiTransactionEncoding;
 use std::sync::Arc;

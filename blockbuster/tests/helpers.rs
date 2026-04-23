@@ -1,10 +1,14 @@
 // Workaround since this module is only used for testing.
 #![allow(dead_code)]
+use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfo;
 use blockbuster::{
     error::BlockbusterError,
     instruction::{InstructionBundle, IxPair},
 };
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
+use mpl_account_compression::events::{
+    AccountCompressionEvent, ApplicationDataEvent, ApplicationDataEventV1,
+};
 use mpl_bubblegum::LeafSchemaEvent;
 use plerkle_serialization::{
     root_as_account_info, root_as_compiled_instruction,
@@ -13,14 +17,10 @@ use plerkle_serialization::{
     InnerInstructionsBuilder, Pubkey as FBPubkey, TransactionInfo, TransactionInfoBuilder,
 };
 use rand::Rng;
-use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfo;
 use solana_message::compiled_instruction::CompiledInstruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{
     EncodedConfirmedTransactionWithStatusMeta, InnerInstruction, InnerInstructions,
-};
-use mpl_account_compression::events::{
-    AccountCompressionEvent, ApplicationDataEvent, ApplicationDataEventV1,
 };
 use std::{fs::File, io::BufReader};
 

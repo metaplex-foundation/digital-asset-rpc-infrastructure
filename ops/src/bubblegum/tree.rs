@@ -3,19 +3,20 @@ use borsh::BorshDeserialize;
 use clap::Args;
 use das_core::{QueuePoolError, Rpc};
 use log::error;
+use mpl_account_compression::state::{
+    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+};
 use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, Statement, Value};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
 use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
-use mpl_account_compression::state::{
-    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-};
 use std::str::FromStr;
 use thiserror::Error as ThisError;
 use tokio::sync::mpsc::Sender;
 
 /// SPL Account Compression program ID -- `cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK`.
-const SPL_ACCOUNT_COMPRESSION_ID: Pubkey = solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
+const SPL_ACCOUNT_COMPRESSION_ID: Pubkey =
+    solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
 
 const GET_SIGNATURES_FOR_ADDRESS_LIMIT: usize = 1000;
 

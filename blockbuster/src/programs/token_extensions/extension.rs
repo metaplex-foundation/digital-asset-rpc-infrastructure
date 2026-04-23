@@ -1,11 +1,11 @@
 use bytemuck::Zeroable;
 use serde::{Deserialize, Serialize};
-use spl_token_2022::solana_zk_sdk::encryption::pod::{
-    auth_encryption::PodAeCiphertext, elgamal::PodElGamalCiphertext, elgamal::PodElGamalPubkey,
-};
 use spl_pod::{
     optional_keys::{OptionalNonZeroElGamalPubkey, OptionalNonZeroPubkey},
     primitives::{PodBool, PodI64, PodU16, PodU64},
+};
+use spl_token_2022::solana_zk_sdk::encryption::pod::{
+    auth_encryption::PodAeCiphertext, elgamal::PodElGamalCiphertext, elgamal::PodElGamalPubkey,
 };
 
 use spl_token_2022::extension::{

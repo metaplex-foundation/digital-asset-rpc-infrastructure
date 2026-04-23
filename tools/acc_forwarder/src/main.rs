@@ -18,11 +18,7 @@ use {
         rpc_response::{Response as RpcResponse, RpcTokenAccountBalance},
     },
     solana_commitment_config::{CommitmentConfig, CommitmentLevel},
-    solana_sdk::{
-        account::Account,
-        pubkey::Pubkey,
-        signature::Signature,
-    },
+    solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature},
     solana_transaction_status::{
         EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction, UiInstruction, UiMessage,
         UiParsedInstruction, UiTransactionEncoding,

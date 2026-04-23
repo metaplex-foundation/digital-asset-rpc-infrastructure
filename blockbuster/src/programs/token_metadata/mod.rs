@@ -95,8 +95,7 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::MasterEditionV2 => {
-                let account: MasterEdition =
-                    BorshDeserialize::deserialize(&mut &account_data[..])?;
+                let account: MasterEdition = BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,
@@ -113,8 +112,7 @@ impl ProgramParser for TokenMetadataParser {
                 }
             }
             Key::EditionMarker => {
-                let account: EditionMarker =
-                    BorshDeserialize::deserialize(&mut &account_data[..])?;
+                let account: EditionMarker = BorshDeserialize::deserialize(&mut &account_data[..])?;
 
                 TokenMetadataAccountState {
                     key: account.key,

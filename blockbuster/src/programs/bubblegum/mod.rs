@@ -235,7 +235,6 @@ fn get_bubblegum_leaf_schema_event(app_data: Vec<u8>) -> Result<LeafSchemaEvent,
     }
 }
 
-
 // See Bubblegum documentation for offsets and positions:
 // https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum/README.md#-verify_creator-and-unverify_creator
 fn build_creator_verification_payload(

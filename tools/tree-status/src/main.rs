@@ -8,6 +8,12 @@ use {
         stream::{self, StreamExt},
     },
     log::{debug, error, info},
+    mpl_account_compression::{
+        state::{
+            merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+        },
+        AccountCompressionEvent, ChangeLogEvent,
+    },
     prometheus::{IntGauge, IntGaugeVec, Opts, Registry},
     sea_orm::{
         sea_query::{Expr, Value},
@@ -27,12 +33,6 @@ use {
     solana_transaction_status::{
         option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
         UiTransactionEncoding, UiTransactionStatusMeta,
-    },
-    mpl_account_compression::{
-        state::{
-            merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-        },
-        AccountCompressionEvent, ChangeLogEvent,
     },
     sqlx::postgres::{PgConnectOptions, PgPoolOptions},
     std::{
@@ -56,7 +56,8 @@ use {
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
 
-const SPL_NOOP_ID: solana_sdk::pubkey::Pubkey = solana_sdk::pubkey!("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV");
+const SPL_NOOP_ID: solana_sdk::pubkey::Pubkey =
+    solana_sdk::pubkey!("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV");
 
 lazy_static::lazy_static! {
     pub static ref TREE_STATUS_MAX_SEQ: IntGaugeVec = IntGaugeVec::new(

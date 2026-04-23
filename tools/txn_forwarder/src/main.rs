@@ -15,10 +15,7 @@ use {
         rpc_request::RpcRequest,
     },
     solana_commitment_config::{CommitmentConfig, CommitmentLevel},
-    solana_sdk::{
-        pubkey::Pubkey,
-        signature::Signature,
-    },
+    solana_sdk::{pubkey::Pubkey, signature::Signature},
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     std::{
         collections::{BTreeMap, HashMap},

@@ -1,6 +1,7 @@
 use {
     borsh::BorshDeserialize,
     clap::Parser,
+    mpl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData},
     solana_account_decoder::UiAccountEncoding,
     solana_client::{
         nonblocking::rpc_client::RpcClient,
@@ -12,11 +13,11 @@ use {
         account::Account,
         pubkey::{Pubkey, PUBKEY_BYTES},
     },
-    mpl_account_compression::state::{ConcurrentMerkleTreeHeader, ConcurrentMerkleTreeHeaderData},
 };
 
 /// SPL Account Compression program ID -- `cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK`.
-const SPL_ACCOUNT_COMPRESSION_ID: Pubkey = solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
+const SPL_ACCOUNT_COMPRESSION_ID: Pubkey =
+    solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
 
 #[derive(Debug, Parser)]
 struct Args {
