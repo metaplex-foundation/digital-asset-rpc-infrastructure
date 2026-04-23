@@ -10,10 +10,12 @@ use {
     },
     blockbuster::{
         mpl_core::{
-            types::{Plugin, PluginAuthority, PluginType, UpdateAuthority},
+            types::{
+                ExternalPluginAdapterType, Plugin, PluginAuthority, PluginType, UpdateAuthority,
+            },
             IndexableAsset,
         },
-        programs::mpl_core_program::MplCoreAccountData,
+        programs::mpl_core_program::{mpl_core_id, MplCoreAccountData},
     },
     digital_asset_types::{
         dao::{
@@ -96,6 +98,24 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             ),
         ),
         _ => return Err(ProgramTransformerError::NotImplemented),
+    };
+
+    let is_asset = matches!(account_data, MplCoreAccountData::Asset(_));
+
+    let is_agent = is_asset
+        && asset
+            .external_plugins
+            .iter()
+            .any(|ep| ep.r#type == ExternalPluginAdapterType::AgentIdentity);
+
+    let asset_signer_bytes = if is_asset {
+        let (pda, _) = Pubkey::find_program_address(
+            &[b"mpl-core-execute".as_ref(), id.as_ref()],
+            &mpl_core_id(),
+        );
+        Some(pda.to_bytes().to_vec())
+    } else {
+        None
     };
 
     //-----------------------
@@ -324,6 +344,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             mpl_core_plugins_json_version: Some(1),
             mpl_core_external_plugins: Some(external_plugins_json),
             mpl_core_unknown_external_plugins: unknown_external_plugins_json,
+            is_agent,
+            asset_signer: asset_signer_bytes,
         },
         &txn,
     )

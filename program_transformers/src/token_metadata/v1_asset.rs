@@ -284,6 +284,8 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
             mpl_core_plugins_json_version: None,
             mpl_core_external_plugins: None,
             mpl_core_unknown_external_plugins: None,
+            is_agent: false,
+            asset_signer: None,
         },
         &txn,
     )

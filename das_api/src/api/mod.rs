@@ -126,6 +126,12 @@ pub struct SearchAssets {
     #[serde(default)]
     pub name: Option<String>,
     pub token_type: Option<TokenTypeClass>,
+    #[serde(default, alias = "isAgent")]
+    pub is_agent: Option<bool>,
+    #[serde(default, alias = "agentToken")]
+    pub agent_token: Option<String>,
+    #[serde(default, alias = "assetSigner")]
+    pub asset_signer: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
