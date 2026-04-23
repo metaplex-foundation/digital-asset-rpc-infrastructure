@@ -27,7 +27,7 @@ impl ParseResult for TokenProgramEntity {
     {
         self
     }
-    fn result_type(&self) -> ProgramParseResult {
+    fn result_type(&'_ self) -> ProgramParseResult<'_> {
         ProgramParseResult::TokenProgramEntity(self)
     }
 }

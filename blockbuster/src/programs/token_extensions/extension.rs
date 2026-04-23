@@ -35,7 +35,7 @@ pub type UnixTimestamp = PodI64;
 /// But,
 /// - We currently store them in DB as JSONB.
 /// - `Pubkey` serializes to an u8 vector, unlike sth like `OptionalNonZeroElGamalPubkey` which serializes to a string.
-///    So `Pubkey` is stored as a u8 vector in the DB.
+///   So `Pubkey` is stored as a u8 vector in the DB.
 /// - `Pubkey` doesn't implement something like `schemars::JsonSchema` so we can't convert them back to the rust struct either.
 type PublicKeyString = String;
 

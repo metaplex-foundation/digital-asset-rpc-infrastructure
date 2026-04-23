@@ -27,6 +27,7 @@ struct Args {
 }
 
 #[tokio::main]
+#[allow(deprecated)]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 

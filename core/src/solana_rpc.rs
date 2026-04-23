@@ -83,6 +83,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_account(
         &self,
         pubkey: &Pubkey,
@@ -108,6 +109,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_program_accounts(
         &self,
         program: &Pubkey,
@@ -137,6 +139,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_multiple_accounts(
         &self,
         pubkeys: &[Pubkey],

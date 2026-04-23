@@ -72,7 +72,7 @@ impl BubblegumInstruction {
 }
 
 impl ParseResult for BubblegumInstruction {
-    fn result_type(&self) -> ProgramParseResult {
+    fn result_type(&'_ self) -> ProgramParseResult<'_> {
         ProgramParseResult::Bubblegum(self)
     }
     fn result(&self) -> &Self

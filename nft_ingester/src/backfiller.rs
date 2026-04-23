@@ -452,7 +452,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         }
     }
 
-    fn reset_delay(&mut self) {
+    const fn reset_delay(&mut self) {
         self.failure_delay = INITIAL_FAILURE_DELAY;
     }
 
@@ -724,6 +724,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .await
     }
 
+    #[allow(deprecated)]
     async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, SlotSeq>, IngesterError> {
         let config = RpcProgramAccountsConfig {
             filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(

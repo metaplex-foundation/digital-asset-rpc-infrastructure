@@ -4,7 +4,7 @@ use crate::{
 use solana_sdk::pubkey::Pubkey;
 
 pub trait ParseResult: Sync + Send {
-    fn result_type(&self) -> ProgramParseResult;
+    fn result_type(&'_ self) -> ProgramParseResult<'_>;
 
     fn result(&self) -> &Self
     where
@@ -29,7 +29,7 @@ impl Default for NotUsed {
 }
 
 impl ParseResult for NotUsed {
-    fn result_type(&self) -> ProgramParseResult {
+    fn result_type(&'_ self) -> ProgramParseResult<'_> {
         ProgramParseResult::Unknown
     }
 }

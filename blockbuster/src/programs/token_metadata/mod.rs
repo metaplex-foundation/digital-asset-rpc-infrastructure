@@ -42,7 +42,7 @@ impl ParseResult for TokenMetadataAccountState {
     {
         self
     }
-    fn result_type(&self) -> ProgramParseResult {
+    fn result_type(&'_ self) -> ProgramParseResult<'_> {
         ProgramParseResult::TokenMetadata(self)
     }
 }
