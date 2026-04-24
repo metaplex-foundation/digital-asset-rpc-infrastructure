@@ -403,7 +403,65 @@ async fn test_collection_reassignment() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 6: Token Metadata asset with collection cleared
+// Test 6: searchAssets with grouping filter excludes removed asset
+//
+// Same scenario as test 4, but exercises the searchAssets query path
+// instead of getAssetsByGroup.
+// ---------------------------------------------------------------------------
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_search_assets_grouping_excludes_removed() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+
+    let collection_pk = Pubkey::try_from(COLLECTION).unwrap();
+    let asset1_pk = Pubkey::try_from(ASSET_IN_COLLECTION_1).unwrap();
+    let asset2_pk = Pubkey::try_from(ASSET_IN_COLLECTION_2).unwrap();
+    let standalone_pk = Pubkey::try_from(STANDALONE_ASSET).unwrap();
+
+    // Index collection + both assets.
+    let seeds: Vec<SeedEvent> = seed_accounts([COLLECTION]);
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    index_account_data_as(&setup, asset1_pk, asset1_pk, DEFAULT_SLOT).await;
+    index_account_data_as(&setup, asset2_pk, asset2_pk, DEFAULT_SLOT).await;
+
+    // Remove asset-1.
+    index_account_data_as(&setup, asset1_pk, standalone_pk, DEFAULT_SLOT + 1).await;
+
+    let response = setup
+        .das_api
+        .search_assets(api::SearchAssets {
+            grouping: Some(("collection".to_string(), collection_pk.to_string())),
+            page: Some(1),
+            limit: Some(10),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+    let ids: Vec<&str> = response.items.iter().map(|a| a.id.as_str()).collect();
+
+    assert!(
+        !ids.contains(&asset1_pk.to_string().as_str()),
+        "removed asset must not appear in searchAssets with grouping filter"
+    );
+    assert!(
+        ids.contains(&asset2_pk.to_string().as_str()),
+        "remaining asset must still appear in searchAssets with grouping filter"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 7: Token Metadata asset with collection cleared
 //
 // Uses a real mainnet NFT.  Fetch its metadata, clear the collection field,
 // re-serialize, and feed at a higher slot.  getAsset should no longer show
@@ -482,7 +540,7 @@ async fn test_token_metadata_collection_cleared() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 7: getGrouping count for Token Metadata after collection removal
+// Test 8: getGrouping count for Token Metadata after collection removal
 //
 // Index two TM NFTs in the same collection, clear the collection on one,
 // verify getGrouping count drops from 2 to 1.
