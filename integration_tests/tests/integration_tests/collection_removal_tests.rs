@@ -10,27 +10,17 @@ use solana_sdk::pubkey::Pubkey;
 
 use super::common::*;
 
-// ---------------------------------------------------------------------------
-// Devnet mpl-core assets created by:
-//   NEW_SCRIPTS/mpl-core/clients/js/create-collection-removal-test-assets.ts
-// ---------------------------------------------------------------------------
+// Devnet mpl-core assets for collection removal tests.
 const COLLECTION: &str = "3SGtviz5v4646TX5mwbgzsoqXgGW8DcSaBPPzWvyqUK5";
 const ASSET_IN_COLLECTION_1: &str = "2w98yzs35WvGUiTvHNrUXZbVSgF2Fp1QgoYjstELhhFM";
 const ASSET_IN_COLLECTION_2: &str = "FZTh4XVjWEM2pQw54faJ59oQJKhDbNv89GtjZDvSj5rj";
 const STANDALONE_ASSET: &str = "dSMRsKXttKhs38bYWQzinmZ5t9apH1a8BkuSaTf5jvf";
 
 // Second devnet mpl-core collection for re-assignment test.
-// Created by an updated version of the same script above.
-// TODO: Replace with real addresses after running the script.
 const COLLECTION_B: &str = "9A4XhWZHdP53m9qGNSQmf5Kba4sQ7XCLW4uZrEu5j2S2";
 const ASSET_IN_COLLECTION_B: &str = "HGqBXv6VEQiTmzUAaddrECesyQVXcVmz4zrdM4tydWsW";
 
-// ---------------------------------------------------------------------------
-// Devnet Token Metadata NFTs with verified collection, created by:
-//   mpl-token-metadata/clients/js/create-devnet-collection-nft.ts
-//
-// TODO: Replace with real addresses after running the script.
-// ---------------------------------------------------------------------------
+// Devnet Token Metadata NFTs with verified collection.
 const TM_COLLECTION_MINT: &str = "FaFYizXaqjWqHSgRSBdwSt8ee1R7MhvRrYebZVQZLPyJ";
 const TM_NFT_MINT: &str = "6YidxdwZRjA8zdXNp4hXTUTGH7eiLBKox6oAHKRmgVwH";
 const TM_NFT_MINT_2: &str = "8V2JKybMgkzgxocYdiWXcFg9fbVhtUNTrN5YCyuVJvsd";
