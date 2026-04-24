@@ -520,6 +520,10 @@ async fn test_search_assets_agent_filters() {
         ids.contains(&plain_pk.to_string().as_str()),
         "isAgent=false must include the plain asset"
     );
+    assert!(
+        !ids.contains(&agent_pk.to_string().as_str()),
+        "isAgent=false must exclude the agent asset"
+    );
 
     // --- Filter: agentToken ---
     let response = setup

@@ -2,6 +2,8 @@
 //!
 //! Layout matches `AgentIdentityV1` / `AgentIdentityV2` in `mpl-agent-identity`
 //! (`Key` discriminator at byte 0, `asset` at bytes 8..40, optional mint at 40..72 for V2).
+//!
+//! Upstream: <https://github.com/metaplex-foundation/mpl-agent/tree/main/programs/mpl-agent-identity/src/state>
 
 use solana_sdk::{pubkey::Pubkey, pubkeys};
 
