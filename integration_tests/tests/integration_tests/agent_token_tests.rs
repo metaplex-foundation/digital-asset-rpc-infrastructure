@@ -12,6 +12,16 @@ use std::str::FromStr;
 
 use super::common::*;
 
+// AgentIdentity PDA layout constants (mirrors mpl-agent-identity on-chain layout).
+const KEY_AGENT_IDENTITY_V1: u8 = 1;
+const KEY_AGENT_IDENTITY_V2: u8 = 2;
+const AGENT_IDENTITY_V1_LEN: usize = 40;
+const AGENT_IDENTITY_V2_LEN: usize = 104;
+const ASSET_PUBKEY_OFFSET: usize = 8;
+const ASSET_PUBKEY_END: usize = ASSET_PUBKEY_OFFSET + 32;
+const AGENT_TOKEN_MINT_OFFSET: usize = ASSET_PUBKEY_END;
+const AGENT_TOKEN_MINT_END: usize = AGENT_TOKEN_MINT_OFFSET + 32;
+
 // ---------------------------------------------------------------------------
 // Devnet Core asset WITH the AgentIdentity external plugin + AgentIdentityV2 PDA.
 // Created by: mpl-agent/clients/js/create-agent-test-assets.ts
@@ -60,15 +70,13 @@ async fn index_fabricated_agent_registry_v2(
         &agent_registry_program,
     );
 
-    let mut data = vec![0u8; 104];
-    data[0] = 2; // KEY_AGENT_IDENTITY_V2
+    let mut data = vec![0u8; AGENT_IDENTITY_V2_LEN];
+    data[0] = KEY_AGENT_IDENTITY_V2;
     data[1] = bump;
-    // bytes 2..8 = padding (zeros)
-    data[8..40].copy_from_slice(asset_pubkey.as_ref());
+    data[ASSET_PUBKEY_OFFSET..ASSET_PUBKEY_END].copy_from_slice(asset_pubkey.as_ref());
     if let Some(mint) = agent_token_mint {
-        data[40..72].copy_from_slice(mint.as_ref());
+        data[AGENT_TOKEN_MINT_OFFSET..AGENT_TOKEN_MINT_END].copy_from_slice(mint.as_ref());
     }
-    // bytes 72..104 = reserved (zeros)
 
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let account_info = ReplicaAccountInfoV2 {
@@ -95,11 +103,10 @@ async fn index_fabricated_agent_registry_v1(setup: &TestSetup, asset_pubkey: &Pu
         &agent_registry_program,
     );
 
-    let mut data = vec![0u8; 40];
-    data[0] = 1; // KEY_AGENT_IDENTITY_V1
+    let mut data = vec![0u8; AGENT_IDENTITY_V1_LEN];
+    data[0] = KEY_AGENT_IDENTITY_V1;
     data[1] = bump;
-    // bytes 2..8 = padding (zeros)
-    data[8..40].copy_from_slice(asset_pubkey.as_ref());
+    data[ASSET_PUBKEY_OFFSET..ASSET_PUBKEY_END].copy_from_slice(asset_pubkey.as_ref());
 
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let account_info = ReplicaAccountInfoV2 {
@@ -446,6 +453,79 @@ async fn test_burnt_asset_ignores_agent_registry() {
     assert!(
         row.slot_updated_agent_registry.is_none(),
         "slot_updated_agent_registry must not be set on a burnt asset"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 6b: Stale-slot agent registry update is ignored
+//
+// If an agent registry PDA is indexed at a higher slot and then a stale
+// (lower-slot) update arrives, the newer data must be preserved.
+// ---------------------------------------------------------------------------
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_stale_slot_agent_registry_update_ignored() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+
+    let asset_pk = Pubkey::from_str(AGENT_CORE_ASSET).unwrap();
+    let asset_id = asset_pk.to_bytes().to_vec();
+
+    // Index the Core asset so the row exists.
+    let seeds: Vec<SeedEvent> = seed_accounts([AGENT_CORE_ASSET]);
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    // Apply a V2 agent registry update at a high slot with a token mint.
+    let fake_token_mint = Pubkey::from_str(FAKE_TOKEN_MINT).unwrap();
+    index_fabricated_agent_registry_v2(
+        &setup,
+        &asset_pk,
+        Some(&fake_token_mint),
+        DEFAULT_SLOT + 10,
+    )
+    .await;
+
+    // Record the values written by the high-slot update.
+    let row_before = asset::Entity::find_by_id(asset_id.clone())
+        .one(setup.db.as_ref())
+        .await
+        .unwrap()
+        .expect("asset row must exist");
+
+    assert_eq!(
+        row_before.agent_token,
+        Some(fake_token_mint.to_bytes().to_vec()),
+    );
+    assert_eq!(
+        row_before.slot_updated_agent_registry,
+        Some(DEFAULT_SLOT as i64 + 10),
+    );
+
+    // Replay a stale V1 update at a lower slot (no token mint).
+    index_fabricated_agent_registry_v1(&setup, &asset_pk, DEFAULT_SLOT + 1).await;
+
+    // Verify the newer data was preserved.
+    let row_after = asset::Entity::find_by_id(asset_id)
+        .one(setup.db.as_ref())
+        .await
+        .unwrap()
+        .expect("asset row must exist");
+
+    assert_eq!(
+        row_after.agent_token, row_before.agent_token,
+        "stale update must not overwrite agent_token"
+    );
+    assert_eq!(
+        row_after.slot_updated_agent_registry, row_before.slot_updated_agent_registry,
+        "stale update must not overwrite slot_updated_agent_registry"
     );
 }
 
