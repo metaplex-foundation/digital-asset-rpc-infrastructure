@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 303
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "MplCoreCollection",
@@ -79,5 +79,6 @@ snapshot_kind: text
         ]
       }
     }
-  ]
+  ],
+  "is_agent": false
 }
