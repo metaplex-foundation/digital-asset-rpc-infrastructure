@@ -4,7 +4,7 @@ use {
         find_model_with_retry,
     },
     blockbuster::programs::agent_registry::AgentRegistryAccount,
-    digital_asset_types::dao::asset,
+    digital_asset_types::dao::{asset, sea_orm_active_enums::SpecificationAssetClass},
     sea_orm::{
         entity::{ColumnTrait, EntityTrait},
         sea_query::Expr,
@@ -58,6 +58,7 @@ pub async fn handle_agent_registry_account<T: ConnectionTrait + TransactionTrait
         .col_expr(asset::Column::SlotUpdatedAgentRegistry, Expr::value(slot_i))
         .filter(asset::Column::Id.eq(asset_id))
         .filter(asset::Column::Burnt.eq(false))
+        .filter(asset::Column::SpecificationAssetClass.eq(SpecificationAssetClass::MplCoreAsset))
         .filter(
             asset::Column::SlotUpdatedAgentRegistry
                 .is_null()
