@@ -1,4 +1,3 @@
-use blockbuster::programs::agent_registry::{KEY_AGENT_IDENTITY_V1, KEY_AGENT_IDENTITY_V2};
 use das_api::api::{self, ApiContract};
 use digital_asset_types::dao::asset;
 use function_name::named;
@@ -14,6 +13,8 @@ use std::str::FromStr;
 use super::common::*;
 
 // AgentIdentity PDA layout constants (mirrors mpl-agent-identity on-chain layout).
+const KEY_AGENT_IDENTITY_V1: u8 = 1;
+const KEY_AGENT_IDENTITY_V2: u8 = 2;
 const AGENT_IDENTITY_V1_LEN: usize = 40;
 const AGENT_IDENTITY_V2_LEN: usize = 104;
 const ASSET_PUBKEY_OFFSET: usize = 8;
