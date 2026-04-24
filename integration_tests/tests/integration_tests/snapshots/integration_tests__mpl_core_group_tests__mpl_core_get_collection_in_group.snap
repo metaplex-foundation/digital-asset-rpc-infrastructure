@@ -78,5 +78,6 @@ expression: response
     "current_size": 0,
     "plugins_json_version": 1
   },
-  "external_plugins": []
+  "external_plugins": [],
+  "is_agent": false
 }

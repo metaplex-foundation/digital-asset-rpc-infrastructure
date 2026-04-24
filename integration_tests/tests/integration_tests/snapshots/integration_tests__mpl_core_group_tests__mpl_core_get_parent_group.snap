@@ -57,5 +57,6 @@ expression: response
   "mpl_core_info": {
     "plugins_json_version": 1
   },
-  "external_plugins": []
+  "external_plugins": [],
+  "is_agent": false
 }

@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 458
 expression: response
-snapshot_kind: text
 ---
 {
   "interface": "MplCoreAsset",
@@ -147,5 +147,7 @@ snapshot_kind: text
         ]
       }
     }
-  ]
+  ],
+  "is_agent": false,
+  "asset_signer": "34nVdbC68ez6F4icmTtXv6RcidtDff8Wwuc7r2TyWVH4"
 }

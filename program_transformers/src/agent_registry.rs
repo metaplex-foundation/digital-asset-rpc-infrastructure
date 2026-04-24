@@ -57,6 +57,7 @@ pub async fn handle_agent_registry_account<T: ConnectionTrait + TransactionTrait
         .col_expr(asset::Column::AgentToken, Expr::value(agent_token_bytes))
         .col_expr(asset::Column::SlotUpdatedAgentRegistry, Expr::value(slot_i))
         .filter(asset::Column::Id.eq(asset_id))
+        .filter(asset::Column::Burnt.eq(false))
         .filter(
             asset::Column::SlotUpdatedAgentRegistry
                 .is_null()

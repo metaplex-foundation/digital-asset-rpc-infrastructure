@@ -1,7 +1,7 @@
 ---
 source: integration_tests/tests/integration_tests/mpl_core_tests.rs
+assertion_line: 429
 expression: response
-snapshot_kind: text
 ---
 {
   "total": 1,
@@ -124,7 +124,9 @@ snapshot_kind: text
             ]
           }
         }
-      ]
+      ],
+      "is_agent": false,
+      "asset_signer": "8K6GCah36Dri7wNbS7p9KprHpe6theoE697Ch1Rk8JBw"
     }
   ]
 }
