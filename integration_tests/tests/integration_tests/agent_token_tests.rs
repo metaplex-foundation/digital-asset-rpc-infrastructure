@@ -1,3 +1,4 @@
+use blockbuster::programs::agent_registry::{KEY_AGENT_IDENTITY_V1, KEY_AGENT_IDENTITY_V2};
 use das_api::api::{self, ApiContract};
 use digital_asset_types::dao::asset;
 use function_name::named;
@@ -11,6 +12,14 @@ use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
 use super::common::*;
+
+// AgentIdentity PDA layout constants (mirrors mpl-agent-identity on-chain layout).
+const AGENT_IDENTITY_V1_LEN: usize = 40;
+const AGENT_IDENTITY_V2_LEN: usize = 104;
+const ASSET_PUBKEY_OFFSET: usize = 8;
+const ASSET_PUBKEY_END: usize = ASSET_PUBKEY_OFFSET + 32;
+const AGENT_TOKEN_MINT_OFFSET: usize = ASSET_PUBKEY_END;
+const AGENT_TOKEN_MINT_END: usize = AGENT_TOKEN_MINT_OFFSET + 32;
 
 // ---------------------------------------------------------------------------
 // Devnet Core asset WITH the AgentIdentity external plugin + AgentIdentityV2 PDA.
@@ -60,15 +69,13 @@ async fn index_fabricated_agent_registry_v2(
         &agent_registry_program,
     );
 
-    let mut data = vec![0u8; 104];
-    data[0] = 2; // KEY_AGENT_IDENTITY_V2
+    let mut data = vec![0u8; AGENT_IDENTITY_V2_LEN];
+    data[0] = KEY_AGENT_IDENTITY_V2;
     data[1] = bump;
-    // bytes 2..8 = padding (zeros)
-    data[8..40].copy_from_slice(asset_pubkey.as_ref());
+    data[ASSET_PUBKEY_OFFSET..ASSET_PUBKEY_END].copy_from_slice(asset_pubkey.as_ref());
     if let Some(mint) = agent_token_mint {
-        data[40..72].copy_from_slice(mint.as_ref());
+        data[AGENT_TOKEN_MINT_OFFSET..AGENT_TOKEN_MINT_END].copy_from_slice(mint.as_ref());
     }
-    // bytes 72..104 = reserved (zeros)
 
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let account_info = ReplicaAccountInfoV2 {
@@ -95,11 +102,10 @@ async fn index_fabricated_agent_registry_v1(setup: &TestSetup, asset_pubkey: &Pu
         &agent_registry_program,
     );
 
-    let mut data = vec![0u8; 40];
-    data[0] = 1; // KEY_AGENT_IDENTITY_V1
+    let mut data = vec![0u8; AGENT_IDENTITY_V1_LEN];
+    data[0] = KEY_AGENT_IDENTITY_V1;
     data[1] = bump;
-    // bytes 2..8 = padding (zeros)
-    data[8..40].copy_from_slice(asset_pubkey.as_ref());
+    data[ASSET_PUBKEY_OFFSET..ASSET_PUBKEY_END].copy_from_slice(asset_pubkey.as_ref());
 
     let fbb = flatbuffers::FlatBufferBuilder::new();
     let account_info = ReplicaAccountInfoV2 {
