@@ -457,6 +457,79 @@ async fn test_burnt_asset_ignores_agent_registry() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 6b: Stale-slot agent registry update is ignored
+//
+// If an agent registry PDA is indexed at a higher slot and then a stale
+// (lower-slot) update arrives, the newer data must be preserved.
+// ---------------------------------------------------------------------------
+#[tokio::test]
+#[serial]
+#[named]
+async fn test_stale_slot_agent_registry_update_ignored() {
+    let name = trim_test_name(function_name!());
+    let setup = TestSetup::new_with_options(
+        name.clone(),
+        TestSetupOptions {
+            network: Some(Network::Devnet),
+        },
+    )
+    .await;
+    apply_migrations_and_delete_data(setup.db.clone()).await;
+
+    let asset_pk = Pubkey::from_str(AGENT_CORE_ASSET).unwrap();
+    let asset_id = asset_pk.to_bytes().to_vec();
+
+    // Index the Core asset so the row exists.
+    let seeds: Vec<SeedEvent> = seed_accounts([AGENT_CORE_ASSET]);
+    index_seed_events(&setup, seeds.iter().collect_vec()).await;
+
+    // Apply a V2 agent registry update at a high slot with a token mint.
+    let fake_token_mint = Pubkey::from_str(FAKE_TOKEN_MINT).unwrap();
+    index_fabricated_agent_registry_v2(
+        &setup,
+        &asset_pk,
+        Some(&fake_token_mint),
+        DEFAULT_SLOT + 10,
+    )
+    .await;
+
+    // Record the values written by the high-slot update.
+    let row_before = asset::Entity::find_by_id(asset_id.clone())
+        .one(setup.db.as_ref())
+        .await
+        .unwrap()
+        .expect("asset row must exist");
+
+    assert_eq!(
+        row_before.agent_token,
+        Some(fake_token_mint.to_bytes().to_vec()),
+    );
+    assert_eq!(
+        row_before.slot_updated_agent_registry,
+        Some(DEFAULT_SLOT as i64 + 10),
+    );
+
+    // Replay a stale V1 update at a lower slot (no token mint).
+    index_fabricated_agent_registry_v1(&setup, &asset_pk, DEFAULT_SLOT + 1).await;
+
+    // Verify the newer data was preserved.
+    let row_after = asset::Entity::find_by_id(asset_id)
+        .one(setup.db.as_ref())
+        .await
+        .unwrap()
+        .expect("asset row must exist");
+
+    assert_eq!(
+        row_after.agent_token, row_before.agent_token,
+        "stale update must not overwrite agent_token"
+    );
+    assert_eq!(
+        row_after.slot_updated_agent_registry, row_before.slot_updated_agent_registry,
+        "stale update must not overwrite slot_updated_agent_registry"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 7: searchAssets with isAgent, agentToken, assetSigner filters
 //
 // Index both an agent asset and a plain asset, then verify that the
