@@ -108,6 +108,8 @@ services:
       - ./db-data/:/var/lib/postgresql/data/:z
   solana:
     image: ghcr.io/metaplex-foundation/plerkle-test-validator:v3.0.1-1.89.0-v3.1.13
+    security_opt:
+      - seccomp:unconfined
     volumes:
       - ./programs:/so/:ro
       - ./ledger:/config:rw
