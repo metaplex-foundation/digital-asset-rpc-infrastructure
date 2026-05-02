@@ -1,9 +1,11 @@
 use bytemuck::Zeroable;
 use serde::{Deserialize, Serialize};
-use solana_zk_token_sdk::zk_token_elgamal::pod::{AeCiphertext, ElGamalCiphertext, ElGamalPubkey};
 use spl_pod::{
     optional_keys::{OptionalNonZeroElGamalPubkey, OptionalNonZeroPubkey},
-    primitives::{PodBool, PodI64, PodU16, PodU32, PodU64},
+    primitives::{PodBool, PodI64, PodU16, PodU64},
+};
+use spl_token_2022::solana_zk_sdk::encryption::pod::{
+    auth_encryption::PodAeCiphertext, elgamal::PodElGamalCiphertext, elgamal::PodElGamalPubkey,
 };
 
 use spl_token_2022::extension::{
@@ -33,7 +35,7 @@ pub type UnixTimestamp = PodI64;
 /// But,
 /// - We currently store them in DB as JSONB.
 /// - `Pubkey` serializes to an u8 vector, unlike sth like `OptionalNonZeroElGamalPubkey` which serializes to a string.
-///    So `Pubkey` is stored as a u8 vector in the DB.
+///   So `Pubkey` is stored as a u8 vector in the DB.
 /// - `Pubkey` doesn't implement something like `schemars::JsonSchema` so we can't convert them back to the rust struct either.
 type PublicKeyString = String;
 
@@ -86,9 +88,9 @@ pub struct ShadowTokenGroup {
     /// belongs to a particular mint
     pub mint: PublicKeyString,
     /// The current number of group members
-    pub size: PodU32,
+    pub size: PodU64,
     /// The maximum number of group members
-    pub max_size: PodU32,
+    pub max_size: PodU64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -99,7 +101,7 @@ pub struct ShadowTokenGroupMember {
     /// The pubkey of the `TokenGroup`
     pub group: PublicKeyString,
     /// The member number
-    pub member_number: PodU32,
+    pub member_number: PodU64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Zeroable, Serialize, Deserialize)]
@@ -391,20 +393,47 @@ trait FromBytesToBase58 {
     fn to_base58(&self) -> String;
 }
 
-impl FromBytesToBase58 for ElGamalPubkey {
+impl FromBytesToBase58 for PodElGamalPubkey {
     fn to_base58(&self) -> String {
-        bs58::encode(self.0).into_string()
+        bs58::encode(bytemuck::bytes_of(self)).into_string()
     }
 }
 
-impl FromBytesToBase58 for ElGamalCiphertext {
+impl FromBytesToBase58 for PodElGamalCiphertext {
     fn to_base58(&self) -> String {
-        bs58::encode(self.0).into_string()
+        bs58::encode(bytemuck::bytes_of(self)).into_string()
     }
 }
 
-impl FromBytesToBase58 for AeCiphertext {
+impl FromBytesToBase58 for PodAeCiphertext {
     fn to_base58(&self) -> String {
-        bs58::encode(self.0).into_string()
+        bs58::encode(bytemuck::bytes_of(self)).into_string()
+    }
+}
+
+#[cfg(test)]
+mod from_bytes_to_base58_tests {
+    use super::{FromBytesToBase58, PodAeCiphertext, PodElGamalCiphertext, PodElGamalPubkey};
+    use bytemuck::Pod;
+
+    fn assert_matches_raw_pod_bytes<T: FromBytesToBase58 + Pod>(value: T) {
+        let expected = bs58::encode(bytemuck::bytes_of(&value)).into_string();
+        assert_eq!(value.to_base58(), expected);
+    }
+
+    #[test]
+    fn pod_elgamal_pubkey_default_and_nonzero() {
+        assert_matches_raw_pod_bytes(PodElGamalPubkey::default());
+        assert_matches_raw_pod_bytes(PodElGamalPubkey::from([0xABu8; 32]));
+    }
+
+    #[test]
+    fn pod_elgamal_ciphertext_default() {
+        assert_matches_raw_pod_bytes(PodElGamalCiphertext::default());
+    }
+
+    #[test]
+    fn pod_ae_ciphertext_default() {
+        assert_matches_raw_pod_bytes(PodAeCiphertext::default());
     }
 }

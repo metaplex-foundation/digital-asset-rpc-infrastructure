@@ -11,12 +11,8 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcTransactionConfig},
     rpc_filter::RpcFilterType,
 };
-use solana_sdk::{
-    account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-    pubkey::Pubkey,
-    signature::Signature,
-};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta;
 use solana_transaction_status::UiTransactionEncoding;
 use std::sync::Arc;
@@ -87,6 +83,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_account(
         &self,
         pubkey: &Pubkey,
@@ -112,6 +109,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_program_accounts(
         &self,
         program: &Pubkey,
@@ -141,6 +139,7 @@ impl Rpc {
         .await
     }
 
+    #[allow(deprecated)]
     pub async fn get_multiple_accounts(
         &self,
         pubkeys: &[Pubkey],

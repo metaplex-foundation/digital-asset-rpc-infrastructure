@@ -8,6 +8,12 @@ use {
         stream::{self, StreamExt},
     },
     log::{debug, error, info},
+    mpl_account_compression::{
+        state::{
+            merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+        },
+        AccountCompressionEvent, ChangeLogEvent,
+    },
     prometheus::{IntGauge, IntGaugeVec, Opts, Registry},
     sea_orm::{
         sea_query::{Expr, Value},
@@ -18,8 +24,8 @@ use {
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
     },
+    solana_commitment_config::{CommitmentConfig, CommitmentLevel},
     solana_sdk::{
-        commitment_config::{CommitmentConfig, CommitmentLevel},
         pubkey::{ParsePubkeyError, Pubkey},
         signature::Signature,
         transaction::VersionedTransaction,
@@ -27,12 +33,6 @@ use {
     solana_transaction_status::{
         option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
         UiTransactionEncoding, UiTransactionStatusMeta,
-    },
-    spl_account_compression::{
-        state::{
-            merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-        },
-        AccountCompressionEvent, ChangeLogEvent,
     },
     sqlx::postgres::{PgConnectOptions, PgPoolOptions},
     std::{
@@ -55,6 +55,9 @@ use {
     },
     txn_forwarder::{find_signatures, read_lines, rpc_send_with_retries, save_metrics},
 };
+
+const SPL_NOOP_ID: solana_sdk::pubkey::Pubkey =
+    solana_sdk::pubkey!("noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV");
 
 lazy_static::lazy_static! {
     pub static ref TREE_STATUS_MAX_SEQ: IntGaugeVec = IntGaugeVec::new(
@@ -785,7 +788,7 @@ fn parse_tx_sequence(
             for inner_ix in inner_ixs.instructions.iter() {
                 if let solana_transaction_status::UiInstruction::Compiled(instr) = inner_ix {
                     if let Some(program) = account_keys.get(instr.program_id_index as usize) {
-                        if *program == spl_noop::id() {
+                        if *program == mpl_noop::id() || *program == SPL_NOOP_ID {
                             let data = bs58::decode(&instr.data)
                                 .into_vec()
                                 .map_err(ParseError::Instruction)?;

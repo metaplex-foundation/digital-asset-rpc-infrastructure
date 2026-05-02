@@ -1,4 +1,5 @@
-use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
+use solana_message::compiled_instruction::CompiledInstruction;
+use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::InnerInstructions;
 use std::collections::{HashSet, VecDeque};
 

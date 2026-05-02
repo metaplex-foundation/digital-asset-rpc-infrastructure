@@ -47,10 +47,8 @@ use solana_client::{
     rpc_request::RpcRequest,
     rpc_response::{Response as RpcResponse, RpcTokenAccountBalance},
 };
-use solana_sdk::{
-    account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_sdk::account::Account;
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use std::{fmt, time::Duration};
 

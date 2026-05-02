@@ -27,7 +27,9 @@ serde_json = { workspace = true }
 serial_test = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
+solana-system-interface = { workspace = true }
 solana-transaction-status = { workspace = true }
 spl-token = { workspace = true, features = ["no-entrypoint"] }
 sqlx = { workspace = true }

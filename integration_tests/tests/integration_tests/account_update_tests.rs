@@ -1,4 +1,3 @@
-use borsh::BorshSerialize;
 use function_name::named;
 
 use das_api::api::{self, ApiContract};
@@ -90,7 +89,7 @@ async fn index_account_update(setup: &TestSetup, pubkey: Pubkey, update: Account
             update_field!(account.primary_sale_happened, primary_sale_happened);
             update_field!(account.is_mutable, is_mutable);
 
-            account.try_to_vec().unwrap()
+            borsh::to_vec(&account).unwrap()
         }
         AccountUpdate::None => account_data,
     };

@@ -22,11 +22,9 @@ mpl-core = {workspace = true, features = ["serde"]}
 mpl-noop = {workspace = true, features = ["no-entrypoint"]}
 mpl-token-metadata = {workspace = true, features = ["serde"]}
 serde = {workspace = true}
+solana-message = {workspace = true}
 solana-sdk = {workspace = true}
 solana-transaction-status = {workspace = true}
-solana-zk-token-sdk = {workspace = true}
-spl-account-compression = {workspace = true, features = ["no-entrypoint"]}
-spl-noop = {workspace = true, features = ["no-entrypoint"]}
 spl-pod = {workspace = true, features = ["serde-traits"]}
 spl-token = {workspace = true, features = ["no-entrypoint"]}
 spl-token-2022 = {workspace = true, features = ["no-entrypoint"]}
@@ -40,5 +38,4 @@ plerkle_serialization = {workspace = true}
 rand = {workspace = true}
 serde_json = {workspace = true}
 solana-client = {workspace = true}
-solana-geyser-plugin-interface = {workspace = true}
-spl-concurrent-merkle-tree = {workspace = true}
+agave-geyser-plugin-interface = {workspace = true}

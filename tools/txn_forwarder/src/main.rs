@@ -14,11 +14,8 @@ use {
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,
         rpc_request::RpcRequest,
     },
-    solana_sdk::{
-        commitment_config::{CommitmentConfig, CommitmentLevel},
-        pubkey::Pubkey,
-        signature::Signature,
-    },
+    solana_commitment_config::{CommitmentConfig, CommitmentLevel},
+    solana_sdk::{pubkey::Pubkey, signature::Signature},
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     std::{
         collections::{BTreeMap, HashMap},

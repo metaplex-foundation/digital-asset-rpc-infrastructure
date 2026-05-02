@@ -10,17 +10,18 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 cd $(dirname $(dirname $SCRIPT_DIR))
 
 EXTERNAL_ID_MAINNET=("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
+"BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
 "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK" \
+"mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
 "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV" \
+"mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3" \
 "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" \
 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" \
 "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" \
+"CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d" \
 )
 
-EXTERNAL_ID_DEVNET=("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY" \
-"mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW" \
-"mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3" \
-)
+EXTERNAL_ID_DEVNET=()
 
 RPC_MAINNET="https://api.mainnet-beta.solana.com"
 RPC_DEVNET="https://api.devnet.solana.com"

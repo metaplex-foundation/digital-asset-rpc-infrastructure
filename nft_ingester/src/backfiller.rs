@@ -11,6 +11,9 @@ use log::{debug, error, info};
 use plerkle_messenger::{Messenger, TRANSACTION_BACKFILL_STREAM};
 use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 
+use mpl_account_compression::state::{
+    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
+};
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbBackend, DbErr, FromQueryResult,
     SqlxPostgresConnector,
@@ -22,21 +25,17 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcBlockConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
 };
-use solana_sdk::{
-    account::Account,
-    commitment_config::{CommitmentConfig, CommitmentLevel},
-    pubkey::Pubkey,
-    signature::Signature,
-    slot_history::Slot,
-};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_sdk::{account::Account, pubkey::Pubkey, signature::Signature, slot_history::Slot};
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedBlock,
     EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding,
 };
-use spl_account_compression::state::{
-    merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
-};
 use sqlx::{self, Pool, Postgres};
+
+/// SPL Account Compression program ID -- `cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK`.
+const SPL_ACCOUNT_COMPRESSION_ID: Pubkey =
+    solana_sdk::pubkey!("cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK");
 use std::{
     cmp,
     collections::{HashMap, HashSet},
@@ -453,7 +452,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         }
     }
 
-    fn reset_delay(&mut self) {
+    const fn reset_delay(&mut self) {
         self.failure_delay = INITIAL_FAILURE_DELAY;
     }
 
@@ -725,6 +724,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             .await
     }
 
+    #[allow(deprecated)]
     async fn fetch_trees_by_gpa(&self) -> Result<HashMap<Pubkey, SlotSeq>, IngesterError> {
         let config = RpcProgramAccountsConfig {
             filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
@@ -739,7 +739,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         };
         let results: Vec<(Pubkey, Account)> = self
             .rpc_client
-            .get_program_accounts_with_config(&spl_account_compression::id(), config)
+            .get_program_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
             .await
             .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
         let mut list = HashMap::with_capacity(results.len());
@@ -749,7 +749,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                 .data
                 .split_at_mut(CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1);
             let header: ConcurrentMerkleTreeHeader =
-                ConcurrentMerkleTreeHeader::try_from_slice(header_bytes)
+                BorshDeserialize::deserialize(&mut &header_bytes[..])
                     .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
 
             let auth = Pubkey::find_program_address(&[pubkey.as_ref()], &mpl_bubblegum::ID).0;

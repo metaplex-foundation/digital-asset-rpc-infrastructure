@@ -8,6 +8,7 @@ use {
             SpecificationAssetClass, SpecificationVersions,
         },
     },
+    mpl_account_compression::events::ChangeLogEventV1,
     mpl_bubblegum::{
         types::{Collection, Creator},
         Flags,
@@ -19,7 +20,6 @@ use {
         sea_query::query::OnConflict,
         ConnectionTrait, DbBackend, TransactionTrait,
     },
-    spl_account_compression::events::ChangeLogEventV1,
     tracing::{debug, error, info},
 };
 
