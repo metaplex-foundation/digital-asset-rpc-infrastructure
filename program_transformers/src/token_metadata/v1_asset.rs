@@ -332,39 +332,40 @@ pub async fn save_v1_asset<T: ConnectionTrait + TransactionTrait>(
         .await
         .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
-    if let Some(c) = &metadata.collection {
-        let model = asset_grouping::ActiveModel {
-            asset_id: ActiveValue::Set(mint_pubkey_vec.clone()),
-            group_key: ActiveValue::Set("collection".to_string()),
-            group_value: ActiveValue::Set(Some(c.key.to_string())),
-            verified: ActiveValue::Set(c.verified),
-            group_info_seq: ActiveValue::Set(Some(0)),
-            slot_updated: ActiveValue::Set(Some(slot_i)),
-            ..Default::default()
-        };
-        let mut query = asset_grouping::Entity::insert(model)
-            .on_conflict(
-                OnConflict::columns([
-                    asset_grouping::Column::AssetId,
-                    asset_grouping::Column::GroupKey,
-                ])
-                .update_columns([
-                    asset_grouping::Column::GroupValue,
-                    asset_grouping::Column::Verified,
-                    asset_grouping::Column::SlotUpdated,
-                    asset_grouping::Column::GroupInfoSeq,
-                ])
-                .to_owned(),
-            )
-            .build(DbBackend::Postgres);
-        query.sql = format!(
-            "{} WHERE excluded.slot_updated > asset_grouping.slot_updated",
-            query.sql
-        );
-        txn.execute(query)
-            .await
-            .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
-    }
+    // Always upsert a collection row, writing NULL when the asset has no
+    // collection.  This is necessary for out-of-order ingestion safety: a NULL
+    // row at a higher slot prevents a stale collection value from a lower slot
+    // from being accepted via the slot-gated ON CONFLICT clause.  The read
+    // side filters out NULL group_value rows for collection.
+    let (collection_value, collection_verified) = match &metadata.collection {
+        Some(c) => (Some(c.key.to_string()), c.verified),
+        None => (None, false),
+    };
+
+    let model = asset_grouping::ActiveModel {
+        asset_id: ActiveValue::Set(mint_pubkey_vec.clone()),
+        group_key: ActiveValue::Set("collection".to_string()),
+        group_value: ActiveValue::Set(collection_value),
+        verified: ActiveValue::Set(collection_verified),
+        group_info_seq: ActiveValue::Set(Some(0)),
+        slot_updated: ActiveValue::Set(Some(slot_i)),
+        ..Default::default()
+    };
+    let mut query = asset_grouping::Entity::insert(model).build(DbBackend::Postgres);
+
+    query.sql = format!(
+        "{} ON CONFLICT (asset_id, group_key) WHERE (group_key = 'collection') DO UPDATE SET \
+        group_value = EXCLUDED.group_value, \
+        verified = EXCLUDED.verified, \
+        slot_updated = EXCLUDED.slot_updated, \
+        group_info_seq = EXCLUDED.group_info_seq \
+        WHERE excluded.slot_updated >= asset_grouping.slot_updated \
+        OR asset_grouping.slot_updated IS NULL",
+        query.sql
+    );
+    txn.execute(query)
+        .await
+        .map_err(|db_err| ProgramTransformerError::AssetIndexError(db_err.to_string()))?;
 
     let creators = metadata
         .creators

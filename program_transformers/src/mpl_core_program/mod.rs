@@ -10,10 +10,10 @@ use {
 
 mod v1_asset;
 
-pub async fn handle_mpl_core_account<'a, 'b, 'c>(
+pub async fn handle_mpl_core_account(
     account_info: &AccountInfo,
-    parsing_result: &'a MplCoreAccountState,
-    db: &'b DatabaseConnection,
+    parsing_result: &MplCoreAccountState,
+    db: &DatabaseConnection,
     download_metadata_notifier: &DownloadMetadataNotifier,
 ) -> ProgramTransformerResult<()> {
     match &parsing_result.data {
@@ -21,7 +21,9 @@ pub async fn handle_mpl_core_account<'a, 'b, 'c>(
             burn_v1_asset(db, account_info.pubkey, account_info.slot).await?;
             Ok(())
         }
-        MplCoreAccountData::Asset(_) | MplCoreAccountData::Collection(_) => {
+        MplCoreAccountData::Asset(_)
+        | MplCoreAccountData::Collection(_)
+        | MplCoreAccountData::Group { .. } => {
             if let Some(info) = save_v1_asset(
                 db,
                 account_info.pubkey,

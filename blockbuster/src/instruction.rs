@@ -14,7 +14,7 @@ pub struct InstructionBundle<'a> {
     pub slot: u64,
 }
 
-impl<'a> Default for InstructionBundle<'a> {
+impl Default for InstructionBundle<'_> {
     fn default() -> Self {
         InstructionBundle {
             txn_id: "",

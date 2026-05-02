@@ -131,6 +131,8 @@ impl SearchAssetsQuery {
                                 .or(asset::Column::SpecificationAssetClass
                                     .eq(SpecificationAssetClass::MplCoreCollection))
                                 .or(asset::Column::SpecificationAssetClass
+                                    .eq(SpecificationAssetClass::MplCoreGroup))
+                                .or(asset::Column::SpecificationAssetClass
                                     .eq(SpecificationAssetClass::NonTransferableNft))
                                 .or(asset::Column::SpecificationAssetClass
                                     .eq(SpecificationAssetClass::IdentityNft))

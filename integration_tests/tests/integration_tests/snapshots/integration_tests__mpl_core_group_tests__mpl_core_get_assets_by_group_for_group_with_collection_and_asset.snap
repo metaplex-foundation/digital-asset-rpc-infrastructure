@@ -1,0 +1,89 @@
+---
+source: integration_tests/tests/integration_tests/mpl_core_group_tests.rs
+assertion_line: 384
+expression: response
+---
+{
+  "total": 1,
+  "limit": 50,
+  "page": 1,
+  "items": [
+    {
+      "interface": "MplCoreCollection",
+      "id": "BBAEBZeNsDx8mgMAHSkLKzC8SPhqVJWGr9cGAk33TRTE",
+      "content": {
+        "$schema": "https://schema.metaplex.com/nft1.0.json",
+        "json_uri": "https://example.com/das-test-collection-in-group-with-asset.json",
+        "files": [],
+        "metadata": {
+          "name": "DAS Test: Collection In Group (with asset)",
+          "symbol": ""
+        },
+        "links": {}
+      },
+      "authorities": [
+        {
+          "address": "2VqRJUywvWrNd6bhoZ3CZUsqXGgTtWCTbfvpdUWnXHT2",
+          "scopes": [
+            "full"
+          ]
+        }
+      ],
+      "compression": {
+        "eligible": false,
+        "compressed": false,
+        "data_hash": "",
+        "creator_hash": "",
+        "asset_hash": "",
+        "tree": "",
+        "seq": 0,
+        "leaf_id": 0
+      },
+      "grouping": [
+        {
+          "group_key": "group",
+          "group_value": "GqMg7pu1hjKJ8qK237ArjLw9rxwuP1aZDkUhNAr6Fxoq"
+        }
+      ],
+      "royalty": {
+        "royalty_model": "creators",
+        "target": null,
+        "percent": 0.0,
+        "basis_points": 0,
+        "primary_sale_happened": false,
+        "locked": false
+      },
+      "creators": [],
+      "ownership": {
+        "frozen": false,
+        "delegated": false,
+        "delegate": null,
+        "ownership_model": "single",
+        "owner": "2VqRJUywvWrNd6bhoZ3CZUsqXGgTtWCTbfvpdUWnXHT2"
+      },
+      "mutable": true,
+      "burnt": false,
+      "plugins": {
+        "groups": {
+          "data": {
+            "groups": [
+              "GqMg7pu1hjKJ8qK237ArjLw9rxwuP1aZDkUhNAr6Fxoq"
+            ]
+          },
+          "index": 0,
+          "offset": 164,
+          "authority": {
+            "type": "UpdateAuthority",
+            "address": null
+          }
+        }
+      },
+      "mpl_core_info": {
+        "num_minted": 1,
+        "current_size": 1,
+        "plugins_json_version": 1
+      },
+      "external_plugins": []
+    }
+  ]
+}

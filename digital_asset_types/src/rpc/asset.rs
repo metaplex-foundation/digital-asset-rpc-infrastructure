@@ -47,6 +47,8 @@ pub enum Interface {
     MplCoreAsset,
     #[serde(rename = "MplCoreCollection")]
     MplCoreCollection,
+    #[serde(rename = "MplCoreGroup")]
+    MplCoreGroup,
     #[serde(rename = "MplBubblegumV2")]
     MplBubblegumV2,
     #[default]
@@ -62,6 +64,7 @@ impl From<(Option<&SpecificationVersions>, &SpecificationAssetClass)> for Interf
             (_, SpecificationAssetClass::MplBubblegumV2) => Interface::MplBubblegumV2,
             (_, SpecificationAssetClass::MplCoreAsset) => Interface::MplCoreAsset,
             (_, SpecificationAssetClass::MplCoreCollection) => Interface::MplCoreCollection,
+            (_, SpecificationAssetClass::MplCoreGroup) => Interface::MplCoreGroup,
             (Some(SpecificationVersions::V0), SpecificationAssetClass::Nft) => {
                 Interface::LEGACY_NFT
             }
@@ -102,6 +105,10 @@ impl From<Interface> for (SpecificationVersions, SpecificationAssetClass) {
             Interface::MplCoreCollection => (
                 SpecificationVersions::V1,
                 SpecificationAssetClass::MplCoreCollection,
+            ),
+            Interface::MplCoreGroup => (
+                SpecificationVersions::V1,
+                SpecificationAssetClass::MplCoreGroup,
             ),
             Interface::MplBubblegumV2 => (
                 SpecificationVersions::V1,
