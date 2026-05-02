@@ -468,6 +468,12 @@ pub struct Asset {
     pub external_plugins: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unknown_external_plugins: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_agent: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset_signer: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default, JsonSchema)]

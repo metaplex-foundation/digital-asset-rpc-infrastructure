@@ -1,0 +1,99 @@
+---
+source: integration_tests/tests/integration_tests/agent_token_tests.rs
+assertion_line: 310
+expression: response
+---
+{
+  "interface": "MplCoreAsset",
+  "id": "84jw9dw7hMRJXFvzJXrBzVQpmVWaGUtYT7R6QhNU9qt3",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://example.com/das-test-registered-agent.json",
+    "files": [],
+    "metadata": {
+      "name": "DAS Test: Registered Agent",
+      "symbol": ""
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": false,
+    "data_hash": "",
+    "creator_hash": "",
+    "asset_hash": "",
+    "tree": "",
+    "seq": 0,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "Sy9p4Rckeq6GGebmeSY2q6W84fJfpuEdCyWq1psZz5a"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.0,
+    "basis_points": 0,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [],
+  "ownership": {
+    "frozen": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "2VqRJUywvWrNd6bhoZ3CZUsqXGgTtWCTbfvpdUWnXHT2"
+  },
+  "mutable": true,
+  "burnt": false,
+  "plugins": {},
+  "mpl_core_info": {
+    "plugins_json_version": 1
+  },
+  "external_plugins": [
+    {
+      "type": "AgentIdentity",
+      "index": 0,
+      "offset": 160,
+      "authority": {
+        "type": "UpdateAuthority",
+        "address": null
+      },
+      "adapter_config": {
+        "uri": "https://example.com/das-test-agent-registration.json"
+      },
+      "lifecycle_checks": {
+        "update": [
+          "CanListen",
+          "CanApprove",
+          "CanReject"
+        ],
+        "execute": [
+          "CanListen",
+          "CanApprove",
+          "CanReject"
+        ],
+        "transfer": [
+          "CanListen",
+          "CanApprove",
+          "CanReject"
+        ]
+      }
+    }
+  ],
+  "is_agent": true,
+  "agent_token": "FakeToken11111111111111111111111111111111111",
+  "asset_signer": "6ttUwc5VVmHeVKTddB6XM5vQgBMfw62DThuoiVEufVZq"
+}

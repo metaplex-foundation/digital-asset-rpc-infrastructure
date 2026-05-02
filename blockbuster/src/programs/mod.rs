@@ -1,3 +1,4 @@
+use agent_registry::AgentRegistryAccount;
 use bubblegum::BubblegumInstruction;
 use mpl_core_program::MplCoreAccountState;
 use token_account::TokenProgramEntity;
@@ -5,6 +6,7 @@ use token_extensions::TokenExtensionsProgramEntity;
 use token_inscriptions::TokenInscriptionAccount;
 use token_metadata::TokenMetadataAccountState;
 
+pub mod agent_registry;
 pub mod bubblegum;
 pub mod mpl_core_program;
 pub mod token_account;
@@ -28,6 +30,7 @@ pub mod token_metadata;
 // though it did not depend on the `mpl-candy-machine` crate, it was also not being used by DAS.
 pub enum ProgramParseResult<'a> {
     Bubblegum(&'a BubblegumInstruction),
+    AgentRegistry(&'a AgentRegistryAccount),
     MplCore(&'a MplCoreAccountState),
     TokenMetadata(&'a TokenMetadataAccountState),
     TokenProgramEntity(&'a TokenProgramEntity),

@@ -95,6 +95,10 @@ pub enum Asset {
     AssetDataHash,
     BubblegumFlags,
     NonTransferable,
+    IsAgent,
+    AgentToken,
+    AssetSigner,
+    SlotUpdatedAgentRegistry,
 }
 
 #[derive(Copy, Clone, Iden)]
