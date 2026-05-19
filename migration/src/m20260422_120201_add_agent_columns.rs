@@ -60,7 +60,7 @@ impl MigrationTrait for Migration {
 
         conn.execute(Statement::from_string(
             DatabaseBackend::Postgres,
-            "CREATE INDEX IF NOT EXISTS idx_asset_is_agent \
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_is_agent \
              ON asset (id) WHERE is_agent = TRUE"
                 .to_string(),
         ))
@@ -68,7 +68,7 @@ impl MigrationTrait for Migration {
 
         conn.execute(Statement::from_string(
             DatabaseBackend::Postgres,
-            "CREATE INDEX IF NOT EXISTS idx_asset_agent_token \
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_agent_token \
              ON asset (agent_token) WHERE agent_token IS NOT NULL"
                 .to_string(),
         ))
@@ -76,7 +76,7 @@ impl MigrationTrait for Migration {
 
         conn.execute(Statement::from_string(
             DatabaseBackend::Postgres,
-            "CREATE INDEX IF NOT EXISTS idx_asset_asset_signer \
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_asset_asset_signer \
              ON asset (asset_signer) WHERE asset_signer IS NOT NULL"
                 .to_string(),
         ))
