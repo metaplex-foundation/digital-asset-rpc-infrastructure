@@ -118,17 +118,21 @@ pub async fn main() -> Result<(), IngesterError> {
             }
 
             for i in 0..worker.worker_count {
+                let consumption_type = if matches!(stream_name.as_ref(), "TXNFILL" | "ACCFILL") {
+                    ConsumptionType::New
+                } else if i == 0 {
+                    ConsumptionType::Redeliver
+                } else {
+                    ConsumptionType::New
+                };
+
                 if worker.worker_type == WorkerType::Account {
                     let _account = account_worker::<RedisMessenger>(
                         database_pool.clone(),
                         config.get_messneger_client_config(),
                         bg_task_sender.clone(),
                         ack_sender.clone(),
-                        if i == 0 {
-                            ConsumptionType::Redeliver
-                        } else {
-                            ConsumptionType::New
-                        },
+                        consumption_type,
                         stream_name,
                     );
                 } else if worker.worker_type == WorkerType::Transaction {
@@ -137,11 +141,7 @@ pub async fn main() -> Result<(), IngesterError> {
                         config.get_messneger_client_config(),
                         bg_task_sender.clone(),
                         ack_sender.clone(),
-                        if i == 0 {
-                            ConsumptionType::Redeliver
-                        } else {
-                            ConsumptionType::New
-                        },
+                        consumption_type,
                         stream_name,
                     );
                 }

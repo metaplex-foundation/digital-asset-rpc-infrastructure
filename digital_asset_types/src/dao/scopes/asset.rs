@@ -6,6 +6,7 @@ use crate::{
         extensions::{self, instruction::PascalCase},
         sea_orm_active_enums::{Instruction, V1AccountAttachments},
         token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
+        SELLER_FEE_BASIS_POINTS_INHERIT,
     },
     rpc::{
         filter::AssetSortDirection,
@@ -22,6 +23,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 pub fn paginate<T, C>(
     pagination: &Pagination,
@@ -317,6 +319,7 @@ pub async fn get_related_for_assets(
                 groups: vec![],
                 inscription: None,
                 token_info: None,
+                inherited_collection_royalty: None,
             };
             acc.insert(id, fa);
         };
@@ -437,8 +440,10 @@ pub async fn get_related_for_assets(
     for (_id, asset) in assets_map.iter_mut() {
         filter_out_stale_asset_groupings(&mut asset.groups);
     }
+    let mut assets: Vec<FullAsset> = assets_map.into_values().collect();
+    hydrate_inherited_sfbp_collection_royalties(conn, &mut assets).await?;
 
-    Ok(assets_map.into_iter().map(|(_, v)| v).collect())
+    Ok(assets)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -554,7 +559,7 @@ pub async fn get_by_id(
 
     filter_out_stale_asset_groupings(&mut groups);
 
-    Ok(FullAsset {
+    let mut full_asset = FullAsset {
         asset,
         data,
         authorities,
@@ -562,7 +567,12 @@ pub async fn get_by_id(
         inscription,
         groups,
         token_info,
-    })
+        inherited_collection_royalty: None,
+    };
+    hydrate_inherited_sfbp_collection_royalties(conn, std::slice::from_mut(&mut full_asset))
+        .await?;
+
+    Ok(full_asset)
 }
 
 pub async fn fetch_transactions(
@@ -704,6 +714,52 @@ fn filter_out_stale_asset_groupings(
                 || (ag.0.slot_updated == max_slot_updated && ag.0.group_value.is_some())
         });
     }
+}
+
+async fn hydrate_inherited_sfbp_collection_royalties(
+    conn: &impl ConnectionTrait,
+    assets: &mut [FullAsset],
+) -> Result<(), DbErr> {
+    let mut asset_to_collection = Vec::new();
+    let mut collection_ids = Vec::new();
+
+    for (i, asset) in assets.iter().enumerate() {
+        if asset.asset.royalty_amount != SELLER_FEE_BASIS_POINTS_INHERIT {
+            continue;
+        }
+        let Some(collection_id) = asset
+            .groups
+            .iter()
+            .find(|(group, _)| group.group_key == "collection")
+            .and_then(|(group, _)| group.group_value.as_deref())
+            .and_then(|group_value| Pubkey::from_str(group_value).ok())
+            .map(|pubkey| pubkey.to_bytes().to_vec())
+        else {
+            continue;
+        };
+        asset_to_collection.push((i, collection_id.clone()));
+        if !collection_ids.contains(&collection_id) {
+            collection_ids.push(collection_id);
+        }
+    }
+
+    if collection_ids.is_empty() {
+        return Ok(());
+    }
+
+    let royalties = asset::Entity::find()
+        .filter(asset::Column::Id.is_in(collection_ids))
+        .all(conn)
+        .await?
+        .into_iter()
+        .map(|asset| (asset.id, asset.royalty_amount))
+        .collect::<HashMap<_, _>>();
+
+    for (i, collection_id) in asset_to_collection {
+        assets[i].inherited_collection_royalty = royalties.get(&collection_id).copied();
+    }
+
+    Ok(())
 }
 
 pub async fn get_token_accounts(

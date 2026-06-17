@@ -2,6 +2,7 @@ use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
+use crate::dao::SELLER_FEE_BASIS_POINTS_INHERIT;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
@@ -378,6 +379,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         groups,
         inscription,
         token_info,
+        inherited_collection_royalty,
     } = asset;
     let rpc_authorities = to_authority(authorities);
     let rpc_creators = to_creators(creators);
@@ -398,7 +400,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
 
     let edition_nonce =
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
-    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+    let primary_sale_happened = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let mutable = data.chain_data_mutability.clone().into();
@@ -465,6 +467,17 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
+    let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
+        && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
+    let resolved_royalty_amount = if inherited_sfbp {
+        inherited_collection_royalty
+            .filter(|basis_points| (0..=10_000).contains(basis_points))
+            .unwrap_or(0)
+    } else {
+        asset.royalty_amount
+    };
+    let resolved_basis_points = u32::try_from(resolved_royalty_amount).unwrap_or_default();
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
@@ -504,9 +517,11 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         royalty: Some(Royalty {
             royalty_model: asset.royalty_target_type.into(),
             target: asset.royalty_target.map(|s| bs58::encode(s).into_string()),
-            percent: (asset.royalty_amount as f64) * 0.0001,
-            basis_points: asset.royalty_amount as u32,
-            primary_sale_happened: basis_points,
+            percent: (resolved_basis_points as f64) * 0.0001,
+            basis_points: resolved_basis_points,
+            basis_points_raw: inherited_sfbp.then_some(SELLER_FEE_BASIS_POINTS_INHERIT as u32),
+            sfbp_inherited: inherited_sfbp.then_some(true),
+            primary_sale_happened,
             locked: false,
         }),
         creators: Some(rpc_creators),

@@ -11,6 +11,8 @@ pub use full_asset::*;
 pub use generated::*;
 pub mod extensions;
 
+pub const SELLER_FEE_BASIS_POINTS_INHERIT: i32 = 65_535;
+
 use sea_orm::{
     entity::*,
     sea_query::Expr,
