@@ -24,6 +24,8 @@ pub struct FullAsset {
     pub groups: Vec<(asset_grouping::Model, Option<asset_data::Model>)>,
     /// Resolved from the collection asset row when this NFT stores the inherited-SFBP sentinel.
     pub inherited_collection_royalty: Option<i32>,
+    /// Creators from the collection's Royalties plugin when the NFT stores the inherited-SFBP sentinel.
+    pub inherited_collection_creators: Option<Vec<asset_creators::Model>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

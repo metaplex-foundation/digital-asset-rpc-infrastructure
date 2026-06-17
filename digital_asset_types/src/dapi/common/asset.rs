@@ -380,9 +380,9 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         inscription,
         token_info,
         inherited_collection_royalty,
+        inherited_collection_creators,
     } = asset;
     let rpc_authorities = to_authority(authorities);
-    let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
 
     // Hardcode interface if it's a BubblegumV2 asset that was indexed before the specific
@@ -393,6 +393,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
     } else {
         get_interface(&asset)?
     };
+
+    let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
+        && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
+    let royalty_destination_creators = if inherited_sfbp {
+        inherited_collection_creators.unwrap_or_default()
+    } else {
+        creators
+    };
+    let rpc_creators = to_creators(royalty_destination_creators);
 
     let content = get_content(&data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);

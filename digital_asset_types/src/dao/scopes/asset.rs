@@ -320,6 +320,7 @@ pub async fn get_related_for_assets(
                 inscription: None,
                 token_info: None,
                 inherited_collection_royalty: None,
+                inherited_collection_creators: None,
             };
             acc.insert(id, fa);
         };
@@ -568,6 +569,7 @@ pub async fn get_by_id(
         groups,
         token_info,
         inherited_collection_royalty: None,
+        inherited_collection_creators: None,
     };
     hydrate_inherited_sfbp_collection_royalties(conn, std::slice::from_mut(&mut full_asset))
         .await?;
@@ -748,15 +750,35 @@ async fn hydrate_inherited_sfbp_collection_royalties(
     }
 
     let royalties = asset::Entity::find()
-        .filter(asset::Column::Id.is_in(collection_ids))
+        .filter(asset::Column::Id.is_in(collection_ids.clone()))
         .all(conn)
         .await?
         .into_iter()
         .map(|asset| (asset.id, asset.royalty_amount))
         .collect::<HashMap<_, _>>();
 
+    let mut creators_by_collection: HashMap<Vec<u8>, Vec<asset_creators::Model>> = HashMap::new();
+    for creator in asset_creators::Entity::find()
+        .filter(asset_creators::Column::AssetId.is_in(collection_ids))
+        .order_by_asc(asset_creators::Column::AssetId)
+        .order_by_asc(asset_creators::Column::Position)
+        .all(conn)
+        .await?
+    {
+        creators_by_collection
+            .entry(creator.asset_id.clone())
+            .or_default()
+            .push(creator);
+    }
+
+    for creators in creators_by_collection.values_mut() {
+        filter_out_stale_creators(creators);
+    }
+
     for (i, collection_id) in asset_to_collection {
         assets[i].inherited_collection_royalty = royalties.get(&collection_id).copied();
+        assets[i].inherited_collection_creators =
+            creators_by_collection.get(&collection_id).cloned();
     }
 
     Ok(())
