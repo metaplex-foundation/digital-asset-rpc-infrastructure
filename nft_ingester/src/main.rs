@@ -118,13 +118,12 @@ pub async fn main() -> Result<(), IngesterError> {
             }
 
             for i in 0..worker.worker_count {
-                let consumption_type = if matches!(stream_name.as_ref(), "TXNFILL" | "ACCFILL") {
-                    ConsumptionType::New
-                } else if i == 0 {
-                    ConsumptionType::Redeliver
-                } else {
-                    ConsumptionType::New
-                };
+                let consumption_type =
+                    if !matches!(stream_name.as_ref(), "TXNFILL" | "ACCFILL") && i == 0 {
+                        ConsumptionType::Redeliver
+                    } else {
+                        ConsumptionType::New
+                    };
 
                 if worker.worker_type == WorkerType::Account {
                     let _account = account_worker::<RedisMessenger>(

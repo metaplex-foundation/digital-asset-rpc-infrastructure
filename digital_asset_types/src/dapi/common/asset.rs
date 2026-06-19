@@ -476,8 +476,6 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
-    let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
-        && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
     let resolved_royalty_amount = if inherited_sfbp {
         inherited_collection_royalty
             .filter(|basis_points| (0..=10_000).contains(basis_points))
