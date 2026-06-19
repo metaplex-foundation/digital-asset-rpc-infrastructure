@@ -3,8 +3,8 @@ mod common;
 
 use blockbuster::token_metadata::types::{Creator, TokenStandard};
 use common::*;
-use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::scopes::asset::get_by_id;
+use digital_asset_types::dao::sea_orm_active_enums::*;
 use digital_asset_types::dao::{
     asset, asset_authority, asset_creators, asset_data, asset_grouping,
     sea_orm_active_enums::{OwnerType, RoyaltyTargetType},
@@ -256,7 +256,10 @@ async fn asset_to_rpc_bubblegum_v2_includes_cnft_creators_as_destination() -> Re
     )?;
 
     let royalty = rpc_asset.royalty.expect("royalty should be present");
-    assert_eq!(royalty.royalty_model, digital_asset_types::rpc::RoyaltyModel::Creators);
+    assert_eq!(
+        royalty.royalty_model,
+        digital_asset_types::rpc::RoyaltyModel::Creators
+    );
     assert_eq!(royalty.target, None);
     assert_eq!(royalty.basis_points, 500);
 
@@ -269,7 +272,8 @@ async fn asset_to_rpc_bubblegum_v2_includes_cnft_creators_as_destination() -> Re
 }
 
 #[tokio::test]
-async fn asset_to_rpc_inherited_sfbp_uses_collection_creators_when_cnft_has_none() -> Result<(), DbErr> {
+async fn asset_to_rpc_inherited_sfbp_uses_collection_creators_when_cnft_has_none(
+) -> Result<(), DbErr> {
     let id = Keypair::new().pubkey();
     let owner = Keypair::new().pubkey();
     let collection = Keypair::new().pubkey();
@@ -365,11 +369,7 @@ fn inherited_bubblegum_v2_asset(
     id: solana_sdk::pubkey::Pubkey,
     owner: solana_sdk::pubkey::Pubkey,
     collection: solana_sdk::pubkey::Pubkey,
-) -> (
-    asset::Model,
-    asset_data::Model,
-    asset_grouping::Model,
-) {
+) -> (asset::Model, asset_data::Model, asset_grouping::Model) {
     let metadata = MockMetadataArgs {
         name: String::from("Inherited Royalty NFT"),
         symbol: String::from("BUBBLE"),
@@ -460,8 +460,7 @@ async fn get_by_id_hydrates_inherited_bubblegum_v2_royalties() -> Result<(), DbE
         .append_query_results(vec![vec![collection_creator_row.clone()]])
         .into_connection();
 
-    let full_asset =
-        get_by_id(&db, asset_id.to_bytes().to_vec(), &Options::default()).await?;
+    let full_asset = get_by_id(&db, asset_id.to_bytes().to_vec(), &Options::default()).await?;
 
     assert_eq!(full_asset.inherited_collection_royalty, Some(750));
     assert_eq!(
@@ -506,8 +505,7 @@ async fn get_by_id_leaves_inherited_royalty_none_when_collection_missing() -> Re
         .append_query_results(vec![Vec::<asset_creators::Model>::new()])
         .into_connection();
 
-    let full_asset =
-        get_by_id(&db, asset_id.to_bytes().to_vec(), &Options::default()).await?;
+    let full_asset = get_by_id(&db, asset_id.to_bytes().to_vec(), &Options::default()).await?;
 
     assert_eq!(full_asset.inherited_collection_royalty, None);
 
