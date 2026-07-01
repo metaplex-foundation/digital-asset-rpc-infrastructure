@@ -1,0 +1,78 @@
+---
+source: integration_tests/tests/integration_tests/cnft_tests_v2_inherited_sfbp.rs
+expression: response
+---
+{
+  "interface": "MplBubblegumV2",
+  "id": "BzQPqccY1c88XeVfvvqrJsryHYMcPuxKiCVo4R6MDznv",
+  "content": {
+    "$schema": "https://schema.metaplex.com/nft1.0.json",
+    "json_uri": "https://example.com/inherited-sfbp-fixture.json",
+    "files": [],
+    "metadata": {
+      "name": "Inherited SFBP Fixture",
+      "symbol": "",
+      "token_standard": "NonFungible"
+    },
+    "links": {}
+  },
+  "authorities": [
+    {
+      "address": "7FEKsCaaaxvdMMSpYvWkiCWBhTazxPbxkN68YyMeYde6",
+      "scopes": [
+        "full"
+      ]
+    }
+  ],
+  "compression": {
+    "eligible": false,
+    "compressed": true,
+    "data_hash": "DbBbTsWk2ViRXmga1nvLWiqj5NS9M6i46pnnPLhgHgwG",
+    "creator_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
+    "collection_hash": "8dxyqW2RVUjC8pj7ZyDMvigt1Qe4aj6nsuTFK2ZsYJZE",
+    "asset_data_hash": "EKDHSGbrGztomDfuiV4iqiZ6LschDJPsFiXjZ83f92Md",
+    "flags": 0,
+    "asset_hash": "6esrvy9ShxzFisUPqNFgxRDVbkWWm2m31Zi4jKhcXYCM",
+    "tree": "3UgST22csaYksaGx3Th2dNQqbXqjgZAL7sBjhpAKS8KE",
+    "seq": 1,
+    "leaf_id": 0
+  },
+  "grouping": [
+    {
+      "group_key": "collection",
+      "group_value": "HgLnYtaZ9Nd1PqoGXh9rPXSMo6xUpUd6D5tsV8RUs7Qf"
+    }
+  ],
+  "royalty": {
+    "royalty_model": "creators",
+    "target": null,
+    "percent": 0.075,
+    "basis_points": 750,
+    "basis_points_raw": 65535,
+    "sfbp_inherited": true,
+    "primary_sale_happened": false,
+    "locked": false
+  },
+  "creators": [
+    {
+      "address": "CJkzXwVwqiaSvMuRb3obrZHdrPFjCMBJBDrjspn72tDv",
+      "share": 100,
+      "verified": true
+    }
+  ],
+  "ownership": {
+    "frozen": false,
+    "non_transferable": false,
+    "delegated": false,
+    "delegate": null,
+    "ownership_model": "single",
+    "owner": "DAS7Wnf86QNmwKWacTe8KShU7V6iw7wwcPjG9qXLPkEU"
+  },
+  "supply": {
+    "print_max_supply": 0,
+    "print_current_supply": 0,
+    "edition_nonce": null
+  },
+  "mutable": true,
+  "burnt": false
+}
