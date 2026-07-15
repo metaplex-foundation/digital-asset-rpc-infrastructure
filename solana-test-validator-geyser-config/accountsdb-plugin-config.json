@@ -17,6 +17,10 @@
     ]
   },
   "transaction_selector": {
-    "mentions": ["BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"]
+    "mentions": [
+      "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY",
+      "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d",
+      "mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW"
+    ]
   }
 }
