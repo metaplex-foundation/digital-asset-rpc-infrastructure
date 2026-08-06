@@ -369,14 +369,6 @@ pub fn get_interface(asset: &asset::Model) -> Result<Interface, DbErr> {
     )))
 }
 
-/// Converts basis points to percent. Basis points are integers, so the result has
-/// at most four decimal places and serializes without float artifacts.
-fn basis_points_to_percent(basis_points: u32) -> f64 {
-    let whole = basis_points / 10_000;
-    let remainder = basis_points % 10_000;
-    whole as f64 + (remainder as f64) / 10_000.0
-}
-
 //TODO -> impl custom error type
 pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbErr> {
     let FullAsset {
@@ -404,14 +396,12 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
 
     let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
         && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
-    let rpc_creators = to_creators(creators);
-    let rpc_creators_inherited = inherited_sfbp
-        .then(|| {
-            inherited_collection_creators
-                .map(to_creators)
-                .filter(|creators| !creators.is_empty())
-        })
-        .flatten();
+    let royalty_destination_creators = if inherited_sfbp {
+        inherited_collection_creators.unwrap_or_default()
+    } else {
+        creators
+    };
+    let rpc_creators = to_creators(royalty_destination_creators);
 
     let content = get_content(&data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
@@ -486,15 +476,14 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
-    let basis_points = u32::try_from(asset.royalty_amount).unwrap_or_default();
-    let basis_points_inherited = inherited_sfbp
-        .then(|| {
-            inherited_collection_royalty
-                .filter(|basis_points| (0..=10_000).contains(basis_points))
-                .and_then(|amount| u32::try_from(amount).ok())
-        })
-        .flatten();
-    let percent_inherited = basis_points_inherited.map(basis_points_to_percent);
+    let resolved_royalty_amount = if inherited_sfbp {
+        inherited_collection_royalty
+            .filter(|basis_points| (0..=10_000).contains(basis_points))
+            .unwrap_or(0)
+    } else {
+        asset.royalty_amount
+    };
+    let resolved_basis_points = u32::try_from(resolved_royalty_amount).unwrap_or_default();
 
     Ok(RpcAsset {
         interface: interface.clone(),
@@ -535,15 +524,14 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         royalty: Some(Royalty {
             royalty_model: asset.royalty_target_type.into(),
             target: asset.royalty_target.map(|s| bs58::encode(s).into_string()),
-            percent: basis_points_to_percent(basis_points),
-            basis_points,
-            basis_points_inherited,
-            percent_inherited,
+            percent: (resolved_basis_points as f64) * 0.0001,
+            basis_points: resolved_basis_points,
+            basis_points_raw: inherited_sfbp.then_some(SELLER_FEE_BASIS_POINTS_INHERIT as u32),
+            sfbp_inherited: inherited_sfbp.then_some(true),
             primary_sale_happened,
             locked: false,
         }),
         creators: Some(rpc_creators),
-        creators_inherited: rpc_creators_inherited,
         ownership: Some(Ownership {
             frozen: asset.frozen,
             non_transferable: asset.non_transferable,

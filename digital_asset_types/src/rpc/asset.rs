@@ -298,9 +298,9 @@ pub struct Royalty {
     pub percent: f64,
     pub basis_points: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub basis_points_inherited: Option<u32>,
+    pub basis_points_raw: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub percent_inherited: Option<f64>,
+    pub sfbp_inherited: Option<bool>,
     pub primary_sale_happened: bool,
     pub locked: bool,
 }
@@ -448,8 +448,6 @@ pub struct Asset {
     pub royalty: Option<Royalty>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub creators_inherited: Option<Vec<Creator>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ownership: Option<Ownership>,
     #[serde(skip_serializing_if = "Option::is_none")]

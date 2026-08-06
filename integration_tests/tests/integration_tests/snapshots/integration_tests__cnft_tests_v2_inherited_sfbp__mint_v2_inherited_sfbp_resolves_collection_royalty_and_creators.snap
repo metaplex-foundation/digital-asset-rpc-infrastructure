@@ -46,15 +46,14 @@ expression: response
   "royalty": {
     "royalty_model": "creators",
     "target": null,
-    "percent": 6.5535,
-    "basis_points": 65535,
-    "basis_points_inherited": 750,
-    "percent_inherited": 0.075,
+    "percent": 0.075,
+    "basis_points": 750,
+    "basis_points_raw": 65535,
+    "sfbp_inherited": true,
     "primary_sale_happened": false,
     "locked": false
   },
-  "creators": [],
-  "creators_inherited": [
+  "creators": [
     {
       "address": "CJkzXwVwqiaSvMuRb3obrZHdrPFjCMBJBDrjspn72tDv",
       "share": 100,

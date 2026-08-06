@@ -20,7 +20,7 @@ pub async fn run_inherited_sfbp_scenario_test(
     asset_id: &str,
     seeds: Vec<SeedEvent>,
     order: Order,
-    expected_inherited_basis_points: u32,
+    expected_basis_points: u32,
     expected_collection_creator: &str,
 ) {
     let seed_permutations: Vec<Vec<&SeedEvent>> = match order {
@@ -45,29 +45,20 @@ pub async fn run_inherited_sfbp_scenario_test(
             .expect("royalty should be present");
         assert_eq!(royalty.royalty_model, RoyaltyModel::Creators);
         assert_eq!(royalty.target, None);
-        assert_eq!(royalty.basis_points, SELLER_FEE_BASIS_POINTS_INHERIT as u32);
+        assert_eq!(royalty.basis_points, expected_basis_points);
         assert_eq!(
-            royalty.basis_points_inherited,
-            Some(expected_inherited_basis_points)
+            royalty.basis_points_raw,
+            Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
         );
-        assert_eq!(
-            royalty.percent_inherited,
-            Some((expected_inherited_basis_points as f64) * 0.0001)
-        );
+        assert_eq!(royalty.sfbp_inherited, Some(true));
 
         let creators = response
             .creators
             .as_ref()
             .expect("creators should be present");
-        assert_eq!(creators.len(), 0);
-
-        let creators_inherited = response
-            .creators_inherited
-            .as_ref()
-            .expect("creators_inherited should be present");
-        assert_eq!(creators_inherited.len(), 1);
-        assert_eq!(creators_inherited[0].address, expected_collection_creator);
-        assert_eq!(creators_inherited[0].share, 100);
+        assert_eq!(creators.len(), 1);
+        assert_eq!(creators[0].address, expected_collection_creator);
+        assert_eq!(creators[0].share, 100);
 
         insta::assert_json_snapshot!(setup.name.clone(), response);
     }

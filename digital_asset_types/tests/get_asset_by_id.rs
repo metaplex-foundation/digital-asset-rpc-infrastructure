@@ -173,10 +173,13 @@ async fn asset_to_rpc_resolves_inherited_bubblegum_v2_royalties() -> Result<(), 
     )?;
 
     let royalty = rpc_asset.royalty.expect("royalty should be present");
-    assert_eq!(royalty.basis_points, SELLER_FEE_BASIS_POINTS_INHERIT as u32);
-    assert_eq!(royalty.basis_points_inherited, Some(500));
-    assert_eq!(royalty.percent_inherited, Some(0.05));
-    assert!((royalty.percent - 6.5535).abs() < f64::EPSILON);
+    assert_eq!(royalty.basis_points, 500);
+    assert_eq!(
+        royalty.basis_points_raw,
+        Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
+    );
+    assert_eq!(royalty.sfbp_inherited, Some(true));
+    assert!((royalty.percent - 0.05).abs() < f64::EPSILON);
 
     Ok(())
 }
@@ -269,7 +272,7 @@ async fn asset_to_rpc_bubblegum_v2_includes_cnft_creators_as_destination() -> Re
 }
 
 #[tokio::test]
-async fn asset_to_rpc_inherited_sfbp_exposes_collection_creators_in_creators_inherited(
+async fn asset_to_rpc_inherited_sfbp_uses_collection_creators_when_cnft_has_none(
 ) -> Result<(), DbErr> {
     let id = Keypair::new().pubkey();
     let owner = Keypair::new().pubkey();
@@ -302,29 +305,19 @@ async fn asset_to_rpc_inherited_sfbp_exposes_collection_creators_in_creators_inh
     )?;
 
     let royalty = rpc_asset.royalty.expect("royalty should be present");
-    assert_eq!(royalty.basis_points, SELLER_FEE_BASIS_POINTS_INHERIT as u32);
-    assert_eq!(royalty.basis_points_inherited, Some(750));
-    assert_eq!(royalty.percent_inherited, Some(0.075));
+    assert_eq!(royalty.basis_points, 750);
     assert_eq!(royalty.target, None);
 
     let creators = rpc_asset.creators.expect("creators should be present");
-    assert_eq!(creators.len(), 0);
-
-    let creators_inherited = rpc_asset
-        .creators_inherited
-        .expect("creators_inherited should be present");
-    assert_eq!(creators_inherited.len(), 1);
-    assert_eq!(
-        creators_inherited[0].address,
-        collection_creator.to_string()
-    );
-    assert_eq!(creators_inherited[0].share, 100);
+    assert_eq!(creators.len(), 1);
+    assert_eq!(creators[0].address, collection_creator.to_string());
+    assert_eq!(creators[0].share, 100);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn asset_to_rpc_inherited_sfbp_keeps_leaf_creators() -> Result<(), DbErr> {
+async fn asset_to_rpc_inherited_sfbp_always_uses_collection_creators() -> Result<(), DbErr> {
     let id = Keypair::new().pubkey();
     let owner = Keypair::new().pubkey();
     let collection = Keypair::new().pubkey();
@@ -355,7 +348,7 @@ async fn asset_to_rpc_inherited_sfbp_keeps_leaf_creators() -> Result<(), DbErr> 
             data,
             token_info: None,
             authorities: vec![],
-            // Stale or pre-enforcement rows may still exist in the DB; DAS keeps them on the leaf.
+            // Stale or pre-enforcement rows may still exist in the DB; DAS ignores them.
             creators: vec![cnft_creator_row],
             inscription: None,
             groups: vec![(grouping, None)],
@@ -367,16 +360,7 @@ async fn asset_to_rpc_inherited_sfbp_keeps_leaf_creators() -> Result<(), DbErr> 
 
     let creators = rpc_asset.creators.expect("creators should be present");
     assert_eq!(creators.len(), 1);
-    assert_eq!(creators[0].address, cnft_creator.to_string());
-
-    let creators_inherited = rpc_asset
-        .creators_inherited
-        .expect("creators_inherited should be present");
-    assert_eq!(creators_inherited.len(), 1);
-    assert_eq!(
-        creators_inherited[0].address,
-        collection_creator.to_string()
-    );
+    assert_eq!(creators[0].address, collection_creator.to_string());
 
     Ok(())
 }
@@ -489,22 +473,17 @@ async fn get_by_id_hydrates_inherited_bubblegum_v2_royalties() -> Result<(), DbE
 
     let rpc_asset = asset_to_rpc(full_asset, &Options::default())?;
     let royalty = rpc_asset.royalty.expect("royalty should be present");
-    assert_eq!(royalty.basis_points, SELLER_FEE_BASIS_POINTS_INHERIT as u32);
-    assert_eq!(royalty.basis_points_inherited, Some(750));
-    assert_eq!(royalty.percent_inherited, Some(0.075));
+    assert_eq!(royalty.basis_points, 750);
+    assert_eq!(
+        royalty.basis_points_raw,
+        Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
+    );
+    assert_eq!(royalty.sfbp_inherited, Some(true));
     assert_eq!(royalty.target, None);
 
     let creators = rpc_asset.creators.expect("creators should be present");
-    assert_eq!(creators.len(), 0);
-
-    let creators_inherited = rpc_asset
-        .creators_inherited
-        .expect("creators_inherited should be present");
-    assert_eq!(creators_inherited.len(), 1);
-    assert_eq!(
-        creators_inherited[0].address,
-        collection_creator.to_string()
-    );
+    assert_eq!(creators.len(), 1);
+    assert_eq!(creators[0].address, collection_creator.to_string());
 
     Ok(())
 }
@@ -532,9 +511,12 @@ async fn get_by_id_leaves_inherited_royalty_none_when_collection_missing() -> Re
 
     let rpc_asset = asset_to_rpc(full_asset, &Options::default())?;
     let royalty = rpc_asset.royalty.expect("royalty should be present");
-    assert_eq!(royalty.basis_points, SELLER_FEE_BASIS_POINTS_INHERIT as u32);
-    assert_eq!(royalty.basis_points_inherited, None);
-    assert_eq!(royalty.percent_inherited, None);
+    assert_eq!(royalty.basis_points, 0);
+    assert_eq!(
+        royalty.basis_points_raw,
+        Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
+    );
+    assert_eq!(royalty.sfbp_inherited, Some(true));
 
     Ok(())
 }
