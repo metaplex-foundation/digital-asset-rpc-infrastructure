@@ -733,7 +733,8 @@ async fn hydrate_inherited_sfbp_collection_royalties(
         let is_bubblegum_v2 = matches!(
             asset.asset.specification_asset_class,
             Some(SpecificationAssetClass::MplBubblegumV2)
-        ) || (asset.asset.compressed && asset.asset.collection_hash.is_some());
+        ) || (asset.asset.compressed
+            && asset.asset.collection_hash.is_some());
         if !is_bubblegum_v2 {
             continue;
         }
