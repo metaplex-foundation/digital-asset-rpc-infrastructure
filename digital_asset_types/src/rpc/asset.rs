@@ -300,7 +300,7 @@ pub struct Royalty {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub basis_points_raw: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sfbp_inherited: Option<bool>,
+    pub inherited: Option<bool>,
     pub primary_sale_happened: bool,
     pub locked: bool,
 }

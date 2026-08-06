@@ -178,7 +178,7 @@ async fn asset_to_rpc_resolves_inherited_bubblegum_v2_royalties() -> Result<(), 
         royalty.basis_points_raw,
         Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
     );
-    assert_eq!(royalty.sfbp_inherited, Some(true));
+    assert_eq!(royalty.inherited, Some(true));
     assert!((royalty.percent - 0.05).abs() < f64::EPSILON);
     assert_eq!(rpc_asset.creators_raw, Some(vec![]));
 
@@ -487,7 +487,7 @@ async fn get_by_id_hydrates_inherited_bubblegum_v2_royalties() -> Result<(), DbE
         royalty.basis_points_raw,
         Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
     );
-    assert_eq!(royalty.sfbp_inherited, Some(true));
+    assert_eq!(royalty.inherited, Some(true));
     assert_eq!(royalty.target, None);
 
     let creators = rpc_asset.creators.expect("creators should be present");
@@ -526,7 +526,7 @@ async fn get_by_id_leaves_inherited_royalty_none_when_collection_missing() -> Re
         royalty.basis_points_raw,
         Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
     );
-    assert_eq!(royalty.sfbp_inherited, Some(true));
+    assert_eq!(royalty.inherited, Some(true));
 
     Ok(())
 }

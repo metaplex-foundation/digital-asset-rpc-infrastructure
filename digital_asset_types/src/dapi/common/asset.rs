@@ -528,7 +528,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             percent: (resolved_basis_points as f64) * 0.0001,
             basis_points: resolved_basis_points,
             basis_points_raw: inherited_sfbp.then_some(SELLER_FEE_BASIS_POINTS_INHERIT as u32),
-            sfbp_inherited: inherited_sfbp.then_some(true),
+            inherited: inherited_sfbp.then_some(true),
             primary_sale_happened,
             locked: false,
         }),

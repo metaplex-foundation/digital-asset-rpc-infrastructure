@@ -50,7 +50,7 @@ pub async fn run_inherited_sfbp_scenario_test(
             royalty.basis_points_raw,
             Some(SELLER_FEE_BASIS_POINTS_INHERIT as u32)
         );
-        assert_eq!(royalty.sfbp_inherited, Some(true));
+        assert_eq!(royalty.inherited, Some(true));
 
         let creators = response
             .creators
