@@ -4,7 +4,7 @@ use crate::{
         asset_authority, asset_creators, asset_data, asset_grouping, asset_v1_account_attachments,
         cl_audits_v2,
         extensions::{self, instruction::PascalCase},
-        sea_orm_active_enums::{Instruction, V1AccountAttachments},
+        sea_orm_active_enums::{Instruction, SpecificationAssetClass, V1AccountAttachments},
         token_accounts, tokens, Cursor, FullAsset, GroupingSize, Pagination,
         SELLER_FEE_BASIS_POINTS_INHERIT,
     },
@@ -729,10 +729,18 @@ async fn hydrate_inherited_sfbp_collection_royalties(
         if asset.asset.royalty_amount != SELLER_FEE_BASIS_POINTS_INHERIT {
             continue;
         }
+        // Mirror Interface::MplBubblegumV2 detection in asset_to_rpc.
+        let is_bubblegum_v2 = matches!(
+            asset.asset.specification_asset_class,
+            Some(SpecificationAssetClass::MplBubblegumV2)
+        ) || (asset.asset.compressed && asset.asset.collection_hash.is_some());
+        if !is_bubblegum_v2 {
+            continue;
+        }
         let Some(collection_id) = asset
             .groups
             .iter()
-            .find(|(group, _)| group.group_key == "collection")
+            .find(|(group, _)| group.group_key == "collection" && group.verified)
             .and_then(|(group, _)| group.group_value.as_deref())
             .and_then(|group_value| Pubkey::from_str(group_value).ok())
             .map(|pubkey| pubkey.to_bytes().to_vec())
