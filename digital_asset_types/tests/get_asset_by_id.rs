@@ -180,6 +180,7 @@ async fn asset_to_rpc_resolves_inherited_bubblegum_v2_royalties() -> Result<(), 
     );
     assert_eq!(royalty.sfbp_inherited, Some(true));
     assert!((royalty.percent - 0.05).abs() < f64::EPSILON);
+    assert_eq!(rpc_asset.creators_raw, Some(vec![]));
 
     Ok(())
 }
@@ -267,6 +268,7 @@ async fn asset_to_rpc_bubblegum_v2_includes_cnft_creators_as_destination() -> Re
     assert_eq!(creators.len(), 1);
     assert_eq!(creators[0].address, creator.to_string());
     assert_eq!(creators[0].share, 100);
+    assert_eq!(rpc_asset.creators_raw, None);
 
     Ok(())
 }
@@ -312,6 +314,7 @@ async fn asset_to_rpc_inherited_sfbp_uses_collection_creators_when_cnft_has_none
     assert_eq!(creators.len(), 1);
     assert_eq!(creators[0].address, collection_creator.to_string());
     assert_eq!(creators[0].share, 100);
+    assert_eq!(rpc_asset.creators_raw, Some(vec![]));
 
     Ok(())
 }
@@ -361,6 +364,12 @@ async fn asset_to_rpc_inherited_sfbp_always_uses_collection_creators() -> Result
     let creators = rpc_asset.creators.expect("creators should be present");
     assert_eq!(creators.len(), 1);
     assert_eq!(creators[0].address, collection_creator.to_string());
+
+    let creators_raw = rpc_asset
+        .creators_raw
+        .expect("creators_raw should be present");
+    assert_eq!(creators_raw.len(), 1);
+    assert_eq!(creators_raw[0].address, cnft_creator.to_string());
 
     Ok(())
 }
@@ -484,6 +493,7 @@ async fn get_by_id_hydrates_inherited_bubblegum_v2_royalties() -> Result<(), DbE
     let creators = rpc_asset.creators.expect("creators should be present");
     assert_eq!(creators.len(), 1);
     assert_eq!(creators[0].address, collection_creator.to_string());
+    assert_eq!(rpc_asset.creators_raw, Some(vec![]));
 
     Ok(())
 }

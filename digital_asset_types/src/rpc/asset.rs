@@ -448,6 +448,10 @@ pub struct Asset {
     pub royalty: Option<Royalty>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creators: Option<Vec<Creator>>,
+    /// Leaf creators used for hashing. Present when royalties are inherited from
+    /// the collection (typically empty); display payees remain on `creators`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creators_raw: Option<Vec<Creator>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ownership: Option<Ownership>,
     #[serde(skip_serializing_if = "Option::is_none")]

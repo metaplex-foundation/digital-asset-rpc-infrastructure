@@ -60,6 +60,12 @@ pub async fn run_inherited_sfbp_scenario_test(
         assert_eq!(creators[0].address, expected_collection_creator);
         assert_eq!(creators[0].share, 100);
 
+        let creators_raw = response
+            .creators_raw
+            .as_ref()
+            .expect("creators_raw should be present");
+        assert!(creators_raw.is_empty());
+
         insta::assert_json_snapshot!(setup.name.clone(), response);
     }
 }

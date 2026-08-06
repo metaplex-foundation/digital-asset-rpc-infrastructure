@@ -396,6 +396,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
 
     let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
         && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
+    let rpc_creators_raw = inherited_sfbp.then(|| to_creators(creators.clone()));
     let royalty_destination_creators = if inherited_sfbp {
         inherited_collection_creators.unwrap_or_default()
     } else {
@@ -532,6 +533,7 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
             locked: false,
         }),
         creators: Some(rpc_creators),
+        creators_raw: rpc_creators_raw,
         ownership: Some(Ownership {
             frozen: asset.frozen,
             non_transferable: asset.non_transferable,

@@ -60,6 +60,7 @@ expression: response
       "verified": true
     }
   ],
+  "creators_raw": [],
   "ownership": {
     "frozen": false,
     "non_transferable": false,
