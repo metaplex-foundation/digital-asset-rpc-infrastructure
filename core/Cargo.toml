@@ -8,9 +8,13 @@ publish.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 backon = { workspace = true }
+bs58 = { workspace = true }
+flatbuffers = { workspace = true }
+plerkle_serialization = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-client = { workspace = true }
 solana-commitment-config = { workspace = true }
+solana-message = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
 cadence = { workspace = true }
@@ -21,10 +25,14 @@ plerkle_messenger = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"] }
 sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
-sea-orm = { workspace = true }
+sea-orm = { workspace = true, features = ["sqlx-postgres"] }
 
 [features]
 rpc-mock = []
+
+[dev-dependencies]
+base64 = "0.22.1"
+wincode = "0.5.5"
 
 [lints]
 workspace = true

@@ -46,8 +46,16 @@ async fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
     let accounts: Vec<(Pubkey, Account)> = client
-        .get_program_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
-        .await?;
+        .get_program_ui_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
+        .await?
+        .into_iter()
+        .map(|(pubkey, account)| {
+            let account = account
+                .to_account()
+                .expect("base64 account data returned by RPC should always be decodable");
+            (pubkey, account)
+        })
+        .collect();
     println!("Received {} accounts", accounts.len());
 
     // Trying to extract authority pubkey

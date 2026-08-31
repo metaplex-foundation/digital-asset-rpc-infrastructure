@@ -232,7 +232,7 @@ async fn collection_get_tx_info(
         commitment: Some(CommitmentConfig {
             commitment: CommitmentLevel::Finalized,
         }),
-        max_supported_transaction_version: Some(u8::MAX),
+        max_supported_transaction_version: Some(1),
     };
 
     let tx: EncodedConfirmedTransactionWithStatusMeta = rpc_send_with_retries(
@@ -373,7 +373,7 @@ async fn fetch_account(pubkey: Pubkey, client: &RpcClient) -> anyhow::Result<(Ac
     let account: Account = response
         .value
         .ok_or_else(|| anyhow::anyhow!("failed to get account {pubkey}"))?
-        .decode()
+        .to_account()
         .ok_or_else(|| anyhow::anyhow!("failed to parse account {pubkey}"))?;
 
     Ok((account, response.context.slot))

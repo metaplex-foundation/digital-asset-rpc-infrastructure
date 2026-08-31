@@ -45,8 +45,8 @@ impl Rpc {
                 .get_transaction_with_config(
                     signature,
                     RpcTransactionConfig {
-                        encoding: Some(UiTransactionEncoding::Base58),
-                        max_supported_transaction_version: Some(0),
+                        encoding: Some(UiTransactionEncoding::Base64),
+                        max_supported_transaction_version: Some(1),
                         commitment: Some(CommitmentConfig {
                             commitment: CommitmentLevel::Finalized,
                         }),
@@ -93,7 +93,7 @@ impl Rpc {
     > {
         (|| async {
             self.0
-                .get_account_with_config(
+                .get_ui_account_with_config(
                     pubkey,
                     RpcAccountInfoConfig {
                         encoding: Some(UiAccountEncoding::Base64),
@@ -104,6 +104,14 @@ impl Rpc {
                     },
                 )
                 .await
+                .map(|response| solana_client::rpc_response::Response {
+                    context: response.context,
+                    value: response.value.map(|account| {
+                        account.to_account().expect(
+                            "base64 account data returned by RPC should always be decodable",
+                        )
+                    }),
+                })
         })
         .retry(&ExponentialBuilder::default())
         .await
@@ -119,7 +127,7 @@ impl Rpc {
             let filters = filters.clone();
 
             self.0
-                .get_program_accounts_with_config(
+                .get_program_ui_accounts_with_config(
                     program,
                     RpcProgramAccountsConfig {
                         filters,
@@ -134,6 +142,17 @@ impl Rpc {
                     },
                 )
                 .await
+                .map(|accounts| {
+                    accounts
+                        .into_iter()
+                        .map(|(pubkey, account)| {
+                            let account = account.to_account().expect(
+                                "base64 account data returned by RPC should always be decodable",
+                            );
+                            (pubkey, account)
+                        })
+                        .collect()
+                })
         })
         .retry(&ExponentialBuilder::default())
         .await
@@ -146,7 +165,7 @@ impl Rpc {
     ) -> Result<Vec<Option<Account>>, ClientError> {
         Ok((|| async {
             self.0
-                .get_multiple_accounts_with_config(
+                .get_multiple_ui_accounts_with_config(
                     pubkeys,
                     RpcAccountInfoConfig {
                         commitment: Some(CommitmentConfig {
@@ -156,6 +175,20 @@ impl Rpc {
                     },
                 )
                 .await
+                .map(|response| solana_client::rpc_response::Response {
+                    context: response.context,
+                    value: response
+                        .value
+                        .into_iter()
+                        .map(|account| {
+                            account.map(|account| {
+                                account.to_account().expect(
+                                    "base64 account data returned by RPC should always be decodable",
+                                )
+                            })
+                        })
+                        .collect(),
+                })
         })
         .retry(&ExponentialBuilder::default())
         .await?

@@ -8,6 +8,7 @@ publish = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+das-core = { workspace = true }
 env_logger = { workspace = true }
 figment = { workspace = true }
 flatbuffers = { workspace = true }
