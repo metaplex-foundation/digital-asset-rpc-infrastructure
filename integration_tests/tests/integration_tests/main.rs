@@ -2,6 +2,7 @@ mod account_close_tests;
 mod account_update_tests;
 mod agent_token_tests;
 mod cnft_tests;
+mod cnft_tests_v2_inherited_sfbp;
 mod cnft_tests_v2_leaf_schema;
 mod collection_removal_tests;
 mod common;

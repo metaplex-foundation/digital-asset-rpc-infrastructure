@@ -2,6 +2,7 @@ use crate::dao::token_accounts;
 use crate::dao::FullAsset;
 use crate::dao::PageOptions;
 use crate::dao::Pagination;
+use crate::dao::SELLER_FEE_BASIS_POINTS_INHERIT;
 use crate::dao::{asset, asset_authority, asset_creators, asset_data, asset_grouping};
 use crate::rpc::filter::{AssetSortBy, AssetSortDirection, AssetSorting};
 use crate::rpc::options::Options;
@@ -378,9 +379,10 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         groups,
         inscription,
         token_info,
+        inherited_collection_royalty,
+        inherited_collection_creators,
     } = asset;
     let rpc_authorities = to_authority(authorities);
-    let rpc_creators = to_creators(creators);
     let rpc_groups = to_grouping(groups, options)?;
 
     // Hardcode interface if it's a BubblegumV2 asset that was indexed before the specific
@@ -392,13 +394,23 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         get_interface(&asset)?
     };
 
+    let inherited_sfbp = matches!(interface, Interface::MplBubblegumV2)
+        && asset.royalty_amount == SELLER_FEE_BASIS_POINTS_INHERIT;
+    let rpc_creators_raw = inherited_sfbp.then(|| to_creators(creators.clone()));
+    let royalty_destination_creators = if inherited_sfbp {
+        inherited_collection_creators.unwrap_or_default()
+    } else {
+        creators
+    };
+    let rpc_creators = to_creators(royalty_destination_creators);
+
     let content = get_content(&data);
     let mut chain_data_selector_fn = jsonpath_lib::selector(&data.chain_data);
     let chain_data_selector = &mut chain_data_selector_fn;
 
     let edition_nonce =
         safe_select(chain_data_selector, "$.edition_nonce").and_then(|v| v.as_u64());
-    let basis_points = safe_select(chain_data_selector, "$.primary_sale_happened")
+    let primary_sale_happened = safe_select(chain_data_selector, "$.primary_sale_happened")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let mutable = data.chain_data_mutability.clone().into();
@@ -465,6 +477,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         None
     };
 
+    let resolved_royalty_amount = if inherited_sfbp {
+        inherited_collection_royalty
+            .filter(|basis_points| (0..=10_000).contains(basis_points))
+            .unwrap_or(0)
+    } else {
+        asset.royalty_amount
+    };
+    let resolved_basis_points = u32::try_from(resolved_royalty_amount).unwrap_or_default();
+
     Ok(RpcAsset {
         interface: interface.clone(),
         id: bs58::encode(asset.id).into_string(),
@@ -504,12 +525,15 @@ pub fn asset_to_rpc(asset: FullAsset, options: &Options) -> Result<RpcAsset, DbE
         royalty: Some(Royalty {
             royalty_model: asset.royalty_target_type.into(),
             target: asset.royalty_target.map(|s| bs58::encode(s).into_string()),
-            percent: (asset.royalty_amount as f64) * 0.0001,
-            basis_points: asset.royalty_amount as u32,
-            primary_sale_happened: basis_points,
+            percent: (resolved_basis_points as f64) * 0.0001,
+            basis_points: resolved_basis_points,
+            basis_points_raw: inherited_sfbp.then_some(SELLER_FEE_BASIS_POINTS_INHERIT as u32),
+            inherited: inherited_sfbp.then_some(true),
+            primary_sale_happened,
             locked: false,
         }),
         creators: Some(rpc_creators),
+        creators_raw: rpc_creators_raw,
         ownership: Some(Ownership {
             frozen: asset.frozen,
             non_transferable: asset.non_transferable,
