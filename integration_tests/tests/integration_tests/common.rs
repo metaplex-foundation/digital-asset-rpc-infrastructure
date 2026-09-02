@@ -3,6 +3,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use das_api::api::DasApi;
+use das_core::serialize_encoded_transaction_with_status;
 
 use das_api::config::Config;
 
@@ -18,8 +19,7 @@ use nft_ingester::{
 };
 use once_cell::sync::Lazy;
 use plerkle_serialization::{
-    root_as_account_info, root_as_transaction_info,
-    serializer::{seralize_encoded_transaction_with_status, serialize_account},
+    root_as_account_info, root_as_transaction_info, serializer::serialize_account,
     solana_geyser_plugin_interface_shims::ReplicaAccountInfoV2,
 };
 use program_transformers::ProgramTransformer;
@@ -151,7 +151,7 @@ pub async fn apply_migrations_and_delete_data(db: Arc<DatabaseConnection>) {
 
     let max_concurrency = 10;
 
-    stream::iter(tables.into_iter())
+    stream::iter(tables)
         .map(|table| truncate_table(db.clone(), table.clone()))
         .buffer_unordered(max_concurrency)
         .try_collect::<Vec<ExecResult>>()
@@ -176,7 +176,7 @@ pub async fn get_transaction(
         commitment: Some(CommitmentConfig {
             commitment: CommitmentLevel::Confirmed,
         }),
-        max_supported_transaction_version: Some(0),
+        max_supported_transaction_version: Some(1),
     };
 
     loop {
@@ -217,7 +217,7 @@ pub async fn fetch_and_serialize_transaction(
         return Ok(None);
     }
     let fbb = flatbuffers::FlatBufferBuilder::new();
-    let fbb = seralize_encoded_transaction_with_status(fbb, tx)?;
+    let fbb = serialize_encoded_transaction_with_status(fbb, tx)?;
     let serialized = fbb.finished_data();
 
     Ok(Some(serialized.to_vec()))
@@ -280,7 +280,7 @@ pub async fn fetch_account(
     let account: Account = response
         .value
         .ok_or_else(|| anyhow::anyhow!("failed to get account {pubkey}"))?
-        .decode()
+        .to_account()
         .ok_or_else(|| anyhow::anyhow!("failed to parse account {pubkey}"))?;
 
     Ok((account, response.context.slot))

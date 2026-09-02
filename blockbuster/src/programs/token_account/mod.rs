@@ -49,7 +49,7 @@ impl ProgramParser for TokenProgramParser {
     fn handle_account(
         &self,
         account_data: &[u8],
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         let account_type = match account_data.len() {
             165 => {
                 let token_account = TokenAccount::unpack(account_data).map_err(|_| {

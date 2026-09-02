@@ -134,7 +134,7 @@ impl ProgramParser for TokenInscriptionParser {
     fn handle_account(
         &self,
         account_data: &[u8],
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         let data = InscriptionData::try_unpack_data(account_data)?;
         Ok(Box::new(TokenInscriptionAccount { data }))
     }
