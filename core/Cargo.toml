@@ -32,6 +32,7 @@ rpc-mock = []
 
 [dev-dependencies]
 base64 = "0.22.1"
+serde_json = { workspace = true }
 wincode = "0.5.5"
 
 [lints]

@@ -50,12 +50,12 @@ async fn main() -> anyhow::Result<()> {
         .await?
         .into_iter()
         .map(|(pubkey, account)| {
-            let account = account
+            account
                 .to_account()
-                .expect("base64 account data returned by RPC should always be decodable");
-            (pubkey, account)
+                .map(|account| (pubkey, account))
+                .ok_or_else(|| anyhow::anyhow!("failed to decode account {pubkey}"))
         })
-        .collect();
+        .collect::<anyhow::Result<_>>()?;
     println!("Received {} accounts", accounts.len());
 
     // Trying to extract authority pubkey

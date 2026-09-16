@@ -2,10 +2,10 @@ use anyhow::Result;
 use backon::ExponentialBuilder;
 use backon::Retryable;
 use clap::Parser;
-use solana_account_decoder::UiAccountEncoding;
+use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::rpc_response::RpcConfirmedTransactionStatusWithSignature;
 use solana_client::{
-    client_error::ClientError,
+    client_error::{ClientError, ClientErrorKind},
     nonblocking::rpc_client::RpcClient,
     rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcTransactionConfig},
@@ -25,6 +25,12 @@ pub struct SolanaRpcArgs {
 
 #[derive(Clone)]
 pub struct Rpc(Arc<RpcClient>);
+
+fn ui_account_to_account(account: UiAccount) -> Result<Account, ClientError> {
+    account.to_account().ok_or_else(|| {
+        ClientErrorKind::Custom("failed to decode account data returned by RPC".to_string()).into()
+    })
+}
 
 impl Rpc {
     pub fn from_config(config: SolanaRpcArgs) -> Self {
@@ -91,7 +97,7 @@ impl Rpc {
         solana_client::rpc_response::Response<std::option::Option<solana_sdk::account::Account>>,
         ClientError,
     > {
-        (|| async {
+        let response = (|| async {
             self.0
                 .get_ui_account_with_config(
                     pubkey,
@@ -104,17 +110,14 @@ impl Rpc {
                     },
                 )
                 .await
-                .map(|response| solana_client::rpc_response::Response {
-                    context: response.context,
-                    value: response.value.map(|account| {
-                        account.to_account().expect(
-                            "base64 account data returned by RPC should always be decodable",
-                        )
-                    }),
-                })
         })
         .retry(&ExponentialBuilder::default())
-        .await
+        .await?;
+
+        Ok(solana_client::rpc_response::Response {
+            context: response.context,
+            value: response.value.map(ui_account_to_account).transpose()?,
+        })
     }
 
     #[allow(deprecated)]
@@ -123,7 +126,7 @@ impl Rpc {
         program: &Pubkey,
         filters: Option<Vec<RpcFilterType>>,
     ) -> Result<Vec<(Pubkey, Account)>, ClientError> {
-        (|| async {
+        let accounts = (|| async {
             let filters = filters.clone();
 
             self.0
@@ -142,20 +145,14 @@ impl Rpc {
                     },
                 )
                 .await
-                .map(|accounts| {
-                    accounts
-                        .into_iter()
-                        .map(|(pubkey, account)| {
-                            let account = account.to_account().expect(
-                                "base64 account data returned by RPC should always be decodable",
-                            );
-                            (pubkey, account)
-                        })
-                        .collect()
-                })
         })
         .retry(&ExponentialBuilder::default())
-        .await
+        .await?;
+
+        accounts
+            .into_iter()
+            .map(|(pubkey, account)| Ok((pubkey, ui_account_to_account(account)?)))
+            .collect()
     }
 
     #[allow(deprecated)]
@@ -163,7 +160,7 @@ impl Rpc {
         &self,
         pubkeys: &[Pubkey],
     ) -> Result<Vec<Option<Account>>, ClientError> {
-        Ok((|| async {
+        (|| async {
             self.0
                 .get_multiple_ui_accounts_with_config(
                     pubkeys,
@@ -175,23 +172,12 @@ impl Rpc {
                     },
                 )
                 .await
-                .map(|response| solana_client::rpc_response::Response {
-                    context: response.context,
-                    value: response
-                        .value
-                        .into_iter()
-                        .map(|account| {
-                            account.map(|account| {
-                                account.to_account().expect(
-                                    "base64 account data returned by RPC should always be decodable",
-                                )
-                            })
-                        })
-                        .collect(),
-                })
         })
         .retry(&ExponentialBuilder::default())
         .await?
-        .value)
+        .value
+        .into_iter()
+        .map(|account| account.map(ui_account_to_account).transpose())
+        .collect()
     }
 }

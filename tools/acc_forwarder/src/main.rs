@@ -232,7 +232,7 @@ async fn collection_get_tx_info(
         commitment: Some(CommitmentConfig {
             commitment: CommitmentLevel::Finalized,
         }),
-        max_supported_transaction_version: Some(1),
+        max_supported_transaction_version: Some(u8::MAX),
     };
 
     let tx: EncodedConfirmedTransactionWithStatusMeta = rpc_send_with_retries(

@@ -1985,6 +1985,7 @@ dependencies = [
  "plerkle_messenger",
  "plerkle_serialization",
  "sea-orm",
+ "serde_json",
  "solana-account-decoder 4.2.2",
  "solana-client",
  "solana-commitment-config",
