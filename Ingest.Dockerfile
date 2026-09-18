@@ -1,5 +1,5 @@
 FROM das-api/builder AS files
-FROM rust:1.89-slim-bullseye
+FROM rust:1.96.1-slim-bookworm
 ARG APP=/usr/src/app
 RUN apt update \
     && apt install -y curl ca-certificates tzdata \
