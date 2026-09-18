@@ -4,12 +4,12 @@
 use borsh::BorshDeserialize;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 use chrono::Utc;
-use das_core::serialize_encoded_transaction_with_status;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
 use plerkle_messenger::{Messenger, TRANSACTION_BACKFILL_STREAM};
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status;
 
 use mpl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,

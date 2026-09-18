@@ -1,8 +1,11 @@
 // Regression test for Solana transaction v1 (SIMD-0296 / SIMD-0385).
 // The fixture is a real devnet v1 transaction, slot 495584494.
-use das_core::{serialize_encoded_transaction_with_status, PLERKLE_TRANSACTION_VERSION_V1};
 use flatbuffers::FlatBufferBuilder;
-use plerkle_serialization::root_as_transaction_info;
+use plerkle_serialization::{
+    root_as_transaction_info,
+    serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status,
+    TransactionVersion,
+};
 use solana_sdk::{message::VersionedMessage, transaction::VersionedTransaction};
 use solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta;
 
@@ -48,7 +51,7 @@ fn serializes_a_v1_transaction_for_the_plerkle_stream() {
 
     let info = root_as_transaction_info(builder.finished_data()).expect("flatbuffer verifies");
 
-    assert_eq!(info.version(), PLERKLE_TRANSACTION_VERSION_V1);
+    assert_eq!(info.version(), TransactionVersion::V1);
     assert_eq!(info.slot(), slot);
     assert_eq!(info.account_keys().expect("account keys").len(), 2);
     assert_eq!(info.outer_instructions().expect("instructions").len(), 1);

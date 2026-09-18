@@ -1,6 +1,6 @@
 FROM das-api/builder AS files
 
-FROM rust:1.89-bullseye
+FROM rust:1.96.1-bookworm
 COPY init.sql /init.sql
 ENV INIT_FILE_PATH=/init.sql
 COPY --from=files /das/migration /bins/migration

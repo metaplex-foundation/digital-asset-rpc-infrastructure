@@ -5,12 +5,12 @@ use blockbuster::{
     error::BlockbusterError,
     instruction::{InstructionBundle, IxPair},
 };
-use das_core::serialize_encoded_transaction_with_status;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use mpl_account_compression::events::{
     AccountCompressionEvent, ApplicationDataEvent, ApplicationDataEventV1,
 };
 use mpl_bubblegum::LeafSchemaEvent;
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status;
 use plerkle_serialization::{
     root_as_account_info, root_as_compiled_instruction, AccountInfo, AccountInfoArgs,
     CompiledInstruction as FBCompiledInstruction, CompiledInstructionBuilder,
