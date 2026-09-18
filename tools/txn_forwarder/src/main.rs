@@ -1,7 +1,6 @@
 use {
     anyhow::Context,
     clap::Parser,
-    das_core::serialize_encoded_transaction_with_status,
     figment::{util::map, value::Value},
     futures::{
         future::{try_join_all, BoxFuture, FutureExt},
@@ -9,6 +8,7 @@ use {
     },
     log::{error, info},
     plerkle_messenger::{MessengerConfig, ACCOUNT_BACKFILL_STREAM, TRANSACTION_BACKFILL_STREAM},
+    plerkle_serialization::serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status,
     prometheus::{IntCounterVec, Opts, Registry},
     solana_client::{
         nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig,

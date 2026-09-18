@@ -3,14 +3,14 @@ use anyhow::Result;
 use cadence_macros::{statsd_count, statsd_time};
 use clap::Parser;
 use das_core::{
-    connect_db, serialize_encoded_transaction_with_status, setup_metrics, MetricsArgs, PoolArgs,
-    QueueArgs, QueuePool, Rpc, SolanaRpcArgs,
+    connect_db, setup_metrics, MetricsArgs, PoolArgs, QueueArgs, QueuePool, Rpc, SolanaRpcArgs,
 };
 use digital_asset_types::dao::cl_audits_v2;
 use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, StreamExt};
 use indicatif::HumanDuration;
 use log::{error, info};
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, SqlxPostgresConnector,
 };

@@ -3,7 +3,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use das_api::api::DasApi;
-use das_core::serialize_encoded_transaction_with_status;
+use plerkle_serialization::serializer::seralize_encoded_transaction_with_status as serialize_encoded_transaction_with_status;
 
 use das_api::config::Config;
 
