@@ -2,7 +2,6 @@ use anyhow::Result;
 use borsh::BorshDeserialize;
 use clap::Args;
 use das_core::{QueuePoolError, Rpc};
-use log::error;
 use mpl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
 };

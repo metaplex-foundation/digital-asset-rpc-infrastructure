@@ -53,7 +53,7 @@ impl ProgramParser for AccountClosureParser {
     fn handle_account(
         &self,
         account_info: &AccountInfo,
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         let account_data: ClosedAccountInfo = match (account_info.pubkey(), account_info.owner()) {
             (Some(pubkey), Some(owner)) => ClosedAccountInfo {
                 pubkey: pubkey.0.to_vec(),

@@ -1,11 +1,12 @@
 use bytemuck::Zeroable;
 use serde::{Deserialize, Serialize};
+use solana_zk_sdk_pod::encryption::{
+    auth_encryption::PodAeCiphertext,
+    elgamal::{PodElGamalCiphertext, PodElGamalPubkey},
+};
 use spl_pod::{
     optional_keys::{OptionalNonZeroElGamalPubkey, OptionalNonZeroPubkey},
     primitives::{PodBool, PodI64, PodU16, PodU64},
-};
-use spl_token_2022::solana_zk_sdk::encryption::pod::{
-    auth_encryption::PodAeCiphertext, elgamal::PodElGamalCiphertext, elgamal::PodElGamalPubkey,
 };
 
 use spl_token_2022::extension::{
@@ -232,7 +233,7 @@ impl From<MemoTransfer> for ShadowMemoTransfer {
 impl From<MetadataPointer> for ShadowMetadataPointer {
     fn from(original: MetadataPointer) -> Self {
         ShadowMetadataPointer {
-            metadata_address: original.metadata_address,
+            metadata_address: bytemuck::cast(original.metadata_address),
         }
     }
 }
@@ -240,7 +241,7 @@ impl From<MetadataPointer> for ShadowMetadataPointer {
 impl From<GroupPointer> for ShadowGroupPointer {
     fn from(original: GroupPointer) -> Self {
         ShadowGroupPointer {
-            group_address: original.group_address,
+            group_address: bytemuck::cast(original.group_address),
         }
     }
 }
@@ -248,7 +249,7 @@ impl From<GroupPointer> for ShadowGroupPointer {
 impl From<TokenGroup> for ShadowTokenGroup {
     fn from(original: TokenGroup) -> Self {
         ShadowTokenGroup {
-            update_authority: original.update_authority,
+            update_authority: bytemuck::cast(original.update_authority),
             mint: original.mint.to_string(),
             size: original.size,
             max_size: original.max_size,
@@ -269,7 +270,7 @@ impl From<TokenGroupMember> for ShadowTokenGroupMember {
 impl From<GroupMemberPointer> for ShadowGroupMemberPointer {
     fn from(original: GroupMemberPointer) -> Self {
         ShadowGroupMemberPointer {
-            member_address: original.member_address,
+            member_address: bytemuck::cast(original.member_address),
         }
     }
 }
@@ -287,8 +288,8 @@ impl From<TransferFee> for ShadowTransferFee {
 impl From<TransferFeeConfig> for ShadowTransferFeeConfig {
     fn from(original: TransferFeeConfig) -> Self {
         ShadowTransferFeeConfig {
-            transfer_fee_config_authority: original.transfer_fee_config_authority,
-            withdraw_withheld_authority: original.withdraw_withheld_authority,
+            transfer_fee_config_authority: bytemuck::cast(original.transfer_fee_config_authority),
+            withdraw_withheld_authority: bytemuck::cast(original.withdraw_withheld_authority),
             withheld_amount: original.withheld_amount,
             older_transfer_fee: ShadowTransferFee::from(original.older_transfer_fee),
             newer_transfer_fee: ShadowTransferFee::from(original.newer_transfer_fee),
@@ -299,7 +300,7 @@ impl From<TransferFeeConfig> for ShadowTransferFeeConfig {
 impl From<InterestBearingConfig> for ShadowInterestBearingConfig {
     fn from(original: InterestBearingConfig) -> Self {
         ShadowInterestBearingConfig {
-            rate_authority: original.rate_authority,
+            rate_authority: bytemuck::cast(original.rate_authority),
             initialization_timestamp: original.initialization_timestamp,
             pre_update_average_rate: original.pre_update_average_rate,
             last_update_timestamp: original.last_update_timestamp,
@@ -311,7 +312,7 @@ impl From<InterestBearingConfig> for ShadowInterestBearingConfig {
 impl From<MintCloseAuthority> for ShadowMintCloseAuthority {
     fn from(original: MintCloseAuthority) -> Self {
         ShadowMintCloseAuthority {
-            close_authority: original.close_authority,
+            close_authority: bytemuck::cast(original.close_authority),
         }
     }
 }
@@ -319,7 +320,7 @@ impl From<MintCloseAuthority> for ShadowMintCloseAuthority {
 impl From<PermanentDelegate> for ShadowPermanentDelegate {
     fn from(original: PermanentDelegate) -> Self {
         ShadowPermanentDelegate {
-            delegate: original.delegate,
+            delegate: bytemuck::cast(original.delegate),
         }
     }
 }
@@ -327,8 +328,8 @@ impl From<PermanentDelegate> for ShadowPermanentDelegate {
 impl From<TransferHook> for ShadowTransferHook {
     fn from(original: TransferHook) -> Self {
         ShadowTransferHook {
-            authority: original.authority,
-            program_id: original.program_id,
+            authority: bytemuck::cast(original.authority),
+            program_id: bytemuck::cast(original.program_id),
         }
     }
 }
@@ -336,9 +337,9 @@ impl From<TransferHook> for ShadowTransferHook {
 impl From<ConfidentialTransferMint> for ShadowConfidentialTransferMint {
     fn from(original: ConfidentialTransferMint) -> Self {
         ShadowConfidentialTransferMint {
-            authority: original.authority,
+            authority: bytemuck::cast(original.authority),
             auto_approve_new_accounts: original.auto_approve_new_accounts,
-            auditor_elgamal_pubkey: original.auditor_elgamal_pubkey,
+            auditor_elgamal_pubkey: bytemuck::cast(original.auditor_elgamal_pubkey),
         }
     }
 }
@@ -366,7 +367,7 @@ impl From<ConfidentialTransferAccount> for ShadowConfidentialTransferAccount {
 impl From<ConfidentialTransferFeeConfig> for ShadowConfidentialTransferFeeConfig {
     fn from(original: ConfidentialTransferFeeConfig) -> Self {
         ShadowConfidentialTransferFeeConfig {
-            authority: original.authority,
+            authority: bytemuck::cast(original.authority),
             withdraw_withheld_authority_elgamal_pubkey: original
                 .withdraw_withheld_authority_elgamal_pubkey
                 .to_base58(),
@@ -379,7 +380,7 @@ impl From<ConfidentialTransferFeeConfig> for ShadowConfidentialTransferFeeConfig
 impl From<TokenMetadata> for ShadowMetadata {
     fn from(original: TokenMetadata) -> Self {
         ShadowMetadata {
-            update_authority: original.update_authority,
+            update_authority: bytemuck::cast(original.update_authority),
             mint: bs58::encode(original.mint).into_string(),
             name: original.name,
             symbol: original.symbol,

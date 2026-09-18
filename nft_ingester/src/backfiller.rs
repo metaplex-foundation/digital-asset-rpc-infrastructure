@@ -4,12 +4,12 @@
 use borsh::BorshDeserialize;
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 use chrono::Utc;
+use das_core::serialize_encoded_transaction_with_status;
 use digital_asset_types::dao::backfill_items;
 use flatbuffers::FlatBufferBuilder;
 use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, error, info};
 use plerkle_messenger::{Messenger, TRANSACTION_BACKFILL_STREAM};
-use plerkle_serialization::serializer::seralize_encoded_transaction_with_status;
 
 use mpl_account_compression::state::{
     merkle_tree_get_size, ConcurrentMerkleTreeHeader, CONCURRENT_MERKLE_TREE_HEADER_SIZE_V1,
@@ -249,7 +249,7 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let rpc_block_config = RpcBlockConfig {
             encoding: Some(UiTransactionEncoding::Base64),
             commitment: Some(rpc_commitment),
-            max_supported_transaction_version: Some(0),
+            max_supported_transaction_version: Some(1),
             ..RpcBlockConfig::default()
         };
 
@@ -737,11 +737,23 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
             },
             ..RpcProgramAccountsConfig::default()
         };
-        let results: Vec<(Pubkey, Account)> = self
+        let results = self
             .rpc_client
-            .get_program_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
+            .get_program_ui_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
             .await
-            .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?;
+            .map_err(|e| IngesterError::RpcGetDataError(e.to_string()))?
+            .into_iter()
+            .map(|(pubkey, account)| {
+                account
+                    .to_account()
+                    .map(|account| (pubkey, account))
+                    .ok_or_else(|| {
+                        IngesterError::RpcGetDataError(format!(
+                            "failed to decode base64 account {pubkey}"
+                        ))
+                    })
+            })
+            .collect::<Result<Vec<(Pubkey, Account)>, IngesterError>>()?;
         let mut list = HashMap::with_capacity(results.len());
         for r in results.into_iter() {
             let (pubkey, mut account) = r;
@@ -974,8 +986,9 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
                     transaction: tx.to_owned(),
                     slot,
                     block_time: block_data.block_time,
+                    transaction_index: None,
                 };
-                let builder = seralize_encoded_transaction_with_status(builder, tx_wrap)?;
+                let builder = serialize_encoded_transaction_with_status(builder, tx_wrap)?;
                 self.messenger
                     .send(TRANSACTION_BACKFILL_STREAM, builder.finished_data())
                     .await?;

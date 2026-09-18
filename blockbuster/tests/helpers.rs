@@ -5,14 +5,14 @@ use blockbuster::{
     error::BlockbusterError,
     instruction::{InstructionBundle, IxPair},
 };
+use das_core::serialize_encoded_transaction_with_status;
 use flatbuffers::{FlatBufferBuilder, WIPOffset};
 use mpl_account_compression::events::{
     AccountCompressionEvent, ApplicationDataEvent, ApplicationDataEventV1,
 };
 use mpl_bubblegum::LeafSchemaEvent;
 use plerkle_serialization::{
-    root_as_account_info, root_as_compiled_instruction,
-    serializer::seralize_encoded_transaction_with_status, AccountInfo, AccountInfoArgs,
+    root_as_account_info, root_as_compiled_instruction, AccountInfo, AccountInfoArgs,
     CompiledInstruction as FBCompiledInstruction, CompiledInstructionBuilder,
     InnerInstructionsBuilder, Pubkey as FBPubkey, TransactionInfo, TransactionInfoBuilder,
 };
@@ -280,7 +280,7 @@ pub fn build_txn_from_fixture(
     .unwrap();
     let reader = BufReader::new(file);
     let ectxn: EncodedConfirmedTransactionWithStatusMeta = serde_json::from_reader(reader).unwrap();
-    Ok(seralize_encoded_transaction_with_status(fbb, ectxn)
+    Ok(serialize_encoded_transaction_with_status(fbb, ectxn)
         .expect("failed serialize encoded tx with status"))
 }
 

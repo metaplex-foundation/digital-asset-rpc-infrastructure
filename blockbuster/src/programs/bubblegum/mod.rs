@@ -103,14 +103,14 @@ impl ProgramParser for BubblegumParser {
     fn handle_account(
         &self,
         _account_data: &[u8],
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         Ok(Box::new(NotUsed::new()))
     }
 
     fn handle_instruction(
         &self,
         bundle: &InstructionBundle,
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         let InstructionBundle {
             txn_id,
             instruction,

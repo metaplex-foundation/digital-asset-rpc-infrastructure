@@ -1,7 +1,7 @@
 use {
     anchor_client::anchor_lang::AnchorDeserialize,
     anyhow::Context,
-    clap::{arg, Parser, Subcommand},
+    clap::{Parser, Subcommand},
     digital_asset_types::dao::cl_items,
     futures::{
         future::{try_join, try_join_all, BoxFuture, FutureExt, TryFutureExt},
@@ -703,7 +703,7 @@ fn read_tree_start(
                     let mut lock = rx_sig.lock().await;
                     let maybe_msg = lock.recv().await;
                     let id = sig_id.fetch_add(1, Ordering::SeqCst);
-                    if id > 0 && id % 10 == 0 {
+                    if id > 0 && id.is_multiple_of(10) {
                         debug!("received {} transactions", id);
                     }
                     drop(lock);
@@ -736,7 +736,7 @@ async fn process_tx(
         commitment: Some(CommitmentConfig {
             commitment: CommitmentLevel::Finalized,
         }),
-        max_supported_transaction_version: Some(0),
+        max_supported_transaction_version: Some(1),
     };
 
     let tx: EncodedConfirmedTransactionWithStatusMeta = rpc_send_with_retries(

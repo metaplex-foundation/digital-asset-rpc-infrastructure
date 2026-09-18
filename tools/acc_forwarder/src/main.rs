@@ -373,7 +373,7 @@ async fn fetch_account(pubkey: Pubkey, client: &RpcClient) -> anyhow::Result<(Ac
     let account: Account = response
         .value
         .ok_or_else(|| anyhow::anyhow!("failed to get account {pubkey}"))?
-        .decode()
+        .to_account()
         .ok_or_else(|| anyhow::anyhow!("failed to parse account {pubkey}"))?;
 
     Ok((account, response.context.slot))

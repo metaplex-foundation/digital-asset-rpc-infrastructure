@@ -68,7 +68,7 @@ impl ProgramParser for TokenMetadataParser {
     fn handle_account(
         &self,
         account_data: &[u8],
-    ) -> Result<Box<(dyn ParseResult + 'static)>, BlockbusterError> {
+    ) -> Result<Box<dyn ParseResult + 'static>, BlockbusterError> {
         if account_data.is_empty() {
             return Ok(Box::new(TokenMetadataAccountState {
                 key: Key::Uninitialized,

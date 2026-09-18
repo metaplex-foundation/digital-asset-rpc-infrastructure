@@ -74,6 +74,7 @@ impl Related<token_accounts::Entity> for asset::Entity {
     }
 }
 
+#[allow(clippy::derivable_impls)] // Keep generated SeaORM enum files free of hand-written derives.
 impl Default for RoyaltyTargetType {
     fn default() -> Self {
         Self::Creators

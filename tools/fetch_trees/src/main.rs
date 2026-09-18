@@ -46,8 +46,16 @@ async fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
     let accounts: Vec<(Pubkey, Account)> = client
-        .get_program_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
-        .await?;
+        .get_program_ui_accounts_with_config(&SPL_ACCOUNT_COMPRESSION_ID, config)
+        .await?
+        .into_iter()
+        .map(|(pubkey, account)| {
+            account
+                .to_account()
+                .map(|account| (pubkey, account))
+                .ok_or_else(|| anyhow::anyhow!("failed to decode account {pubkey}"))
+        })
+        .collect::<anyhow::Result<_>>()?;
     println!("Received {} accounts", accounts.len());
 
     // Trying to extract authority pubkey
