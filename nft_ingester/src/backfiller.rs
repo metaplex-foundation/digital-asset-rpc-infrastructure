@@ -53,6 +53,7 @@ use crate::{
     config::{IngesterConfig, DATABASE_LISTENER_CHANNEL_KEY, RPC_COMMITMENT_KEY, RPC_URL_KEY},
     error::IngesterError,
     metric,
+    worker::connect_messenger,
 };
 // Number of tries to backfill a single tree before marking as "failed".
 const NUM_TRIES: i32 = 5;
@@ -257,7 +258,10 @@ impl<'a, T: Messenger> Backfiller<'a, T> {
         let rpc_client = RpcClient::new_with_commitment(rpc_url, rpc_commitment);
 
         // Instantiate messenger.
-        let mut messenger = T::new(config.get_messneger_client_config()).await.unwrap();
+        let mut messenger =
+            connect_messenger::<T>(config.get_messneger_client_config(), "backfiller")
+                .await
+                .expect("backfiller Redis startup deadline exceeded");
         messenger
             .add_stream(TRANSACTION_BACKFILL_STREAM)
             .await

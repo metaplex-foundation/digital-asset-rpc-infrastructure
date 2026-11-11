@@ -1,4 +1,4 @@
-use crate::{error::IngesterError, metric};
+use crate::{error::IngesterError, metric, worker::connect_messenger};
 use cadence_macros::{is_global_default_set, statsd_count, statsd_gauge};
 
 use log::error;
@@ -27,15 +27,14 @@ impl StreamSizeTimer {
         })
     }
 
-    pub async fn start<T: Messenger>(&mut self) -> Option<JoinHandle<()>> {
+    pub async fn start<T: Messenger>(&mut self) -> Option<JoinHandle<Result<(), IngesterError>>> {
         metric! {
             let i = self.interval;
             let messenger_config = self.messenger_config.clone();
             let stream = self.stream;
 
            return Some(tokio::spawn(async move {
-            let messenger = T::new(messenger_config).await;
-            if let Ok(mut messenger) = messenger {
+            let mut messenger = connect_messenger::<T>(messenger_config, "stream size").await?;
             let mut interval = time::interval(i);
                 loop {
                     interval.tick().await;
@@ -50,7 +49,6 @@ impl StreamSizeTimer {
                         }
                     }
                 }
-            };
             }));
         }
 

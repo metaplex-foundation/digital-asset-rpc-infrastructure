@@ -9,6 +9,7 @@ mod plerkle;
 mod stream;
 pub mod tasks;
 mod transaction_notifications;
+mod worker;
 
 use crate::{
     account_updates::account_worker,
@@ -21,6 +22,7 @@ use crate::{
     stream::StreamSizeTimer,
     tasks::{BgTask, DownloadMetadataTask, TaskManager},
     transaction_notifications::transaction_worker,
+    worker::supervise_worker,
 };
 use cadence_macros::{is_global_default_set, statsd_count};
 use chrono::Duration;
@@ -69,6 +71,7 @@ pub async fn main() -> Result<(), IngesterError> {
     // Tasks Setup -----------------------------------------------
     // This joinset maages all the tasks that are spawned.
     let mut tasks = JoinSet::new();
+    let mut workers = JoinSet::new();
     let stream_metrics_timer = Duration::seconds(30).to_std().unwrap();
 
     // BACKGROUND TASKS --------------------------------------------
@@ -98,13 +101,14 @@ pub async fn main() -> Result<(), IngesterError> {
 
     // Stream Consumers Setup -------------------------------------
     if role == IngesterRole::Ingester || role == IngesterRole::All {
-        let workers = config.get_worker_config().clone();
+        let worker_configs = config.get_worker_config().clone();
 
-        let (_ack_task, ack_sender) =
+        let (ack_task, ack_sender) =
             ack_worker::<RedisMessenger>(config.get_messneger_client_config());
+        supervise_worker(&mut workers, "acknowledgements", ack_task);
 
         // iterate all the workers
-        for worker in workers {
+        for worker in worker_configs {
             let stream_name = Box::leak(Box::new(worker.stream_name.to_owned()));
 
             let mut timer_worker = StreamSizeTimer::new(
@@ -114,12 +118,12 @@ pub async fn main() -> Result<(), IngesterError> {
             )?;
 
             if let Some(t) = timer_worker.start::<RedisMessenger>().await {
-                tasks.spawn(t);
+                supervise_worker(&mut workers, "stream size", t);
             }
 
             for i in 0..worker.worker_count {
                 if worker.worker_type == WorkerType::Account {
-                    let _account = account_worker::<RedisMessenger>(
+                    let account = account_worker::<RedisMessenger>(
                         database_pool.clone(),
                         config.get_messneger_client_config(),
                         bg_task_sender.clone(),
@@ -131,8 +135,9 @@ pub async fn main() -> Result<(), IngesterError> {
                         },
                         stream_name,
                     );
+                    supervise_worker(&mut workers, "account consumer", account);
                 } else if worker.worker_type == WorkerType::Transaction {
-                    let _txn = transaction_worker::<RedisMessenger>(
+                    let txn = transaction_worker::<RedisMessenger>(
                         database_pool.clone(),
                         config.get_messneger_client_config(),
                         bg_task_sender.clone(),
@@ -144,6 +149,7 @@ pub async fn main() -> Result<(), IngesterError> {
                         },
                         stream_name,
                     );
+                    supervise_worker(&mut workers, "transaction consumer", txn);
                 }
             }
         }
@@ -165,15 +171,22 @@ pub async fn main() -> Result<(), IngesterError> {
     metric! {
         statsd_count!("ingester.startup", 1, "role" => &roles_str, "version" => config.code_version.unwrap_or("unknown"));
     }
-    match signal::ctrl_c().await {
-        Ok(()) => {}
-        Err(err) => {
-            error!("Unable to listen for shutdown signal: {}", err);
-            // we also shut down in case of error
+    let result = tokio::select! {
+        signal = signal::ctrl_c() => signal.map_err(|error| {
+            IngesterError::UnrecoverableTaskError(format!("Shutdown signal failed: {error}"))
+        }),
+        worker = workers.join_next(), if !workers.is_empty() => {
+            let failure = match worker {
+                Some(Ok(error)) => error,
+                other => IngesterError::UnrecoverableTaskError(format!("Worker supervision failed: {other:?}")),
+            };
+            error!("{failure}");
+            Err(failure)
         }
-    }
+    };
 
+    workers.shutdown().await;
     tasks.shutdown().await;
 
-    Ok(())
+    result
 }

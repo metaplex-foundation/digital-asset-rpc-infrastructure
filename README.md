@@ -61,6 +61,7 @@ For the API you need the following environment variables:
 ```bash
 APP_DATABASE_URL=postgres://solana:solana@db/solana  #change to your db host
 APP_SERVER_PORT=9090
+APP_MAX_POSTGRES_CONNECTIONS=25  # optional; defaults to 250
 ```
 
 ```bash
@@ -73,6 +74,7 @@ For the Ingester you need the following environment variables:
 INGESTER_DATABASE_CONFIG: '{listener_channel="backfill_item_added", url="postgres://solana:solana@db/solana"}' # your database host
 INGESTER_MESSENGER_CONFIG: '{messenger_type="Redis", connection_config={ redis_connection_str="redis://redis" } }' #your redis
 INGESTER_RPC_CONFIG: '{url="http://validator:8899", commitment="finalized"}' # your solana validator or same network rpc, if local you must use your solana instance running localy
+INGESTER_MAX_POSTGRES_CONNECTIONS: '60' # optional; defaults to 125
 ```
 
 ```bash
@@ -80,6 +82,30 @@ cargo run -p nft_ingester
 ```
 
 When making changes you will need to stop the cargo process and re-run. Someday we will have auto rebuild for local cargo stuff but for now you are on your own.
+
+Budget the API and ingester pools together, leaving database capacity for
+listeners, migrations and administration. For example, pools of 25 and 60 fit
+within a Postgres `max_connections=100` limit with 15 connections left over.
+The API rejects a zero connection limit.
+
+Required ingestion workers retry Redis initialization for up to 60 seconds.
+An exhausted startup deadline, worker exit or panic terminates the ingester
+with an error so a process supervisor can restart it. Redis readiness ordering
+in an orchestrator is useful as well, but does not cover restored containers.
+
+To prove ingestion on a disposable validator with a faucet and MPL Core loaded:
+
+```sh
+cargo run --locked -p ingest_canary -- \
+  --rpc-url http://localhost:8899 --das-url http://localhost:9090 \
+  --timeout-seconds 90
+```
+
+The probe creates an in-memory signer and unique MPL Core asset, confirms its
+on-chain account, then waits for both `getAsset` and `getAssetsByOwner` to return
+the asset with the expected owner. It prints JSON evidence on success and exits
+nonzero on failure or timeout. The empty metadata URI avoids off-chain network
+requests. It leaves one asset on the disposable ledger; it does not save keys.
 
 #### NOTE
 

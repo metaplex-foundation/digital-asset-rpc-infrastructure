@@ -47,3 +47,8 @@ jobs:
       # clippy
       - name: Check clippy
         run: cargo clippy --all-targets --tests -- -Dwarnings
+
+      - name: Check worker recovery and API connection configuration
+        run: |
+          cargo test --locked -p nft_ingester --bin nft_ingester worker::
+          cargo test --locked -p das_api --lib config::tests
