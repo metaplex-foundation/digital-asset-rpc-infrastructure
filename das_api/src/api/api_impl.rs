@@ -40,7 +40,7 @@ pub struct DasApi {
 impl DasApi {
     pub async fn from_config(config: Config) -> Result<Self, DasApiError> {
         let pool = PgPoolOptions::new()
-            .max_connections(250)
+            .max_connections(config.database_max_connections())
             .connect(&config.database_url)
             .await?;
 

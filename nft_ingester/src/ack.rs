@@ -9,41 +9,41 @@ use tokio::{
     time::{interval, Duration},
 };
 
-use crate::metric;
+use crate::{error::IngesterError, metric, worker::connect_messenger};
+
+pub type AckSender = UnboundedSender<(&'static str, String)>;
 
 pub fn ack_worker<T: Messenger>(
     config: MessengerConfig,
-) -> (JoinHandle<()>, UnboundedSender<(&'static str, String)>) {
+) -> (JoinHandle<Result<(), IngesterError>>, AckSender) {
     let (tx, mut rx) = unbounded_channel::<(&'static str, String)>();
     (
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_millis(100));
             let mut acks: HashMap<&str, Vec<String>> = HashMap::new();
-            let source = T::new(config).await;
-            if let Ok(mut msg) = source {
-                loop {
-                    tokio::select! {
-                        _ = interval.tick() => {
-                            if acks.is_empty() {
-                                continue;
+            let mut msg = connect_messenger::<T>(config, "acknowledgements").await?;
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if acks.is_empty() {
+                            continue;
+                        }
+                        let len = acks.len();
+                        for (stream, msgs)  in acks.iter_mut() {
+                            if let Err(e) = msg.ack_msg(stream, msgs).await {
+                                error!("Error acking message: {}", e);
                             }
-                            let len = acks.len();
-                            for (stream, msgs)  in acks.iter_mut() {
-                                if let Err(e) = msg.ack_msg(stream, msgs).await {
-                                    error!("Error acking message: {}", e);
-                                }
-                                metric! {
-                                    statsd_count!("ingester.ack", len as i64, "stream" => stream);
-                                }
-                                msgs.clear();
+                            metric! {
+                                statsd_count!("ingester.ack", len as i64, "stream" => stream);
                             }
+                            msgs.clear();
+                        }
 
-                        }
-                        Some(msg) = rx.recv() => {
-                            let (stream, msg) = msg;
-                            let ackstream = acks.entry(stream).or_default();
-                            ackstream.push(msg);
-                        }
+                    }
+                    Some(msg) = rx.recv() => {
+                        let (stream, msg) = msg;
+                        let ackstream = acks.entry(stream).or_default();
+                        ackstream.push(msg);
                     }
                 }
             }

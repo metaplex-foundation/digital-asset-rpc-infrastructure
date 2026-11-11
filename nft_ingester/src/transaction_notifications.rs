@@ -1,9 +1,11 @@
 use {
     crate::{
+        error::IngesterError,
         metric,
         metrics::capture_result,
         plerkle::{into_program_transformer_err, PlerkleTransactionInfo},
         tasks::{create_download_metadata_notifier, TaskData},
+        worker::connect_messenger,
     },
     cadence_macros::{is_global_default_set, statsd_count, statsd_time},
     chrono::Utc,
@@ -27,42 +29,40 @@ pub fn transaction_worker<T: Messenger>(
     ack_channel: UnboundedSender<(&'static str, String)>,
     consumption_type: ConsumptionType,
     stream_key: &'static str,
-) -> JoinHandle<()> {
+) -> JoinHandle<Result<(), IngesterError>> {
     tokio::spawn(async move {
-        let source = T::new(config).await;
-        if let Ok(mut msg) = source {
-            let manager = Arc::new(ProgramTransformer::new(
-                pool,
-                create_download_metadata_notifier(bg_task_sender),
-            ));
-            loop {
-                let e = msg.recv(stream_key, consumption_type.clone()).await;
-                let mut tasks = JoinSet::new();
-                match e {
-                    Ok(data) => {
-                        let len = data.len();
-                        for item in data {
-                            tasks.spawn(handle_transaction(Arc::clone(&manager), item, stream_key));
-                        }
-                        if len > 0 {
-                            debug!("Processed {} txns", len);
-                        }
+        let mut msg = connect_messenger::<T>(config, "transaction consumer").await?;
+        let manager = Arc::new(ProgramTransformer::new(
+            pool,
+            create_download_metadata_notifier(bg_task_sender),
+        ));
+        loop {
+            let e = msg.recv(stream_key, consumption_type.clone()).await;
+            let mut tasks = JoinSet::new();
+            match e {
+                Ok(data) => {
+                    let len = data.len();
+                    for item in data {
+                        tasks.spawn(handle_transaction(Arc::clone(&manager), item, stream_key));
                     }
-                    Err(e) => {
-                        error!("Error receiving from txn stream: {}", e);
-                        metric! {
-                            statsd_count!("ingester.stream.receive_error", 1, "stream" => stream_key);
-                        }
+                    if len > 0 {
+                        debug!("Processed {} txns", len);
                     }
                 }
-                while let Some(res) = tasks.join_next().await {
-                    if let Ok(Some(id)) = res {
-                        let send = ack_channel.send((stream_key, id));
-                        if let Err(err) = send {
-                            metric! {
-                                    error!("Txn stream ack error: {}", err);
-                                    statsd_count!("ingester.stream.ack_error", 1, "stream" => stream_key);
-                            }
+                Err(e) => {
+                    error!("Error receiving from txn stream: {}", e);
+                    metric! {
+                        statsd_count!("ingester.stream.receive_error", 1, "stream" => stream_key);
+                    }
+                }
+            }
+            while let Some(res) = tasks.join_next().await {
+                if let Ok(Some(id)) = res {
+                    let send = ack_channel.send((stream_key, id));
+                    if let Err(err) = send {
+                        metric! {
+                                error!("Txn stream ack error: {}", err);
+                                statsd_count!("ingester.stream.ack_error", 1, "stream" => stream_key);
                         }
                     }
                 }
